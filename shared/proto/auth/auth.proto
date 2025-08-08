@@ -1,0 +1,66 @@
+syntax = "proto3";
+
+package auth;
+
+option go_package = "genproto/authpb;authpb";
+
+service AuthService {
+  rpc ValidateSession(ValidateSessionRequest) returns (ValidateSessionResponse);
+  rpc CreateSession(CreateSessionRequest) returns (CreateSessionResponse);
+  rpc DeleteSession(DeleteSessionRequest) returns (Empty);
+  rpc DeleteAllSessions(DeleteAllSessionsRequest) returns (Empty);
+  rpc ListSessions(ListSessionsRequest) returns (ListSessionsResponse);
+  rpc DeleteSessionByID(DeleteSessionByIDRequest) returns (Empty);
+}
+
+message CreateSessionRequest {
+  string user_id = 1;
+  string device = 2;
+  string ip = 3;
+  string token = 4;
+}
+
+message CreateSessionResponse {
+  string session_id = 1;
+}
+
+message DeleteSessionRequest {
+  string token = 1;
+}
+
+message DeleteAllSessionsRequest {
+  string user_id = 1;
+}
+
+message ValidateSessionRequest {
+  string token = 1;
+}
+
+message ValidateSessionResponse {
+  bool valid = 1;
+  string user_id = 2;
+  string error = 3;
+}
+
+message ListSessionsRequest {
+  string user_id = 1;
+}
+
+message ListSessionsResponse {
+  repeated Session sessions = 1;
+}
+
+message Session {
+  string id = 1;
+  string device = 2;
+  string ip = 3;
+  string token = 4;
+  string last_active = 5;
+  string created_at = 6;
+}
+
+message DeleteSessionByIDRequest {
+  string session_id = 1;
+}
+
+message Empty {}

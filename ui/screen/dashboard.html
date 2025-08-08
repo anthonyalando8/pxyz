@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Dashboard - TradeX</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    .card-title {
+      font-weight: 600;
+    }
+    .section-heading {
+      margin-bottom: 1rem;
+      border-bottom: 2px solid #dee2e6;
+      padding-bottom: 0.5rem;
+    }
+    table th, table td {
+      vertical-align: middle;
+    }
+  </style>
+</head>
+<body class="bg-light">
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+  <div class="container">
+    <a class="navbar-brand" href="index.html">TradeX</a>
+    <div class="ms-auto d-flex align-items-center gap-3">
+      <div class="text-white">
+        Logged in as: <strong id="userName">...</strong>
+      </div>
+      <a href="account.html" class="btn btn-outline-light btn-sm">Account Settings</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container py-5">
+  <h2 class="section-heading">User Dashboard</h2>
+
+  <div class="row g-4">
+
+    <!-- Wallet Table & Chart -->
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="card-title mb-0">Wallets</h5>
+            <button class="btn btn-sm btn-outline-primary" onclick="refreshWallets()">Refresh</button>
+          </div>
+
+          <h3 class="text-success" id="walletBalance">Loading...</h3>
+
+          <div class="row my-3">
+            <div class="col-md-6">
+              <input type="text" class="form-control" placeholder="Search currency..." id="walletSearch" />
+            </div>
+            <div class="col-md-6 mt-2 mt-md-0">
+              <select class="form-select" id="walletSort">
+                <option value="currency">Sort by Currency</option>
+                <option value="balance">Sort by Balance</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table table-striped table-hover" id="walletTable">
+              <thead class="table-dark">
+                <tr>
+                  <th>Currency</th>
+                  <th>Balance</th>
+                  <th>Available</th>
+                  <th>Locked</th>
+                </tr>
+              </thead>
+              <tbody id="walletTableBody">
+              </tbody>
+            </table>
+          </div>
+
+          <!-- <h6 class="mt-4">Wallet Distribution</h6>
+          <canvas id="walletChart" height="250"></canvas> -->
+
+          <p class="text-muted mt-3 mb-0">Live updates via WebSocket</p>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- Placeholder -->
+    <div class="col-md-12">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title">Trading Summary</h5>
+          <p>No trades yet. Start trading to see performance charts.</p>
+          <div id="chartPlaceholder" style="height: 200px; background-color: #f0f0f0; border: 1px dashed #ccc;"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const walletTableBody = document.getElementById("walletTableBody");
+  const balanceEl = document.getElementById("walletBalance");
+  const searchInput = document.getElementById("walletSearch");
+  const sortSelect = document.getElementById("walletSort");
+  const userNameEl = document.getElementById("userName");
+
+  const firstName = localStorage.getItem("first_name");
+  const lastName = localStorage.getItem("last_name");
+  const email = localStorage.getItem("email");
+  const userId = localStorage.getItem("user_id");
+  const token = localStorage.getItem("token");
+
+  document.getElementById("userName").textContent = firstName ? `${firstName} ${lastName}` : email || "Guest";
+
+  if (!userId || !token) {
+    alert("Session expired. Redirecting to login.");
+    window.location.href = "login.html";
+    return;
+  }
+
+
+  const walletMap = {};
+  let chart;
+
+  function renderWalletTable(wallets) {
+    walletTableBody.innerHTML = wallets.map(w => `
+      <tr id="wallet-${w.currency}">
+        <td>${w.currency}</td>
+        <td>${w.balance.toLocaleString()}</td>
+        <td class="text-success">${w.available.toLocaleString()}</td>
+        <td class="text-danger">${w.locked.toLocaleString()}</td>
+      </tr>
+    `).join("");
+  }
+
+  function updateChart(wallets) {
+    const labels = wallets.map(w => w.currency);
+    const data = wallets.map(w => w.balance);
+    const colors = wallets.map(() => '#' + Math.floor(Math.random()*16777215).toString(16));
+
+    if (chart) chart.destroy();
+    chart = new Chart(document.getElementById("walletChart"), {
+      type: 'doughnut',
+      data: { labels, datasets: [{ data, backgroundColor: colors }] },
+    });
+  }
+
+  function render(wallets) {
+    renderWalletTable(wallets);
+    //updateChart(wallets);
+  }
+
+  searchInput.addEventListener("input", () => {
+    const query = searchInput.value.toLowerCase();
+    Array.from(walletTableBody.children).forEach(row => {
+      row.style.display = row.id.toLowerCase().includes(query) ? "" : "none";
+    });
+  });
+
+  sortSelect.addEventListener("change", () => {
+    const wallets = Object.values(walletMap);
+    if (sortSelect.value === "balance") {
+      wallets.sort((a, b) => b.balance - a.balance);
+    } else {
+      wallets.sort((a, b) => a.currency.localeCompare(b.currency));
+    }
+    render(wallets);
+  });
+
+  function refreshWallets() {
+    if (socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ type: "refresh" }));
+    }
+  }
+
+  const wsUrl = `ws://localhost:50052/api/ws/wallet/${userId}?token=${encodeURIComponent(token)}`;
+  let socketClosedEarly = true;
+  const socket = new WebSocket(wsUrl);
+
+  socket.onopen = () => {
+    socketClosedEarly = false;
+    console.log("Connected to WebSocket");
+  };
+
+  socket.onclose = () => {
+    balanceEl.textContent += " (offline)";
+    if (socketClosedEarly) {
+      alert("Unauthorized or expired session. Redirecting to login.");
+      window.location.href = "login.html";
+    }
+  };
+
+  socket.onerror = () => balanceEl.textContent = "Error loading balance";
+
+  setTimeout(() => {
+    if (socketClosedEarly) {
+      socket.close();
+    }
+  }, 1000);
+
+  socket.onmessage = event => {
+    try {
+      const message = JSON.parse(event.data);
+      const type = message.Type || message.type;
+      const data = message.Data || message.data;
+
+      if (type === "initial_data") {
+        if (typeof data.networth === "number") balanceEl.textContent = `$ ${data.networth.toLocaleString()}`;
+        data.wallets.forEach(w => walletMap[w.currency] = w);
+        render(data.wallets);
+      } else if (type === "networth_update") {
+        if (typeof data.balance === "number") balanceEl.textContent = `$ ${data.balance.toLocaleString()}`;
+        if (data.wallet) {
+          walletMap[data.wallet.currency] = data.wallet;
+          render(Object.values(walletMap));
+        }
+      }
+    } catch (err) {
+      console.error("Invalid WS message", event.data);
+    }
+  };
+});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
