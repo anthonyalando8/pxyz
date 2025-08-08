@@ -7,7 +7,7 @@ replace x/shared => ../../shared
 require (
 	github.com/jackc/pgx/v5 v5.7.5
 	github.com/joho/godotenv v1.5.1
-	github.com/oklog/ulid/v2 v2.1.1
+	github.com/oklog/ulid/v2 v2.1.1 // indirect
 	google.golang.org/grpc v1.74.2
 	x/shared v0.0.0-00010101000000-000000000000
 )

@@ -1,6 +1,9 @@
 package config
+
 import (
+	"log"
 	"os"
+
 	"github.com/joho/godotenv"
 )
 type AppConfig struct {
@@ -8,7 +11,9 @@ type AppConfig struct {
 }
 
 func Load() AppConfig {
-	_ = godotenv.Load()
+	if err := godotenv.Load(); err != nil {
+		log.Println("Session: No .env file found, relying on system env vars")
+	}
 	return AppConfig{
 		GRPCAddr: os.Getenv("GRPC_ADDR"),
 	}

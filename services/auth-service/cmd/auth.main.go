@@ -15,7 +15,9 @@ import (
 )
 
 func main() {
-	_ = godotenv.Load()
+	if err := godotenv.Load(); err != nil {
+		log.Println("Auth: No .env file found, relying on system env vars")
+	}
 	cfg := config.Load()
 	server := server.NewServer(cfg)
 
