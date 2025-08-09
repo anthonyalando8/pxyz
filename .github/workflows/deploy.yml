@@ -19,8 +19,8 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
+          password: ${{ secrets.GHCR_PAT  }}
+          
       - name: Build and push auth-service
         run: |
           docker build -t ghcr.io/${{ github.repository }}/auth-service:latest -f services/auth-service/Dockerfile .
