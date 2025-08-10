@@ -55,6 +55,45 @@ services:
     depends_on:
       - redis
 
+  email-service:
+    container_name: email-service
+    build:
+      context: .
+      dockerfile: services/email-service/Dockerfile
+    ports:
+      - "50054:50054"
+    env_file:
+      - ./services/email-service/.env
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: 2000
+      DB_NAME: pxyz
+      REDIS_ADDR: redis:6379
+    networks:
+      - micro_net
+    depends_on:
+      - redis
+
+  otp-service:
+    container_name: otp-service
+    build:
+      context: .
+      dockerfile: services/otp-service/Dockerfile
+    ports:
+      - "50055:50055"
+    env_file:
+      - ./services/otp-service/.env
+    environment:
+      DB_CONN: postgres://postgres:password@host.docker.internal:5432/pxyz
+      REDIS_ADDR: redis:6379
+      EMAIL_SVC_ADDR: email-service:50054
+    depends_on:
+      - redis
+      - email-service
+    networks:
+      - micro_net
 networks:
   micro_net:
     driver: bridge

@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package email;
+
+option go_package = "genproto/emailpb;emailpb";
+
+service EmailService {
+  rpc SendEmail (SendEmailRequest) returns (SendEmailResponse);
+}
+
+message SendEmailRequest {
+  string user_id = 1;              // optional
+  string recipient_email = 2;     // required
+  string subject = 3;             // required
+  string body = 4;                // required (HTML or plain text)
+  string type = 5;                // e.g., otp, password-reset
+}
+
+message SendEmailResponse {
+  bool success = 1;
+  string error_message = 2;
+}
