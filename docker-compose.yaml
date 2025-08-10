@@ -71,6 +71,11 @@ services:
       DB_PASSWORD: 2000
       DB_NAME: pxyz
       REDIS_ADDR: redis:6379
+      GRPCPort: 50054
+      SMTPHost: smtp.gmail.com
+      SMTPUser: anthonyalando1@gmail.com
+      SMTPPort: 587
+      SMTPPass: 96211581#Aa
     networks:
       - micro_net
     depends_on:
@@ -86,7 +91,7 @@ services:
     env_file:
       - ./services/otp-service/.env
     environment:
-      DB_CONN: postgres://postgres:password@host.docker.internal:5432/pxyz
+      DB_CONN: postgres://postgres:2000@host.docker.internal:5432/pxyz
       REDIS_ADDR: redis:6379
       EMAIL_SVC_ADDR: email-service:50054
     depends_on:

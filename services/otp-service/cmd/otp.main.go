@@ -14,6 +14,7 @@ import (
 	"otp-service/internal/service"
 	"otp-service/internal/handler"
 	pb "x/shared/genproto/otppb"
+	"x/shared/email"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
@@ -44,11 +45,9 @@ func main() {
 
 	// repos & limiter & service
 	otpRepo := repository.NewOTPRepo(dbpool)
+	emailCli := emailclient.NewEmailClient()
 	lim := rate.NewLimiter(rdb, cfg.OTP_Window, cfg.OTP_MaxPerWindow, cfg.OTP_Cooldown)
-	otpSvc, err := service.NewOTPService(otpRepo, lim, sf, cfg.EmailSvcAddr, cfg.OTP_TTL)
-	if err != nil { log.Fatalf("otp service init: %v", err) }
-	defer otpSvc.Close()
-
+	otpSvc:= service.NewOTPService(otpRepo, lim, sf, emailCli, cfg.OTP_TTL)
 	// grpc server
 	grpcServer := grpc.NewServer()
 	otpHandler := handler.NewOTPHandler(otpSvc)

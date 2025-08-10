@@ -1,9 +1,12 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+	"x/shared/genproto/otppb"
 	"x/shared/response"
 )
 
@@ -23,6 +26,21 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		response.Error(w, http.StatusUnauthorized, err.Error())
 		return
+	}
+
+	resp, err := h.otp.Client.GenerateOTP(context.Background(), &otppb.GenerateOTPRequest{
+		UserId:  user.ID,
+		Channel: "email",
+		Purpose: "login",
+		Recipient: *user.Email,
+	})
+	if err != nil {
+		log.Fatalf("Failed to generate OTP: %v", err)
+	}
+	if !resp.Ok{
+		fmt.Println("OTP generated, code:", resp.Error)
+	}else{
+		fmt.Println("OTP generated, succesfully")
 	}
 
 	session, err := h.createSessionHelper(r.Context(), user.ID, req.DeviceID, req.DeviceMetadata, req.GeoLocation, r)

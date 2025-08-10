@@ -23,7 +23,7 @@ type Config struct {
 
 func Load() Config {
 	if err := godotenv.Load(); err != nil {
-		log.Println("Auth: No .env file found, relying on system env vars")
+		log.Println("OTP: No .env file found, relying on system env vars")
 	}
 	ttl, _ := time.ParseDuration(getEnv("OTP_TTL", "5m"))
 	window, _ := time.ParseDuration(getEnv("OTP_WINDOW", "10m"))

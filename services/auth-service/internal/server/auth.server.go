@@ -14,6 +14,7 @@ import (
 	"auth-service/pkg/jwtutil"
 	"x/shared/auth/middleware"
 	"x/shared/utils/id"
+	"x/shared/auth/otp"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/redis/go-redis/v9"
@@ -41,7 +42,8 @@ func NewServer(cfg config.AppConfig) *http.Server {
 	jwtGen := jwtutil.LoadAndBuild(cfg.JWT)
 
 	auth := middleware.RequireAuth()
-	authHandler := handler.NewAuthHandler(userUC, jwtGen, auth)
+	otpSvc := otpclient.NewOTPService()
+	authHandler := handler.NewAuthHandler(userUC, jwtGen, auth, otpSvc)
 
 	ws_server := ws.NewServer()
 	ws_server.Start()
