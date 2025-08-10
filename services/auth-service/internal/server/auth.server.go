@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"log"
 	"net/http"
 
@@ -9,12 +10,13 @@ import (
 	"auth-service/internal/repository"
 	"auth-service/internal/router"
 	"auth-service/internal/usecase"
+	"auth-service/internal/ws"
 	"auth-service/pkg/jwtutil"
 	"x/shared/auth/middleware"
 	"x/shared/utils/id"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/cors"
+	"github.com/redis/go-redis/v9"
 )
 
 func NewServer(cfg config.AppConfig) *http.Server {
@@ -27,6 +29,13 @@ func NewServer(cfg config.AppConfig) *http.Server {
 		log.Fatalf("failed to init snowflake: %v", err)
 	}
 
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     cfg.RedisAddr,
+		Password: cfg.RedisPass,
+		DB:       0,
+	})
+	
+
 	userUC := usecase.NewUserUsecase(userRepo, sf)
 
 	jwtGen := jwtutil.LoadAndBuild(cfg.JWT)
@@ -34,18 +43,19 @@ func NewServer(cfg config.AppConfig) *http.Server {
 	auth := middleware.RequireAuth()
 	authHandler := handler.NewAuthHandler(userUC, jwtGen, auth)
 
+	ws_server := ws.NewServer()
+	ws_server.Start()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go ws.ListenAuthEvents(ctx, rdb, ws_server.Hub())
+	
+	wsHandler := handler.NewWSHandler(ws_server)
+
 
 	r := chi.NewRouter()
-	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"http://127.0.0.1:5500", "http://localhost:5500"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "PATCH"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
-		ExposedHeaders:   []string{"Link"},
-		AllowCredentials: true,
-		MaxAge:           300,
-	}))
 
-	r = router.SetupRoutes(r, authHandler, auth).(*chi.Mux)
+	r = router.SetupRoutes(r, authHandler, auth, wsHandler, rdb).(*chi.Mux)
 
 	return &http.Server{
 		Addr:    cfg.HTTPAddr,

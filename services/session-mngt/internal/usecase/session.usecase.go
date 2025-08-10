@@ -24,6 +24,7 @@ func NewSessionUsecase(sessionRepo *repository.SessionRepository, sf *id.Snowfla
 }
 
 func (u *SessionUsecase) CreateSession(ctx context.Context, req *sessionpb.CreateSessionRequest) (*sessionpb.CreateSessionResponse, error) {
+	//log.Printf("Request to create session: %+v", req)
 	if req.UserId == "" || req.AuthToken == "" {
 		return nil, errors.New("user ID and token are required")
 	}
@@ -40,6 +41,7 @@ func (u *SessionUsecase) CreateSession(ctx context.Context, req *sessionpb.Creat
 
 	now := time.Now()
 	session := &domain.Session{
+		ID:          u.Sf.Generate(),
 		UserID:      req.UserId,
 		AuthToken:   req.AuthToken,
 		DeviceID:    &deviceID,

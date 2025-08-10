@@ -69,6 +69,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     last_seen_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
+    CONSTRAINT unique_user_device UNIQUE (user_id, device_id)
 );
 
 --------------------------

@@ -18,6 +18,40 @@ func NewSessionRepository(db *pgxpool.Pool) *SessionRepository {
 }
 
 func (r *SessionRepository) CreateOrUpdateSession(ctx context.Context, session *domain.Session) error {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Count active sessions for the user
+	var count int
+	err = tx.QueryRow(ctx, `
+		SELECT COUNT(*) 
+		FROM sessions 
+		WHERE user_id = $1 AND is_active = TRUE
+	`, session.UserID).Scan(&count)
+	if err != nil {
+		return err
+	}
+
+	// If already at limit (3), remove the oldest session
+	if count >= 3 {
+		_, err = tx.Exec(ctx, `
+			DELETE FROM sessions 
+			WHERE id = (
+				SELECT id FROM sessions 
+				WHERE user_id = $1 AND is_active = TRUE 
+				ORDER BY last_seen_at ASC 
+				LIMIT 1
+			)
+		`, session.UserID)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Insert or update session
 	query := `
 	INSERT INTO sessions (
 		id, user_id, auth_token, device_id, ip_address, user_agent, geo_location,
@@ -32,10 +66,11 @@ func (r *SessionRepository) CreateOrUpdateSession(ctx context.Context, session *
 		geo_location = EXCLUDED.geo_location,
 		device_metadata = EXCLUDED.device_metadata,
 		last_seen_at = EXCLUDED.last_seen_at,
-		is_active = EXCLUDED.is_active;
+		is_active = EXCLUDED.is_active,
+		updated_at = NOW();
 	`
 
-	_, err := r.db.Exec(ctx, query,
+	_, err = tx.Exec(ctx, query,
 		session.ID,
 		session.UserID,
 		session.AuthToken,
@@ -48,8 +83,13 @@ func (r *SessionRepository) CreateOrUpdateSession(ctx context.Context, session *
 		session.IsActive,
 		session.CreatedAt,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
 }
+
 
 
 
@@ -161,7 +201,7 @@ func (r *SessionRepository) GetSessionsByUserID(ctx context.Context, userID stri
 
 
 func (r *SessionRepository) DeleteByToken(ctx context.Context, token string) error {
-	_, err := r.db.Exec(ctx, `DELETE FROM sessions WHERE token = $1`, token)
+	_, err := r.db.Exec(ctx, `DELETE FROM sessions WHERE auth_token = $1`, token)
 	return err
 }
 

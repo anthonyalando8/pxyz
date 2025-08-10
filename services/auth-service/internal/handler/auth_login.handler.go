@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"x/shared/response"
 )
@@ -26,6 +27,7 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 	session, err := h.createSessionHelper(r.Context(), user.ID, req.DeviceID, req.DeviceMetadata, req.GeoLocation, r)
 	if err != nil {
+		log.Printf("Failed to create session: %v", err)
 		response.Error(w, http.StatusInternalServerError, "Session creation failed")
 		return
 	}

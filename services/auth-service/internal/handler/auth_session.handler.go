@@ -1,14 +1,17 @@
 package handler
 
 import (
-	"fmt"
+	"auth-service/internal/ws"
+	"encoding/json"
 	"log"
 	"net/http"
 	"x/shared/auth/middleware"
+
 	authpb "x/shared/genproto/sessionpb"
 	"x/shared/response"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/redis/go-redis/v9"
 )
 
 func (h *AuthHandler) LogoutHandler(authClient authpb.AuthServiceClient) http.HandlerFunc {
@@ -76,24 +79,41 @@ func (h *AuthHandler) DeleteSessionByIDHandler(authClient authpb.AuthServiceClie
 	}
 }
 
-func (h *AuthHandler) LogoutAllHandler(authClient authpb.AuthServiceClient) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := r.Context().Value(middleware.ContextUserID).(string)
-		fmt.Println("UserID:", userID)
-		if !ok || userID == "" {
-			response.Error(w, http.StatusUnauthorized, "Unauthorized")
-			return
-		}
+func (h *AuthHandler) LogoutAllHandler(authClient authpb.AuthServiceClient, rdb *redis.Client) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        userID, ok := r.Context().Value(middleware.ContextUserID).(string)
+        if !ok || userID == "" {
+            response.Error(w, http.StatusUnauthorized, "Unauthorized")
+            return
+        }
 
-		_, err := authClient.DeleteAllSessions(r.Context(), &authpb.DeleteAllSessionsRequest{
-			UserId: userID,
-		})
-		if err != nil {
-			log.Printf("DeleteAllSessions failed: %v", err)
-			response.Error(w, http.StatusInternalServerError, "Could not logout from all sessions")
-			return
-		}
+        // Step 1: Call gRPC to delete all sessions
+        _, err := authClient.DeleteAllSessions(r.Context(), &authpb.DeleteAllSessionsRequest{
+            UserId: userID,
+        })
+        if err != nil {
+            log.Printf("DeleteAllSessions failed: %v", err)
+            response.Error(w, http.StatusInternalServerError, "Could not logout from all sessions")
+            return
+        }
 
-		response.JSON(w, http.StatusOK, "Logged out from all sessions")
-	}
+        // Step 2: Publish logout event to Redis
+        event := ws.Message{
+            Type:   "logout",
+            UserID: userID,
+            Data: map[string]string{
+                "reason": "All sessions have been invalidated",
+            },
+        }
+		
+        payload, _ := json.Marshal(event)
+
+        if err := rdb.Publish(r.Context(), "auth_events", payload).Err(); err != nil {
+            log.Printf("Failed to publish logout event: %v", err)
+        }
+
+        // Step 3: Respond
+        response.JSON(w, http.StatusOK, "Logged out from all sessions")
+    }
 }
+

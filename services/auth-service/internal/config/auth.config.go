@@ -11,6 +11,8 @@ import (
 type AppConfig struct {
 	HTTPAddr  string
 	JWT       jwtutil.JWTConfig
+	RedisPass string
+	RedisAddr string
 }
 
 func Load() AppConfig {
@@ -18,6 +20,8 @@ func Load() AppConfig {
 
 	return AppConfig{
 		HTTPAddr: getEnv("HTTP_ADDR", ":50051"),
+		RedisAddr: getEnv("REDIS_ADDR", "redis:6379"),
+		RedisPass: getEnv("REDIS_PASS", ""),
 		JWT: jwtutil.JWTConfig{
 			PrivPath: getEnv("JWT_PRIVATE_KEY_PATH", "./secrets/jwt_private.pem"),
 			PubPath:  getEnv("JWT_PUBLIC_KEY_PATH", "./secrets/jwt_public.pem"),

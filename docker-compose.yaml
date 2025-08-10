@@ -1,23 +1,11 @@
 version: '3.9'
 
 services:
-  postgres:
-    image: postgres:15
-    container_name: postgres
-    restart: always
-    environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: 96211581
-      POSTGRES_DB: pxyz
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "admin", "-d", "pxyz"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+  redis:
+    image: redis:7
+    container_name: redis
     ports:
-      - "5432:5432"
+      - "6379:6379"
     networks:
       - micro_net
 
@@ -28,23 +16,23 @@ services:
       dockerfile: services/auth-service/Dockerfile
     ports:
       - "50051:50051"
-    depends_on:
-      postgres:
-        condition: service_healthy
     env_file:
       - ./services/auth-service/.env
     volumes:
       - ./services/auth-service/secrets:/app/secrets:ro
     environment:
-      DB_HOST: postgres
+      DB_HOST: host.docker.internal
       DB_PORT: 5432
-      DB_USER: admin
-      DB_PASSWORD: 96211581
+      DB_USER: postgres
+      DB_PASSWORD: 2000
       DB_NAME: pxyz
       JWT_PRIVATE_KEY_PATH: /app/secrets/jwt_private.pem
       JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+      REDIS_ADDR: redis:6379
     networks:
       - micro_net
+    depends_on:
+      - redis
 
   session-service:
     container_name: session-service
@@ -53,23 +41,96 @@ services:
       dockerfile: services/session-mngt/Dockerfile
     ports:
       - "50050:50050"
-    depends_on:
-      postgres:
-        condition: service_healthy
     env_file:
       - ./services/session-mngt/.env
     environment:
-      DB_HOST: postgres
+      DB_HOST: host.docker.internal
       DB_PORT: 5432
-      DB_USER: admin
-      DB_PASSWORD: 96211581
+      DB_USER: postgres
+      DB_PASSWORD: 2000
       DB_NAME: pxyz
+      REDIS_ADDR: redis:6379
     networks:
-      - micro_net    
+      - micro_net
+    depends_on:
+      - redis
 
 networks:
   micro_net:
     driver: bridge
 
-volumes:
-  postgres_data:
+# version: '3.9'
+
+# services:
+#   postgres:
+#     image: postgres:15
+#     container_name: postgres
+#     restart: always
+#     environment:
+#       POSTGRES_USER: admin
+#       POSTGRES_PASSWORD: 96211581
+#       POSTGRES_DB: pxyz
+#     healthcheck:
+#       test: ["CMD", "pg_isready", "-U", "admin", "-d", "pxyz"]
+#       interval: 10s
+#       timeout: 5s
+#       retries: 5
+#     volumes:
+#       - postgres_data:/var/lib/postgresql/data
+#     ports:
+#       - "5432:5432"
+#     networks:
+#       - micro_net
+
+#   auth-service:
+#     container_name: auth-service
+#     build:
+#       context: .
+#       dockerfile: services/auth-service/Dockerfile
+#     ports:
+#       - "50051:50051"
+#     depends_on:
+#       postgres:
+#         condition: service_healthy
+#     env_file:
+#       - ./services/auth-service/.env
+#     volumes:
+#       - ./services/auth-service/secrets:/app/secrets:ro
+#     environment:
+#       DB_HOST: postgres
+#       DB_PORT: 5432
+#       DB_USER: admin
+#       DB_PASSWORD: 96211581
+#       DB_NAME: pxyz
+#       JWT_PRIVATE_KEY_PATH: /app/secrets/jwt_private.pem
+#       JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+#     networks:
+#       - micro_net
+
+#   session-service:
+#     container_name: session-service
+#     build:
+#       context: .
+#       dockerfile: services/session-mngt/Dockerfile
+#     ports:
+#       - "50050:50050"
+#     depends_on:
+#       postgres:
+#         condition: service_healthy
+#     env_file:
+#       - ./services/session-mngt/.env
+#     environment:
+#       DB_HOST: postgres
+#       DB_PORT: 5432
+#       DB_USER: admin
+#       DB_PASSWORD: 96211581
+#       DB_NAME: pxyz
+#     networks:
+#       - micro_net    
+
+# networks:
+#   micro_net:
+#     driver: bridge
+
+# volumes:
+#   postgres_data:

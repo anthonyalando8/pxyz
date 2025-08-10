@@ -1,10 +1,11 @@
 package handler
 
 import (
+	"auth-service/pkg/utils"
 	"encoding/json"
+	"log"
 	"net/http"
 	"x/shared/response"
-	"auth-service/pkg/utils"
 )
 
 func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
@@ -41,6 +42,7 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 
 	session, err := h.createSessionHelper(r.Context(), user.ID, req.DeviceID, req.DeviceMetadata, req.GeoLocation, r)
 	if err != nil {
+		log.Printf("Failed to create session: %v", err)
 		response.Error(w, http.StatusInternalServerError, "Failed to create session")
 		return
 	}
