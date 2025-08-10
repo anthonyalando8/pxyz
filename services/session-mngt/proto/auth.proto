@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package auth;
+package session;
 
-option go_package = "genproto/authpb;authpb";
+option go_package = "genproto/sessionpb;sessionpb";
 
 service AuthService {
   rpc ValidateSession(ValidateSessionRequest) returns (ValidateSessionResponse);
@@ -13,9 +13,16 @@ service AuthService {
 
 message CreateSessionRequest {
   string user_id = 1;
-  string device = 2;
-  string ip = 3;
-  string token = 4;
+  string auth_token = 2; // JWT or other token
+
+  // Device & connection info
+  string device_id = 3;  
+  string ip_address = 4;
+  string user_agent = 5;
+  string geo_location = 6;
+  string device_metadata = 7; // serialize as JSON if needed
+
+  bool is_active = 8; // usually true on creation
 }
 
 message CreateSessionResponse {

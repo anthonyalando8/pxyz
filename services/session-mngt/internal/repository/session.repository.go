@@ -19,34 +19,80 @@ func NewSessionRepository(db *pgxpool.Pool) *SessionRepository {
 
 func (r *SessionRepository) CreateOrUpdateSession(ctx context.Context, session *domain.Session) error {
 	query := `
-	INSERT INTO sessions (id, user_id, token, device, ip, created_at, last_active)
-	VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
-	ON CONFLICT (user_id, device)
-	DO UPDATE SET 
-		token = EXCLUDED.token,
-		ip = EXCLUDED.ip,
-		last_active = NOW();
+	INSERT INTO sessions (
+		id, user_id, auth_token, device_id, ip_address, user_agent, geo_location,
+		device_metadata, last_seen_at, is_active, created_at
+	)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+	ON CONFLICT (user_id, device_id)
+	DO UPDATE SET
+		auth_token = EXCLUDED.auth_token,
+		ip_address = EXCLUDED.ip_address,
+		user_agent = EXCLUDED.user_agent,
+		geo_location = EXCLUDED.geo_location,
+		device_metadata = EXCLUDED.device_metadata,
+		last_seen_at = EXCLUDED.last_seen_at,
+		is_active = EXCLUDED.is_active;
 	`
+
 	_, err := r.db.Exec(ctx, query,
 		session.ID,
 		session.UserID,
-		session.Token,
-		session.Device,
-		session.IP,
+		session.AuthToken,
+		session.DeviceID,
+		session.IPAddress,
+		session.UserAgent,
+		session.GeoLocation,
+		session.DeviceMeta,
+		session.LastSeenAt,
+		session.IsActive,
+		session.CreatedAt,
 	)
 	return err
 }
 
 
+
 func (r *SessionRepository) GetSessionByToken(ctx context.Context, token string) (*domain.Session, error) {
 	var session domain.Session
-	err := r.db.QueryRow(ctx, `SELECT id, user_id, token, device, ip::text, last_active, created_at FROM sessions WHERE token=$1`, token).
-		Scan(&session.ID, &session.UserID, &session.Token, &session.Device, &session.IP, &session.LastActive, &session.CreatedAt)
+
+	query := `
+		SELECT 
+			id, 
+			user_id, 
+			auth_token, 
+			device_id, 
+			ip_address::text, 
+			geo_location, 
+			device_metadata, 
+			user_agent, 
+			last_seen_at, 
+			is_active, 
+			created_at
+		FROM sessions
+		WHERE auth_token = $1
+	`
+
+	err := r.db.QueryRow(ctx, query, token).Scan(
+		&session.ID,
+		&session.UserID,
+		&session.AuthToken,
+		&session.DeviceID,
+		&session.IPAddress,
+		&session.GeoLocation,
+		&session.DeviceMeta,
+		&session.UserAgent,
+		&session.LastSeenAt,
+		&session.IsActive,
+		&session.CreatedAt,
+	)
 	if err != nil {
 		return nil, err
 	}
+
 	return &session, nil
 }
+
 
 func (r *SessionRepository) GetUserDetailsByToken(ctx context.Context, token string) (*domain.User, error) {
 	session, err := r.GetSessionByToken(ctx, token)
@@ -65,11 +111,24 @@ func (r *SessionRepository) GetUserDetailsByToken(ctx context.Context, token str
 }
 
 func (r *SessionRepository) GetSessionsByUserID(ctx context.Context, userID string) ([]*domain.Session, error) {
-	rows, err := r.db.Query(ctx, `
-		SELECT id, user_id, device, ip, last_active, created_at 
-		FROM sessions 
+	query := `
+		SELECT 
+			id,
+			user_id,
+			auth_token,
+			device_id,
+			ip_address::text,
+			geo_location,
+			device_metadata,
+			user_agent,
+			last_seen_at,
+			is_active,
+			created_at
+		FROM sessions
 		WHERE user_id = $1
-	`, userID)
+	`
+
+	rows, err := r.db.Query(ctx, query, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -78,8 +137,19 @@ func (r *SessionRepository) GetSessionsByUserID(ctx context.Context, userID stri
 	var sessions []*domain.Session
 	for rows.Next() {
 		var s domain.Session
-		err := rows.Scan(&s.ID, &s.UserID, &s.Device, &s.IP, &s.LastActive, &s.CreatedAt)
-		if err != nil {
+		if err := rows.Scan(
+			&s.ID,
+			&s.UserID,
+			&s.AuthToken,
+			&s.DeviceID,
+			&s.IPAddress,
+			&s.GeoLocation,
+			&s.DeviceMeta,
+			&s.UserAgent,
+			&s.LastSeenAt,
+			&s.IsActive,
+			&s.CreatedAt,
+		); err != nil {
 			return nil, err
 		}
 		sessions = append(sessions, &s)
@@ -87,6 +157,7 @@ func (r *SessionRepository) GetSessionsByUserID(ctx context.Context, userID stri
 
 	return sessions, nil
 }
+
 
 
 func (r *SessionRepository) DeleteByToken(ctx context.Context, token string) error {

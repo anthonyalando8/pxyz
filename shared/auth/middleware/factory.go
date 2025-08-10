@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"x/shared/auth/pkg/jwtutil"
-	"x/shared/genproto/authpb"
+	authpb "x/shared/genproto/sessionpb"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

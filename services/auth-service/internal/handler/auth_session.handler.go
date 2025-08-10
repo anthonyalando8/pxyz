@@ -5,7 +5,7 @@ import (
 	"log"
 	"net/http"
 	"x/shared/auth/middleware"
-	"x/shared/genproto/authpb"
+	authpb "x/shared/genproto/sessionpb"
 	"x/shared/response"
 
 	"github.com/go-chi/chi/v5"

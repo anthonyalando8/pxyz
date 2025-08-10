@@ -7,7 +7,7 @@ import (
 
 	"x/shared/auth/pkg/jwtutil"
 	"x/shared/response"
-	authpb "x/shared/genproto/authpb"
+	authpb "x/shared/genproto/sessionpb"
 )
 
 type contextKey string

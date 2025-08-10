@@ -1,28 +1,67 @@
 syntax = "proto3";
 
-package auth;
+package session;
 
-option go_package = "genproto/authpb;authpb";
+option go_package = "genproto/sessionpb;sessionpb";
 
 service AuthService {
   rpc ValidateSession(ValidateSessionRequest) returns (ValidateSessionResponse);
   rpc CreateSession(CreateSessionRequest) returns (CreateSessionResponse);
+  rpc UpdateSessionActivity(UpdateSessionActivityRequest) returns (UpdateSessionActivityResponse);
   rpc DeleteSession(DeleteSessionRequest) returns (Empty);
   rpc DeleteAllSessions(DeleteAllSessionsRequest) returns (Empty);
   rpc ListSessions(ListSessionsRequest) returns (ListSessionsResponse);
   rpc DeleteSessionByID(DeleteSessionByIDRequest) returns (Empty);
 }
 
+// ----------------- Update Session Activity -----------------
+
+message UpdateSessionActivityRequest {
+  string session_id   = 1;
+  string last_seen_at = 2; // RFC3339 timestamp
+  bool is_active      = 3;
+}
+
+message UpdateSessionActivityResponse {
+  Session session     = 1; // Return updated session details
+}
+
+// ----------------- Create Session -----------------
+
 message CreateSessionRequest {
-  string user_id = 1;
-  string device = 2;
-  string ip = 3;
-  string token = 4;
+  string user_id        = 1;
+  string auth_token     = 2;
+
+  string device_id      = 3;
+  string ip_address     = 4;
+  string user_agent     = 5;
+  string geo_location   = 6;
+  string device_metadata = 7;
+
+  bool is_active        = 8;
 }
 
 message CreateSessionResponse {
-  string session_id = 1;
+  Session session       = 1;
 }
+
+// ----------------- Session Messages -----------------
+
+message Session {
+  string id             = 1;
+  string user_id        = 2;
+  string auth_token     = 3;
+  string device_id      = 4;
+  string ip_address     = 5;
+  string user_agent     = 6;
+  string geo_location   = 7;
+  string device_metadata = 8;
+  bool is_active        = 9;
+  string last_seen_at   = 10;
+  string created_at     = 11;
+}
+
+// ----------------- Other Session Ops -----------------
 
 message DeleteSessionRequest {
   string token = 1;
@@ -37,9 +76,9 @@ message ValidateSessionRequest {
 }
 
 message ValidateSessionResponse {
-  bool valid = 1;
+  bool valid   = 1;
   string user_id = 2;
-  string error = 3;
+  string error  = 3;
 }
 
 message ListSessionsRequest {
@@ -48,15 +87,6 @@ message ListSessionsRequest {
 
 message ListSessionsResponse {
   repeated Session sessions = 1;
-}
-
-message Session {
-  string id = 1;
-  string device = 2;
-  string ip = 3;
-  string token = 4;
-  string last_active = 5;
-  string created_at = 6;
 }
 
 message DeleteSessionByIDRequest {

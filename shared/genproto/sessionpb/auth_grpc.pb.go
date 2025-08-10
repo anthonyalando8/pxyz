@@ -4,7 +4,7 @@
 // - protoc             v6.32.0--rc1
 // source: proto/auth/auth.proto
 
-package authpb
+package sessionpb
 
 import (
 	context "context"
@@ -19,12 +19,13 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AuthService_ValidateSession_FullMethodName   = "/auth.AuthService/ValidateSession"
-	AuthService_CreateSession_FullMethodName     = "/auth.AuthService/CreateSession"
-	AuthService_DeleteSession_FullMethodName     = "/auth.AuthService/DeleteSession"
-	AuthService_DeleteAllSessions_FullMethodName = "/auth.AuthService/DeleteAllSessions"
-	AuthService_ListSessions_FullMethodName      = "/auth.AuthService/ListSessions"
-	AuthService_DeleteSessionByID_FullMethodName = "/auth.AuthService/DeleteSessionByID"
+	AuthService_ValidateSession_FullMethodName       = "/session.AuthService/ValidateSession"
+	AuthService_CreateSession_FullMethodName         = "/session.AuthService/CreateSession"
+	AuthService_UpdateSessionActivity_FullMethodName = "/session.AuthService/UpdateSessionActivity"
+	AuthService_DeleteSession_FullMethodName         = "/session.AuthService/DeleteSession"
+	AuthService_DeleteAllSessions_FullMethodName     = "/session.AuthService/DeleteAllSessions"
+	AuthService_ListSessions_FullMethodName          = "/session.AuthService/ListSessions"
+	AuthService_DeleteSessionByID_FullMethodName     = "/session.AuthService/DeleteSessionByID"
 )
 
 // AuthServiceClient is the client API for AuthService service.
@@ -33,6 +34,7 @@ const (
 type AuthServiceClient interface {
 	ValidateSession(ctx context.Context, in *ValidateSessionRequest, opts ...grpc.CallOption) (*ValidateSessionResponse, error)
 	CreateSession(ctx context.Context, in *CreateSessionRequest, opts ...grpc.CallOption) (*CreateSessionResponse, error)
+	UpdateSessionActivity(ctx context.Context, in *UpdateSessionActivityRequest, opts ...grpc.CallOption) (*UpdateSessionActivityResponse, error)
 	DeleteSession(ctx context.Context, in *DeleteSessionRequest, opts ...grpc.CallOption) (*Empty, error)
 	DeleteAllSessions(ctx context.Context, in *DeleteAllSessionsRequest, opts ...grpc.CallOption) (*Empty, error)
 	ListSessions(ctx context.Context, in *ListSessionsRequest, opts ...grpc.CallOption) (*ListSessionsResponse, error)
@@ -61,6 +63,16 @@ func (c *authServiceClient) CreateSession(ctx context.Context, in *CreateSession
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CreateSessionResponse)
 	err := c.cc.Invoke(ctx, AuthService_CreateSession_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) UpdateSessionActivity(ctx context.Context, in *UpdateSessionActivityRequest, opts ...grpc.CallOption) (*UpdateSessionActivityResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateSessionActivityResponse)
+	err := c.cc.Invoke(ctx, AuthService_UpdateSessionActivity_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -113,6 +125,7 @@ func (c *authServiceClient) DeleteSessionByID(ctx context.Context, in *DeleteSes
 type AuthServiceServer interface {
 	ValidateSession(context.Context, *ValidateSessionRequest) (*ValidateSessionResponse, error)
 	CreateSession(context.Context, *CreateSessionRequest) (*CreateSessionResponse, error)
+	UpdateSessionActivity(context.Context, *UpdateSessionActivityRequest) (*UpdateSessionActivityResponse, error)
 	DeleteSession(context.Context, *DeleteSessionRequest) (*Empty, error)
 	DeleteAllSessions(context.Context, *DeleteAllSessionsRequest) (*Empty, error)
 	ListSessions(context.Context, *ListSessionsRequest) (*ListSessionsResponse, error)
@@ -132,6 +145,9 @@ func (UnimplementedAuthServiceServer) ValidateSession(context.Context, *Validate
 }
 func (UnimplementedAuthServiceServer) CreateSession(context.Context, *CreateSessionRequest) (*CreateSessionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateSession not implemented")
+}
+func (UnimplementedAuthServiceServer) UpdateSessionActivity(context.Context, *UpdateSessionActivityRequest) (*UpdateSessionActivityResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateSessionActivity not implemented")
 }
 func (UnimplementedAuthServiceServer) DeleteSession(context.Context, *DeleteSessionRequest) (*Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteSession not implemented")
@@ -198,6 +214,24 @@ func _AuthService_CreateSession_Handler(srv interface{}, ctx context.Context, de
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AuthServiceServer).CreateSession(ctx, req.(*CreateSessionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_UpdateSessionActivity_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateSessionActivityRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).UpdateSessionActivity(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_UpdateSessionActivity_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).UpdateSessionActivity(ctx, req.(*UpdateSessionActivityRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -278,7 +312,7 @@ func _AuthService_DeleteSessionByID_Handler(srv interface{}, ctx context.Context
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var AuthService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "auth.AuthService",
+	ServiceName: "session.AuthService",
 	HandlerType: (*AuthServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -288,6 +322,10 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateSession",
 			Handler:    _AuthService_CreateSession_Handler,
+		},
+		{
+			MethodName: "UpdateSessionActivity",
+			Handler:    _AuthService_UpdateSessionActivity_Handler,
 		},
 		{
 			MethodName: "DeleteSession",

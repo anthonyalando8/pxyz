@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"session-service/internal/usecase"
-	pb "x/shared/genproto/authpb"
+	pb "x/shared/genproto/sessionpb"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -42,25 +42,35 @@ func (h *AuthHandler) CreateSession(ctx context.Context, req *pb.CreateSessionRe
 
 
 func (h *AuthHandler) ListSessions(ctx context.Context, req *pb.ListSessionsRequest) (*pb.ListSessionsResponse, error) {
-	sessions, err := h.uc.GetSessionsByUserID(ctx, req.UserId)
-	if err != nil {
-		log.Printf("Failed to list sessions: %v", err)
-		return nil, status.Errorf(codes.Internal, "failed to list sessions")
+	// Basic validation
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
 	}
 
-	var protoSessions []*pb.Session
-	for _, session := range sessions {
+	sessions, err := h.uc.GetSessionsByUserID(ctx, req.UserId)
+	if err != nil {
+		log.Printf("ListSessions: failed to get sessions for user %s: %v", req.UserId, err)
+		return nil, status.Errorf(codes.Internal, "could not fetch sessions")
+	}
+
+	protoSessions := make([]*pb.Session, 0, len(sessions))
+	for _, s := range sessions {
 		protoSessions = append(protoSessions, &pb.Session{
-			Id:  session.ID,
-			Device:     session.Device,
-			Ip:         session.IP,
-			LastActive: session.LastActive.Format(time.RFC3339),
-			CreatedAt:  session.CreatedAt.Format(time.RFC3339),
+			Id:         s.ID,
+			DeviceId:     *s.DeviceID,
+			IpAddress:     *s.IPAddress,
+			UserAgent:   *s.UserAgent,
+			GeoLocation: *s.GeoLocation,
+			LastSeenAt: s.LastSeenAt.Format(time.RFC3339),
+			CreatedAt:  s.CreatedAt.Format(time.RFC3339),
 		})
 	}
 
-	return &pb.ListSessionsResponse{Sessions: protoSessions}, nil
+	return &pb.ListSessionsResponse{
+		Sessions: protoSessions,
+	}, nil
 }
+
 
 
 func (h *AuthHandler) DeleteSession(ctx context.Context, req *pb.DeleteSessionRequest) (*pb.Empty, error) {

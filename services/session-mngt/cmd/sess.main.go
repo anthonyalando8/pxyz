@@ -9,7 +9,7 @@ import (
 	"session-service/internal/repository"
 	"session-service/internal/handler"
 	"session-service/internal/usecase"
-	pb "x/shared/genproto/authpb"
+	pb "x/shared/genproto/sessionpb"
 	"x/shared/utils/id"
 	"syscall"
 
