@@ -19,14 +19,28 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_PAT  }}
-          
+          password: ${{ secrets.GHCR_PAT }}
+
+      # Auth Service
       - name: Build and push auth-service
         run: |
           docker build -t ghcr.io/${{ github.repository }}/auth-service:latest -f services/auth-service/Dockerfile .
           docker push ghcr.io/${{ github.repository }}/auth-service:latest
 
+      # Session Service
       - name: Build and push session-service
         run: |
           docker build -t ghcr.io/${{ github.repository }}/session-service:latest -f services/session-mngt/Dockerfile .
           docker push ghcr.io/${{ github.repository }}/session-service:latest
+
+      # Email Service
+      - name: Build and push email-service
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/email-service:latest -f services/email-service/Dockerfile .
+          docker push ghcr.io/${{ github.repository }}/email-service:latest
+
+      # OTP Service
+      - name: Build and push otp-service
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/otp-service:latest -f services/otp-service/Dockerfile .
+          docker push ghcr.io/${{ github.repository }}/otp-service:latest
