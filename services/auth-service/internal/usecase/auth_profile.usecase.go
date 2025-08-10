@@ -1,0 +1,23 @@
+package usecase
+
+import (
+	"context"
+	"errors"
+
+	"auth-service/internal/domain"
+	"auth-service/internal/repository"
+)
+
+func (uc *UserUsecase) GetProfile(ctx context.Context, userID string) (*domain.User, error) {
+	if userID == "" {
+		return nil, errors.New("user ID required")
+	}
+	user, err := uc.userRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return nil, errors.New("user not found")
+		}
+		return nil, err
+	}
+	return user, nil
+}

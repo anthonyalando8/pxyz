@@ -14,8 +14,8 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if (req.Email == "" && req.Phone == "") || req.Password == "" || req.FirstName == "" || req.LastName == "" {
-		response.Error(w, http.StatusBadRequest, "All fields (email or phone, password, first_name, last_name) are required")
+	if (req.Email == "" && req.Phone == "") || req.Password == ""/* || req.FirstName == "" || req.LastName == "" */{
+		response.Error(w, http.StatusBadRequest, "All fields (email or phone, password) are required")
 		return
 	}
 
@@ -39,7 +39,7 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session, err := h.createSessionHelper(r.Context(), user.ID, r)
+	session, err := h.createSessionHelper(r.Context(), user.ID, req.DeviceID, req.DeviceMetadata, req.GeoLocation, r)
 	if err != nil {
 		response.Error(w, http.StatusInternalServerError, "Failed to create session")
 		return

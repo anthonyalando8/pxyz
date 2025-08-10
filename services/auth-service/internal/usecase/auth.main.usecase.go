@@ -21,3 +21,9 @@ func (uc *UserUsecase) ChangePassword(ctx context.Context, userID, newPassword s
 	// Update password in repository
 	return uc.userRepo.UpdatePassword(ctx, userID, hashedPassword)
 }
+
+
+func (uc *UserUsecase) UpdateName(ctx context.Context, userID, firstName, lastName string) error {
+	// Update first and last name in repository
+	return uc.userRepo.UpdateName(ctx, userID, firstName, lastName)
+}

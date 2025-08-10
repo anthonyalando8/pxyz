@@ -2,16 +2,37 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"net"
 	"net/http"
+	"time"
 
 	"auth-service/internal/domain"
 	"x/shared/genproto/authpb"
 )
 
-func (h *AuthHandler) createSessionHelper(ctx context.Context, userID string, r *http.Request) (*domain.Session, error) {
-	device := h.uc.Sf.Generate() // Generate a unique device ID
+func (h *AuthHandler) createSessionHelper(
+	ctx context.Context,
+	userID string,
+	deviceID *string,
+	devMetadata *any,
+	geoLocation *string,
+	r *http.Request)(*domain.Session, error) {
+	if userID == "" {
+		return nil, errors.New("user ID is required")
+	}
+
+	var device string
+	if deviceID == nil {
+		device = h.uc.Sf.Generate() // Generate a unique device ID
+	}else{
+		device = *deviceID
+	}
+
+	// 3. Capture contextual info
 	ip := extractClientIP(r)
+    ua := r.Header.Get("User-Agent")
+    now := time.Now()
 
 	token, _, err := h.jwtGen.Generate(userID, device)
 	if err != nil {
@@ -34,6 +55,12 @@ func (h *AuthHandler) createSessionHelper(ctx context.Context, userID string, r 
 		AuthToken:  token,
 		DeviceID: toPtr(device),
 		IPAddress:     toPtr(ip),
+		UserAgent:   &ua,
+        GeoLocation: geoLocation,
+        DeviceMeta:  devMetadata,
+        IsActive:    true,
+        LastSeenAt:  &now,
+        CreatedAt:   now,
 	}, nil
 }
 

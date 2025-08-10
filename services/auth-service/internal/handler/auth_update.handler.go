@@ -74,3 +74,32 @@ func (h *AuthHandler) HandleChangeEmail(w http.ResponseWriter, r *http.Request) 
 
 	response.JSON(w, http.StatusOK, map[string]string{"message": "Email updated successfully"})
 }
+
+
+func (h *AuthHandler) HandleUpdateName(w http.ResponseWriter, r *http.Request) {
+	requestedUserID, ok := r.Context().Value(middleware.ContextUserID).(string)
+	if !ok || requestedUserID == "" {
+		response.Error(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+	var req UpdateNameRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "Invalid JSON payload")
+		return
+	}
+	if req.FirstName == "" || req.LastName == "" {
+		response.Error(w, http.StatusBadRequest, "First name and last name are required")
+		return
+	}
+	if len(req.FirstName) < 3 || len(req.LastName) < 3 {
+		response.Error(w, http.StatusBadRequest, "First name and last name must be at least 2 characters long")
+		return
+	}
+	req.UserID = requestedUserID
+	err := h.uc.UpdateName(r.Context(), req.UserID, req.FirstName, req.LastName)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, fmt.Sprintf("Failed to update name: %v", err))
+		return
+	}
+	response.JSON(w, http.StatusOK, map[string]string{"message": "Name updated successfully"})
+}
