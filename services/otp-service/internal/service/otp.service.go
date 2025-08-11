@@ -4,14 +4,16 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	"math/big"
+	"strings"
 	"time"
 
+	emailclient "x/shared/email"
 	"x/shared/genproto/emailpb"
-	"x/shared/email"
 	"x/shared/utils/id"
 
-	"otp-service/internal/repository"
 	"otp-service/internal/rate"
+	"otp-service/internal/repository"
 )
 
 type OTPService struct {
@@ -66,9 +68,40 @@ func (s *OTPService) GenerateOTP(ctx context.Context, userID string, purpose, ch
 
 	// Send email if needed
 	if channel == "email" && s.emailClient != nil {
-		subject := fmt.Sprintf("Your OTP code (%s)", purpose)
-		body := fmt.Sprintf("Your OTP code is %s. It will expire at %s",
-			code, o.ValidUntil.Format(time.RFC3339))
+		subject := fmt.Sprintf("Your OTP code for %s", strings.Title(purpose))
+		ttlSeconds := int(s.ttl.Minutes())
+
+		body := fmt.Sprintf(`
+		<!DOCTYPE html>
+		<html>
+		<head>
+		<meta charset="UTF-8">
+		<title>OTP Code</title>
+		</head>
+		<body style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px;">
+		<div style="max-width: 600px; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0px 2px 5px rgba(0,0,0,0.1);">
+			<h2 style="color: #333333;">Hello,</h2>
+			<p style="font-size: 16px; color: #555555;">
+			Your One-Time Password (OTP) is:
+			</p>
+			<p style="font-size: 20px; font-weight: bold; color: #2E86C1; background: #f1f1f1; padding: 10px; display: inline-block; border-radius: 5px;">
+			%s
+			</p>
+			<p style="font-size: 14px; color: #777777;">
+			This code is valid for the next <strong>%d</strong> minute(s).<br>
+			Please do not share it with anyone.
+			</p>
+			<p style="font-size: 14px; color: #777777;">
+			If you did not request this, please ignore this email.
+			</p>
+			<p style="margin-top: 30px; font-size: 14px; color: #999999;">
+			Thank you,<br>
+			<strong>Pxyz Security Team</strong>
+			</p>
+		</div>
+		</body>
+		</html>
+		`, code, ttlSeconds)
 
 		_, err := s.emailClient.SendEmail(ctx, &emailpb.SendEmailRequest{
 			UserId:         userID,
@@ -91,13 +124,10 @@ func (s *OTPService) VerifyOTP(ctx context.Context, userID int64, purpose, code 
 }
 
 func randomCode(digits int) string {
-	max := 1
-	for i := 0; i < digits; i++ {
-		max *= 10
+	max := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(digits)), nil) // 10^digits
+	n, err := rand.Int(rand.Reader, max)
+	if err != nil {
+		panic(err) // handle appropriately in prod
 	}
-	nBig := make([]byte, 8)
-	_, _ = rand.Read(nBig)
-	n := int(nBig[0])
-	v := n % max
-	return fmt.Sprintf("%0*d", digits, v)
+	return fmt.Sprintf("%0*d", digits, n.Int64())
 }

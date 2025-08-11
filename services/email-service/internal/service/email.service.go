@@ -29,39 +29,33 @@ func (e *EmailSender) Send(to, subject, body string) error {
 		fmt.Sprintf("From: %s\r\n", from) +
 			fmt.Sprintf("To: %s\r\n", to) +
 			fmt.Sprintf("Subject: %s\r\n", subject) +
-			"Content-Type: text/plain; charset=\"utf-8\"\r\n" +
+			"MIME-Version: 1.0\r\n" + // required for HTML
+			"Content-Type: text/html; charset=\"utf-8\"\r\n" +
 			"\r\n" +
 			body,
 	)
 
-	// Step 1: Connect over TCP (no TLS yet)
 	serverAddr := e.smtpHost + ":" + e.smtpPort
 	conn, err := net.Dial("tcp", serverAddr)
 	if err != nil {
 		return err
 	}
 
-	// Step 2: Create SMTP client
 	client, err := smtp.NewClient(conn, e.smtpHost)
 	if err != nil {
 		return err
 	}
 
-	// Step 3: Start TLS
-	tlsConfig := &tls.Config{
-		ServerName: e.smtpHost,
-	}
+	tlsConfig := &tls.Config{ServerName: e.smtpHost}
 	if err = client.StartTLS(tlsConfig); err != nil {
 		return err
 	}
 
-	// Step 4: Authenticate
 	auth := smtp.PlainAuth("", e.username, e.password, e.smtpHost)
 	if err := client.Auth(auth); err != nil {
 		return err
 	}
 
-	// Step 5: Send mail
 	if err := client.Mail(from); err != nil {
 		return err
 	}
@@ -82,3 +76,4 @@ func (e *EmailSender) Send(to, subject, body string) error {
 
 	return client.Quit()
 }
+

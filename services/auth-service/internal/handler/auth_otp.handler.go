@@ -56,7 +56,7 @@ func (h *AuthHandler) HandleRequestOTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.JSON(w, http.StatusOK, map[string]string{
-		"message": "OTP sent successfully",
+		"message": "OTP code sent successfully",
 	})
 }
 

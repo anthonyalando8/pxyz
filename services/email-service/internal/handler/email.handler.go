@@ -32,6 +32,7 @@ func (h *EmailHandler) SendEmail(ctx context.Context, req *pb.SendEmailRequest) 
 
 	// Log to DB
 	_ = h.repo.LogEmail(ctx, repository.EmailLog{
+		ID: h.sf.Generate(),
 		UserID:        req.UserId,
 		Subject:       req.Subject,
 		RecipientEmail: req.RecipientEmail,
