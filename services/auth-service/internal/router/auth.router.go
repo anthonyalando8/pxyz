@@ -23,6 +23,8 @@ func SetupRoutes(r chi.Router, h *handler.AuthHandler, auth *middleware.Middlewa
 	r.Post("/auth/exists", h.HandleUserExists)
 	r.Post("/auth/register", h.HandleRegister)
 	r.Post("/auth/login", h.HandleLogin)
+	r.Post("/auth/otp/request", h.HandleRequestOTP)
+	r.Post("/auth/otp/verify", h.HandleVerifyOTP)
 
 	r.Group(func(pr chi.Router) {
 		pr.Use(auth.Middleware)

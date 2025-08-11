@@ -3,6 +3,7 @@ package service
 import (
 	"crypto/tls"
 	"fmt"
+	"net"
 	"net/smtp"
 )
 
@@ -33,26 +34,34 @@ func (e *EmailSender) Send(to, subject, body string) error {
 			body,
 	)
 
-	// TLS connection
+	// Step 1: Connect over TCP (no TLS yet)
 	serverAddr := e.smtpHost + ":" + e.smtpPort
-	conn, err := tls.Dial("tcp", serverAddr, &tls.Config{
-		InsecureSkipVerify: true, // for testing only
-		ServerName:         e.smtpHost,
-	})
+	conn, err := net.Dial("tcp", serverAddr)
 	if err != nil {
 		return err
 	}
 
+	// Step 2: Create SMTP client
 	client, err := smtp.NewClient(conn, e.smtpHost)
 	if err != nil {
 		return err
 	}
 
+	// Step 3: Start TLS
+	tlsConfig := &tls.Config{
+		ServerName: e.smtpHost,
+	}
+	if err = client.StartTLS(tlsConfig); err != nil {
+		return err
+	}
+
+	// Step 4: Authenticate
 	auth := smtp.PlainAuth("", e.username, e.password, e.smtpHost)
 	if err := client.Auth(auth); err != nil {
 		return err
 	}
 
+	// Step 5: Send mail
 	if err := client.Mail(from); err != nil {
 		return err
 	}

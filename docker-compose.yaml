@@ -73,9 +73,9 @@ services:
       REDIS_ADDR: redis:6379
       GRPCPort: 50054
       SMTPHost: smtp.gmail.com
-      SMTPUser: anthonyalando1@gmail.com
+      SMTPUser: anthonyalando8@gmail.com
       SMTPPort: 587
-      SMTPPass: 96211581#Aa
+      SMTPPass: dqiadasrccjulcuh
     networks:
       - micro_net
     depends_on:

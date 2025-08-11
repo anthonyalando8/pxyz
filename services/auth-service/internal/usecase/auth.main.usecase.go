@@ -2,8 +2,9 @@
 package usecase
 
 import (
-	"context"
+	"auth-service/internal/domain"
 	"auth-service/pkg/utils"
+	"context"
 )
 
 
@@ -26,4 +27,9 @@ func (uc *UserUsecase) ChangePassword(ctx context.Context, userID, newPassword s
 func (uc *UserUsecase) UpdateName(ctx context.Context, userID, firstName, lastName string) error {
 	// Update first and last name in repository
 	return uc.userRepo.UpdateName(ctx, userID, firstName, lastName)
+}
+
+
+func (uc *UserUsecase) FindUserById(ctx context.Context, userId string) (*domain.User, error){
+	return uc.userRepo.GetUserByID(ctx, userId)
 }
