@@ -8,16 +8,18 @@ import (
 	pb "x/shared/genproto/emailpb"
 	"email-service/internal/repository"
 	"email-service/internal/service"
+	"x/shared/utils/id"
 )
 
 type EmailHandler struct {
 	pb.UnimplementedEmailServiceServer
 	emailSvc *service.EmailSender
 	repo     *repository.EmailLogRepo
+	sf          *id.Snowflake
 }
 
-func NewEmailHandler(emailSvc *service.EmailSender, repo *repository.EmailLogRepo) *EmailHandler {
-	return &EmailHandler{emailSvc: emailSvc, repo: repo}
+func NewEmailHandler(emailSvc *service.EmailSender, repo *repository.EmailLogRepo, sf *id.Snowflake) *EmailHandler {
+	return &EmailHandler{emailSvc: emailSvc, repo: repo, sf: sf}
 }
 
 func (h *EmailHandler) SendEmail(ctx context.Context, req *pb.SendEmailRequest) (*pb.SendEmailResponse, error) {

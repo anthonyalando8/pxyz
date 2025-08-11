@@ -7,6 +7,7 @@ import (
 	"google.golang.org/grpc"
 
 	pb "x/shared/genproto/emailpb"
+	"x/shared/utils/id"
 	"email-service/internal/handler"
 	"email-service/internal/repository"
 	"email-service/internal/service"
@@ -28,8 +29,11 @@ func main() {
 	emailRepo := repository.NewEmailLogRepo(db)
 	emailSvc := service.NewEmailSender(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass)
 
+	// snowflake
+	sf, err := id.NewSnowflake(3)
+	if err != nil { log.Fatalf("sf: %v", err) }
 	// Init handler
-	emailHandler := handler.NewEmailHandler(emailSvc, emailRepo)
+	emailHandler := handler.NewEmailHandler(emailSvc, emailRepo, sf)
 
 	// Start gRPC server
 	listener, err := net.Listen("tcp", ":"+cfg.GRPCPort)
