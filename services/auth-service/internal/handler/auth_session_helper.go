@@ -14,77 +14,87 @@ import (
 )
 
 func (h *AuthHandler) createSessionHelper(
-	ctx context.Context,
-	userID string,
-	deviceID *string,
-	devMetadata *any,
-	geoLocation *string,
-	r *http.Request,
+    ctx context.Context,
+    userID string,
+    isTemp bool,
+    isSingleUse bool,
+    purpose string,
+    extraData map[string]string,
+    deviceID *string,
+    devMetadata *any,
+    geoLocation *string,
+    r *http.Request,
 ) (*domain.Session, error) {
 
-	if userID == "" {
-		return nil, errors.New("user ID is required")
-	}
+    if userID == "" {
+        return nil, errors.New("user ID is required")
+    }
 
-	// Determine device ID (use provided or generate new)
-	var device string
-	if deviceID == nil {
-		device = h.uc.Sf.Generate()
-	} else {
-		device = *deviceID
-	}
+    // Device ID handling
+    var device string
+    if deviceID == nil || *deviceID == "" {
+        device = h.uc.Sf.Generate()
+    } else {
+        device = *deviceID
+    }
 
-	// Capture contextual info
-	ip := extractClientIP(r)
-	ua := r.Header.Get("User-Agent")
-	now := time.Now()
+    // Ensure extraData is not nil
+    if extraData == nil {
+        extraData = make(map[string]string)
+    }
 
-	// Generate JWT
-	token, _, err := h.jwtGen.Generate(userID, device)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate token: %w", err)
-	}
+    // Context info
+    ip := extractClientIP(r)
+    ua := r.Header.Get("User-Agent")
 
-	// Prepare device metadata as JSON (if provided)
-	var devMetaStr string
-	if devMetadata != nil {
-		if b, err := json.Marshal(devMetadata); err == nil {
-			devMetaStr = string(b)
-		} else {
-			return nil, fmt.Errorf("failed to marshal device metadata: %w", err)
-		}
-	}
+    // Marshal device metadata
+    var devMetaStr string
+    if devMetadata != nil {
+        if b, err := json.Marshal(*devMetadata); err == nil {
+            devMetaStr = string(b)
+        } else {
+            return nil, fmt.Errorf("failed to marshal device metadata: %w", err)
+        }
+    }
 
-	// Call gRPC CreateSession
-	grpcResp, err := h.auth.Client.CreateSession(ctx, &sessionpb.CreateSessionRequest{
-		UserId:         userID,
-		AuthToken:      token,
-		DeviceId:       device,
-		IpAddress:      ip,
-		UserAgent:      ua,
-		GeoLocation:    getStringOrDefault(geoLocation),
-		DeviceMetadata: devMetaStr,
-		IsActive:       true,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create session via gRPC: %w", err)
-	}
+    // gRPC call
+    grpcResp, err := h.auth.Client.CreateSession(ctx, &sessionpb.CreateSessionRequest{
+        UserId:         userID,
+        DeviceId:       device,
+        IpAddress:      ip,
+        UserAgent:      ua,
+        GeoLocation:    getStringOrDefault(geoLocation),
+        DeviceMetadata: devMetaStr,
+        IsActive:       true,
+        IsTemp:         isTemp,
+        IsSingleUse:    isSingleUse,
+        Purpose:        purpose,
+        ExtraData:      extraData,
+    })
+    if err != nil {
+        return nil, fmt.Errorf("failed to create session via gRPC: %w", err)
+    }
 
-	// Build domain session object from gRPC response
-	return &domain.Session{
-		ID:           grpcResp.Session.Id,
-		UserID:       userID,
-		AuthToken:    token,
-		DeviceID:     &device,
-		IPAddress:    &ip,
-		UserAgent:    &ua,
-		GeoLocation:  geoLocation,
-		DeviceMeta:   devMetadata,
-		IsActive:     true,
-		LastSeenAt:   &now,
-		CreatedAt:    now,
-	}, nil
+    now := time.Now()
+
+    return &domain.Session{
+        ID:          grpcResp.Session.Id,
+        UserID:      userID,
+        AuthToken:   grpcResp.Session.AuthToken,
+        DeviceID:    &device,
+        IPAddress:   &ip,
+        UserAgent:   &ua,
+        GeoLocation: geoLocation,
+        DeviceMeta:  devMetadata,
+        IsActive:    grpcResp.Session.IsActive,
+        IsTemp:      grpcResp.Session.IsTemp,
+        IsSingleUse: grpcResp.Session.IsSingleUse,
+        IsUsed:      grpcResp.Session.IsUsed,
+        LastSeenAt:  &now,
+        CreatedAt:   now,
+    }, nil
 }
+
 
 func getStringOrDefault(ptr *string) string {
 	if ptr != nil {

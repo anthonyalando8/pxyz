@@ -6,3 +6,9 @@ func toPtr(s string) *string {
 	}
 	return &s
 }
+func safeString(ptr *string) string {
+	if ptr == nil {
+		return ""
+	}
+	return *ptr
+}

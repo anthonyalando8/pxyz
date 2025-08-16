@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"auth-service/internal/domain"
-	"auth-service/internal/repository"
+	"x/shared/utils/errors"
 )
 
 func (uc *UserUsecase) GetProfile(ctx context.Context, userID string) (*domain.User, error) {
@@ -14,7 +14,7 @@ func (uc *UserUsecase) GetProfile(ctx context.Context, userID string) (*domain.U
 	}
 	user, err := uc.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
-		if errors.Is(err, repository.ErrUserNotFound) {
+		if errors.Is(err, xerrors.ErrUserNotFound) {
 			return nil, errors.New("user not found")
 		}
 		return nil, err

@@ -5,6 +5,8 @@ import (
 	"auth-service/internal/domain"
 	"auth-service/pkg/utils"
 	"context"
+	"errors"
+	"fmt"
 )
 
 
@@ -14,13 +16,35 @@ func (uc *UserUsecase) ChangeEmail(ctx context.Context, userID, newEmail string)
 	return uc.userRepo.UpdateEmail(ctx, userID, newEmail)
 }
 
-func (uc *UserUsecase) ChangePassword(ctx context.Context, userID, newPassword string) error {
-	hashedPassword, err := utils.HashPassword(newPassword)
+func (uc *UserUsecase) UpdatePassword(ctx context.Context, userID, newPassword string, requireOld bool, oldPassword string, advanceStage bool) error {
+	user, err := uc.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
+		return fmt.Errorf("user not found: %w", err)
+	}
+
+	// If old password required (for change)
+	if requireOld {
+		if err := utils.CheckPasswordHash(oldPassword, *user.PasswordHash); !err {
+			return errors.New("invalid old password")
+		}
+	}
+
+	// Validate new password
+	if valid, err := utils.ValidatePassword(newPassword); !valid {
 		return err
 	}
-	// Update password in repository
-	return uc.userRepo.UpdatePassword(ctx, userID, hashedPassword)
+
+	// Hash
+	hash, err := utils.HashPassword(newPassword)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	// Save (with or without stage advancement)
+	if advanceStage {
+		return uc.userRepo.UpdatePasswordWithStage(ctx, userID, hash)
+	}
+	return uc.userRepo.UpdatePassword(ctx, userID, hash)
 }
 
 

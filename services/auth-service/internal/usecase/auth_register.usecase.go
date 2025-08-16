@@ -40,16 +40,36 @@ func (uc *UserUsecase) RegisterUser(ctx context.Context, email, phone, password,
 		Email:      toPtr(email),
 		Phone:      toPtr(phone),
 		PasswordHash:   toPtr(hashedPassword),
-		HasPassword: true,
 		LastName:   toPtr(last_name),
 		FirstName:  toPtr(first_name),
-		IsVerified: false,
 	}
 
 	// Save to database
-	if err := uc.userRepo.CreateUser(ctx, newUser); err != nil {
-		return nil, err
+
+	return uc.userRepo.CreateUser(ctx, newUser)
+}
+
+func (uc *UserUsecase) CreatePartialUser(ctx context.Context, email, phone string) (*domain.User, error){
+	newUser := &domain.User{
+		ID:        uc.Sf.Generate(),
+		Email:      toPtr(email),
+		Phone:      toPtr(phone),
 	}
 
-	return newUser, nil
+	// Save to database
+	return uc.userRepo.CreateUser(ctx, newUser)
+}
+
+func (uc *UserUsecase) VerifyEmail(ctx context.Context, userID string) (bool, error){
+	if err := uc.userRepo.VerifyEmail(ctx, userID); err != nil{
+		return false, err
+	}
+	return true, nil
+}
+
+func (uc *UserUsecase) VerifyPhone(ctx context.Context, userID string) (bool, error){
+	if err := uc.userRepo.VerifyPhone(ctx, userID); err != nil{
+		return false, err
+	}
+	return true, nil
 }

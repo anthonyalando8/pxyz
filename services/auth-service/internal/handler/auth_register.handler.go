@@ -1,12 +1,19 @@
 package handler
 
 import (
+	"auth-service/internal/domain"
 	"auth-service/pkg/utils"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log"
 	"net/http"
+	"sync"
+	"x/shared/genproto/otppb"
 	"x/shared/response"
+	"x/shared/utils/errors"
 )
+
 
 func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
@@ -40,7 +47,7 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session, err := h.createSessionHelper(r.Context(), user.ID, req.DeviceID, req.DeviceMetadata, req.GeoLocation, r)
+	session, err := h.createSessionHelper(r.Context(), user.ID, false, false, "general",nil, req.DeviceID, req.DeviceMetadata, req.GeoLocation, r)
 	if err != nil {
 		log.Printf("Failed to create session: %v", err)
 		response.Error(w, http.StatusInternalServerError, "Failed to create session")
@@ -50,9 +57,198 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusCreated, map[string]interface{}{
 		"token":      session.AuthToken,
 		"device":     session.DeviceID,
-		"user_id":    user.ID,
-		"email":      *user.Email,
-		"first_name": *user.FirstName,
-		"last_name":  *user.LastName,
 	})
 }
+
+func (h *AuthHandler) HandleInitSignup(w http.ResponseWriter, r *http.Request) {
+	var req RegisterInit
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "Invalid request body: "+err.Error())
+		return
+	}
+
+	// Step 1: validate input
+	if err := validateSignupRequest(req); err != nil {
+		response.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// Step 2: create or fetch partial user
+	user, err := h.uc.CreatePartialUser(r.Context(), req.Email, req.Phone)
+	if err != nil {
+		h.handlePartialUserError(w, r, err, req, user)
+		return
+	}
+
+	// Step 3: fresh user → OTP + session
+	if err := h.handleFreshUserSignup(w, r, req, user); err != nil {
+		response.Error(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+}
+
+func validateSignupRequest(req RegisterInit) error {
+	if req.Email == "" && req.Phone == "" {
+		return errors.New("email or phone is required")
+	}
+	if req.Email != "" && !utils.ValidateEmail(req.Email) {
+		return errors.New("invalid email format")
+	}
+	if req.Phone != "" && !utils.ValidatePhone(req.Phone) {
+		return errors.New("invalid phone format")
+	}
+	return nil
+}
+
+func (h *AuthHandler) handlePartialUserError(
+	w http.ResponseWriter, r *http.Request,
+	err error, req RegisterInit, user *domain.User,
+) {
+	// Defensive check for nil user
+	if user == nil {
+		log.Printf("[handlePartialUserError] ❌ Nil user received, err=%v", err)
+		response.Error(w, http.StatusInternalServerError, "Internal server error: user not found")
+		return
+	}
+
+	log.Printf("[handlePartialUserError] Handling partial signup error for userID=%v, err=%v", user.ID, err)
+
+	// Case 1: signup is incomplete
+	if signupErr, ok := err.(*xerrors.SignupError); ok {
+		log.Printf("[handlePartialUserError] Incomplete signup: stage=%s next=%s userID=%v",
+			signupErr.Stage, signupErr.NextStage, user.ID,
+		)
+		channel, target := detectChannel(req)
+
+
+		extraData := map[string]string{"next": "verify_"+channel}
+
+		session, sessErr := h.createSessionHelper(
+			r.Context(),
+			user.ID, true, false, "register",
+			extraData, req.DeviceID, req.DeviceMetadata, req.GeoLocation, r,
+		)
+		if sessErr != nil {
+			log.Printf("[handlePartialUserError] ❌ Session creation failed for userID=%v, err=%v", user.ID, sessErr)
+			response.Error(w, http.StatusInternalServerError, "Session creation failed: "+sessErr.Error())
+			return
+		}
+
+		resp := map[string]interface{}{
+			"error":      "incomplete_profile",
+			"stage":      signupErr.Stage,
+			"next_stage": signupErr.NextStage,
+			"token":      session.AuthToken,
+			"device":     session.DeviceID,
+		}
+
+		// If OTP required → trigger it
+		if signupErr.NextStage == "verify_otp" {
+			log.Printf("[handlePartialUserError] Generating OTP for userID=%v channel=%s target=%s", user.ID, channel, target)
+
+			otpResp, otpErr := h.otp.Client.GenerateOTP(
+				r.Context(),
+				&otppb.GenerateOTPRequest{
+					UserId:    user.ID,
+					Channel:   channel,
+					Purpose:   "register",
+					Recipient: target,
+				},
+			)
+			if otpErr != nil || otpResp == nil || !otpResp.Ok {
+				log.Printf("[handlePartialUserError] ❌ OTP generation failed for userID=%v, otpErr=%v, serviceErr=%v",
+					user.ID, otpErr, otpResp.GetError(),
+				)
+				response.Error(w, http.StatusInternalServerError, "OTP generation failed")
+				return
+			}
+			resp["otp_channel"] = channel
+		}
+
+		response.JSON(w, http.StatusConflict, resp)
+		return
+	}
+
+	// Case 2: already exists
+	if errors.Is(err, xerrors.ErrEmailAlreadyInUse) {
+		log.Printf("[handlePartialUserError] Email already in use: %s", req.Email)
+		response.Error(w, http.StatusConflict, "Email already in use")
+		return
+	}
+	if errors.Is(err, xerrors.ErrPhoneAlreadyInUse) {
+		log.Printf("[handlePartialUserError] Phone already in use: %s", req.Phone)
+		response.Error(w, http.StatusConflict, "Phone already in use")
+		return
+	}
+
+	// Case 3: unknown error
+	log.Printf("[handlePartialUserError] ❌ Unexpected error for userID=%v: %v", user.ID, err)
+	response.Error(w, http.StatusInternalServerError, "Unexpected error: "+err.Error())
+}
+
+
+
+func (h *AuthHandler) handleFreshUserSignup(
+	w http.ResponseWriter, r *http.Request,
+	req RegisterInit, user *domain.User,
+) error {
+	channel, target := detectChannel(req)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	var otpResp *otppb.GenerateOTPResponse
+	var otpErr error
+	var session *domain.Session
+	var sessErr error
+
+	go func() {
+		defer wg.Done()
+		otpResp, otpErr = h.otp.Client.GenerateOTP(
+			r.Context(),
+			&otppb.GenerateOTPRequest{
+				UserId:    user.ID,
+				Channel:   channel,
+				Purpose:   "register",
+				Recipient: target,
+			},
+		)
+	}()
+
+	go func() {
+		defer wg.Done()
+		extraData := map[string]string{"next": "verify_" + channel}
+		session, sessErr = h.createSessionHelper(
+			r.Context(),
+			user.ID, true, false, "register",
+			extraData, req.DeviceID, req.DeviceMetadata, req.GeoLocation, r,
+		)
+	}()
+
+	wg.Wait()
+
+	if otpErr != nil || otpResp == nil || !otpResp.Ok {
+		return fmt.Errorf("OTP generation failed: %v", otpErr)
+	}
+	if sessErr != nil {
+		return fmt.Errorf("session creation failed: %v", sessErr)
+	}
+
+	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"message":     "Signup initiated. Verify OTP to continue.",
+		"next":        "verify-otp",
+		"otp_channel": channel,
+		"token":       session.AuthToken,
+		"device":      session.DeviceID,
+	})
+	return nil
+}
+
+func detectChannel(req RegisterInit) (string, string) {
+	if req.Phone != "" {
+		return "sms", req.Phone
+	}
+	return "email", req.Email
+}
+
+

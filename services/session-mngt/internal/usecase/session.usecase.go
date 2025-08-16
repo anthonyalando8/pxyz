@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"session-service/internal/domain"
 	"session-service/internal/repository"
+	"session-service/pkg/jwtutil"
 	"time"
 	sessionpb "x/shared/genproto/sessionpb"
 	"x/shared/utils/id"
@@ -14,20 +15,24 @@ import (
 type SessionUsecase struct {
 	SessionRepo *repository.SessionRepository
 	Sf		  *id.Snowflake
+	jwtGen *jwtutil.Generator
+
 }
 
-func NewSessionUsecase(sessionRepo *repository.SessionRepository, sf *id.Snowflake) *SessionUsecase {
+func NewSessionUsecase(sessionRepo *repository.SessionRepository, sf *id.Snowflake, jwtGen *jwtutil.Generator,) *SessionUsecase {
 	return &SessionUsecase{
 		SessionRepo: sessionRepo,
 		Sf:          sf,
+		jwtGen: jwtGen,
 	}
 }
 
 func (u *SessionUsecase) CreateSession(ctx context.Context, req *sessionpb.CreateSessionRequest) (*sessionpb.CreateSessionResponse, error) {
 	//log.Printf("Request to create session: %+v", req)
-	if req.UserId == "" || req.AuthToken == "" {
-		return nil, errors.New("user ID and token are required")
+	if req.UserId == ""{
+		return nil, errors.New("user ID required")
 	}
+
 
 	deviceID := req.DeviceId
 	if deviceID == "" {
@@ -38,25 +43,43 @@ func (u *SessionUsecase) CreateSession(ctx context.Context, req *sessionpb.Creat
 	if ipAddress == "" {
 		ipAddress = "unknown"
 	}
+	token, _, err := u.jwtGen.Generate(req.UserId, deviceID, req.IsTemp, req.ExtraData)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate token: %w", err)
+	}
+	isSingleUse := false
+	isTemp := false
+
+	if req.IsSingleUse{
+		isSingleUse = true
+	}
+	if req.IsTemp{
+		isTemp = true
+	}
 
 	now := time.Now()
 	session := &domain.Session{
 		ID:          u.Sf.Generate(),
 		UserID:      req.UserId,
-		AuthToken:   req.AuthToken,
+		AuthToken:   token,
 		DeviceID:    &deviceID,
 		IPAddress:   &ipAddress,
 		UserAgent:   strPtr(req.UserAgent),
 		GeoLocation: strPtr(req.GeoLocation),
 		DeviceMeta:  strPtrAny(req.DeviceMetadata),
 		IsActive:    req.IsActive,
+		IsSingleUse: isSingleUse,
+		Purpose: req.Purpose,
+		IsTemp: isTemp,
+		IsUsed: false,
 		LastSeenAt:  &now,
 		CreatedAt:   now,
 	}
-
-	if err := u.SessionRepo.CreateOrUpdateSession(ctx, session); err != nil {
+	if err := u.SessionRepo.CreateOrUpdateSession(ctx, session, u.jwtGen.Ttl); err != nil {
 		return nil, err
 	}
+	
 
 	return &sessionpb.CreateSessionResponse{
 		Session: domainToProtoSession(session),
@@ -92,6 +115,10 @@ func domainToProtoSession(s *domain.Session) *sessionpb.Session {
 		IsActive:       s.IsActive,
 		LastSeenAt:     formatTime(s.LastSeenAt),
 		CreatedAt:      s.CreatedAt.Format(time.RFC3339),
+		IsSingleUse: s.IsSingleUse,
+		IsUsed: s.IsUsed,
+		Purpose: s.Purpose,
+		IsTemp: s.IsTemp,
 	}
 }
 
@@ -121,7 +148,7 @@ func formatTime(t *time.Time) string {
 
 
 func (uc *SessionUsecase) GetSessionsByUserID(ctx context.Context, userID string) ([]*domain.Session, error) {
-	return uc.SessionRepo.GetSessionsByUserID(ctx,userID)
+	return uc.SessionRepo.GetSessionsByUserID(ctx,userID, false)
 }
 
 func (u *SessionUsecase) DeleteSession(ctx context.Context, token string) error {

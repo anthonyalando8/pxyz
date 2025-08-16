@@ -25,7 +25,7 @@ func Load() Config {
 	if err := godotenv.Load(); err != nil {
 		log.Println("OTP: No .env file found, relying on system env vars")
 	}
-	ttl, _ := time.ParseDuration(getEnv("OTP_TTL", "5m"))
+	ttl, _ := time.ParseDuration(getEnv("OTP_TTL", "15m"))
 	window, _ := time.ParseDuration(getEnv("OTP_WINDOW", "10m"))
 	cool, _ := time.ParseDuration(getEnv("OTP_COOLDOWN", "45s"))
 

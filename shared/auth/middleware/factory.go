@@ -18,19 +18,20 @@ import (
 type MiddlewareWithClient struct {
 	Middleware func(http.Handler) http.Handler
 	Client     authpb.AuthServiceClient
+	Require    func(allowedTypes []string, allowedPurposes []string) func(http.Handler) http.Handler
 }
 
+// RequireAuth initializes middleware + client
 func RequireAuth() *MiddlewareWithClient {
 	if wd, err := os.Getwd(); err == nil {
 		fmt.Println("Working directory:", wd)
 	}
 
-	JWT := jwtutil.JWTConfig{
+	jwtVerifier := jwtutil.LoadAndBuild(jwtutil.JWTConfig{
 		PubPath:  getEnv("JWT_PUBLIC_KEY_PATH", "../../shared/secrets/jwt_public.pem"),
 		Issuer:   getEnv("JWT_ISSUER", "auth-service"),
 		Audience: getEnv("JWT_AUDIENCE", "pxyz-clients"),
-	}
-	jwtVerifier := jwtutil.LoadAndBuild(JWT)
+	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -46,9 +47,18 @@ func RequireAuth() *MiddlewareWithClient {
 	return &MiddlewareWithClient{
 		Middleware: m.AuthMiddleware,
 		Client:     authClient,
+		Require:    m.RequireWithChecks,
 	}
 }
 
+func contains(list []string, item string) bool {
+	for _, v := range list {
+		if v == item {
+			return true
+		}
+	}
+	return false
+}
 
 
 func getEnv(key, fallback string) string {

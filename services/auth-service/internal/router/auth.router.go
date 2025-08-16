@@ -10,7 +10,6 @@ import (
 )
 
 func SetupRoutes(r chi.Router, h *handler.AuthHandler, auth *middleware.MiddlewareWithClient, wsHandler *handler.WSHandler, rdb *redis.Client) chi.Router {
-	
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"http://127.0.0.1:5500", "http://localhost:5500"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "PATCH"},
@@ -20,22 +19,36 @@ func SetupRoutes(r chi.Router, h *handler.AuthHandler, auth *middleware.Middlewa
 		MaxAge:           300,
 	}))
 
+	// ---- Public endpoints ----
 	r.Post("/auth/exists", h.HandleUserExists)
-	r.Post("/auth/register", h.HandleRegister)
+	r.Post("/auth/register/init", h.HandleInitSignup)
 	r.Post("/auth/login", h.HandleLogin)
-	r.Post("/auth/otp/request", h.HandleRequestOTP)
-	r.Post("/auth/otp/verify", h.HandleVerifyOTP)
 
+	// ---- Protected OTP verify (any session type, but purpose = "register") ----
 	r.Group(func(pr chi.Router) {
-		pr.Use(auth.Middleware)
+		pr.Use(auth.Require([]string{"main", "temp"}, []string{"register"}))
+		pr.Post("/auth/register/otp/request", h.HandleRequestOTP)
+		pr.Post("/auth/register/otp/verify", h.HandleVerifyOTP)
+		pr.Post("/auth/password/set", h.HandleSetPassword)            // first-time set during signup
+		pr.Post("/auth/password/reset", h.HandleResetPassword)        // reset after forgot-password flow
+	})
 
-		// WebSocket endpoint (protected)
+	// ---- Authenticated user routes ----
+	r.Group(func(pr chi.Router) {
+		pr.Use(auth.Require([]string{"main"}, nil))
+
+		// WebSocket endpoint
 		pr.Get("/auth/ws", wsHandler.HandleWS)
 
+		// Profile management
 		pr.Patch("/auth/email", h.HandleChangeEmail)
-		pr.Patch("/auth/password", h.HandleChangePassword)
 		pr.Patch("/auth/name", h.HandleUpdateName)
 
+		// Password flows
+		pr.Patch("/auth/password", h.HandleChangePassword)            // change existing password (requires old + new)
+		//pr.Post("/auth/password/convert", h.HandleConvertPassword)    // set when converting social → hybrid
+
+		// Sessions
 		pr.Delete("/auth/logout", h.LogoutHandler(auth.Client))
 		pr.Delete("/auth/sessions", h.LogoutAllHandler(auth.Client, rdb))
 		pr.Delete("/auth/sessions/{id}", h.DeleteSessionByIDHandler(auth.Client))
@@ -43,5 +56,7 @@ func SetupRoutes(r chi.Router, h *handler.AuthHandler, auth *middleware.Middlewa
 		pr.Get("/auth/sessions", h.ListSessionsHandler(auth.Client))
 		pr.Get("/auth/profile", h.HandleProfile)
 	})
+
 	return r
 }
+

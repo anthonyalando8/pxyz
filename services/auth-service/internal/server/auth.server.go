@@ -11,7 +11,6 @@ import (
 	"auth-service/internal/router"
 	"auth-service/internal/usecase"
 	"auth-service/internal/ws"
-	"auth-service/pkg/jwtutil"
 	"x/shared/auth/middleware"
 	"x/shared/utils/id"
 	"x/shared/auth/otp"
@@ -39,11 +38,10 @@ func NewServer(cfg config.AppConfig) *http.Server {
 
 	userUC := usecase.NewUserUsecase(userRepo, sf)
 
-	jwtGen := jwtutil.LoadAndBuild(cfg.JWT)
 
 	auth := middleware.RequireAuth()
 	otpSvc := otpclient.NewOTPService()
-	authHandler := handler.NewAuthHandler(userUC, jwtGen, auth, otpSvc)
+	authHandler := handler.NewAuthHandler(userUC, auth, otpSvc)
 
 	ws_server := ws.NewServer()
 	ws_server.Start()

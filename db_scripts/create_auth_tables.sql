@@ -1,9 +1,10 @@
 -- SQL script to create authentication tables for DB: pxyz
--- Last Updated: 2025-08-07
+-- Last Updated: 2025-08-13
 
+-- Connect to DB
 \c pxyz;
 
--- Enable UUID if needed (currently using BIGINT/Snowflake, so optional)
+-- Enable UUID if needed (currently using BIGINT/Snowflake)
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 --------------------------
@@ -11,18 +12,52 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 --------------------------
 CREATE TABLE IF NOT EXISTS users (
     id BIGINT PRIMARY KEY,
-    email        CITEXT UNIQUE,                    -- nullable, unique when present
-    phone        VARCHAR(20) UNIQUE,               -- nullable, unique when present
-    password_hash TEXT,
-    first_name   VARCHAR(100),                      -- optional
-    last_name    VARCHAR(100),                     -- optional
-    is_verified BOOLEAN DEFAULT FALSE,
+    
+    -- Contact info (either can be NULL, but at least one must be set)
+    email        CITEXT UNIQUE,
+    phone        VARCHAR(20) UNIQUE,
+    
+    password_hash TEXT, -- NULL until password is set
+
+    first_name   VARCHAR(100),
+    last_name    VARCHAR(100),
+
+    -- Independent verification flags
+    is_email_verified BOOLEAN DEFAULT FALSE,
+    is_phone_verified BOOLEAN DEFAULT FALSE,
+
+    -- Tracks overall progress in account creation
+    signup_stage TEXT DEFAULT 'email_or_phone_submitted', 
+    -- stages: 'email_or_phone_submitted', 'otp_verified', 'password_set', 'complete'
+
+    -- Account lifecycle
     account_status TEXT DEFAULT 'active', -- 'active', 'deleted', 'suspended'
-    has_password BOOLEAN DEFAULT TRUE,
+    account_type TEXT DEFAULT 'password', -- 'password', 'social', 'hybrid'
     account_restored BOOLEAN DEFAULT FALSE,
+
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Restrict signup_stage to valid values
+ALTER TABLE users
+    ADD CONSTRAINT signup_stage_check 
+    CHECK (signup_stage IN (
+        'email_or_phone_submitted',
+        'otp_verified',
+        'password_set',
+        'complete'
+    ));
+
+-- Restrict account_type to valid values
+ALTER TABLE users
+    ADD CONSTRAINT account_type_check
+    CHECK (account_type IN ('password', 'social', 'hybrid'));
+
+-- Ensure at least one contact field (email or phone) is provided
+ALTER TABLE users
+    ADD CONSTRAINT users_contact_check 
+    CHECK (email IS NOT NULL OR phone IS NOT NULL);
 
 --------------------------
 -- USER OTPS TABLE
@@ -55,22 +90,27 @@ CREATE TABLE IF NOT EXISTS oauth_accounts (
 
 --------------------------
 -- SESSIONS TABLE
---------------------------
 CREATE TABLE IF NOT EXISTS sessions (
-    id BIGINT PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY,
     user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
-    token TEXT NOT NULL,
+    auth_token TEXT NOT NULL,
     device_id TEXT,
     ip_address TEXT,
     user_agent TEXT,
     geo_location TEXT,
     device_metadata JSONB,
     is_active BOOLEAN DEFAULT TRUE,
+    is_single_use BOOLEAN DEFAULT FALSE,
+    is_temp BOOLEAN DEFAULT FALSE,
+    is_used BOOLEAN DEFAULT FALSE,
+    purpose TEXT,
     last_seen_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    expires_at TIMESTAMPTZ,
     CONSTRAINT unique_user_device UNIQUE (user_id, device_id)
 );
+
 
 --------------------------
 -- EMAIL LOGS TABLE
@@ -105,6 +145,7 @@ CREATE TABLE IF NOT EXISTS account_deletion_requests (
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_phone ON users(phone);
 CREATE INDEX idx_users_account_status ON users(account_status);
+CREATE INDEX idx_users_account_type ON users(account_type);
 CREATE INDEX idx_users_created_at ON users(created_at);
 
 -- user_otps

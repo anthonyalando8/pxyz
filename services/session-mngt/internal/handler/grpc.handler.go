@@ -7,6 +7,7 @@ import (
 
 	"session-service/internal/usecase"
 	pb "x/shared/genproto/sessionpb"
+	"x/shared/utils/errors"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -27,14 +28,43 @@ func (h *AuthHandler) ValidateSession(ctx context.Context, req *pb.ValidateSessi
 		return &pb.ValidateSessionResponse{
 			Valid: false,
 			Error: "session not found",
-		}, nil
+		}, xerrors.ErrNotFound
+	}
+
+	if session.IsTemp {
+		if session.IsSingleUse {
+			if session.IsUsed {
+				return &pb.ValidateSessionResponse{
+					Valid: false,
+					Error: "session expired",
+				}, xerrors.ErrSessionUsed
+			}
+
+			// Mark single-use session as used immediately
+			session.IsUsed = true
+			if err := h.uc.SessionRepo.UpdateSessionUsed(ctx, session.ID, true); err != nil {
+				return &pb.ValidateSessionResponse{
+					Valid: false,
+					Error: "failed to update session status",
+				}, err
+			}
+		}
+	}
+
+	sessionType := "main"
+
+	if session.IsTemp{
+		sessionType = "temp"
 	}
 
 	return &pb.ValidateSessionResponse{
 		Valid:  true,
 		UserId: session.UserID,
+		SessionType: sessionType,
+		Purpose: session.Purpose,
 	}, nil
 }
+
 
 func (h *AuthHandler) CreateSession(ctx context.Context, req *pb.CreateSessionRequest) (*pb.CreateSessionResponse, error) {
 	return h.uc.CreateSession(ctx, req)

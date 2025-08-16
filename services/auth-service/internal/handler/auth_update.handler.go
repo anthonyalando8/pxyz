@@ -4,42 +4,93 @@ import (
 	"auth-service/pkg/utils"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"x/shared/auth/middleware"
 	"x/shared/response"
 )
 
+// Change password (requires old + new)
 func (h *AuthHandler) HandleChangePassword(w http.ResponseWriter, r *http.Request) {
-	requestedUserID, ok := r.Context().Value(middleware.ContextUserID).(string)
-	if !ok || requestedUserID == "" {
+	userID, ok := r.Context().Value(middleware.ContextUserID).(string)
+	if !ok || userID == "" {
 		response.Error(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
+
 	var req ChangePasswordRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "Invalid JSON payload")
+		response.Error(w, http.StatusBadRequest, "Invalid request")
 		return
 	}
 
-	if req.NewPassword == "" {
-		response.Error(w, http.StatusBadRequest, "New password required")
-		return
-	}
-	
-	if valid, err := utils.ValidatePassword(req.NewPassword); !valid {
+	if err := h.uc.UpdatePassword(r.Context(), userID, req.NewPassword, true, req.OldPassword, false); err != nil {
 		response.Error(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	
-	req.UserID = requestedUserID
-	err := h.uc.ChangePassword(r.Context(), req.UserID, req.NewPassword)
-	if err != nil {
-		response.Error(w, http.StatusInternalServerError, fmt.Sprintf("Failed to change password: %v", err))
+
+	response.JSON(w, http.StatusOK, map[string]string{"message": "Password updated"})
+}
+
+// Reset password (via OTP/email link)
+func (h *AuthHandler) HandleResetPassword(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(middleware.ContextUserID).(string)
+	if !ok || userID == "" {
+		response.Error(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
-	response.JSON(w, http.StatusOK, map[string]string{"message": "Password updated successfully"})
+	var req ResetPasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "Invalid request")
+		return
+	}
+
+	if err := h.uc.UpdatePassword(r.Context(), userID, req.NewPassword, false, "", false); err != nil {
+		response.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{"message": "Password reset successful"})
 }
+
+// Set password (signup flow)
+func (h *AuthHandler) HandleSetPassword(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(middleware.ContextUserID).(string)
+	deviceID, ok2 := r.Context().Value(middleware.ContextDeviceID).(string)
+	if !ok || userID == "" {
+		response.Error(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+	if !ok2 || deviceID == "" || deviceID == "unknown"{
+		response.Error(w, http.StatusUnauthorized, "Unauthorized device")
+		return
+	}
+
+	var req SetPasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "Invalid request")
+		return
+	}
+
+	if err := h.uc.UpdatePassword(r.Context(), userID, req.NewPassword, false, "", true); err != nil {
+		response.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	session, sessErr := h.createSessionHelper(
+		r.Context(),
+		userID, false, false, "general",
+		nil, &deviceID, nil, nil, r,
+	)
+	if sessErr != nil {
+		log.Printf("Failed to create temp session: %v", sessErr)
+		response.Error(w, http.StatusInternalServerError, "Session creation failed")
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{"message": "Password set successfully", "token": session.AuthToken})
+}
+
 
 func (h *AuthHandler) HandleChangeEmail(w http.ResponseWriter, r *http.Request) {
 	requestedUserID, ok := r.Context().Value(middleware.ContextUserID).(string)

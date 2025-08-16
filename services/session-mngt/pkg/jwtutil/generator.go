@@ -1,19 +1,20 @@
-// internal/token/jwt.go
 package jwtutil
-
 
 import (
 	"crypto/rsa"
-	"time"
 	"fmt"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/oklog/ulid/v2"
 )
 
+// Claims now includes IsTemp flag and ExtraData map
 type Claims struct {
-	UserID string `json:"uid"`
-	Device string `json:"device,omitempty"`
+	UserID    string            `json:"uid"`
+	Device    string            `json:"device,omitempty"`
+	IsTemp    bool              `json:"is_temp"`
+	ExtraData map[string]string `json:"data,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -22,28 +23,31 @@ type Generator struct {
 	issuer   string
 	audience string
 	kid      string // key id for rotation
-	ttl      time.Duration
+	Ttl      time.Duration
 }
 
 func NewGenerator(priv *rsa.PrivateKey, issuer, audience, kid string, ttl time.Duration) *Generator {
-	return &Generator{priv: priv, issuer: issuer, audience: audience, kid: kid, ttl: ttl}
+	return &Generator{priv: priv, issuer: issuer, audience: audience, kid: kid, Ttl: ttl}
 }
 
-func (g *Generator) Generate(userID, device string) (string, string, error) {
+// Updated Generate function to handle isTemp and extraData
+func (g *Generator) Generate(userID, device string, isTemp bool, extraData map[string]string) (string, string, error) {
 	if g.priv == nil {
-        return "", "", fmt.Errorf("jwt generator has nil private key")
-    }
+		return "", "", fmt.Errorf("jwt generator has nil private key")
+	}
 	now := time.Now()
 	jti := ulid.Make().String()
 
 	claims := &Claims{
-		UserID: userID,
-		Device: device,
+		UserID:    userID,
+		Device:    device,
+		IsTemp:    isTemp,
+		ExtraData: extraData,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    g.issuer,
 			Subject:   userID,
 			Audience:  []string{g.audience},
-			ExpiresAt: jwt.NewNumericDate(now.Add(g.ttl)),
+			ExpiresAt: jwt.NewNumericDate(now.Add(g.Ttl)),
 			IssuedAt:  jwt.NewNumericDate(now),
 			NotBefore: jwt.NewNumericDate(now),
 			ID:        jti,
@@ -54,6 +58,7 @@ func (g *Generator) Generate(userID, device string) (string, string, error) {
 	if g.kid != "" {
 		tok.Header["kid"] = g.kid
 	}
+
 	signed, err := tok.SignedString(g.priv)
 	return signed, jti, err
 }

@@ -17,14 +17,15 @@ func (h *AuthHandler) HandleProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response.JSON(w, http.StatusOK, map[string]interface{}{
-		"user_id":    user.ID,
-		"email":      *user.Email,
-		"first_name": *user.FirstName,
-		"last_name":  *user.LastName,
-		"phone":      user.Phone,
-		"created_at": user.CreatedAt,
-		"updated_at": user.UpdatedAt,
-		"is_verified": user.IsVerified,
-		"account_status": user.AccountStatus,
+		"email":             safeString(user.Email),
+		"first_name":        safeString(user.FirstName),
+		"last_name":         safeString(user.LastName),
+		"phone":             safeString(user.Phone),
+		"is_email_verified": user.IsEmailVerified,
+		"is_phone_verified": user.IsPhoneVerified,
+		"account_type":      user.AccountType,
+		"created_at":        user.CreatedAt,
+		"updated_at":        user.UpdatedAt,
+		"account_status":    user.AccountStatus,
 	})
 }

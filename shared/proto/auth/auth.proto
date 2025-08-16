@@ -30,7 +30,7 @@ message UpdateSessionActivityResponse {
 
 message CreateSessionRequest {
   string user_id        = 1;
-  string auth_token     = 2;
+  bool is_temp     = 2;
 
   string device_id      = 3;
   string ip_address     = 4;
@@ -39,6 +39,10 @@ message CreateSessionRequest {
   string device_metadata = 7;
 
   bool is_active        = 8;
+  map<string, string> extra_data = 9;
+  bool is_single_use = 10;
+  string purpose = 11;
+
 }
 
 message CreateSessionResponse {
@@ -59,6 +63,10 @@ message Session {
   bool is_active        = 9;
   string last_seen_at   = 10;
   string created_at     = 11;
+  bool is_single_use = 12;
+  bool is_used = 13;
+  string purpose = 14;
+  bool is_temp = 15;
 }
 
 // ----------------- Other Session Ops -----------------
@@ -79,6 +87,8 @@ message ValidateSessionResponse {
   bool valid   = 1;
   string user_id = 2;
   string error  = 3;
+  string session_type = 4; // "main", "temporary"
+  string purpose = 5;
 }
 
 message ListSessionsRequest {

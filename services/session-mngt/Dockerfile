@@ -12,7 +12,8 @@ COPY shared /shared
 
 # Download dependencies (cached if go.mod/go.sum unchanged)
 RUN go mod download
-
+# Copy secrets (if needed at build time)
+COPY services/session-mngt/secrets ./secrets
 # Copy session-mngt service source
 COPY services/session-mngt/ .
 

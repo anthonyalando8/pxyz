@@ -128,13 +128,16 @@ func (x *UpdateSessionActivityResponse) GetSession() *Session {
 type CreateSessionRequest struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	UserId         string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	AuthToken      string                 `protobuf:"bytes,2,opt,name=auth_token,json=authToken,proto3" json:"auth_token,omitempty"`
+	IsTemp         bool                   `protobuf:"varint,2,opt,name=is_temp,json=isTemp,proto3" json:"is_temp,omitempty"`
 	DeviceId       string                 `protobuf:"bytes,3,opt,name=device_id,json=deviceId,proto3" json:"device_id,omitempty"`
 	IpAddress      string                 `protobuf:"bytes,4,opt,name=ip_address,json=ipAddress,proto3" json:"ip_address,omitempty"`
 	UserAgent      string                 `protobuf:"bytes,5,opt,name=user_agent,json=userAgent,proto3" json:"user_agent,omitempty"`
 	GeoLocation    string                 `protobuf:"bytes,6,opt,name=geo_location,json=geoLocation,proto3" json:"geo_location,omitempty"`
 	DeviceMetadata string                 `protobuf:"bytes,7,opt,name=device_metadata,json=deviceMetadata,proto3" json:"device_metadata,omitempty"`
 	IsActive       bool                   `protobuf:"varint,8,opt,name=is_active,json=isActive,proto3" json:"is_active,omitempty"`
+	ExtraData      map[string]string      `protobuf:"bytes,9,rep,name=extra_data,json=extraData,proto3" json:"extra_data,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	IsSingleUse    bool                   `protobuf:"varint,10,opt,name=is_single_use,json=isSingleUse,proto3" json:"is_single_use,omitempty"`
+	Purpose        string                 `protobuf:"bytes,11,opt,name=purpose,proto3" json:"purpose,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -176,11 +179,11 @@ func (x *CreateSessionRequest) GetUserId() string {
 	return ""
 }
 
-func (x *CreateSessionRequest) GetAuthToken() string {
+func (x *CreateSessionRequest) GetIsTemp() bool {
 	if x != nil {
-		return x.AuthToken
+		return x.IsTemp
 	}
-	return ""
+	return false
 }
 
 func (x *CreateSessionRequest) GetDeviceId() string {
@@ -223,6 +226,27 @@ func (x *CreateSessionRequest) GetIsActive() bool {
 		return x.IsActive
 	}
 	return false
+}
+
+func (x *CreateSessionRequest) GetExtraData() map[string]string {
+	if x != nil {
+		return x.ExtraData
+	}
+	return nil
+}
+
+func (x *CreateSessionRequest) GetIsSingleUse() bool {
+	if x != nil {
+		return x.IsSingleUse
+	}
+	return false
+}
+
+func (x *CreateSessionRequest) GetPurpose() string {
+	if x != nil {
+		return x.Purpose
+	}
+	return ""
 }
 
 type CreateSessionResponse struct {
@@ -282,6 +306,10 @@ type Session struct {
 	IsActive       bool                   `protobuf:"varint,9,opt,name=is_active,json=isActive,proto3" json:"is_active,omitempty"`
 	LastSeenAt     string                 `protobuf:"bytes,10,opt,name=last_seen_at,json=lastSeenAt,proto3" json:"last_seen_at,omitempty"`
 	CreatedAt      string                 `protobuf:"bytes,11,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	IsSingleUse    bool                   `protobuf:"varint,12,opt,name=is_single_use,json=isSingleUse,proto3" json:"is_single_use,omitempty"`
+	IsUsed         bool                   `protobuf:"varint,13,opt,name=is_used,json=isUsed,proto3" json:"is_used,omitempty"`
+	Purpose        string                 `protobuf:"bytes,14,opt,name=purpose,proto3" json:"purpose,omitempty"`
+	IsTemp         bool                   `protobuf:"varint,15,opt,name=is_temp,json=isTemp,proto3" json:"is_temp,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -391,6 +419,34 @@ func (x *Session) GetCreatedAt() string {
 		return x.CreatedAt
 	}
 	return ""
+}
+
+func (x *Session) GetIsSingleUse() bool {
+	if x != nil {
+		return x.IsSingleUse
+	}
+	return false
+}
+
+func (x *Session) GetIsUsed() bool {
+	if x != nil {
+		return x.IsUsed
+	}
+	return false
+}
+
+func (x *Session) GetPurpose() string {
+	if x != nil {
+		return x.Purpose
+	}
+	return ""
+}
+
+func (x *Session) GetIsTemp() bool {
+	if x != nil {
+		return x.IsTemp
+	}
+	return false
 }
 
 type DeleteSessionRequest struct {
@@ -530,6 +586,8 @@ type ValidateSessionResponse struct {
 	Valid         bool                   `protobuf:"varint,1,opt,name=valid,proto3" json:"valid,omitempty"`
 	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	Error         string                 `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
+	SessionType   string                 `protobuf:"bytes,4,opt,name=session_type,json=sessionType,proto3" json:"session_type,omitempty"` // "main", "temporary"
+	Purpose       string                 `protobuf:"bytes,5,opt,name=purpose,proto3" json:"purpose,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -581,6 +639,20 @@ func (x *ValidateSessionResponse) GetUserId() string {
 func (x *ValidateSessionResponse) GetError() string {
 	if x != nil {
 		return x.Error
+	}
+	return ""
+}
+
+func (x *ValidateSessionResponse) GetSessionType() string {
+	if x != nil {
+		return x.SessionType
+	}
+	return ""
+}
+
+func (x *ValidateSessionResponse) GetPurpose() string {
+	if x != nil {
+		return x.Purpose
 	}
 	return ""
 }
@@ -765,11 +837,10 @@ const file_proto_auth_auth_proto_rawDesc = "" +
 	"lastSeenAt\x12\x1b\n" +
 	"\tis_active\x18\x03 \x01(\bR\bisActive\"K\n" +
 	"\x1dUpdateSessionActivityResponse\x12*\n" +
-	"\asession\x18\x01 \x01(\v2\x10.session.SessionR\asession\"\x92\x02\n" +
+	"\asession\x18\x01 \x01(\v2\x10.session.SessionR\asession\"\xd5\x03\n" +
 	"\x14CreateSessionRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1d\n" +
-	"\n" +
-	"auth_token\x18\x02 \x01(\tR\tauthToken\x12\x1b\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x17\n" +
+	"\ais_temp\x18\x02 \x01(\bR\x06isTemp\x12\x1b\n" +
 	"\tdevice_id\x18\x03 \x01(\tR\bdeviceId\x12\x1d\n" +
 	"\n" +
 	"ip_address\x18\x04 \x01(\tR\tipAddress\x12\x1d\n" +
@@ -777,9 +848,17 @@ const file_proto_auth_auth_proto_rawDesc = "" +
 	"user_agent\x18\x05 \x01(\tR\tuserAgent\x12!\n" +
 	"\fgeo_location\x18\x06 \x01(\tR\vgeoLocation\x12'\n" +
 	"\x0fdevice_metadata\x18\a \x01(\tR\x0edeviceMetadata\x12\x1b\n" +
-	"\tis_active\x18\b \x01(\bR\bisActive\"C\n" +
+	"\tis_active\x18\b \x01(\bR\bisActive\x12K\n" +
+	"\n" +
+	"extra_data\x18\t \x03(\v2,.session.CreateSessionRequest.ExtraDataEntryR\textraData\x12\"\n" +
+	"\ris_single_use\x18\n" +
+	" \x01(\bR\visSingleUse\x12\x18\n" +
+	"\apurpose\x18\v \x01(\tR\apurpose\x1a<\n" +
+	"\x0eExtraDataEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"C\n" +
 	"\x15CreateSessionResponse\x12*\n" +
-	"\asession\x18\x01 \x01(\v2\x10.session.SessionR\asession\"\xd6\x02\n" +
+	"\asession\x18\x01 \x01(\v2\x10.session.SessionR\asession\"\xc6\x03\n" +
 	"\aSession\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x1d\n" +
@@ -797,17 +876,23 @@ const file_proto_auth_auth_proto_rawDesc = "" +
 	" \x01(\tR\n" +
 	"lastSeenAt\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\v \x01(\tR\tcreatedAt\",\n" +
+	"created_at\x18\v \x01(\tR\tcreatedAt\x12\"\n" +
+	"\ris_single_use\x18\f \x01(\bR\visSingleUse\x12\x17\n" +
+	"\ais_used\x18\r \x01(\bR\x06isUsed\x12\x18\n" +
+	"\apurpose\x18\x0e \x01(\tR\apurpose\x12\x17\n" +
+	"\ais_temp\x18\x0f \x01(\bR\x06isTemp\",\n" +
 	"\x14DeleteSessionRequest\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\"3\n" +
 	"\x18DeleteAllSessionsRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\".\n" +
 	"\x16ValidateSessionRequest\x12\x14\n" +
-	"\x05token\x18\x01 \x01(\tR\x05token\"^\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\"\x9b\x01\n" +
 	"\x17ValidateSessionResponse\x12\x14\n" +
 	"\x05valid\x18\x01 \x01(\bR\x05valid\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x14\n" +
-	"\x05error\x18\x03 \x01(\tR\x05error\".\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error\x12!\n" +
+	"\fsession_type\x18\x04 \x01(\tR\vsessionType\x12\x18\n" +
+	"\apurpose\x18\x05 \x01(\tR\apurpose\".\n" +
 	"\x13ListSessionsRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\"D\n" +
 	"\x14ListSessionsResponse\x12,\n" +
@@ -837,7 +922,7 @@ func file_proto_auth_auth_proto_rawDescGZIP() []byte {
 	return file_proto_auth_auth_proto_rawDescData
 }
 
-var file_proto_auth_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_proto_auth_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_proto_auth_auth_proto_goTypes = []any{
 	(*UpdateSessionActivityRequest)(nil),  // 0: session.UpdateSessionActivityRequest
 	(*UpdateSessionActivityResponse)(nil), // 1: session.UpdateSessionActivityResponse
@@ -852,30 +937,32 @@ var file_proto_auth_auth_proto_goTypes = []any{
 	(*ListSessionsResponse)(nil),          // 10: session.ListSessionsResponse
 	(*DeleteSessionByIDRequest)(nil),      // 11: session.DeleteSessionByIDRequest
 	(*Empty)(nil),                         // 12: session.Empty
+	nil,                                   // 13: session.CreateSessionRequest.ExtraDataEntry
 }
 var file_proto_auth_auth_proto_depIdxs = []int32{
 	4,  // 0: session.UpdateSessionActivityResponse.session:type_name -> session.Session
-	4,  // 1: session.CreateSessionResponse.session:type_name -> session.Session
-	4,  // 2: session.ListSessionsResponse.sessions:type_name -> session.Session
-	7,  // 3: session.AuthService.ValidateSession:input_type -> session.ValidateSessionRequest
-	2,  // 4: session.AuthService.CreateSession:input_type -> session.CreateSessionRequest
-	0,  // 5: session.AuthService.UpdateSessionActivity:input_type -> session.UpdateSessionActivityRequest
-	5,  // 6: session.AuthService.DeleteSession:input_type -> session.DeleteSessionRequest
-	6,  // 7: session.AuthService.DeleteAllSessions:input_type -> session.DeleteAllSessionsRequest
-	9,  // 8: session.AuthService.ListSessions:input_type -> session.ListSessionsRequest
-	11, // 9: session.AuthService.DeleteSessionByID:input_type -> session.DeleteSessionByIDRequest
-	8,  // 10: session.AuthService.ValidateSession:output_type -> session.ValidateSessionResponse
-	3,  // 11: session.AuthService.CreateSession:output_type -> session.CreateSessionResponse
-	1,  // 12: session.AuthService.UpdateSessionActivity:output_type -> session.UpdateSessionActivityResponse
-	12, // 13: session.AuthService.DeleteSession:output_type -> session.Empty
-	12, // 14: session.AuthService.DeleteAllSessions:output_type -> session.Empty
-	10, // 15: session.AuthService.ListSessions:output_type -> session.ListSessionsResponse
-	12, // 16: session.AuthService.DeleteSessionByID:output_type -> session.Empty
-	10, // [10:17] is the sub-list for method output_type
-	3,  // [3:10] is the sub-list for method input_type
-	3,  // [3:3] is the sub-list for extension type_name
-	3,  // [3:3] is the sub-list for extension extendee
-	0,  // [0:3] is the sub-list for field type_name
+	13, // 1: session.CreateSessionRequest.extra_data:type_name -> session.CreateSessionRequest.ExtraDataEntry
+	4,  // 2: session.CreateSessionResponse.session:type_name -> session.Session
+	4,  // 3: session.ListSessionsResponse.sessions:type_name -> session.Session
+	7,  // 4: session.AuthService.ValidateSession:input_type -> session.ValidateSessionRequest
+	2,  // 5: session.AuthService.CreateSession:input_type -> session.CreateSessionRequest
+	0,  // 6: session.AuthService.UpdateSessionActivity:input_type -> session.UpdateSessionActivityRequest
+	5,  // 7: session.AuthService.DeleteSession:input_type -> session.DeleteSessionRequest
+	6,  // 8: session.AuthService.DeleteAllSessions:input_type -> session.DeleteAllSessionsRequest
+	9,  // 9: session.AuthService.ListSessions:input_type -> session.ListSessionsRequest
+	11, // 10: session.AuthService.DeleteSessionByID:input_type -> session.DeleteSessionByIDRequest
+	8,  // 11: session.AuthService.ValidateSession:output_type -> session.ValidateSessionResponse
+	3,  // 12: session.AuthService.CreateSession:output_type -> session.CreateSessionResponse
+	1,  // 13: session.AuthService.UpdateSessionActivity:output_type -> session.UpdateSessionActivityResponse
+	12, // 14: session.AuthService.DeleteSession:output_type -> session.Empty
+	12, // 15: session.AuthService.DeleteAllSessions:output_type -> session.Empty
+	10, // 16: session.AuthService.ListSessions:output_type -> session.ListSessionsResponse
+	12, // 17: session.AuthService.DeleteSessionByID:output_type -> session.Empty
+	11, // [11:18] is the sub-list for method output_type
+	4,  // [4:11] is the sub-list for method input_type
+	4,  // [4:4] is the sub-list for extension type_name
+	4,  // [4:4] is the sub-list for extension extendee
+	0,  // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_proto_auth_auth_proto_init() }
@@ -889,7 +976,7 @@ func file_proto_auth_auth_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_auth_auth_proto_rawDesc), len(file_proto_auth_auth_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   13,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

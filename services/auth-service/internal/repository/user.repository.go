@@ -3,6 +3,9 @@ package repository
 import (
 	"auth-service/internal/domain"
 	"context"
+	"errors"
+	"fmt"
+	xerrors "x/shared/utils/errors"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -14,6 +17,10 @@ type UserRepository struct {
 
 func NewUserRepository(db *pgxpool.Pool) *UserRepository {
 	return &UserRepository{db: db}
+}
+
+func NewSignupError(stage, next string) *xerrors.SignupError {
+	return &xerrors.SignupError{Stage: stage, NextStage: next}
 }
 
 func getString(v *string) string {
@@ -29,29 +36,78 @@ func (r *UserRepository) UpdateEmail(ctx context.Context, userID, newEmail strin
 	return err
 }
 
-func (r *UserRepository) UpdatePassword(ctx context.Context, userID, newPassword string) error {
-	query := `UPDATE users SET password=$1, updated_at=NOW() WHERE id=$2`
-	_, err := r.db.Exec(ctx, query, newPassword, userID)
+func (r *UserRepository) UpdatePassword(ctx context.Context, userID, hash string) error {
+	query := `UPDATE users SET password_hash=$1, updated_at=NOW()
+			  WHERE id=$2 AND account_status!='deleted'`
+	_, err := r.db.Exec(ctx, query, hash, userID)
 	return err
 }
+
+// UpdatePassword sets a new password and advances signup_stage if appropriate
+func (r *UserRepository) UpdatePasswordWithStage(ctx context.Context, userID, newPassword string) error {
+	query := `
+		UPDATE users
+		SET password_hash = $1,
+		    signup_stage = CASE
+		       WHEN signup_stage = 'otp_verified' THEN 'password_set'
+		       ELSE signup_stage
+		    END,
+		    updated_at = NOW()
+		WHERE id = $2
+		  AND account_status != 'deleted'
+	`
+
+	cmdTag, err := r.db.Exec(ctx, query, newPassword, userID)
+	if err != nil {
+		return fmt.Errorf("failed to update password for user %s: %w", userID, err)
+	}
+	if cmdTag.RowsAffected() == 0 {
+		return fmt.Errorf("no active user found with id %s", userID)
+	}
+	return nil
+}
+
+// UpdateName sets first and last name and advances signup_stage if appropriate
 func (r *UserRepository) UpdateName(ctx context.Context, userID, firstName, lastName string) error {
-	query := `UPDATE users SET first_name=$1, last_name=$2, updated_at=NOW() WHERE id=$3`
-	_, err := r.db.Exec(ctx, query, firstName, lastName, userID)
-	return err
+	query := `
+		UPDATE users
+		SET first_name = $1,
+		    last_name  = $2,
+		    signup_stage = CASE
+		       WHEN signup_stage = 'password_set' THEN 'complete'
+		       ELSE signup_stage
+		    END,
+		    updated_at = NOW()
+		WHERE id = $3
+		  AND account_status != 'deleted'
+	`
+
+	cmdTag, err := r.db.Exec(ctx, query, firstName, lastName, userID)
+	if err != nil {
+		return fmt.Errorf("failed to update name for user %s: %w", userID, err)
+	}
+	if cmdTag.RowsAffected() == 0 {
+		return fmt.Errorf("no active user found with id %s", userID)
+	}
+	return nil
 }
 
 func (r *UserRepository) GetUserByID(ctx context.Context, userID string) (*domain.User, error) {
 	const q = `
 		SELECT 
-			id, 
-			email, 
-			phone, 
-			password_hash, 
-			first_name, 
-			last_name, 
-			is_verified, 
-			account_status, 
-			created_at, 
+			id,
+			email,
+			phone,
+			password_hash,
+			first_name,
+			last_name,
+			is_email_verified,
+			is_phone_verified,
+			signup_stage,
+			account_status,
+			account_type,
+			account_restored,
+			created_at,
 			updated_at
 		FROM users
 		WHERE id = $1 AND account_status != 'deleted'
@@ -66,14 +122,18 @@ func (r *UserRepository) GetUserByID(ctx context.Context, userID string) (*domai
 		&user.PasswordHash,
 		&user.FirstName,
 		&user.LastName,
-		&user.IsVerified,
+		&user.IsEmailVerified,
+		&user.IsPhoneVerified,
+		&user.SignupStage,
 		&user.AccountStatus,
+		&user.AccountType,
+		&user.AccountRestored,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, ErrUserNotFound // No user found
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, xerrors.ErrUserNotFound
 		}
 		return nil, err
 	}

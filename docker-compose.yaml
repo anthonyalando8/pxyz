@@ -26,8 +26,6 @@ services:
       DB_USER: postgres
       DB_PASSWORD: 2000
       DB_NAME: pxyz
-      JWT_PRIVATE_KEY_PATH: /app/secrets/jwt_private.pem
-      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
       REDIS_ADDR: redis:6379
     networks:
       - micro_net
@@ -43,6 +41,8 @@ services:
       - "50050:50050"
     env_file:
       - ./services/session-mngt/.env
+    volumes:
+      - ./services/session-mngt/secrets:/app/secrets:ro
     environment:
       DB_HOST: host.docker.internal
       DB_PORT: 5432
@@ -50,6 +50,8 @@ services:
       DB_PASSWORD: 2000
       DB_NAME: pxyz
       REDIS_ADDR: redis:6379
+      JWT_PRIVATE_KEY_PATH: /app/secrets/jwt_private.pem
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
     networks:
       - micro_net
     depends_on:

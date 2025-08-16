@@ -9,6 +9,7 @@ import (
 	"session-service/internal/repository"
 	"session-service/internal/handler"
 	"session-service/internal/usecase"
+	"session-service/pkg/jwtutil"
 	pb "x/shared/genproto/sessionpb"
 	"x/shared/utils/id"
 	"syscall"
@@ -30,10 +31,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to init snowflake: %v", err)
 	}
+	
+	jwtGen := jwtutil.LoadAndBuild(cfg.JWT)
 
 	// Initialize session repository and gRPC handler
 	sessionRepo := repository.NewSessionRepository(db)
-	sessionUC := usecase.NewSessionUsecase(sessionRepo, sf)
+	sessionUC := usecase.NewSessionUsecase(sessionRepo, sf, jwtGen)
 	authHandler := handler.NewAuthHandler(sessionUC)
 
 	// Create a gRPC server

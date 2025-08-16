@@ -2,11 +2,12 @@ package repository
 
 import (
 	"context"
+	"database/sql"
+	"time"
 
 	"session-service/internal/domain"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-
 )
 
 type SessionRepository struct {
@@ -17,57 +18,109 @@ func NewSessionRepository(db *pgxpool.Pool) *SessionRepository {
 	return &SessionRepository{db: db}
 }
 
-func (r *SessionRepository) CreateOrUpdateSession(ctx context.Context, session *domain.Session) error {
+func (r *SessionRepository) CreateOrUpdateSession(ctx context.Context, session *domain.Session, tempTTL time.Duration) error {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(ctx)
 
-	// Count active sessions for the user
-	var count int
-	err = tx.QueryRow(ctx, `
-		SELECT COUNT(*) 
-		FROM sessions 
-		WHERE user_id = $1 AND is_active = TRUE
-	`, session.UserID).Scan(&count)
-	if err != nil {
-		return err
-	}
-
-	// If already at limit (3), remove the oldest session
-	if count >= 3 {
+	if session.IsTemp {
+		// Remove expired temp sessions first
 		_, err = tx.Exec(ctx, `
-			DELETE FROM sessions 
-			WHERE id = (
-				SELECT id FROM sessions 
-				WHERE user_id = $1 AND is_active = TRUE 
-				ORDER BY last_seen_at ASC 
-				LIMIT 1
-			)
+			DELETE FROM sessions
+			WHERE user_id = $1 AND is_temp = TRUE AND expires_at <= NOW()
 		`, session.UserID)
 		if err != nil {
 			return err
 		}
+
+		// Enforce temp session limit
+		var tempCount int
+		err = tx.QueryRow(ctx, `
+			SELECT COUNT(*)
+			FROM sessions
+			WHERE user_id = $1 AND is_active = TRUE AND is_temp = TRUE
+		`, session.UserID).Scan(&tempCount)
+		if err != nil {
+			return err
+		}
+
+		if tempCount >= 5 { // configurable
+			_, err = tx.Exec(ctx, `
+				DELETE FROM sessions
+				WHERE id = (
+					SELECT id FROM sessions
+					WHERE user_id = $1 AND is_active = TRUE AND is_temp = TRUE
+					ORDER BY last_seen_at ASC
+					LIMIT 1
+				)
+			`, session.UserID)
+			if err != nil {
+				return err
+			}
+		}
+
+		// Set expiry
+		session.ExpiresAt = sql.NullTime{
+			Time:  time.Now().Add(tempTTL),
+			Valid: true,
+		}
+
+	} else {
+		// Remove inactive main sessions if over limit
+		var mainCount int
+		err = tx.QueryRow(ctx, `
+			SELECT COUNT(*)
+			FROM sessions
+			WHERE user_id = $1 AND is_active = TRUE AND is_temp = FALSE
+		`, session.UserID).Scan(&mainCount)
+		if err != nil {
+			return err
+		}
+
+		if mainCount >= 3 {
+			_, err = tx.Exec(ctx, `
+				DELETE FROM sessions
+				WHERE id = (
+					SELECT id FROM sessions
+					WHERE user_id = $1 AND is_active = TRUE AND is_temp = FALSE
+					ORDER BY last_seen_at ASC
+					LIMIT 1
+				)
+			`, session.UserID)
+			if err != nil {
+				return err
+			}
+		}
+
+		// No expiry for main sessions
+		session.ExpiresAt = sql.NullTime{Valid: false}
 	}
 
-	// Insert or update session
+	// Insert or update only non-empty fields
 	query := `
 	INSERT INTO sessions (
 		id, user_id, auth_token, device_id, ip_address, user_agent, geo_location,
-		device_metadata, last_seen_at, is_active, created_at
+		device_metadata, last_seen_at, is_active, is_single_use, is_temp, is_used,
+		created_at, expires_at, purpose
 	)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-	ON CONFLICT (user_id, device_id)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+	ON CONFLICT (user_id, device_id, is_temp)
 	DO UPDATE SET
-		auth_token = EXCLUDED.auth_token,
-		ip_address = EXCLUDED.ip_address,
-		user_agent = EXCLUDED.user_agent,
-		geo_location = EXCLUDED.geo_location,
-		device_metadata = EXCLUDED.device_metadata,
-		last_seen_at = EXCLUDED.last_seen_at,
-		is_active = EXCLUDED.is_active,
-		updated_at = NOW();
+		auth_token      = COALESCE(NULLIF(EXCLUDED.auth_token, ''), sessions.auth_token),
+		ip_address      = COALESCE(NULLIF(EXCLUDED.ip_address, ''), sessions.ip_address),
+		user_agent      = COALESCE(NULLIF(EXCLUDED.user_agent, ''), sessions.user_agent),
+		geo_location    = COALESCE(NULLIF(EXCLUDED.geo_location, ''), sessions.geo_location),
+		device_metadata = COALESCE(EXCLUDED.device_metadata, sessions.device_metadata),
+		last_seen_at    = COALESCE(EXCLUDED.last_seen_at, sessions.last_seen_at),
+		is_active       = COALESCE(EXCLUDED.is_active, sessions.is_active),
+		is_single_use   = COALESCE(EXCLUDED.is_single_use, sessions.is_single_use),
+		is_temp         = COALESCE(EXCLUDED.is_temp, sessions.is_temp),
+		is_used         = COALESCE(EXCLUDED.is_used, sessions.is_used),
+		expires_at      = COALESCE(EXCLUDED.expires_at, sessions.expires_at),
+		updated_at      = NOW(),
+		purpose         = COALESCE(NULLIF(EXCLUDED.purpose, ''), sessions.purpose);
 	`
 
 	_, err = tx.Exec(ctx, query,
@@ -81,7 +134,12 @@ func (r *SessionRepository) CreateOrUpdateSession(ctx context.Context, session *
 		session.DeviceMeta,
 		session.LastSeenAt,
 		session.IsActive,
+		session.IsSingleUse,
+		session.IsTemp,
+		session.IsUsed,
 		session.CreatedAt,
+		session.ExpiresAt,
+		session.Purpose,
 	)
 	if err != nil {
 		return err
@@ -93,24 +151,31 @@ func (r *SessionRepository) CreateOrUpdateSession(ctx context.Context, session *
 
 
 
+
 func (r *SessionRepository) GetSessionByToken(ctx context.Context, token string) (*domain.Session, error) {
 	var session domain.Session
 
 	query := `
 		SELECT 
-			id, 
-			user_id, 
-			auth_token, 
-			device_id, 
-			ip_address::text, 
-			geo_location, 
-			device_metadata, 
-			user_agent, 
-			last_seen_at, 
-			is_active, 
-			created_at
+			id,
+			user_id,
+			auth_token,
+			device_id,
+			ip_address,
+			user_agent,
+			geo_location,
+			device_metadata,
+			is_active,
+			is_single_use,
+			is_temp,
+			is_used,
+			purpose,
+			last_seen_at,
+			created_at,
+			expires_at
 		FROM sessions
 		WHERE auth_token = $1
+		LIMIT 1
 	`
 
 	err := r.db.QueryRow(ctx, query, token).Scan(
@@ -119,19 +184,26 @@ func (r *SessionRepository) GetSessionByToken(ctx context.Context, token string)
 		&session.AuthToken,
 		&session.DeviceID,
 		&session.IPAddress,
+		&session.UserAgent,
 		&session.GeoLocation,
 		&session.DeviceMeta,
-		&session.UserAgent,
-		&session.LastSeenAt,
 		&session.IsActive,
+		&session.IsSingleUse,
+		&session.IsTemp,
+		&session.IsUsed,
+		&session.Purpose,
+		&session.LastSeenAt,
 		&session.CreatedAt,
+		&session.ExpiresAt,
 	)
+
 	if err != nil {
 		return nil, err
 	}
 
 	return &session, nil
 }
+
 
 
 func (r *SessionRepository) GetUserDetailsByToken(ctx context.Context, token string) (*domain.User, error) {
@@ -150,7 +222,7 @@ func (r *SessionRepository) GetUserDetailsByToken(ctx context.Context, token str
 	return &user, nil
 }
 
-func (r *SessionRepository) GetSessionsByUserID(ctx context.Context, userID string) ([]*domain.Session, error) {
+func (r *SessionRepository) GetSessionsByUserID(ctx context.Context, userID string, includeTemp bool) ([]*domain.Session, error) {
 	query := `
 		SELECT 
 			id,
@@ -163,10 +235,16 @@ func (r *SessionRepository) GetSessionsByUserID(ctx context.Context, userID stri
 			user_agent,
 			last_seen_at,
 			is_active,
-			created_at
+			is_temp,
+			created_at,
+			purpose
 		FROM sessions
 		WHERE user_id = $1
 	`
+
+	if !includeTemp {
+		query += " AND is_temp = FALSE"
+	}
 
 	rows, err := r.db.Query(ctx, query, userID)
 	if err != nil {
@@ -188,7 +266,9 @@ func (r *SessionRepository) GetSessionsByUserID(ctx context.Context, userID stri
 			&s.UserAgent,
 			&s.LastSeenAt,
 			&s.IsActive,
+			&s.IsTemp,
 			&s.CreatedAt,
+			&s.Purpose,
 		); err != nil {
 			return nil, err
 		}
@@ -197,6 +277,7 @@ func (r *SessionRepository) GetSessionsByUserID(ctx context.Context, userID stri
 
 	return sessions, nil
 }
+
 
 
 
@@ -212,5 +293,14 @@ func (r *SessionRepository) DeleteAllByUser(ctx context.Context, userId string) 
 
 func (r *SessionRepository) DeleteByID(ctx context.Context, sessionID string) error {
 	_, err := r.db.Exec(ctx, `DELETE FROM sessions WHERE id = $1`, sessionID)
+	return err
+}
+
+func (r *SessionRepository) UpdateSessionUsed(ctx context.Context, sessionID string, used bool) error {
+	_, err := r.db.Exec(ctx, `
+		UPDATE sessions
+		SET is_used = $1
+		WHERE id = $2
+	`, used, sessionID)
 	return err
 }

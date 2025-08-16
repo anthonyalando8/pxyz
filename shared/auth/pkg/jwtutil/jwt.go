@@ -7,8 +7,10 @@ import (
 )
 
 type Claims struct {
-	UserID string `json:"uid"`
-	Device string `json:"device,omitempty"`
+	UserID    string            `json:"uid"`
+	Device    string            `json:"device,omitempty"`
+	IsTemp    bool              `json:"is_temp"`
+	ExtraData map[string]string `json:"data,omitempty"`
 	jwt.RegisteredClaims
 }
 
