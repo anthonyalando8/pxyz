@@ -31,6 +31,9 @@ func SetupRoutes(r chi.Router, h *handler.AuthHandler, auth *middleware.Middlewa
 		pr.Post("/auth/register/otp/verify", h.HandleVerifyOTP)
 		pr.Post("/auth/password/set", h.HandleSetPassword)            // first-time set during signup
 		pr.Post("/auth/password/reset", h.HandleResetPassword)        // reset after forgot-password flow
+
+		pr.Patch("/auth/email", h.HandleChangeEmail) //INITIATED VIA 2FA
+
 	})
 
 	// ---- Authenticated user routes ----
@@ -41,7 +44,7 @@ func SetupRoutes(r chi.Router, h *handler.AuthHandler, auth *middleware.Middlewa
 		pr.Get("/auth/ws", wsHandler.HandleWS)
 
 		// Profile management
-		pr.Patch("/auth/email", h.HandleChangeEmail)
+		pr.Get("/auth/email/request-update", h.HandleChangeEmail) //INITIATED VIA 2FA
 		pr.Patch("/auth/name", h.HandleUpdateName)
 
 		// Password flows
