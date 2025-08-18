@@ -33,6 +33,11 @@ type LoginRequest struct {
 type ChangeEmailRequest struct {
 	UserID   string `json:"user_id"`
 	NewEmail string `json:"new_email"`
+	OTP string `json:"otp_code"`
+}
+
+type RequestEmailChange struct {
+	TOTP string `json:"totp_code"`
 }
 
 type ChangePasswordRequest struct {

@@ -101,6 +101,26 @@ services:
       - email-service
     networks:
       - micro_net
+  account-service:
+    container_name: account-service
+    build:
+      context: .
+      dockerfile: services/account-service/Dockerfile
+    ports:
+      - "50056:50056"
+    env_file:
+      - ./services/account-service/.env
+    environment:
+      DB_CONN: postgres://postgres:2000@host.docker.internal:5432/pxyz
+      REDIS_ADDR: redis:6379
+      EMAIL_SVC_ADDR: email-service:50054
+      GRPC_ADDR: 50056
+      REDIS_PASS:
+    depends_on:
+      - redis
+      - email-service
+    networks:
+      - micro_net
 networks:
   micro_net:
     driver: bridge

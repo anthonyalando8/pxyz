@@ -14,6 +14,7 @@ import (
 	"x/shared/auth/middleware"
 	"x/shared/utils/id"
 	"x/shared/auth/otp"
+	"x/shared/account"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/redis/go-redis/v9"
@@ -41,7 +42,8 @@ func NewServer(cfg config.AppConfig) *http.Server {
 
 	auth := middleware.RequireAuth()
 	otpSvc := otpclient.NewOTPService()
-	authHandler := handler.NewAuthHandler(userUC, auth, otpSvc)
+	accountClient := accountclient.NewAccountClient()
+	authHandler := handler.NewAuthHandler(userUC, auth, otpSvc, accountClient,)
 
 	ws_server := ws.NewServer()
 	ws_server.Start()

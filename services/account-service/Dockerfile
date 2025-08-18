@@ -1,13 +1,13 @@
 FROM golang:1.24 AS builder
 WORKDIR /app
-COPY services/otp-service/go.mod services/otp-service/go.sum ./
+COPY services/account-service/go.mod services/account-service/go.sum ./
 COPY shared /shared
 RUN go mod download
-COPY services/otp-service/ .
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o otp-service ./cmd/otp.main.go
+COPY services/account-service/ .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o account-service ./cmd/acc.main.go
 
 FROM gcr.io/distroless/static:nonroot
-COPY --from=builder /app/otp-service /otp-service
+COPY --from=builder /app/account-service /account-service
 USER nonroot:nonroot
-EXPOSE 50055
-ENTRYPOINT ["/otp-service"]
+EXPOSE 50056
+ENTRYPOINT ["/account-service"]

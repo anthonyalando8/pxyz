@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"x/shared/auth/middleware"
 	"x/shared/response"
+	"x/shared/genproto/accountpb"
 )
 
 // Change password (requires old + new)
@@ -111,11 +112,19 @@ func (h *AuthHandler) HandleChangeEmail(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	if req.OTP == ""{
+		response.Error(w, http.StatusBadRequest, "OTP Code required")
+		return
+	}
+
 	if valid := utils.ValidateEmail(req.NewEmail); !valid {
 		response.Error(w, http.StatusBadRequest, "Invalid email format")
 		return
 	}
 
+	if !h.VerifyOtpHelper(w,r.Context(), requestedUserID, req.OTP, "email_change"){
+		return
+	}
 
 	err := h.uc.ChangeEmail(r.Context(), req.UserID, req.NewEmail)
 	if err != nil {
@@ -153,4 +162,62 @@ func (h *AuthHandler) HandleUpdateName(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response.JSON(w, http.StatusOK, map[string]string{"message": "Name updated successfully"})
+}
+
+
+func (h *AuthHandler) HandleRequestEmailChange(w http.ResponseWriter, r *http.Request) {
+	requestedUserID, ok := r.Context().Value(middleware.ContextUserID).(string)
+	deviceID, ok2 := r.Context().Value(middleware.ContextDeviceID).(string)
+	if (!ok || requestedUserID == "") || (!ok2 || deviceID == "") {
+		response.Error(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+	// verify 2fa enabled
+	_2faRes, err := h.accountClient.Client.GetTwoFAStatus(r.Context(), &accountpb.GetTwoFAStatusRequest{
+		UserId: requestedUserID,
+	})
+	if err != nil{
+		response.Error(w, http.StatusInternalServerError, "Failed to check 2fa status")
+		return
+	}
+	if !_2faRes.IsEnabled{
+		response.Error(w, http.StatusUnauthorized, "2FA should be enabled to proceed")
+		return
+	}
+	var req RequestEmailChange
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "Invalid JSON payload")
+		return
+	}
+	resp, err := h.accountClient.Client.VerifyTwoFA(r.Context(), &accountpb.VerifyTwoFARequest{
+		UserId:     requestedUserID,
+		Code:       req.TOTP,
+		Method:     "totp",
+	})
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if !resp.Success {
+		response.Error(w, http.StatusUnauthorized, "Verification failed. Invalid code.")
+		return
+	}
+
+	session, sessErr := h.createSessionHelper(
+		r.Context(),
+		requestedUserID, true, false, "email_change",
+		nil, &deviceID, nil, nil, r,
+	)
+	if sessErr != nil{
+		response.Error(w, http.StatusInternalServerError, "Failed to process request")
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"message":     "Request processed succesfully",
+		"next":        "send_new_email_with_otp",
+		"otp_purpose": "email_change",
+		"token":       session.AuthToken,
+		"device":      session.DeviceID,
+	})
 }
