@@ -31,10 +31,87 @@ func getString(v *string) string {
 }
 
 func (r *UserRepository) UpdateEmail(ctx context.Context, userID, newEmail string) error {
-	query := `UPDATE users SET email=$1, updated_at=NOW() WHERE id=$2`
+	query := `
+		UPDATE users
+		SET 
+			changed_emails = COALESCE(changed_emails, '[]'::jsonb) || 
+				jsonb_build_array(
+					jsonb_build_object(
+						'email', email,
+						'date_added', NOW()
+					)
+				),
+			email = $1,
+			updated_at = NOW()
+		WHERE id = $2
+	`
 	_, err := r.db.Exec(ctx, query, newEmail, userID)
 	return err
 }
+
+func (r *UserRepository) SetPendingEmail(ctx context.Context, userID, newEmail string) error {
+	query := `
+		UPDATE users
+		SET 
+			pending_email = $1,
+			pending_email_expires_at = NOW() + interval '15 minutes',
+			updated_at = NOW()
+		WHERE id = $2
+	`
+	_, err := r.db.Exec(ctx, query, newEmail, userID)
+	return err
+}
+
+
+func (r *UserRepository) GetAndClearPendingEmail(ctx context.Context, userID string) (string, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback(ctx)
+
+	const selectQ = `
+		SELECT pending_email
+		FROM users
+		WHERE id = $1 AND account_status != 'deleted'
+		LIMIT 1
+	`
+	var pendingEmail *string
+	err = tx.QueryRow(ctx, selectQ, userID).Scan(&pendingEmail)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", xerrors.ErrUserNotFound
+		}
+		return "", err
+	}
+
+	// If no pending email, just commit and return empty
+	if pendingEmail == nil {
+		if err := tx.Commit(ctx); err != nil {
+			return "", err
+		}
+		return "", nil
+	}
+
+	// Clear pending email after retrieval
+	const clearQ = `
+		UPDATE users
+		SET pending_email = NULL,
+		    pending_email_expires_at = NULL,
+		    updated_at = NOW()
+		WHERE id = $1
+	`
+	if _, err := tx.Exec(ctx, clearQ, userID); err != nil {
+		return "", err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return "", err
+	}
+
+	return *pendingEmail, nil
+}
+
 
 func (r *UserRepository) UpdatePassword(ctx context.Context, userID, hash string) error {
 	query := `UPDATE users SET password_hash=$1, updated_at=NOW()

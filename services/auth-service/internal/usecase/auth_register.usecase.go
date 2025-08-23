@@ -23,9 +23,9 @@ func NewUserUsecase(userRepo *repository.UserRepository, sf *id.Snowflake) *User
 	}
 }
 
-func (uc *UserUsecase) RegisterUser(ctx context.Context, email, phone, password, first_name, last_name string) (*domain.User, error) {
-	if email == "" && phone == "" {
-		return nil, errors.New("email or phone required")
+func (uc *UserUsecase) RegisterUser(ctx context.Context, email, password, first_name, last_name string) (*domain.User, error) {
+	if email == ""{
+		return nil, errors.New("email required")
 	}
 	if password == "" {
 		return nil, errors.New("password required")
@@ -36,9 +36,8 @@ func (uc *UserUsecase) RegisterUser(ctx context.Context, email, phone, password,
 	}
 
 	newUser := &domain.User{
-		ID:        uc.Sf.Generate(), // TODO: Update to snowlflakes formart
+		ID:        uc.Sf.Generate(),
 		Email:      toPtr(email),
-		Phone:      toPtr(phone),
 		PasswordHash:   toPtr(hashedPassword),
 		LastName:   toPtr(last_name),
 		FirstName:  toPtr(first_name),
@@ -49,11 +48,10 @@ func (uc *UserUsecase) RegisterUser(ctx context.Context, email, phone, password,
 	return uc.userRepo.CreateUser(ctx, newUser)
 }
 
-func (uc *UserUsecase) CreatePartialUser(ctx context.Context, email, phone string) (*domain.User, error){
+func (uc *UserUsecase) CreatePartialUser(ctx context.Context, email string) (*domain.User, error){
 	newUser := &domain.User{
 		ID:        uc.Sf.Generate(),
 		Email:      toPtr(email),
-		Phone:      toPtr(phone),
 	}
 
 	// Save to database

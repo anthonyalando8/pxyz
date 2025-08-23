@@ -22,17 +22,13 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if (req.Email == "" && req.Phone == "") || req.Password == ""/* || req.FirstName == "" || req.LastName == "" */{
-		response.Error(w, http.StatusBadRequest, "All fields (email or phone, password) are required")
+	if (req.Email == "") || req.Password == ""/* || req.FirstName == "" || req.LastName == "" */{
+		response.Error(w, http.StatusBadRequest, "All fields (email, password) are required")
 		return
 	}
 
 	if valid := utils.ValidateEmail(req.Email); req.Email != "" && !valid {
 		response.Error(w, http.StatusBadRequest, "invalid email format")
-		return
-	}
-	if req.Phone != "" && !utils.ValidatePhone(req.Phone) {
-		response.Error(w, http.StatusBadRequest, "invalid phone format")
 		return
 	}
 	
@@ -41,7 +37,7 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.uc.RegisterUser(r.Context(), req.Email, req.Phone, req.Password, req.FirstName, req.LastName)
+	user, err := h.uc.RegisterUser(r.Context(), req.Email, req.Password, req.FirstName, req.LastName)
 	if err != nil {
 		response.Error(w, http.StatusBadRequest, err.Error())
 		return
@@ -74,7 +70,7 @@ func (h *AuthHandler) HandleInitSignup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Step 2: create or fetch partial user
-	user, err := h.uc.CreatePartialUser(r.Context(), req.Email, req.Phone)
+	user, err := h.uc.CreatePartialUser(r.Context(), req.Email)
 	if err != nil {
 		h.handlePartialUserError(w, r, err, req, user)
 		return
@@ -88,101 +84,102 @@ func (h *AuthHandler) HandleInitSignup(w http.ResponseWriter, r *http.Request) {
 }
 
 func validateSignupRequest(req RegisterInit) error {
-	if req.Email == "" && req.Phone == "" {
-		return errors.New("email or phone is required")
-	}
 	if req.Email != "" && !utils.ValidateEmail(req.Email) {
 		return errors.New("invalid email format")
 	}
-	if req.Phone != "" && !utils.ValidatePhone(req.Phone) {
-		return errors.New("invalid phone format")
-	}
+	if !req.AcceptTerms{
+		return errors.New("you must accept terms and conditions to register")
+	} 
 	return nil
 }
-
 func (h *AuthHandler) handlePartialUserError(
 	w http.ResponseWriter, r *http.Request,
 	err error, req RegisterInit, user *domain.User,
 ) {
-	// Defensive check for nil user
 	if user == nil {
 		log.Printf("[handlePartialUserError] ❌ Nil user received, err=%v", err)
 		response.Error(w, http.StatusInternalServerError, "Internal server error: user not found")
 		return
 	}
 
-	log.Printf("[handlePartialUserError] Handling partial signup error for userID=%v, err=%v", user.ID, err)
-
-	// Case 1: signup is incomplete
 	if signupErr, ok := err.(*xerrors.SignupError); ok {
-		log.Printf("[handlePartialUserError] Incomplete signup: stage=%s next=%s userID=%v",
-			signupErr.Stage, signupErr.NextStage, user.ID,
-		)
 		channel, target := detectChannel(req)
 
+		var sessionPurpose string
+		extraData := map[string]string{
+			"stage":       signupErr.Stage,
+			"next_stage":  signupErr.NextStage,
+		}
 
-		extraData := map[string]string{"next": "verify_"+channel}
+		if signupErr.NextStage == "verify_otp" {
+			// 🔑 Normal registration
+			sessionPurpose = "register"
+			extraData["next"] = fmt.Sprintf("verify_%s", channel)
+		} else {
+			// 🔑 Other stages (password, profile, etc.)
+			sessionPurpose = "incomplete_profile"
+			extraData["next"] = "incomplete_profile"
+		}
 
 		session, sessErr := h.createSessionHelper(
 			r.Context(),
-			user.ID, true, false, "register",
-			extraData, req.DeviceID, req.DeviceMetadata, req.GeoLocation, r,
+			user.ID,
+			true, // temp session if incomplete profile
+			false, // isRefresh
+			sessionPurpose,
+			extraData,
+			req.DeviceID, req.DeviceMetadata, req.GeoLocation, r,
 		)
 		if sessErr != nil {
-			log.Printf("[handlePartialUserError] ❌ Session creation failed for userID=%v, err=%v", user.ID, sessErr)
+			log.Printf("[handlePartialUserError] ❌ Session creation failed userID=%v, err=%v", user.ID, sessErr)
 			response.Error(w, http.StatusInternalServerError, "Session creation failed: "+sessErr.Error())
 			return
 		}
 
-		resp := map[string]interface{}{
-			"error":      "incomplete_profile",
-			"stage":      signupErr.Stage,
-			"next_stage": signupErr.NextStage,
-			"token":      session.AuthToken,
-			"device":     session.DeviceID,
+		// Always send OTP
+		otpResp, otpErr := h.otp.Client.GenerateOTP(
+			r.Context(),
+			&otppb.GenerateOTPRequest{
+				UserId:    user.ID,
+				Channel:   channel,
+				Purpose:   sessionPurpose,
+				Recipient: target,
+			},
+		)
+		if otpErr != nil || otpResp == nil || !otpResp.Ok {
+			log.Printf("[handlePartialUserError] ❌ OTP generation failed userID=%v, otpErr=%v, serviceErr=%v",
+				user.ID, otpErr, otpResp.GetError(),
+			)
+			response.Error(w, http.StatusInternalServerError, "OTP generation failed")
+			return
 		}
 
-		// If OTP required → trigger it
-		if signupErr.NextStage == "verify_otp" {
-			log.Printf("[handlePartialUserError] Generating OTP for userID=%v channel=%s target=%s", user.ID, channel, target)
-
-			otpResp, otpErr := h.otp.Client.GenerateOTP(
-				r.Context(),
-				&otppb.GenerateOTPRequest{
-					UserId:    user.ID,
-					Channel:   channel,
-					Purpose:   "register",
-					Recipient: target,
-				},
-			)
-			if otpErr != nil || otpResp == nil || !otpResp.Ok {
-				log.Printf("[handlePartialUserError] ❌ OTP generation failed for userID=%v, otpErr=%v, serviceErr=%v",
-					user.ID, otpErr, otpResp.GetError(),
-				)
-				response.Error(w, http.StatusInternalServerError, "OTP generation failed")
-				return
-			}
-			resp["otp_channel"] = channel
+		// Response → next_stage always "verify_otp"
+		resp := map[string]interface{}{
+			"error":       "incomplete_profile",
+			"stage":       signupErr.Stage,
+			"next_stage":  "verify_otp",
+			"purpose":    sessionPurpose,
+			"token":  session.AuthToken,
+			"device":      session.DeviceID,
+			"otp_channel": channel,
 		}
 
 		response.JSON(w, http.StatusConflict, resp)
 		return
 	}
 
-	// Case 2: already exists
+	// Already exists
 	if errors.Is(err, xerrors.ErrEmailAlreadyInUse) {
-		log.Printf("[handlePartialUserError] Email already in use: %s", req.Email)
 		response.Error(w, http.StatusConflict, "Email already in use")
 		return
 	}
 	if errors.Is(err, xerrors.ErrPhoneAlreadyInUse) {
-		log.Printf("[handlePartialUserError] Phone already in use: %s", req.Phone)
 		response.Error(w, http.StatusConflict, "Phone already in use")
 		return
 	}
 
-	// Case 3: unknown error
-	log.Printf("[handlePartialUserError] ❌ Unexpected error for userID=%v: %v", user.ID, err)
+	// Fallback
 	response.Error(w, http.StatusInternalServerError, "Unexpected error: "+err.Error())
 }
 

@@ -2,13 +2,17 @@ package handler
 
 import (
 	"auth-service/pkg/utils"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"x/shared/auth/middleware"
+	//"x/shared/genproto/accountpb"
+	"x/shared/genproto/emailpb"
 	"x/shared/response"
-	"x/shared/genproto/accountpb"
+	"x/shared/genproto/otppb"
+
 )
 
 // Change password (requires old + new)
@@ -63,7 +67,7 @@ func (h *AuthHandler) HandleSetPassword(w http.ResponseWriter, r *http.Request) 
 		response.Error(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
-	if !ok2 || deviceID == "" || deviceID == "unknown"{
+	if !ok2 || deviceID == "" || deviceID == "unknown" {
 		response.Error(w, http.StatusUnauthorized, "Unauthorized device")
 		return
 	}
@@ -78,6 +82,7 @@ func (h *AuthHandler) HandleSetPassword(w http.ResponseWriter, r *http.Request) 
 		response.Error(w, http.StatusBadRequest, err.Error())
 		return
 	}
+
 	session, sessErr := h.createSessionHelper(
 		r.Context(),
 		userID, false, false, "general",
@@ -89,8 +94,67 @@ func (h *AuthHandler) HandleSetPassword(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.JSON(w, http.StatusOK, map[string]string{"message": "Password set successfully", "token": session.AuthToken})
+	// --- Send Welcome Email in background ---
+	if h.emailClient != nil {
+		uid := userID
+		go func() {
+			subject := "Welcome to Pxyz 🎉"
+
+			body := `
+			<!DOCTYPE html>
+			<html>
+			<head><meta charset="UTF-8"><title>Welcome</title></head>
+			<body style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px;">
+				<div style="max-width: 600px; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0px 2px 5px rgba(0,0,0,0.1);">
+					<h2 style="color: #2E86C1;">Welcome to Pxyz</h2>
+					<p style="font-size: 16px; color: #333;">
+						Hello,<br><br>
+						Your account has been successfully created and your password set. 
+						We’re excited to have you onboard 🚀
+					</p>
+					<p style="font-size: 16px; color: #333;">
+						You can now log in and start exploring the platform. 
+						We’ve built Pxyz with your security and experience in mind.
+					</p>
+					<p style="margin-top: 30px; font-size: 14px; color: #999999;">
+						Thank you,<br>
+						<strong>Pxyz Team</strong>
+					</p>
+				</div>
+			</body>
+			</html>
+			`
+
+			user, err := h.uc.FindUserById(context.Background(), userID)
+			if err != nil {
+				log.Printf("[WARN] failed to fetch user %s for welcome email: %v", uid, err)
+				return
+			}
+			if user == nil || user.Email == nil || *user.Email == "" {
+				log.Printf("[WARN] user %s has no email set, cannot send welcome email", uid)
+				return
+			}
+			// Send email
+
+			_, emailErr := h.emailClient.SendEmail(context.Background(), &emailpb.SendEmailRequest{
+				UserId:         uid,
+				RecipientEmail: *user.Email, // <-- needed to fetch email
+				Subject:        subject,
+				Body:           body,
+				Type:           "welcome",
+			})
+			if emailErr != nil {
+				log.Printf("[WARN] failed to send welcome email to user %s: %v", uid, emailErr)
+			}
+		}()
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{
+		"message": "Password set successfully",
+		"token":   session.AuthToken,
+	})
 }
+
 
 
 func (h *AuthHandler) HandleChangeEmail(w http.ResponseWriter, r *http.Request) {
@@ -105,15 +169,10 @@ func (h *AuthHandler) HandleChangeEmail(w http.ResponseWriter, r *http.Request) 
 		response.Error(w, http.StatusBadRequest, "Invalid JSON payload")
 		return
 	}
-	
+
 	req.UserID = requestedUserID
 	if req.NewEmail == "" {
 		response.Error(w, http.StatusBadRequest, "New email required")
-		return
-	}
-
-	if req.OTP == ""{
-		response.Error(w, http.StatusBadRequest, "OTP Code required")
 		return
 	}
 
@@ -122,18 +181,43 @@ func (h *AuthHandler) HandleChangeEmail(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if !h.VerifyOtpHelper(w,r.Context(), requestedUserID, req.OTP, "email_change"){
+	// Step 1: Save pending email with expiry
+	if err := h.uc.SetPendingEmail(r.Context(), req.UserID, req.NewEmail); err != nil {
+		log.Printf("[HandleChangeEmail]  Failed to set pending email userID=%s, newEmail=%s, err=%v",
+			req.UserID, req.NewEmail, err,
+		)
+		response.Error(w, http.StatusInternalServerError, "Email change processing failed")
 		return
 	}
 
-	err := h.uc.ChangeEmail(r.Context(), req.UserID, req.NewEmail)
-	if err != nil {
-		response.Error(w, http.StatusInternalServerError, fmt.Sprintf("Failed to change email: %v", err))
-		return
-	}
+	// Step 2: Generate OTP asynchronously
+	go func(userID, newEmail string) {
+		otpResp, otpErr := h.otp.Client.GenerateOTP(
+			context.Background(), // decoupled from request context
+			&otppb.GenerateOTPRequest{
+				UserId:    userID,
+				Channel:   "email",
+				Purpose:   "email_change",
+				Recipient: newEmail,
+			},
+		)
+		if otpErr != nil || otpResp == nil || !otpResp.Ok {
+			log.Printf("[HandleChangeEmail][OTP]  Failed to generate/send OTP userID=%s, email=%s, otpErr=%v, serviceErr=%v",
+				userID, newEmail, otpErr, otpResp.GetError(),
+			)
+			return
+		}
+		log.Printf("[HandleChangeEmail][OTP] OTP generated and sent successfully userID=%s, email=%s", userID, newEmail)
+	}(req.UserID, req.NewEmail)
 
-	response.JSON(w, http.StatusOK, map[string]string{"message": "Email updated successfully"})
+	// Step 3: Respond immediately
+	response.JSON(w, http.StatusOK, map[string]string{
+		"message":     "OTP sent to new email. Verify to confirm change.",
+		"next_stage":  "verify_otp",
+		"otp_purpose": "email_change",
+	})
 }
+
 
 
 func (h *AuthHandler) HandleUpdateName(w http.ResponseWriter, r *http.Request) {
@@ -172,52 +256,76 @@ func (h *AuthHandler) HandleRequestEmailChange(w http.ResponseWriter, r *http.Re
 		response.Error(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
-	// verify 2fa enabled
-	_2faRes, err := h.accountClient.Client.GetTwoFAStatus(r.Context(), &accountpb.GetTwoFAStatusRequest{
-		UserId: requestedUserID,
-	})
-	if err != nil{
-		response.Error(w, http.StatusInternalServerError, "Failed to check 2fa status")
-		return
-	}
-	if !_2faRes.IsEnabled{
-		response.Error(w, http.StatusUnauthorized, "2FA should be enabled to proceed")
-		return
-	}
-	var req RequestEmailChange
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "Invalid JSON payload")
-		return
-	}
-	resp, err := h.accountClient.Client.VerifyTwoFA(r.Context(), &accountpb.VerifyTwoFARequest{
-		UserId:     requestedUserID,
-		Code:       req.TOTP,
-		Method:     "totp",
-	})
+
+	user, err := h.uc.FindUserById(context.Background(), requestedUserID)
 	if err != nil {
-		response.Error(w, http.StatusInternalServerError, err.Error())
+		log.Printf("[WARN] failed to fetch user %s for email change request: %v", requestedUserID, err)
+		response.Error(w, http.StatusInternalServerError, "User lookup failed")
 		return
 	}
-	if !resp.Success {
-		response.Error(w, http.StatusUnauthorized, "Verification failed. Invalid code.")
-		return
-	}
-
-	session, sessErr := h.createSessionHelper(
-		r.Context(),
-		requestedUserID, true, false, "email_change",
-		nil, &deviceID, nil, nil, r,
-	)
-	if sessErr != nil{
-		response.Error(w, http.StatusInternalServerError, "Failed to process request")
+	if user == nil || user.Email == nil || *user.Email == "" {
+		log.Printf("[WARN] user %s has no email set, cannot send OTP", requestedUserID)
+		response.Error(w, http.StatusBadRequest, "User email not set")
 		return
 	}
 
+	// Respond first
 	response.JSON(w, http.StatusOK, map[string]interface{}{
-		"message":     "Request processed succesfully",
-		"next":        "send_new_email_with_otp",
-		"otp_purpose": "email_change",
-		"token":       session.AuthToken,
-		"device":      session.DeviceID,
+		"message":      "Request processed successfully. Verify OTP sent to old email to confirm action.",
+		"next_stage":   "verify_otp",
+		"otp_purpose":  "request_email_change",
 	})
+
+	// Send OTP in background
+	go func() {
+		otpResp, otpErr := h.otp.Client.GenerateOTP(
+			context.Background(),
+			&otppb.GenerateOTPRequest{
+				UserId:    requestedUserID,
+				Channel:   "email",
+				Purpose:   "request_email_change",
+				Recipient: *user.Email,
+			},
+		)
+		if otpErr != nil || otpResp == nil || !otpResp.Ok {
+			log.Printf("[HandleRequestEmailChange] ❌ OTP generation failed userID=%v, otpErr=%v, serviceErr=%v",
+				user.ID, otpErr, otpResp.GetError(),
+			)
+			return
+		}
+		log.Printf("[HandleRequestEmailChange] OTP sent successfully to %s for userID=%v", *user.Email, user.ID)
+	}()
 }
+
+
+
+// verify 2fa enabled
+	// _2faRes, err := h.accountClient.Client.GetTwoFAStatus(r.Context(), &accountpb.GetTwoFAStatusRequest{
+	// 	UserId: requestedUserID,
+	// })
+	// if err != nil{
+	// 	response.Error(w, http.StatusInternalServerError, "Failed to check 2fa status")
+	// 	return
+	// }
+	// if !_2faRes.IsEnabled{
+	// 	response.Error(w, http.StatusUnauthorized, "2FA should be enabled to proceed")
+	// 	return
+	// }
+	// var req RequestEmailChange
+	// if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	// 	response.Error(w, http.StatusBadRequest, "Invalid JSON payload")
+	// 	return
+	// }
+	// resp, err := h.accountClient.Client.VerifyTwoFA(r.Context(), &accountpb.VerifyTwoFARequest{
+	// 	UserId:     requestedUserID,
+	// 	Code:       req.TOTP,
+	// 	Method:     "totp",
+	// })
+	// if err != nil {
+	// 	response.Error(w, http.StatusInternalServerError, err.Error())
+	// 	return
+	// }
+	// if !resp.Success {
+	// 	response.Error(w, http.StatusUnauthorized, "Verification failed. Invalid code.")
+	// 	return
+	// }

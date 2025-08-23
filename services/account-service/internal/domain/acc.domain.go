@@ -6,7 +6,7 @@ import (
 
 // UserProfile represents extended account info (separate from auth identity).
 type UserProfile struct {
-	UserID         int64                  `json:"user_id"`
+	UserID         string                  `json:"user_id"`
 	DateOfBirth    *time.Time             `json:"date_of_birth,omitempty"`
 	ProfileImageURL string                `json:"profile_image_url,omitempty"`
 	FirstName      string                 `json:"first_name,omitempty"`
@@ -18,4 +18,6 @@ type UserProfile struct {
 	Bio            string                 `json:"bio,omitempty"`
 	CreatedAt      time.Time              `json:"created_at"`
 	UpdatedAt      time.Time              `json:"updated_at"`
+
+	FirstTime bool `json:"first_time,omitempty"` // transient flag, not stored
 }

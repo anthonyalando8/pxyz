@@ -18,7 +18,7 @@ func SetupRoutes(
 ) chi.Router {
 	// ---- Global Middleware ----
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"http://127.0.0.1:5500", "http://localhost:5500"},
+		AllowedOrigins:   []string{"http://127.0.0.1:5500", "http://localhost:5500", "https://0e0aae30ab34.ngrok-free.app"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "PATCH"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
 		ExposedHeaders:   []string{"Link"},
@@ -45,7 +45,7 @@ func SetupRoutes(
 
 	r.Group(func(pr chi.Router) {
 		// OTP request/verify (register/email change flows)
-		pr.Use(auth.Require([]string{"main", "temp"}, []string{"register", "email_change"}))
+		pr.Use(auth.Require([]string{"main", "temp"}, []string{"register", "email_change", "incomplete_profile","general"}))
 		pr.Post("/auth/register/otp/request", h.HandleRequestOTP)
 		pr.Post("/auth/register/otp/verify", h.HandleVerifyOTP)
 	})
@@ -77,7 +77,7 @@ func SetupRoutes(
 		// Profile
 		pr.Get("/auth/profile", h.HandleProfile)
 		pr.Patch("/auth/name", h.HandleUpdateName)
-		pr.Post("/auth/email/request-change", h.HandleRequestEmailChange) // via 2FA
+		pr.Get("/auth/email/request-change", h.HandleRequestEmailChange) // via 2FA
 
 		// Password management
 		pr.Patch("/auth/password", h.HandleChangePassword) // change existing password

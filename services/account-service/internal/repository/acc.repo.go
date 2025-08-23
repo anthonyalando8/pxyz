@@ -50,7 +50,7 @@ func (r *UserProfileRepository) Create(ctx context.Context, profile *domain.User
 }
 
 // GetByUserID fetches a profile by user_id
-func (r *UserProfileRepository) GetByUserID(ctx context.Context, userID int64) (*domain.UserProfile, error) {
+func (r *UserProfileRepository) GetByUserID(ctx context.Context, userID string) (*domain.UserProfile, error) {
 	const q = `
 		SELECT user_id, date_of_birth, profile_image_url, first_name, last_name,
 		       surname, sys_username, address, gender, bio, created_at, updated_at
@@ -124,7 +124,7 @@ func (r *UserProfileRepository) Update(ctx context.Context, profile *domain.User
 }
 
 // Delete removes a profile by user_id
-func (r *UserProfileRepository) Delete(ctx context.Context, userID int64) error {
+func (r *UserProfileRepository) Delete(ctx context.Context, userID string) error {
 	const q = `DELETE FROM user_profiles WHERE user_id = $1`
 	_, err := r.db.Exec(ctx, q, userID)
 	return err

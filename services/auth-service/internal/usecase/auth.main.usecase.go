@@ -57,3 +57,13 @@ func (uc *UserUsecase) UpdateName(ctx context.Context, userID, firstName, lastNa
 func (uc *UserUsecase) FindUserById(ctx context.Context, userId string) (*domain.User, error){
 	return uc.userRepo.GetUserByID(ctx, userId)
 }
+
+func (uc *UserUsecase) SetPendingEmail(ctx context.Context, userID, newEmail string) error {
+	// Set pending email in repository
+	return uc.userRepo.SetPendingEmail(ctx, userID, newEmail)
+}
+
+func (uc *UserUsecase) GetPendingEmail(ctx context.Context, userID string) (string, error) {
+	// Get pending email from repository
+	return uc.userRepo.GetAndClearPendingEmail(ctx, userID)
+}

@@ -3,11 +3,14 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
 	"strings"
 	"x/shared/auth/middleware"
+	"x/shared/genproto/emailpb"
 	"x/shared/genproto/otppb"
 	"x/shared/response"
 )
@@ -148,6 +151,7 @@ func (h *AuthHandler) HandleRequestOTP(w http.ResponseWriter, r *http.Request) {
 
 
 func (h *AuthHandler) HandleVerifyOTP(w http.ResponseWriter, r *http.Request) {
+	// ---------- Step 1: Decode request ----------
 	var req struct {
 		OtpCode string `json:"otp_code"`
 		Purpose string `json:"purpose"`
@@ -156,51 +160,265 @@ func (h *AuthHandler) HandleVerifyOTP(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
-
 	if req.OtpCode == "" {
 		response.Error(w, http.StatusBadRequest, "OTP code is required")
 		return
 	}
-
-	// Get userId from context (set by middleware)
+	if req.Purpose == "" {
+		response.Error(w, http.StatusBadRequest, "Purpose is required")
+		return
+	}
+	// ---------- Step 2: Extract user context ----------
 	userId, ok := r.Context().Value(middleware.ContextUserID).(string)
 	if !ok || userId == "" {
 		response.Error(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
+	deviceID, _ := r.Context().Value(middleware.ContextDeviceID).(string)
 
+	// ---------- Step 3: Validate OTP ----------
 	if !h.VerifyOtpHelper(w, r.Context(), userId, req.OtpCode, req.Purpose) {
 		return
 	}
 
-	// Handle post-verification actions ONLY if extra data exists
-	action := ""
-	if extra, ok := r.Context().Value(middleware.ContextExtraData).(map[string]string); ok && extra != nil {
-		if val, ok := extra["next"]; ok && val != "" {
-			action = val
-			switch action {
-			case "verify_email":
-				if ok, err := h.uc.VerifyEmail(r.Context(), userId); err != nil || !ok {
-					response.Error(w, http.StatusInternalServerError, "Email verification failed")
-					return
-				}
-			case "verify_phone":
-				if ok, err := h.uc.VerifyPhone(r.Context(), userId); err != nil || !ok {
-					response.Error(w, http.StatusInternalServerError, "Phone verification failed")
-					return
-				}
-			default:
-				log.Printf("Unknown action: %s", action)
-			}
+	// ---------- Step 4: Base response ----------
+	resp := map[string]interface{}{
+		"message": "OTP verified successfully",
+	}
+
+	// ---------- Step 5: Handle extra data ----------
+	extra, _ := r.Context().Value(middleware.ContextExtraData).(map[string]string)
+
+	// Decide what to use as "next"
+	var next string
+	if extra != nil {
+		next = extra["next"]
+	}
+	if next == "" {
+		next = req.Purpose // fallback to purpose
+	}
+
+	if next != "" {
+		if err := h.handleNextAction(r, w, userId, deviceID, next, extra, resp); err != nil {
+			// errors already written inside helper
+			return
 		}
 	}
 
-	// Respond
-	response.JSON(w, http.StatusOK, map[string]string{
-		"message": "OTP verified successfully",
-		"action":  action, // empty if none
-	})
+	// ---------- Step 6: Send response ----------
+	response.JSON(w, http.StatusOK, resp)
 }
+
+// handleNextAction processes extra["next"] values and mutates resp accordingly.
+func (h *AuthHandler) handleNextAction(
+	r *http.Request,
+	w http.ResponseWriter,
+	userId string,
+	deviceID string,
+	next string,
+	extra map[string]string,
+	resp map[string]interface{},
+) error {
+	ctx := r.Context()
+
+	log.Printf("[handleNextAction] ▶️ userId=%s deviceID=%s next=%s extra=%v", userId, deviceID, next, extra)
+
+	switch next {
+	case "verify_email":
+		log.Printf("[handleNextAction] 📧 Verifying email for user=%s", userId)
+		if ok, err := h.uc.VerifyEmail(ctx, userId); err != nil || !ok {
+			log.Printf("[handleNextAction] ❌ Email verification failed for user=%s err=%v ok=%v", userId, err, ok)
+			response.Error(w, http.StatusInternalServerError, "Email verification failed")
+			return err
+		}
+		log.Printf("[handleNextAction] ✅ Email verified for user=%s", userId)
+		resp["action"] = "verify_email"
+
+	case "verify_phone":
+		log.Printf("[handleNextAction] 📱 Verifying phone for user=%s", userId)
+		if ok, err := h.uc.VerifyPhone(ctx, userId); err != nil || !ok {
+			log.Printf("[handleNextAction] ❌ Phone verification failed for user=%s err=%v ok=%v", userId, err, ok)
+			response.Error(w, http.StatusInternalServerError, "Phone verification failed")
+			return err
+		}
+		log.Printf("[handleNextAction] ✅ Phone verified for user=%s", userId)
+		resp["action"] = "verify_phone"
+
+	case "incomplete_profile":
+		log.Printf("[handleNextAction] 📝 Incomplete profile flow for user=%s", userId)
+		if ok, err := h.uc.VerifyEmail(ctx, userId); err != nil || !ok {
+			log.Printf("[handleNextAction] ❌ Email re-check failed in incomplete_profile for user=%s err=%v ok=%v", userId, err, ok)
+			response.Error(w, http.StatusInternalServerError, "Email verification failed")
+			return err
+		}
+
+		session, sessErr := h.createSessionHelper(
+			ctx,
+			userId,
+			true, // not temp
+			false, // not single use
+			"register",
+			nil,
+			&deviceID,
+			nil, nil, r,
+		)
+		if sessErr != nil {
+			log.Printf("[handleNextAction] ❌ Failed to create register session for user=%s err=%v", userId, sessErr)
+			response.Error(w, http.StatusInternalServerError, "Session creation failed")
+			return sessErr
+		}
+		log.Printf("[handleNextAction] ✅ Register session created for user=%s sessionID=%s", userId, session.ID)
+
+		resp["action"] = "incomplete_profile_verified"
+		resp["stage"] = extra["stage"]
+		resp["next_stage"] = extra["next_stage"]
+		resp["token"] = session.AuthToken
+		resp["device"] = session.DeviceID
+
+	case "request_email_change":
+		log.Printf("[handleNextAction] ✉️ Requesting email change for user=%s", userId)
+		session, sessErr := h.createSessionHelper(
+			ctx,
+			userId,
+			true,  // temp
+			false, // not refresh
+			"email_change",
+			nil,
+			&deviceID,
+			nil, nil, r,
+		)
+		if sessErr != nil {
+			log.Printf("[handleNextAction] ❌ Failed to create email change session for user=%s err=%v", userId, sessErr)
+			response.Error(w, http.StatusInternalServerError, "Failed to process request")
+			return sessErr
+		}
+		log.Printf("[handleNextAction] ✅ Email change session created for user=%s sessionID=%s", userId, session.ID)
+
+		resp["message"] = "Request processed successfully"
+		resp["next_stage"] = "send_new_email"
+		resp["token"] = session.AuthToken
+		resp["device"] = session.DeviceID
+
+	case "email_change":
+		user, err := h.uc.FindUserById(ctx, userId)
+		oldEmail := ""
+		if err != nil {
+			log.Printf("[WARN] failed to fetch old email for user %s: %v", userId, err)
+		} else if user != nil && user.Email != nil {
+			oldEmail = *user.Email
+		}
+
+		log.Printf("[handleNextAction] 🔄 Processing email change for user=%s", userId)
+		pendingEmail, err := h.uc.GetPendingEmail(ctx, userId)
+		if err != nil {
+			log.Printf("[handleNextAction] ❌ Failed to get pending email for user=%s err=%v", userId, err)
+			response.Error(w, http.StatusInternalServerError, "Failed to retrieve pending email")
+			return err
+		}
+		if pendingEmail == "" {
+			log.Printf("[handleNextAction] ⚠️ No pending email found for user=%s", userId)
+			response.Error(w, http.StatusBadRequest, "No pending email change found")
+			return errors.New("no pending email change")
+		}
+
+		log.Printf("[handleNextAction] 📧 Changing email for user=%s newEmail=%s", userId, pendingEmail)
+		if err := h.uc.ChangeEmail(ctx, userId, pendingEmail); err != nil {
+			log.Printf("[handleNextAction] ❌ Email change failed for user=%s newEmail=%s err=%v", userId, pendingEmail, err)
+			response.Error(w, http.StatusInternalServerError, "Email change failed")
+			return err
+		}
+
+		log.Printf("[handleNextAction] ✅ Email changed for user=%s newEmail=%s", userId, pendingEmail)
+		resp["action"] = "new_email_verified"
+		resp["new_email"] = pendingEmail
+		resp["message"] = "Email changed successfully"
+		h.sendEmailChangeNotifications(ctx, userId, oldEmail, pendingEmail)
+	}
+
+	log.Printf("[handleNextAction] ⏹️ Completed next=%s for user=%s", next, userId)
+	return nil
+}
+
+
+
+func (h *AuthHandler) sendEmailChangeNotifications(_ context.Context, userID, oldEmail, newEmail string) {
+	if h.emailClient == nil {
+		return
+	}
+
+	// Send to new email
+	if newEmail != "" {
+		go func(uid, recipient string) {
+			subject := "Your Pxyz account email has been updated"
+			body := fmt.Sprintf(`
+				<!DOCTYPE html>
+				<html><head><meta charset="UTF-8"><title>Email Updated</title></head>
+				<body style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px;">
+					<div style="max-width: 600px; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0px 2px 5px rgba(0,0,0,0.1);">
+						<h2 style="color: #2E86C1;">Primary Email Updated</h2>
+						<p style="font-size: 16px; color: #333;">
+							Hello,<br><br>
+							Your primary email has been successfully changed to <strong>%s</strong>. 
+							This email will now be used to log in and receive communication from Pxyz.
+						</p>
+						<p style="margin-top: 30px; font-size: 14px; color: #999999;">
+							Thank you,<br>
+							<strong>Pxyz Team</strong>
+						</p>
+					</div>
+				</body>
+				</html>`, newEmail)
+
+			_, err := h.emailClient.SendEmail(context.Background(), &emailpb.SendEmailRequest{
+				UserId:         uid,
+				RecipientEmail: recipient,
+				Subject:        subject,
+				Body:           body,
+				Type:           "email_update_new",
+			})
+			if err != nil {
+				log.Printf("[WARN] failed to send new email notification to %s: %v", recipient, err)
+			}
+		}(userID, newEmail)
+	}
+
+	// Send to old email
+	if oldEmail != "" {
+		go func(uid, recipient string) {
+			subject := "Your Pxyz account email has been changed"
+			body := fmt.Sprintf(`
+				<!DOCTYPE html>
+				<html><head><meta charset="UTF-8"><title>Email Changed</title></head>
+				<body style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px;">
+					<div style="max-width: 600px; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0px 2px 5px rgba(0,0,0,0.1);">
+						<h2 style="color: #C0392B;">Primary Email Changed</h2>
+						<p style="font-size: 16px; color: #333;">
+							Hello,<br><br>
+							Your account’s primary email was changed from this address to <strong>%s</strong>. 
+							That new email will now be required for login, feature access, and system communication.
+						</p>
+						<p style="margin-top: 30px; font-size: 14px; color: #999999;">
+							Thank you,<br>
+							<strong>Pxyz Team</strong>
+						</p>
+					</div>
+				</body>
+				</html>`, newEmail)
+
+			_, err := h.emailClient.SendEmail(context.Background(), &emailpb.SendEmailRequest{
+				UserId:         uid,
+				RecipientEmail: recipient,
+				Subject:        subject,
+				Body:           body,
+				Type:           "email_update_old",
+			})
+			if err != nil {
+				log.Printf("[WARN] failed to send old email notification to %s: %v", recipient, err)
+			}
+		}(userID, oldEmail)
+	}
+}
+
 
 func (h *AuthHandler) VerifyOtpHelper(w http.ResponseWriter, ctx context.Context, userId, otpCode, purpose string) bool {
 	idInt, err := strconv.ParseInt(userId, 10, 64)

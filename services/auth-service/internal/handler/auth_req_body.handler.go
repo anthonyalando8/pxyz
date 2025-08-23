@@ -15,6 +15,9 @@ type RegisterRequest struct {
 type RegisterInit struct {
 	Email string `json:"email,omitempty"`
 	Phone string `json:"phone,omitempty"`
+	AcceptTerms bool   `json:"accept_terms"`
+
+	// Optional fields for device tracking
 
 	DeviceID       *string     `json:"device_id"`
 	GeoLocation    *string     `json:"geo_location"`

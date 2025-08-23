@@ -5,9 +5,6 @@ import (
 	"x/shared/utils/errors"
 	"context"
 	"fmt"
-	"strings"
-
-	"github.com/jackc/pgx/v5/pgconn"
 
 )
 
@@ -24,6 +21,10 @@ func (r *UserRepository) CreateUser(ctx context.Context, user *domain.User) (*do
 			'active',$10,FALSE,
 			NOW(),NOW()
 		)
+		ON CONFLICT (email) 
+		DO UPDATE SET 
+			-- no-op update just to allow RETURNING
+			email = EXCLUDED.email
 		RETURNING id, email, phone, password_hash, first_name, last_name,
 		          is_email_verified, is_phone_verified, signup_stage,
 		          account_status, account_type, account_restored,
@@ -51,54 +52,32 @@ func (r *UserRepository) CreateUser(ctx context.Context, user *domain.User) (*do
 		&saved.CreatedAt, &saved.UpdatedAt,
 	)
 
-	// If insert fails due to duplicate
-	if pgErr, ok := err.(*pgconn.PgError); ok && pgErr.Code == "23505" {
-		var existing domain.User
-		checkQuery := `
-			SELECT id, email, phone, password_hash, first_name, last_name,
-			       is_email_verified, is_phone_verified, signup_stage,
-			       account_status, account_type, account_restored,
-			       created_at, updated_at
-			FROM users
-			WHERE (email = $1 OR phone = $2)
-			  AND account_status != 'deleted'
-			LIMIT 1
-		`
-		errCheck := r.db.QueryRow(ctx, checkQuery, user.Email, user.Phone).Scan(
-			&existing.ID, &existing.Email, &existing.Phone, &existing.PasswordHash,
-			&existing.FirstName, &existing.LastName,
-			&existing.IsEmailVerified, &existing.IsPhoneVerified, &existing.SignupStage,
-			&existing.AccountStatus, &existing.AccountType, &existing.AccountRestored,
-			&existing.CreatedAt, &existing.UpdatedAt,
-		)
-		if errCheck != nil {
-			return nil, errCheck
-		}
-
-		// Return SignupError depending on stage
-		switch existing.SignupStage {
-		case "email_or_phone_submitted":
-			return &existing, NewSignupError(existing.SignupStage, "verify_otp")
-		case "otp_verified":
-			return &existing, NewSignupError(existing.SignupStage, "set_password")
-		case "password_set", "complete":
-			if strings.Contains(pgErr.Message, "email") {
-				return &existing, xerrors.ErrEmailAlreadyInUse
-			}
-			if strings.Contains(pgErr.Message, "phone") {
-				return &existing, xerrors.ErrPhoneAlreadyInUse
-			}
-			return &existing, xerrors.ErrUserAlreadyExists
-		}
-		return &existing, xerrors.ErrUserAlreadyExists
-	}
-
 	if err != nil {
 		return nil, err
 	}
 
+	// If we hit conflict, we need to decide what error to return based on signup stage
+	if saved.ID != user.ID { // means conflict occurred
+		switch saved.SignupStage {
+		case "email_or_phone_submitted":
+			return &saved, NewSignupError(saved.SignupStage, "verify_otp")
+		case "otp_verified":
+			return &saved, NewSignupError(saved.SignupStage, "set_password")
+		case "password_set", "complete":
+			if (user.Email != nil && saved.Email != nil) && (*saved.Email == *user.Email) {
+				return &saved, xerrors.ErrEmailAlreadyInUse
+			}
+			if (user.Phone != nil && saved.Phone != nil) && (*saved.Phone == *user.Phone) {
+				return &saved, xerrors.ErrPhoneAlreadyInUse
+			}
+			return &saved, xerrors.ErrUserAlreadyExists
+		}
+		return &saved, xerrors.ErrUserAlreadyExists
+	}
+
 	return &saved, nil
 }
+
 
 
 // Helper for default strings
