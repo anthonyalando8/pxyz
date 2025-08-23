@@ -36,11 +36,10 @@ type LoginRequest struct {
 type ChangeEmailRequest struct {
 	UserID   string `json:"user_id"`
 	NewEmail string `json:"new_email"`
-	OTP string `json:"otp_code"`
 }
 
-type RequestEmailChange struct {
-	TOTP string `json:"totp_code"`
+type RequestPhoneChange struct {
+	NewPhone string `json:"new_phone"`
 }
 
 type ChangePasswordRequest struct {
@@ -69,4 +68,17 @@ type UpdateNameRequest struct {
 
 type ProfileRequest struct {
 	UserID string `json:"user_id"`
+}
+
+
+type UpdateProfileRequest struct {
+	UserID         string                 `json:"user_id"`
+	DateOfBirth    *string                `json:"date_of_birth,omitempty"` // ISO 860
+	ProfileImageURL *string                `json:"profile_image_url,omitempty"`
+	FirstName      *string                `json:"first_name,omitempty"`
+	LastName       *string                `json:"last_name,omitempty"`
+	Surname        *string                `json:"surname,omitempty"`
+	SysUsername    *string                `json:"username,omitempty"` // system generated
+	Address        *map[string]interface{} `json:"address,omitempty"`      // stored as JSONB
+	Bio			*string                `json:"bio,omitempty"`
 }

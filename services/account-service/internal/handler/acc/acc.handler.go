@@ -1,31 +1,115 @@
-package _2fahandler
+package acchandler
 
 import (
 	//"context"
+	"context"
+	"encoding/json"
+	"fmt"
+	"time"
 	emailclient "x/shared/email"
+	"x/shared/genproto/accountpb"
+
 	//"x/shared/genproto/accountpb"
 
 	"account-service/internal/service/acc"
 )
 
 type AccountHandler struct {
-	accService *service.AccountService
+	accService *accservice.AccountService
 	emailClient *emailclient.EmailClient
 }
 
-func NewAccountHandler(svc *service.AccountService, emailClient *emailclient.EmailClient) *AccountHandler {
+func NewAccountHandler(svc *accservice.AccountService, emailClient *emailclient.EmailClient) *AccountHandler {
 	return &AccountHandler{accService: svc, emailClient: emailClient}
 }
 
 
-// func (h *AccountHandler) GetAccountHandler(ctx context.Context, req *accountpb.) (*accountpb.InitiateTOTPSetupResponse, error) {
-// 	secret, otpURL, err := h.accService.GetOrCreateProfile(ctx, req.UserID)
-// 	if err != nil {
-// 		return nil, err
-// 	}
+func (h *AccountHandler) GetUserProfile(ctx context.Context, req *accountpb.GetUserProfileRequest) (*accountpb.GetUserProfileResponse, error) {
+	profile, err := h.accService.GetOrCreateProfile(ctx, req.UserId, "", "")
+	if err != nil {
+		return nil, err
+	}
 
-// 	return &accountpb.InitiateTOTPSetupResponse{
-// 		Secret: secret,
-// 		OtpUrl: otpURL,
-// 	}, nil
-// }
+	// Convert DOB
+	var dob string
+	if profile.DateOfBirth != nil {
+		dob = profile.DateOfBirth.Format("2006-01-02") // ISO format (YYYY-MM-DD)
+	}
+
+	// Convert Address map to JSON string
+	var addressJSON string
+	if profile.Address != nil {
+		addrBytes, err := json.Marshal(profile.Address)
+		if err != nil {
+			return nil, err
+		}
+		addressJSON = string(addrBytes)
+	}
+
+	return &accountpb.GetUserProfileResponse{
+		Profile: &accountpb.UserProfile{
+			UserId:        profile.UserID,
+			FirstName:     profile.FirstName,
+			LastName:      profile.LastName,
+			Bio:           profile.Bio,
+			Gender:        profile.Gender,
+			DateOfBirth:   dob,
+			AddressJson:   addressJSON,
+			ProfileImageUrl: profile.ProfileImageURL,
+			CreatedAt:     profile.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:     profile.UpdatedAt.Format(time.RFC3339),
+			// If you later add email/phone fields, map them here
+		},
+	}, nil
+}
+
+func (h *AccountHandler) UpdateAccountHandler(ctx context.Context, req *accountpb.UpdateProfileRequest) (*accountpb.UpdateProfileResponse, error) {
+	// Fetch existing profile
+	profile, err := h.accService.GetOrCreateProfile(ctx, req.UserId, "", "")
+	if err != nil {
+		return nil, err
+	}
+
+	// Update fields if provided
+	if req.FirstName != "" {
+		profile.FirstName = req.FirstName
+	}
+	if req.LastName != "" {
+		profile.LastName = req.LastName
+	}
+	if req.Surname != "" {
+		profile.Surname = req.Surname
+	}
+	if req.SysUsername != "" {
+		profile.SysUsername = req.SysUsername
+	}
+	if req.Bio != "" {
+		profile.Bio = req.Bio
+	}
+	if req.Gender != "" {
+		profile.Gender = req.Gender
+	}
+	if req.DateOfBirth != "" {
+		// Parse ISO date string → time.Time
+		if dob, err := time.Parse("2006-01-02", req.DateOfBirth); err == nil {
+			profile.DateOfBirth = &dob
+		} else {
+			return &accountpb.UpdateProfileResponse{Success: false}, fmt.Errorf("invalid date_of_birth format: %v", err)
+		}
+	}
+	if req.AddressJson != "" {
+		var addr map[string]interface{}
+		if err := json.Unmarshal([]byte(req.AddressJson), &addr); err == nil {
+			profile.Address = addr
+		} else {
+			return &accountpb.UpdateProfileResponse{Success: false}, fmt.Errorf("invalid address_json: %v", err)
+		}
+	}
+
+	// Persist changes
+	if err := h.accService.UpdateProfile(ctx, profile); err != nil {
+		return &accountpb.UpdateProfileResponse{Success: false}, err
+	}
+
+	return &accountpb.UpdateProfileResponse{Success: true}, nil
+}

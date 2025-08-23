@@ -112,6 +112,8 @@ message UpdatePreferencesResponse {
 
 
 // ---------- Profile ----------
+
+// Existing
 message UpdateProfileRequest {
   string user_id = 1;
   string first_name = 2;
@@ -122,13 +124,15 @@ message UpdateProfileRequest {
   string address_json = 7;  // JSON encoded string
   string com_channel = 8;
   string com_target = 9;
+  string sys_username = 10; // system username, if applicable
+  string surname = 11;     // public username, if applicable
 }
 
 message UpdateProfileResponse {
   bool success = 1;
 }
 
-// For profile picture, we just set the URL after upload
+// For profile picture
 message UpdateProfilePictureRequest {
   string user_id = 1;
   string image_url = 2; // already stored in /uploads/... or S3
@@ -139,6 +143,29 @@ message UpdateProfilePictureResponse {
   string profile_image_url = 2;
 }
 
+// New: Get User Profile
+message GetUserProfileRequest {
+  string user_id = 1;
+}
+
+message UserProfile {
+  string user_id = 1;
+  string first_name = 2;
+  string last_name = 3;
+  string bio = 4;
+  string gender = 5;
+  string date_of_birth = 6;
+  string address_json = 7;
+  string profile_image_url = 8;
+  string email = 9;
+  string phone = 10;
+  string created_at = 11;
+  string updated_at = 12;
+}
+
+message GetUserProfileResponse {
+  UserProfile profile = 1;
+}
 
 // ========== SERVICE ==========
 service AccountService {
@@ -160,4 +187,7 @@ service AccountService {
   // Profile
   rpc UpdateProfile(UpdateProfileRequest) returns (UpdateProfileResponse);
   rpc UpdateProfilePicture(UpdateProfilePictureRequest) returns (UpdateProfilePictureResponse);
+
+  // New: Get full user profile
+  rpc GetUserProfile(GetUserProfileRequest) returns (GetUserProfileResponse);
 }

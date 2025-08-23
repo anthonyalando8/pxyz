@@ -217,3 +217,21 @@ func (r *UserRepository) GetUserByID(ctx context.Context, userID string) (*domai
 
 	return &user, nil
 }
+
+
+func (r *UserRepository) UpdatePhone(ctx context.Context, userID, newPhone string) error {
+	query := `
+		UPDATE users
+		SET 
+			phone = $1,
+			is_phone_verified = false,
+			changed_phones = COALESCE(changed_phones, '[]'::jsonb) || jsonb_build_object(
+				'phone', phone,
+				'changed_at', NOW()
+			),
+			updated_at = NOW()
+		WHERE id = $2
+	`
+	_, err := r.db.Exec(ctx, query, newPhone, userID)
+	return err
+}

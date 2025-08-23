@@ -3,8 +3,10 @@ package server
 import (
 	"account-service/internal/config"
 	"account-service/internal/handler/2fa"
+    "account-service/internal/handler/acc"
 	"account-service/internal/repository"
 	"account-service/internal/service/2fa"
+    "account-service/internal/service/acc"
 	"log"
 
 	"context"
@@ -24,6 +26,7 @@ type Server struct {
     Rdb  *redis.Client
 
     twofaHandler *_2fahandler.TwoFAHandler
+    accHandler   *acchandler.AccountHandler
 }
 
 func NewServer() *Server {
@@ -56,11 +59,16 @@ func NewServer() *Server {
     _2faUc := _2faservice.NewTwoFAService(_2faRepo, sf)
     twofaHandler := _2fahandler.NewTwoFAHandler(_2faUc, emailCli)
 
+    accRepo := repository.NewUserProfileRepository(dbpool)
+    accUc := accservice.NewAccountService(accRepo, sf)
+    accHandler := acchandler.NewAccountHandler(accUc, emailCli)
+
     return &Server{
         Cfg:          cfg,
         DB:           dbpool,
         Rdb:          rdb,
         twofaHandler: twofaHandler,
+        accHandler:   accHandler,
     }
 }
 
@@ -96,5 +104,13 @@ func (s *Server) RegenerateBackupCodes(ctx context.Context, req *pb.RegenerateBa
 // ---------- Get Backup Codes ----------
 func (s *Server) GetBackupCodes(ctx context.Context, req *pb.GetBackupCodesRequest) (*pb.GetBackupCodesResponse, error) {
 	return s.twofaHandler.GetBackupCodes(ctx, req)
+}
+
+func (s *Server) GetUserProfile(ctx context.Context, req *pb.GetUserProfileRequest) (*pb.GetUserProfileResponse, error) {
+    return s.accHandler.GetUserProfile(ctx, req)
+}
+
+func (s *Server) UpdateProfile(ctx context.Context, req *pb.UpdateProfileRequest) (*pb.UpdateProfileResponse, error) {
+    return s.accHandler.UpdateAccountHandler(ctx, req)
 }
 

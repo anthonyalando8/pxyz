@@ -2,6 +2,8 @@ package repository
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
 
 	"account-service/internal/domain"
@@ -88,39 +90,65 @@ func (r *UserProfileRepository) GetByUserID(ctx context.Context, userID string) 
 
 // Update modifies fields in a user profile
 func (r *UserProfileRepository) Update(ctx context.Context, profile *domain.UserProfile) error {
-	const q = `
-		UPDATE user_profiles
-		SET date_of_birth = $2,
-		    profile_image_url = $3,
-		    first_name = $4,
-		    last_name = $5,
-		    surname = $6,
-		    sys_username = $7,
-		    address = $8,
-		    gender = $9,
-		    bio = $10,
-		    updated_at = NOW()
-		WHERE user_id = $1
-		RETURNING updated_at
-	`
+	setClauses := []string{}
+	args := []interface{}{}
+	argPos := 1
 
-	var dob *time.Time
+	// user_id is always required
+	args = append(args, profile.UserID)
+
 	if profile.DateOfBirth != nil {
-		dob = profile.DateOfBirth
+		setClauses = append(setClauses, fmt.Sprintf("date_of_birth = $%d", argPos+len(args)))
+		args = append(args, profile.DateOfBirth)
+	}
+	if profile.ProfileImageURL != "" {
+		setClauses = append(setClauses, fmt.Sprintf("profile_image_url = $%d", argPos+len(args)))
+		args = append(args, profile.ProfileImageURL)
+	}
+	if profile.FirstName != "" {
+		setClauses = append(setClauses, fmt.Sprintf("first_name = $%d", argPos+len(args)))
+		args = append(args, profile.FirstName)
+	}
+	if profile.LastName != "" {
+		setClauses = append(setClauses, fmt.Sprintf("last_name = $%d", argPos+len(args)))
+		args = append(args, profile.LastName)
+	}
+	if profile.Surname != "" {
+		setClauses = append(setClauses, fmt.Sprintf("surname = $%d", argPos+len(args)))
+		args = append(args, profile.Surname)
+	}
+	if profile.SysUsername != "" {
+		setClauses = append(setClauses, fmt.Sprintf("sys_username = $%d", argPos+len(args)))
+		args = append(args, profile.SysUsername)
+	}
+	if profile.Address != nil {
+		setClauses = append(setClauses, fmt.Sprintf("address = $%d", argPos+len(args)))
+		args = append(args, profile.Address)
+	}
+	if profile.Gender != "" {
+		setClauses = append(setClauses, fmt.Sprintf("gender = $%d", argPos+len(args)))
+		args = append(args, profile.Gender)
+	}
+	if profile.Bio != "" {
+		setClauses = append(setClauses, fmt.Sprintf("bio = $%d", argPos+len(args)))
+		args = append(args, profile.Bio)
 	}
 
-	return r.db.QueryRow(ctx, q,
-		profile.UserID,
-		dob,
-		profile.ProfileImageURL,
-		profile.FirstName,
-		profile.LastName,
-		profile.Surname,
-		profile.SysUsername,
-		profile.Address,
-		profile.Gender,
-		profile.Bio,
-	).Scan(&profile.UpdatedAt)
+	// always update timestamp
+	setClauses = append(setClauses, "updated_at = NOW()")
+
+	if len(setClauses) == 1 { // means only updated_at was added
+		return r.db.QueryRow(ctx, "UPDATE user_profiles SET updated_at = NOW() WHERE user_id = $1 RETURNING updated_at", profile.UserID).Scan(&profile.UpdatedAt)
+	}
+
+	q := fmt.Sprintf(`
+		UPDATE user_profiles
+		SET %s
+		WHERE user_id = $1
+		RETURNING updated_at
+	`, strings.Join(setClauses, ", "))
+
+	return r.db.QueryRow(ctx, q, args...).Scan(&profile.UpdatedAt)
 }
 
 // Delete removes a profile by user_id

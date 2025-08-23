@@ -297,7 +297,37 @@ func (h *AuthHandler) HandleRequestEmailChange(w http.ResponseWriter, r *http.Re
 	}()
 }
 
-
+func (h *AuthHandler) HandlePhoneChange(w http.ResponseWriter, r *http.Request) {
+	requestedUserID, ok := r.Context().Value(middleware.ContextUserID).(string)
+	if !ok || requestedUserID == "" {
+		response.Error(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+	var req RequestPhoneChange
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "Invalid JSON payload")
+		return
+	}
+	if req.NewPhone == "" {
+		response.Error(w, http.StatusBadRequest, "New phone number required")
+		return
+	}
+	if valid := utils.ValidatePhone(req.NewPhone); !valid {
+		response.Error(w, http.StatusBadRequest, "Invalid phone number format")
+		return
+	}
+	err := h.uc.UpdatePhone(r.Context(), requestedUserID, req.NewPhone)
+	if err != nil {
+		log.Printf("[HandleRequestPhoneChange]  Failed to update phone userID=%s, newPhone=%s, err=%v",
+			requestedUserID, req.NewPhone, err,
+		)
+		response.Error(w, http.StatusInternalServerError, "Phone update processing failed")
+		return
+	}
+	response.JSON(w, http.StatusOK, map[string]string{
+		"message": "Phone number updated successfully",
+	})
+}
 
 // verify 2fa enabled
 	// _2faRes, err := h.accountClient.Client.GetTwoFAStatus(r.Context(), &accountpb.GetTwoFAStatusRequest{

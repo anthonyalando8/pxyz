@@ -1,4 +1,4 @@
-package service
+package accservice
 
 import (
 	"context"
@@ -9,14 +9,18 @@ import (
 	"account-service/internal/repository"
 
 	"github.com/jackc/pgx/v5"
+
+	"x/shared/utils/id"
+
 )
 
 type AccountService struct {
 	repo *repository.UserProfileRepository
+	sf          *id.Snowflake
 }
 
-func NewAccountService(repo *repository.UserProfileRepository) *AccountService {
-	return &AccountService{repo: repo}
+func NewAccountService(repo *repository.UserProfileRepository, sf *id.Snowflake) *AccountService {
+	return &AccountService{repo: repo, sf: sf,}
 }
 
 // GetOrCreateProfile ensures a profile exists for the given user
@@ -49,4 +53,10 @@ func (uc *AccountService) GetOrCreateProfile(ctx context.Context, userID string,
 	// Existing user
 	profile.FirstTime = false
 	return profile, nil
+}
+
+
+func (uc *AccountService) UpdateProfile(ctx context.Context, profile *domain.UserProfile) error {
+	// Update logic here (not implemented in this snippet)
+	return uc.repo.Update(ctx, profile)
 }

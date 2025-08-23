@@ -75,8 +75,10 @@ func SetupRoutes(
 		pr.Get("/auth/2fa/status", h.Handle2FAStatus)
 
 		// Profile
-		pr.Get("/auth/profile", h.HandleProfile)
+		pr.Get("/auth/profile", h.HandleProfile) // get full profile
+		pr.Post("/auth/profile/update", h.HandleUpdateProfile) // partial updates
 		pr.Patch("/auth/name", h.HandleUpdateName)
+		pr.Patch("/auth/phone", h.HandlePhoneChange)           // via 2FA
 		pr.Get("/auth/email/request-change", h.HandleRequestEmailChange) // via 2FA
 
 		// Password management
