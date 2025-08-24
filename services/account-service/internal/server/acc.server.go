@@ -114,3 +114,7 @@ func (s *Server) UpdateProfile(ctx context.Context, req *pb.UpdateProfileRequest
     return s.accHandler.UpdateAccountHandler(ctx, req)
 }
 
+func (s *Server) UpdateProfilePicture(ctx context.Context, req *pb.UpdateProfilePictureRequest) (*pb.UpdateProfilePictureResponse,error) {
+    return s.accHandler.UpdateProfilePicture(ctx, req)
+}
+

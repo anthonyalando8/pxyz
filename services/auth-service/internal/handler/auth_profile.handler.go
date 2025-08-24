@@ -1,9 +1,14 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"x/shared/auth/middleware"
 	accountclient "x/shared/genproto/accountpb"
 	"x/shared/response"
@@ -135,3 +140,77 @@ func (h *AuthHandler) HandleUpdateProfile(w http.ResponseWriter, r *http.Request
 		"message": "Profile updated successfully",
 	})
 }
+
+func (h *AuthHandler) UploadProfilePicture(w http.ResponseWriter, r *http.Request) {
+    userID, ok := r.Context().Value(middleware.ContextUserID).(string)
+    if !ok || userID == "" {
+        log.Println("[ERROR] Unauthorized upload attempt, missing userID in context")
+        response.Error(w, http.StatusUnauthorized, "Unauthorized")
+        return
+    }
+    log.Printf("[INFO] Starting profile picture upload for userID=%s", userID)
+
+    file, header, err := r.FormFile("file")
+    if err != nil {
+        log.Printf("[ERROR] Failed to read form file for userID=%s: %v", userID, err)
+        response.Error(w, http.StatusBadRequest, "failed to read file")
+        return
+    }
+    defer file.Close()
+    log.Printf("[DEBUG] File received: %s (%d bytes)", header.Filename, header.Size)
+
+    // Ensure upload directory exists
+    uploadDir := "/app/uploads/profile_pictures"
+    if err := os.MkdirAll(uploadDir, 0755); err != nil {
+        log.Printf("[ERROR] Failed to create upload dir %s: %v", uploadDir, err)
+        response.Error(w, http.StatusInternalServerError, "failed to prepare upload dir")
+        return
+    }
+
+    // Generate filename (overwrite old one for the same user)
+    ext := filepath.Ext(header.Filename)
+    filename := fmt.Sprintf("%s%s", userID, ext)
+    savePath := filepath.Join(uploadDir, filename)
+    log.Printf("[DEBUG] Saving file for userID=%s to path=%s", userID, savePath)
+
+    out, err := os.Create(savePath)
+    if err != nil {
+        log.Printf("[ERROR] Failed to create file %s for userID=%s: %v", savePath, userID, err)
+        response.Error(w, http.StatusInternalServerError, "failed to save file")
+        return
+    }
+    defer out.Close()
+
+    if _, err = io.Copy(out, file); err != nil {
+        log.Printf("[ERROR] Failed to write file %s for userID=%s: %v", savePath, userID, err)
+        response.Error(w, http.StatusInternalServerError, "failed to write file")
+        return
+    }
+    log.Printf("[INFO] Successfully saved profile picture for userID=%s", userID)
+
+    // Construct image URL
+    imageURL := fmt.Sprintf("http://localhost:50051/uploads/profile_pictures/%s", filename)
+
+    // Call Account service to update DB
+    _, err = h.accountClient.Client.UpdateProfilePicture(
+        context.Background(),
+        &accountclient.UpdateProfilePictureRequest{
+            UserId:   userID,
+            ImageUrl: imageURL,
+        },
+    )
+    if err != nil {
+        log.Printf("[ERROR] Failed to update account profile for userID=%s: %v", userID, err)
+        response.Error(w, http.StatusInternalServerError, "failed to update profile")
+        return
+    }
+    log.Printf("[INFO] Profile picture updated in account service for userID=%s", userID)
+
+    response.JSON(w, http.StatusOK, map[string]interface{}{
+        "success":           true,
+        "message":           "Profile picture updated",
+        "profile_image_url": imageURL,
+    })
+}
+
+

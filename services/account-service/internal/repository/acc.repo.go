@@ -157,3 +157,32 @@ func (r *UserProfileRepository) Delete(ctx context.Context, userID string) error
 	_, err := r.db.Exec(ctx, q, userID)
 	return err
 }
+
+// UpdateProfilePicture updates the user's profile picture URL.
+func (r *UserProfileRepository) UpdateProfilePicture(ctx context.Context, userID, imageURL string) error {
+	const q = `
+		UPDATE user_profiles
+		SET profile_image_url = $1, updated_at = NOW()
+		WHERE user_id = $2
+	`
+	_, err := r.db.Exec(ctx, q, imageURL, userID)
+	return err
+}
+
+// DeleteProfilePicture removes the profile picture URL and returns the old one.
+func (r *UserProfileRepository) DeleteProfilePicture(ctx context.Context, userID string) (string, error) {
+	const q = `
+		UPDATE user_profiles
+		SET profile_image_url = NULL, updated_at = NOW()
+		WHERE user_id = $1
+		RETURNING COALESCE(profile_image_url, '')
+	`
+
+	var oldURL string
+	err := r.db.QueryRow(ctx, q, userID).Scan(&oldURL)
+	if err != nil {
+		return "", err
+	}
+
+	return oldURL, nil
+}

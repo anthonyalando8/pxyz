@@ -113,3 +113,10 @@ func (h *AccountHandler) UpdateAccountHandler(ctx context.Context, req *accountp
 
 	return &accountpb.UpdateProfileResponse{Success: true}, nil
 }
+
+func (h *AccountHandler) UpdateProfilePicture(ctx context.Context, req *accountpb.UpdateProfilePictureRequest) (*accountpb.UpdateProfilePictureResponse,error) {
+	if err := h.accService.UpdateProfileImage(ctx, req.UserId, req.ImageUrl); err != nil {
+		return &accountpb.UpdateProfilePictureResponse{Success: false}, err
+	}
+	return &accountpb.UpdateProfilePictureResponse{Success: true, ProfileImageUrl: req.ImageUrl}, nil
+}

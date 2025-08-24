@@ -20,6 +20,7 @@ services:
       - ./services/auth-service/.env
     volumes:
       - ./services/auth-service/secrets:/app/secrets:ro
+      - ./uploads:/app/uploads
     environment:
       DB_HOST: host.docker.internal
       DB_PORT: 5432
@@ -101,6 +102,7 @@ services:
       - email-service
     networks:
       - micro_net
+
   account-service:
     container_name: account-service
     build:
@@ -121,6 +123,28 @@ services:
       - email-service
     networks:
       - micro_net
+
+  kyc-service:
+    container_name: kyc-service
+    build:
+      context: .
+      dockerfile: services/kyc-service/Dockerfile
+    ports:
+      - "50057:50057"
+    env_file:
+      - ./services/kyc-service/.env
+    environment:
+      HTTP_ADDR: :50057
+      DB_CONN: postgres://postgres:2000@host.docker.internal:5432/pxyz
+      REDIS_ADDR: redis:6379
+      REDIS_PASS:
+      EMAIL_SVC_ADDR: email-service:50054
+    depends_on:
+      - redis
+      - email-service
+    networks:
+      - micro_net
+
 networks:
   micro_net:
     driver: bridge

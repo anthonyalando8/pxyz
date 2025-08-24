@@ -1,6 +1,9 @@
 package router
 
 import (
+	"net/http"
+	"os"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
 	"github.com/redis/go-redis/v9"
@@ -26,6 +29,15 @@ func SetupRoutes(
 		MaxAge:           300,
 	}))
 
+	uploadDir := "/app/uploads"
+
+	// Ensure directory exists
+	if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
+		os.MkdirAll(uploadDir, 0755)
+	}
+
+	// Serve /uploads/... -> files from ./uploads/
+	r.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(http.Dir(uploadDir))))
 	// ============================================================
 	// Public Endpoints (no auth required)
 	// ============================================================
@@ -80,6 +92,7 @@ func SetupRoutes(
 		pr.Patch("/auth/name", h.HandleUpdateName)
 		pr.Patch("/auth/phone", h.HandlePhoneChange)           // via 2FA
 		pr.Get("/auth/email/request-change", h.HandleRequestEmailChange) // via 2FA
+		pr.Post("/auth/profile/picture", h.UploadProfilePicture)
 
 		// Password management
 		pr.Patch("/auth/password", h.HandleChangePassword) // change existing password

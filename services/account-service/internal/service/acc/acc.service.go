@@ -60,3 +60,33 @@ func (uc *AccountService) UpdateProfile(ctx context.Context, profile *domain.Use
 	// Update logic here (not implemented in this snippet)
 	return uc.repo.Update(ctx, profile)
 }
+
+func (uc *AccountService) UpdateProfileImage(ctx context.Context, userID, imageURL string) error {
+	// Fetch existing profile
+	profile, err := uc.repo.GetByUserID(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	// Update profile image URL
+	profile.ProfileImageURL = imageURL
+	profile.UpdatedAt = time.Now()
+
+	// Save changes
+	return uc.repo.Update(ctx, profile)
+}
+
+func (uc *AccountService) RemoveProfileImage(ctx context.Context, userID string) error {
+	// Fetch existing profile
+	profile, err := uc.repo.GetByUserID(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	// Remove profile image URL
+	profile.ProfileImageURL = ""
+	profile.UpdatedAt = time.Now()
+
+	// Save changes
+	return uc.repo.Update(ctx, profile)
+}

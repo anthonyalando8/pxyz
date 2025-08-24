@@ -4,8 +4,8 @@ FROM golang:1.24 AS builder
 # Set working directory
 WORKDIR /app
 
-# Copy go.mod and go.sum from repo root
-COPY services/auth-service/go.mod services/auth-service/go.sum ./
+# Copy go.mod and go.sum from kyc-service
+COPY services/kyc-service/go.mod services/kyc-service/go.sum ./
 
 # Copy shared package so deps are resolvable
 COPY shared /shared
@@ -14,14 +14,14 @@ COPY shared /shared
 RUN go mod download
 
 # Copy secrets (if needed at build time)
-COPY services/auth-service/secrets ./secrets
+COPY services/kyc-service/secrets ./secrets
 
-# Copy auth-service source
-COPY services/auth-service/ ./
+# Copy kyc-service source
+COPY services/kyc-service/ ./
 
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-    go build -o auth-service ./cmd/auth.main.go
+    go build -o kyc-service ./cmd/kyc.main.go
 
 # -------- Stage 2: Runtime --------
 FROM debian:bookworm-slim
@@ -29,17 +29,17 @@ FROM debian:bookworm-slim
 WORKDIR /app
 
 # Copy only the binary from builder stage
-COPY --from=builder /app/auth-service /app/auth-service
+COPY --from=builder /app/kyc-service /app/kyc-service
 
-# Create uploads directory for profile pictures
-RUN mkdir -p /app/uploads/profile_pictures
+# Create uploads directory for KYC documents
+RUN mkdir -p /app/uploads/kyc_docs
 
 # Non-root user for security
 RUN useradd -u 10001 nonroot && chown -R nonroot:nonroot /app
 USER nonroot
 
-# Expose REST port
-EXPOSE 50051
+# Expose gRPC/REST port
+EXPOSE 50057
 
 # Run the service
-ENTRYPOINT ["/app/auth-service"]
+ENTRYPOINT ["/app/kyc-service"]
