@@ -37,6 +37,10 @@ func (g *Generator) Generate(userID, device string, isTemp bool, extraData map[s
 	}
 	now := time.Now()
 	jti := ulid.Make().String()
+	expiresIn := g.Ttl
+	if isTemp {
+		expiresIn = 30 * time.Minute
+	}
 
 	claims := &Claims{
 		UserID:    userID,
@@ -47,7 +51,7 @@ func (g *Generator) Generate(userID, device string, isTemp bool, extraData map[s
 			Issuer:    g.issuer,
 			Subject:   userID,
 			Audience:  []string{g.audience},
-			ExpiresAt: jwt.NewNumericDate(now.Add(g.Ttl)),
+			ExpiresAt: jwt.NewNumericDate(now.Add(expiresIn)),
 			IssuedAt:  jwt.NewNumericDate(now),
 			NotBefore: jwt.NewNumericDate(now),
 			ID:        jti,

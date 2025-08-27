@@ -11,6 +11,7 @@ import (
 	"x/shared/auth/pkg/jwtutil"
 	authpb "x/shared/genproto/sessionpb"
 
+	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -19,6 +20,7 @@ type MiddlewareWithClient struct {
 	Middleware func(http.Handler) http.Handler
 	Client     authpb.AuthServiceClient
 	Require    func(allowedTypes []string, allowedPurposes []string) func(http.Handler) http.Handler
+	RateLimit func(rdb *redis.Client, limit int, window time.Duration, blockDuration time.Duration, keyPrefix string) func(http.Handler) http.Handler
 }
 
 // RequireAuth initializes middleware + client
@@ -48,6 +50,7 @@ func RequireAuth() *MiddlewareWithClient {
 		Middleware: m.AuthMiddleware,
 		Client:     authClient,
 		Require:    m.RequireWithChecks,
+		RateLimit:  RateLimiter,
 	}
 }
 

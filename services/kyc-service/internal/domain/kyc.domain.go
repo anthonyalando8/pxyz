@@ -23,10 +23,11 @@ type KYCSubmission struct {
 	ID               string      `json:"id"`
 	UserID           string      `json:"user_id"`
 	IDNumber         string     `json:"id_number"`
-	Nationality      string     `json:"nationality,omitempty"`
 	DocumentType     string     `json:"document_type"`
 	DocumentFrontURL string     `json:"document_front_url"`
 	DocumentBackURL  string     `json:"document_back_url"`
+	FacePhotoURL    string     `json:"face_photo_url"`
+	DateOfBirth      time.Time `json:"date_of_birth,omitempty"`
 	Status           KYCStatus  `json:"status"`
 	RejectionReason  *string    `json:"rejection_reason,omitempty"`
 	SubmittedAt      time.Time  `json:"submitted_at"`

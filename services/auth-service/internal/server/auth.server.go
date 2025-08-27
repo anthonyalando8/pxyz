@@ -9,13 +9,14 @@ import (
 	"auth-service/internal/handler"
 	"auth-service/internal/repository"
 	"auth-service/internal/router"
+	telegramclient "auth-service/internal/service/telegram"
 	"auth-service/internal/usecase"
 	"auth-service/internal/ws"
-	"x/shared/auth/middleware"
-	"x/shared/utils/id"
-	"x/shared/auth/otp"
 	"x/shared/account"
+	"x/shared/auth/middleware"
+	"x/shared/auth/otp"
 	emailclient "x/shared/email"
+	"x/shared/utils/id"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/redis/go-redis/v9"
@@ -45,7 +46,12 @@ func NewServer(cfg config.AppConfig) *http.Server {
 	otpSvc := otpclient.NewOTPService()
 	accountClient := accountclient.NewAccountClient()
 	emailCli := emailclient.NewEmailClient()
-	authHandler := handler.NewAuthHandler(userUC, auth, otpSvc, accountClient, emailCli,)
+	config := &handler.Config{
+		GoogleClientID: cfg.GoogleClientID,
+		Apple: cfg.Apple,
+	}
+	telegramClient := telegramclient.NewTelegramClient(cfg.TelegramBotToken)
+	authHandler := handler.NewAuthHandler(userUC, auth, otpSvc, accountClient, emailCli, config, telegramClient)
 
 	ws_server := ws.NewServer()
 	ws_server.Start()

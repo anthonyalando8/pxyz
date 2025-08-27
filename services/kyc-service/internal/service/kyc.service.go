@@ -61,18 +61,22 @@ func (s *KYCService) Review(ctx context.Context, req *ReviewKYCRequest) error {
 
 
 // Submit creates a new KYC submission for a user.
-func (s *KYCService) Submit(ctx context.Context, userID string, idNumber, nationality, docType, frontURL, backURL string) error {
+func (s *KYCService) Submit(ctx context.Context, userID string, idNumber, docType, frontURL, backURL, faceURL, DOB string) error {
+	
 	sub := &domain.KYCSubmission{
 		ID:               s.sf.Generate(),
 		UserID:           userID,
 		IDNumber:         idNumber,
-		Nationality:      nationality,
 		DocumentType:     docType,
 		DocumentFrontURL: frontURL,
 		DocumentBackURL:  backURL,
+		FacePhotoURL:    faceURL,
 		Status:           domain.KYCStatusPending,
 		SubmittedAt:      time.Now(),
 		UpdatedAt:        time.Now(),
+	}
+	if dob, err := time.Parse("2006-01-02", DOB); err == nil {
+		sub.DateOfBirth = dob
 	}
 
 	if err := s.repo.Create(ctx, sub); err != nil {

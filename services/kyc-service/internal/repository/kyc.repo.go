@@ -18,13 +18,14 @@ func NewKYCRepo(db *pgxpool.Pool) *KYCRepo {
 
 // Create inserts a new KYC submission.
 func (r *KYCRepo) Create(ctx context.Context, k *domain.KYCSubmission) error {
-	_, err := r.db.Exec(ctx, `
+	err := r.db.QueryRow(ctx, `
 		INSERT INTO kyc_submissions 
-			(user_id, id_number, nationality, document_type, document_front_url, document_back_url, status, submitted_at, updated_at) 
-		VALUES ($1,$2,$3,$4,$5,$6,$7,NOW(),NOW())
-	`,
-		k.UserID, k.IDNumber, k.Nationality, k.DocumentType, k.DocumentFrontURL, k.DocumentBackURL, k.Status,
-	)
+			(user_id, id_number, selfie_image_url, document_type, document_front_url, document_back_url, status, date_of_birth, submitted_at, updated_at) 
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW(),NOW())
+		RETURNING id
+	`, k.UserID, k.IDNumber, k.FacePhotoURL, k.DocumentType, k.DocumentFrontURL, k.DocumentBackURL, k.Status, k.DateOfBirth,
+	).Scan(&k.ID)
+
 	return err
 }
 
@@ -32,12 +33,12 @@ func (r *KYCRepo) Create(ctx context.Context, k *domain.KYCSubmission) error {
 func (r *KYCRepo) GetByID(ctx context.Context, id string) (*domain.KYCSubmission, error) {
 	var k domain.KYCSubmission
 	err := r.db.QueryRow(ctx, `
-		SELECT id, user_id, id_number, nationality, document_type, document_front_url, document_back_url, status,
+		SELECT id, user_id, id_number, selfie_image_url, date_of_birth, document_type, document_front_url, document_back_url, status,
 		       rejection_reason, submitted_at, reviewed_at, updated_at
 		FROM kyc_submissions
 		WHERE id=$1
 	`, id).Scan(
-		&k.ID, &k.UserID, &k.IDNumber, &k.Nationality, &k.DocumentType, &k.DocumentFrontURL, &k.DocumentBackURL,
+		&k.ID, &k.UserID, &k.IDNumber, &k.FacePhotoURL, &k.DateOfBirth, &k.DocumentType, &k.DocumentFrontURL, &k.DocumentBackURL,
 		&k.Status, &k.RejectionReason, &k.SubmittedAt, &k.ReviewedAt, &k.UpdatedAt,
 	)
 	if err != nil {
@@ -50,21 +51,34 @@ func (r *KYCRepo) GetByID(ctx context.Context, id string) (*domain.KYCSubmission
 func (r *KYCRepo) GetByUserID(ctx context.Context, userID string) (*domain.KYCSubmission, error) {
 	var k domain.KYCSubmission
 	err := r.db.QueryRow(ctx, `
-		SELECT id, user_id, id_number, nationality, document_type, document_front_url, document_back_url, status,
+		SELECT id, user_id, id_number, selfie_image_url, date_of_birth, document_type,
+		       document_front_url, document_back_url, status,
 		       rejection_reason, submitted_at, reviewed_at, updated_at
 		FROM kyc_submissions
 		WHERE user_id=$1
 		ORDER BY submitted_at DESC
 		LIMIT 1
 	`, userID).Scan(
-		&k.ID, &k.UserID, &k.IDNumber, &k.Nationality, &k.DocumentType, &k.DocumentFrontURL, &k.DocumentBackURL,
-		&k.Status, &k.RejectionReason, &k.SubmittedAt, &k.ReviewedAt, &k.UpdatedAt,
+		&k.ID,
+		&k.UserID,
+		&k.IDNumber,
+		&k.FacePhotoURL,
+		&k.DateOfBirth,
+		&k.DocumentType,
+		&k.DocumentFrontURL,
+		&k.DocumentBackURL,
+		&k.Status,
+		&k.RejectionReason,
+		&k.SubmittedAt,
+		&k.ReviewedAt,
+		&k.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
 	}
 	return &k, nil
 }
+
 
 // UpdateStatus updates the status and optional rejection reason.
 func (r *KYCRepo) UpdateStatus(ctx context.Context, id string, status domain.KYCStatus, rejectionReason *string) error {

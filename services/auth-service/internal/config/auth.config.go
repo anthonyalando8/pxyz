@@ -4,12 +4,22 @@ import (
 	"os"
 )
 
-
+type AppleConfig struct {
+	TeamID     string // Apple Developer Team ID
+	KeyID      string // Key ID for your .p8 private key
+	ServiceID  string // "Client ID" (Web: Service ID, iOS/macOS: Bundle ID)
+	RedirectURI string // Must match the one configured in Apple Console
+	PrivateKeyPEM string // Contents of your AuthKey_XXXXXX.p8 (keep safe!)
+}
 
 type AppConfig struct {
 	HTTPAddr  string
 	RedisPass string
 	RedisAddr string
+	GoogleClientID string
+	Apple     AppleConfig
+	TelegramBotToken string
+	TelegramChatID  string
 }
 
 func Load() AppConfig {
@@ -17,6 +27,17 @@ func Load() AppConfig {
 		HTTPAddr: getEnv("HTTP_ADDR", ":50051"),
 		RedisAddr: getEnv("REDIS_ADDR", "redis:6379"),
 		RedisPass: getEnv("REDIS_PASS", ""),
+		GoogleClientID: getEnv("GOOGLE_CLIENT_ID", ""),
+
+		Apple: AppleConfig{
+			TeamID:     getEnv("APPLE_TEAM_ID", ""),
+			KeyID:      getEnv("APPLE_KEY_ID", ""),
+			ServiceID:  getEnv("APPLE_SERVICE_ID", ""),
+			RedirectURI: getEnv("APPLE_REDIRECT_URI", ""),
+			PrivateKeyPEM: getEnv("APPLE_PRIVATE_KEY_PEM", ""),
+		},
+		TelegramBotToken: getEnv("TELEGRAM_BOT_TOKEN", ""),
+		TelegramChatID:  getEnv("TELEGRAM_CHAT_ID", ""),
 	}
 }
 

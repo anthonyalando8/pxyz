@@ -12,6 +12,8 @@ COPY shared /shared
 
 # Download dependencies (cached if go.mod/go.sum unchanged)
 RUN go mod download
+# Ensure modules are tidy
+RUN go mod tidy
 
 # Copy secrets (if needed at build time)
 COPY services/auth-service/secrets ./secrets

@@ -15,6 +15,7 @@ import (
 	"kyc-service/internal/service"
 	"x/shared/utils/id"
 	"x/shared/auth/middleware"
+	emailclient "x/shared/email"
 
 
 	"github.com/go-chi/chi/v5"
@@ -45,14 +46,16 @@ func main() {
 	}
 
 	// repos & service
+	emailCli := emailclient.NewEmailClient()
 	kycRepo := repository.NewKYCRepo(dbpool)
 	kycSvc := service.NewKYCService(kycRepo, sf)
-	kycHandler := handler.NewKYCHandler(kycSvc)
+	kycHandler := handler.NewKYCHandler(kycSvc, emailCli)
 
 	// chi router
 	r := chi.NewRouter()
 	// r.Use(middleware.Logger)
 	// r.Use(middleware.Recoverer)
+	
 
 	uploadDir := "/app/uploads"
 
@@ -61,15 +64,19 @@ func main() {
 		os.MkdirAll(uploadDir, 0755)
 	}
 
-	// Serve /uploads/... -> files from ./uploads/
-	r.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(http.Dir(uploadDir))))
+	
 
 	auth := middleware.RequireAuth()
+	r.Use(auth.RateLimit(rdb, 100, time.Minute, 10*time.Minute, "global"))
+
 	r.Group(func(r chi.Router) {
 		r.Use(auth.Require([]string{"main"}, []string{"general", "kyc_review"}))
+		r.Use(auth.RateLimit(rdb, 15, 5*time.Minute, 5*time.Minute, "kyc"))
 		// Protected routes	
+		// Serve /uploads/... -> files from ./uploads/
+		r.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(http.Dir(uploadDir))))
 		r.Post("/kyc/upload", kycHandler.UploadKYC)
-		r.Get("/kyc/status/{userID}", kycHandler.GetKYCStatus)
+		r.Get("/kyc/status", kycHandler.GetKYCStatus)
 		r.Post("/kyc/review/{kycID}", kycHandler.ReviewKYC)
 		r.Get("/kyc/audit/{kycID}", kycHandler.GetKYCAuditLogs)
 	})

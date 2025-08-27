@@ -3,6 +3,7 @@ package router
 import (
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
@@ -29,21 +30,28 @@ func SetupRoutes(
 		MaxAge:           300,
 	}))
 
+	r.Use(auth.RateLimit(rdb, 100, time.Minute, 10*time.Minute, "global"))
+
 	uploadDir := "/app/uploads"
 
 	// Ensure directory exists
 	if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
 		os.MkdirAll(uploadDir, 0755)
 	}
-
-	// Serve /uploads/... -> files from ./uploads/
-	r.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(http.Dir(uploadDir))))
-	// ============================================================
-	// Public Endpoints (no auth required)
-	// ============================================================
-	r.Post("/auth/exists", h.HandleUserExists)
-	r.Post("/auth/register/init", h.HandleInitSignup)
-	r.Post("/auth/login", h.HandleLogin)
+	
+	// Login attempts (stricter)
+	r.Group(func(r chi.Router) {
+		r.Use(auth.RateLimit(rdb, 3, 5*time.Minute, 5*time.Minute, "auth"))
+		// ============================================================
+		// Public Endpoints (no auth required)
+		// ============================================================
+		r.Post("/auth/exists", h.HandleUserExists)
+		r.Post("/auth/register/init", h.HandleInitSignup)
+		r.Post("/auth/login", h.HandleLogin)
+		r.Post("/auth/google", h.GoogleAuthHandler)
+		r.Post("/auth/telegram", h.TelegramLogin)
+		r.Post("/auth/apple", h.AppleAuthHandler)
+	})
 
 	// ============================================================
 	// Registration & OTP flows (require temp/main session with purpose)
@@ -76,6 +84,8 @@ func SetupRoutes(
 	r.Group(func(pr chi.Router) {
 		pr.Use(auth.Require([]string{"main"}, nil))
 
+		// Serve /uploads/... -> files from ./uploads/
+		pr.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(http.Dir(uploadDir))))
 		// WebSocket
 		pr.Get("/auth/ws", wsHandler.HandleWS)
 

@@ -1,4 +1,4 @@
-# -------- Stage 1: Builder --------
+# -------- Stage 1: Builder -------- 
 FROM golang:1.24 AS builder
 
 # Set working directory
@@ -12,6 +12,9 @@ COPY shared /shared
 
 # Download dependencies (cached if go.mod/go.sum unchanged)
 RUN go mod download
+
+# Ensure modules are tidy
+RUN go mod tidy
 
 # Copy secrets (if needed at build time)
 COPY services/kyc-service/secrets ./secrets

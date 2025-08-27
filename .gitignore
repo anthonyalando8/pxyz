@@ -1,1 +1,27 @@
-\uploads
+# Ignore uploads folder
+/uploads/
+
+
+# Ignore secrets folder and its contents
+/services/auth-service/.env
+/services/auth-service/secrets/
+/services/auth-service/secrets/*
+
+/services/session-mngt/.env
+/services/session-mngt/secrets/
+/services/session-mngt/secrets/*
+
+/services/otp-service/.env
+
+/services/kyc-service/.env
+/services/kyc-service/secrets/
+/services/kyc-service/secrets/*
+
+
+/services/email-service/.env
+
+/services/cashier-service/.env
+/services/cashier-service/secrets/
+/services/cashier-service/secrets/*
+
+/services/account-service/.env

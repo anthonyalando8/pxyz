@@ -21,7 +21,7 @@ func Load() AppConfig {
 		log.Println("Session: No .env file found, relying on system env vars")
 	}
 	
-	ttl, _ := time.ParseDuration(getEnv("JWT_ACCESS_TTL", "15m"))
+	ttl, _ := time.ParseDuration(getEnv("JWT_ACCESS_TTL", "5h"))
 
 	return AppConfig{
 		GRPCAddr: getEnv("GRPC_ADDR", ":50050"),

@@ -139,9 +139,13 @@ services:
       REDIS_ADDR: redis:6379
       REDIS_PASS:
       EMAIL_SVC_ADDR: email-service:50054
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
     depends_on:
       - redis
       - email-service
+    volumes:
+      - ./services/kyc-service/secrets:/app/secrets:ro
+      - ./uploads:/app/uploads
     networks:
       - micro_net
 
