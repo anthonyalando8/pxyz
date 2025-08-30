@@ -14,6 +14,9 @@ import (
 
 	"otp-service/internal/rate"
 	"otp-service/internal/repository"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 type OTPService struct {
@@ -68,7 +71,7 @@ func (s *OTPService) GenerateOTP(ctx context.Context, userID string, purpose, ch
 
 	// Send email if needed
 	if channel == "email" && s.emailClient != nil {
-		subject := fmt.Sprintf("Your OTP code for %s", strings.Title(purpose))
+		subject := fmt.Sprintf("Your OTP code for %s", formatPurpose(purpose))
 		ttlSeconds := int(s.ttl.Minutes())
 
 		body := fmt.Sprintf(`
@@ -130,4 +133,9 @@ func randomCode(digits int) string {
 		panic(err) // handle appropriately in prod
 	}
 	return fmt.Sprintf("%0*d", digits, n.Int64())
+}
+
+func formatPurpose(purpose string) string {
+    p := strings.ReplaceAll(purpose, "_", " ")
+    return cases.Title(language.English).String(p)
 }

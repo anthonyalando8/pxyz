@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"x/shared/utils/id"
+	"x/shared/utils/errors"
 
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
@@ -44,7 +45,7 @@ func (s *TwoFAService) InitiateTOTPSetup(ctx context.Context, userID string, ema
 func (s *TwoFAService) EnableTwoFA(ctx context.Context, userID string, email, secret, code string) (*domain.UserTwoFA, []string, error) {
 	// Verify code
 	if !totp.Validate(code, secret) {
-		return nil, nil, errors.New("invalid otp code")
+		return nil, nil, xerrors.ErrInvalidOrExpiredTOTP
 	}
 
 	// Create 2FA record

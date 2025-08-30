@@ -22,7 +22,7 @@ func SetupRoutes(
 ) chi.Router {
 	// ---- Global Middleware ----
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"http://127.0.0.1:5500", "http://localhost:5500", "https://0e0aae30ab34.ngrok-free.app"},
+		AllowedOrigins:   []string{"http://127.0.0.1:5500", "http://localhost:5500", "https://4bcbc3ea8466.ngrok-free.app"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "PATCH"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
 		ExposedHeaders:   []string{"Link"},
@@ -41,7 +41,7 @@ func SetupRoutes(
 	
 	// Login attempts (stricter)
 	r.Group(func(r chi.Router) {
-		r.Use(auth.RateLimit(rdb, 3, 5*time.Minute, 5*time.Minute, "auth"))
+		r.Use(auth.RateLimit(rdb, 5, 30*time.Second, 30*time.Second, "auth"))
 		// ============================================================
 		// Public Endpoints (no auth required)
 		// ============================================================
@@ -51,6 +51,7 @@ func SetupRoutes(
 		r.Post("/auth/google", h.GoogleAuthHandler)
 		r.Post("/auth/telegram", h.TelegramLogin)
 		r.Post("/auth/apple", h.AppleAuthHandler)
+		r.Post("/auth/password/forgot", h.HandleForgotPassword) // reset after forgot-password
 	})
 
 	// ============================================================
@@ -60,12 +61,17 @@ func SetupRoutes(
 		// Password setup flows
 		pr.Use(auth.Require([]string{"main", "temp"}, []string{"register"}))
 		pr.Post("/auth/password/set", h.HandleSetPassword)     // first-time set during signup
+	})
+	
+	r.Group(func(pr chi.Router) {
+		// Password setup flows
+		pr.Use(auth.Require([]string{"temp"}, []string{"password_reset"}))
 		pr.Post("/auth/password/reset", h.HandleResetPassword) // reset after forgot-password
 	})
 
 	r.Group(func(pr chi.Router) {
 		// OTP request/verify (register/email change flows)
-		pr.Use(auth.Require([]string{"main", "temp"}, []string{"register", "email_change", "incomplete_profile","general"}))
+		pr.Use(auth.Require([]string{"main", "temp"}, []string{"register", "email_change", "incomplete_profile","general", "verfiy-otp"}))
 		pr.Post("/auth/register/otp/request", h.HandleRequestOTP)
 		pr.Post("/auth/register/otp/verify", h.HandleVerifyOTP)
 	})
@@ -105,7 +111,7 @@ func SetupRoutes(
 		pr.Post("/auth/profile/picture", h.UploadProfilePicture)
 
 		// Password management
-		pr.Patch("/auth/password", h.HandleChangePassword) // change existing password
+		pr.Patch("/auth/password/change", h.HandleChangePassword) // change existing password
 		// pr.Post("/auth/password/convert", h.HandleConvertPassword) // social → hybrid
 
 		// Sessions

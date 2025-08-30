@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"x/shared/utils/errors"
 )
 
 type TwoFARepository struct {
@@ -56,7 +57,8 @@ func (r *TwoFARepository) GetTwoFA(ctx context.Context, userID string, method st
 	const q = `
 		SELECT id, user_id, method, secret, is_enabled, created_at, updated_at
 		FROM user_twofa
-		WHERE user_id = $1 AND method = $2 LIMIT 1
+		WHERE user_id = $1 AND method = $2
+		LIMIT 1
 	`
 
 	var rec domain.UserTwoFA
@@ -70,6 +72,9 @@ func (r *TwoFARepository) GetTwoFA(ctx context.Context, userID string, method st
 		&rec.UpdatedAt,
 	)
 	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, xerrors.ErrNotFound
+		}
 		return nil, err
 	}
 	return &rec, nil
@@ -86,12 +91,21 @@ func (r *TwoFARepository) UpdateTwoFA(ctx context.Context, twofa *domain.UserTwo
 		RETURNING updated_at
 	`
 
-	return r.db.QueryRow(ctx, q,
+	err := r.db.QueryRow(ctx, q,
 		twofa.ID,
 		twofa.UserID,
 		twofa.Secret,
 		twofa.IsEnabled,
 	).Scan(&twofa.UpdatedAt)
+
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return xerrors.ErrNotFound
+		}
+		return err
+	}
+
+	return nil
 }
 
 // Add backup codes (bulk insert)
@@ -173,8 +187,18 @@ func (r *TwoFARepository) GetUnusedBackupCodes(ctx context.Context, twofaID int6
 		}
 		codes = append(codes, c)
 	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	if len(codes) == 0 {
+		return nil, xerrors.ErrNotFound
+	}
+
 	return codes, nil
 }
+
 
 // Mark backup code as used
 func (r *TwoFARepository) UseBackupCode(ctx context.Context, id int64) error {
@@ -183,8 +207,18 @@ func (r *TwoFARepository) UseBackupCode(ctx context.Context, id int64) error {
 		SET is_used = true, used_at = NOW()
 		WHERE id = $1 AND is_used = false
 	`
-	_, err := r.db.Exec(ctx, q, id)
-	return err
+
+	cmdTag, err := r.db.Exec(ctx, q, id)
+	if err != nil {
+		return err
+	}
+
+	if cmdTag.RowsAffected() == 0 {
+		// nothing was updated → either not found, or already used
+		return xerrors.ErrNotFound
+	}
+
+	return nil
 }
 
 // Verify backup code (and mark as used)
@@ -202,7 +236,7 @@ func (r *TwoFARepository) VerifyAndConsumeBackupCode(ctx context.Context, twofaI
 	err := r.db.QueryRow(ctx, q, twofaID, hash).Scan(&id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return false, nil // no match
+			return false, xerrors.ErrNotFound
 		}
 		return false, err
 	}
@@ -216,9 +250,19 @@ func (r *TwoFARepository) DisableTwoFA(ctx context.Context, twofaID int64) error
 		SET is_enabled = FALSE, updated_at = NOW()
 		WHERE id = $1
 	`
-	_, err := r.db.Exec(ctx, q, twofaID)
-	return err
+	res, err := r.db.Exec(ctx, q, twofaID)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected := res.RowsAffected()
+	if rowsAffected == 0 {
+		return xerrors.ErrNotFound
+	}
+
+	return nil
 }
+
 
 // Permanently remove a 2FA method and its backup codes
 func (r *TwoFARepository) DeleteTwoFA(ctx context.Context, twofaID int64) error {

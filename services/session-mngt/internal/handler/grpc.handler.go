@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"time"
 
@@ -85,16 +86,25 @@ func (h *AuthHandler) ListSessions(ctx context.Context, req *pb.ListSessionsRequ
 
 	protoSessions := make([]*pb.Session, 0, len(sessions))
 	for _, s := range sessions {
-		protoSessions = append(protoSessions, &pb.Session{
-			Id:         s.ID,
-			DeviceId:     *s.DeviceID,
-			IpAddress:     *s.IPAddress,
-			UserAgent:   *s.UserAgent,
-			GeoLocation: *s.GeoLocation,
-			LastSeenAt: s.LastSeenAt.Format(time.RFC3339),
-			CreatedAt:  s.CreatedAt.Format(time.RFC3339),
-		})
-	}
+	protoSessions = append(protoSessions, &pb.Session{
+		Id:            s.ID,
+		UserId:        s.UserID,
+		AuthToken:     s.AuthToken, // if you change to *string, wrap with safeString
+		DeviceId:      safeString(s.DeviceID),
+		IpAddress:     safeString(s.IPAddress),
+		UserAgent:     safeString(s.UserAgent),
+		GeoLocation:   safeString(s.GeoLocation),
+		DeviceMetadata: fmt.Sprintf("%v", s.DeviceMeta), // serialize if needed
+		IsActive:      s.IsActive,
+		IsSingleUse:   s.IsSingleUse,
+		IsUsed:        s.IsUsed,
+		IsTemp:        s.IsTemp,
+		Purpose:       safeString(&s.Purpose), // or safeString(s.Purpose) if pointer
+		LastSeenAt:    safeTime(s.LastSeenAt),
+		CreatedAt:     s.CreatedAt.Format(time.RFC3339),
+	})
+}
+
 
 	return &pb.ListSessionsResponse{
 		Sessions: protoSessions,
@@ -126,4 +136,19 @@ func (h *AuthHandler) DeleteSessionByID(ctx context.Context, req *pb.DeleteSessi
 		return nil, status.Errorf(codes.Internal, "failed to delete session")
 	}
 	return &pb.Empty{}, nil
+}
+
+
+func safeString(ptr *string) string {
+	if ptr != nil {
+		return *ptr
+	}
+	return ""
+}
+
+func safeTime(t *time.Time) string {
+	if t != nil {
+		return t.Format(time.RFC3339)
+	}
+	return ""
 }

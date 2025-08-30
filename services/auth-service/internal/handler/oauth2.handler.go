@@ -70,11 +70,11 @@ func (h *AuthHandler) AppleAuthHandler(w http.ResponseWriter, r *http.Request) {
 
 	var req AppleAuthRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		response.Error(w,  http.StatusBadRequest, "invalid request body")
 		return
 	}
 	if req.IDToken == "" && req.Code == "" {
-		http.Error(w, "either id_token or code is required", http.StatusBadRequest)
+		response.Error(w,http.StatusBadRequest ,"either id_token or code is required", )
 		return
 	}
 
@@ -89,7 +89,7 @@ func (h *AuthHandler) AppleAuthHandler(w http.ResponseWriter, r *http.Request) {
 
 	user, isNew, err := h.uc.RegisterWithApple(ctx, deps, req.IDToken, req.Code)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized, err.Error())
 		return
 	}
 
@@ -132,12 +132,16 @@ type TelegramLoginRequest struct {
 	PhotoURL  string `json:"photo_url"`
 	AuthDate  string `json:"auth_date"`
 	Hash      string `json:"hash"`
+
+	DeviceID       *string     `json:"device_id"`
+	GeoLocation    *string     `json:"geo_location"`
+	DeviceMetadata *any        `json:"device_metadata"`
 }
 
 func (h *AuthHandler) TelegramLogin(w http.ResponseWriter, r *http.Request) {
 	var req TelegramLoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request", http.StatusBadRequest)
+		response.Error(w, http.StatusBadRequest,"invalid request",)
 		return
 	}
 
@@ -153,7 +157,7 @@ func (h *AuthHandler) TelegramLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !h.telegramClient.VerifyTelegramAuth(data) {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		response.Error(w, http.StatusUnauthorized,"unauthorized", )
 		return
 	}
 
@@ -161,9 +165,23 @@ func (h *AuthHandler) TelegramLogin(w http.ResponseWriter, r *http.Request) {
 	// Now you can link/create user in DB using your usecase
 	user, err := h.uc.HandleTelegramLogin(r.Context(), data)
 	if err != nil {
-		http.Error(w, "failed to process login", http.StatusInternalServerError)
+		response.Error(w,  http.StatusInternalServerError,"failed to process login",)
 		return
 	}
 
-	json.NewEncoder(w).Encode(user)
+	session, err := h.createSessionHelper(
+		r.Context(),
+		user.ID, false, false, "general",
+		nil, req.DeviceID, req.DeviceMetadata, req.GeoLocation, r,
+	)
+	if err != nil {
+		log.Printf("Failed to create session: %v", err)
+		response.Error(w, http.StatusInternalServerError, "session creation failed")
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"token":  session.AuthToken,
+		"device": session.DeviceID,
+	})
 }

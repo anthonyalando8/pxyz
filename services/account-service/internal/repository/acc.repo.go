@@ -2,12 +2,15 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"account-service/internal/domain"
+	"x/shared/utils/errors"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -78,6 +81,9 @@ func (r *UserProfileRepository) GetByUserID(ctx context.Context, userID string) 
 		&profile.UpdatedAt,
 	)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, xerrors.ErrNotFound
+		}
 		return nil, err
 	}
 
@@ -87,6 +93,7 @@ func (r *UserProfileRepository) GetByUserID(ctx context.Context, userID string) 
 
 	return profile, nil
 }
+
 
 // Update modifies fields in a user profile
 func (r *UserProfileRepository) Update(ctx context.Context, profile *domain.UserProfile) error {
@@ -165,9 +172,19 @@ func (r *UserProfileRepository) UpdateProfilePicture(ctx context.Context, userID
 		SET profile_image_url = $1, updated_at = NOW()
 		WHERE user_id = $2
 	`
-	_, err := r.db.Exec(ctx, q, imageURL, userID)
-	return err
+
+	res, err := r.db.Exec(ctx, q, imageURL, userID)
+	if err != nil {
+		return err
+	}
+
+	if rows := res.RowsAffected(); rows == 0 {
+		return xerrors.ErrNotFound
+	}
+
+	return nil
 }
+
 
 // DeleteProfilePicture removes the profile picture URL and returns the old one.
 func (r *UserProfileRepository) DeleteProfilePicture(ctx context.Context, userID string) (string, error) {

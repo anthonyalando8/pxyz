@@ -114,13 +114,14 @@ func (r *SessionRepository) CreateOrUpdateSession(ctx context.Context, session *
 		geo_location    = COALESCE(NULLIF(EXCLUDED.geo_location, ''), sessions.geo_location),
 		device_metadata = COALESCE(EXCLUDED.device_metadata, sessions.device_metadata),
 		last_seen_at    = COALESCE(EXCLUDED.last_seen_at, sessions.last_seen_at),
-		is_active       = COALESCE(EXCLUDED.is_active, sessions.is_active),
-		is_single_use   = COALESCE(EXCLUDED.is_single_use, sessions.is_single_use),
-		is_temp         = COALESCE(EXCLUDED.is_temp, sessions.is_temp),
-		is_used         = COALESCE(EXCLUDED.is_used, sessions.is_used),
+		-- boolean fields: update unconditionally, unless you make them nullable
+		is_active       = EXCLUDED.is_active,
+		is_single_use   = EXCLUDED.is_single_use,
+		is_temp         = EXCLUDED.is_temp,
+		is_used         = EXCLUDED.is_used,
 		expires_at      = COALESCE(EXCLUDED.expires_at, sessions.expires_at),
-		updated_at      = NOW(),
-		purpose         = COALESCE(NULLIF(EXCLUDED.purpose, ''), sessions.purpose);
+		purpose         = COALESCE(NULLIF(EXCLUDED.purpose, ''), sessions.purpose),
+		updated_at      = NOW();
 	`
 
 	_, err = tx.Exec(ctx, query,

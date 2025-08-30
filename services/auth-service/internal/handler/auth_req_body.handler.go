@@ -33,6 +33,14 @@ type LoginRequest struct {
 	DeviceMetadata *any        `json:"device_metadata"`
 }
 
+type ForgotPasswordRequest struct {
+	Identifier string `json:"identifier"`
+	
+	DeviceID       *string     `json:"device_id"`
+	GeoLocation    *string     `json:"geo_location"`
+	DeviceMetadata *any        `json:"device_metadata"`
+}
+
 type ChangeEmailRequest struct {
 	UserID   string `json:"user_id"`
 	NewEmail string `json:"new_email"`

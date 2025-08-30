@@ -76,6 +76,7 @@ func (h *AuthHandler) HandleProfile(w http.ResponseWriter, r *http.Request) {
 		"gender":        profile.Gender,
 		"date_of_birth": profile.DateOfBirth,
 		"profile_image": profile.ProfileImageUrl,
+		//"sys_username":  profile.SysUsername,
 	}
 	var address map[string]interface{}
 	if err := json.Unmarshal([]byte(profile.AddressJson), &address); err == nil {

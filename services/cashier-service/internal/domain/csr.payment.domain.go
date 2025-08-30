@@ -12,11 +12,11 @@ var (
 
 
 type DepositRequest struct {
-    Provider   string
-    UserID     string
-    Phone      string
-    Amount     float64
-    AccountRef string
+    Provider   string `json:"provider"` // e.g., "mpesa"
+    UserID     string `json:"user_id"`
+    Phone      string `json:"phone"`
+    Amount     float64 `json:"amount"`
+    AccountRef string `json:"account_ref"`
 }
 
 type DepositResponse struct {
@@ -26,11 +26,11 @@ type DepositResponse struct {
 }
 
 type WithdrawRequest struct {
-    Provider   string
-    UserID     string
-    Phone      string
-    Amount     float64
-    AccountRef string
+    Provider   string `json:"provider"` // e.g., "mpesa"
+    UserID     string `json:"user_id"`
+    Phone      string `json:"phone"`
+    Amount     float64 `json:"amount"`
+    AccountRef string `json:"account_ref"`
 }
 
 type WithdrawResponse struct {

@@ -63,6 +63,10 @@ func (uc *UserUsecase) FindUserById(ctx context.Context, userId string) (*domain
 	return uc.userRepo.GetUserByID(ctx, userId)
 }
 
+func (uc *UserUsecase) FindUserByIdentifier(ctx context.Context, identifier string) (*domain.User, error){
+	return uc.userRepo.GetUserByIdentifier(ctx, identifier)
+}
+
 func (uc *UserUsecase) SetPendingEmail(ctx context.Context, userID, newEmail string) error {
 	// Set pending email in repository
 	return uc.userRepo.SetPendingEmail(ctx, userID, newEmail)

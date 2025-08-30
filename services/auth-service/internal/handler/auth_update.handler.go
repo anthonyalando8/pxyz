@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"auth-service/internal/domain"
 	"auth-service/pkg/utils"
 	"context"
 	"encoding/json"
@@ -8,11 +9,11 @@ import (
 	"log"
 	"net/http"
 	"x/shared/auth/middleware"
+
 	//"x/shared/genproto/accountpb"
 	"x/shared/genproto/emailpb"
-	"x/shared/response"
 	"x/shared/genproto/otppb"
-
+	"x/shared/response"
 )
 
 // Change password (requires old + new)
@@ -213,7 +214,7 @@ func (h *AuthHandler) HandleChangeEmail(w http.ResponseWriter, r *http.Request) 
 	// Step 3: Respond immediately
 	response.JSON(w, http.StatusOK, map[string]string{
 		"message":     "OTP sent to new email. Verify to confirm change.",
-		"next_stage":  "verify_otp",
+		"next":  "verify-otp",
 		"otp_purpose": "email_change",
 	})
 }
@@ -272,7 +273,7 @@ func (h *AuthHandler) HandleRequestEmailChange(w http.ResponseWriter, r *http.Re
 	// Respond first
 	response.JSON(w, http.StatusOK, map[string]interface{}{
 		"message":      "Request processed successfully. Verify OTP sent to old email to confirm action.",
-		"next_stage":   "verify_otp",
+		"next":   "verify-otp",
 		"otp_purpose":  "request_email_change",
 	})
 
@@ -359,3 +360,89 @@ func (h *AuthHandler) HandlePhoneChange(w http.ResponseWriter, r *http.Request) 
 	// 	response.Error(w, http.StatusUnauthorized, "Verification failed. Invalid code.")
 	// 	return
 	// }
+
+
+func (h *AuthHandler) HandleForgotPassword(w http.ResponseWriter, r *http.Request) {
+	var req ForgotPasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "Invalid JSON payload")
+		return
+	}
+	if req.Identifier == "" {
+		response.Error(w, http.StatusBadRequest, "Email or phone required")
+		return
+	}
+
+	// Step 1: Try to find user
+	user, err := h.uc.FindUserByIdentifier(r.Context(), req.Identifier)
+	if err != nil {
+		// Lookup failure → still respond generic but log
+		log.Printf("[ForgotPassword] user lookup failed for identifier=%s, err=%v", req.Identifier, err)
+		response.JSON(w, http.StatusOK, map[string]interface{}{
+			"message":     "If an account with the provided identifier exists, an OTP has been sent to its email address.",
+			"next":        "verify-otp",
+			"otp_purpose": "password_reset",
+		})
+		return
+	}
+	if user == nil {
+		// User not found → respond generic
+		response.JSON(w, http.StatusOK, map[string]interface{}{
+			"message":     "If an account with the provided identifier exists, an OTP has been sent to its email address.",
+			"next":        "verify-otp",
+			"otp_purpose": "password_reset",
+		})
+		return
+	}
+
+	// Step 2: Create temp session tied to this user
+	session, sessErr := h.createSessionHelper(
+		r.Context(),
+		user.ID,
+		true,   // temp session
+		false,  // isRefresh
+		"verify-otp", // purpose
+		nil,
+		req.DeviceID, req.DeviceMetadata, req.GeoLocation, r,
+	)
+	if sessErr != nil {
+		log.Printf("[HandleForgotPassword] ❌ Session creation failed userID=%v, err=%v", user.ID, sessErr)
+		response.Error(w, http.StatusInternalServerError, "Session creation failed: "+sessErr.Error())
+		return
+	}
+
+	// Step 3: Respond to client
+	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"message":     "If an account with the provided identifier exists, an OTP has been sent to its email address.",
+		"next":        "verify-otp",
+		"otp_purpose": "password_reset",
+		"token":       session.AuthToken,
+		"device":      session.DeviceID,
+	})
+
+	// Step 4: Send OTP in background
+	go func(u *domain.User) {
+		if u.Email == nil || *u.Email == "" {
+			log.Printf("[ForgotPassword] user %v has no email set, skipping OTP send", u.ID)
+			return
+		}
+
+		otpResp, otpErr := h.otp.Client.GenerateOTP(
+			context.Background(),
+			&otppb.GenerateOTPRequest{
+				UserId:    u.ID,
+				Channel:   "email",
+				Purpose:   "password_reset",
+				Recipient: *u.Email,
+			},
+		)
+		if otpErr != nil || otpResp == nil || !otpResp.Ok {
+			log.Printf("[ForgotPassword] ❌ OTP generation failed userID=%v, otpErr=%v, serviceErr=%v",
+				u.ID, otpErr, otpResp.GetError(),
+			)
+			return
+		}
+		log.Printf("[ForgotPassword] ✅ OTP sent successfully to %s for userID=%v", *u.Email, u.ID)
+	}(user)
+}
+

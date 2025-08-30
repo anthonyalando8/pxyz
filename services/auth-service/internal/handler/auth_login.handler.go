@@ -171,7 +171,7 @@ func (h *AuthHandler) handleIncompleteProfile(
 	response.JSON(w, http.StatusConflict, map[string]interface{}{
 		"error":       "incomplete_profile",
 		"stage":       stage,
-		"next_stage":  "verify_otp", // immediate requirement
+		"next":  "verify-otp", // immediate requirement
 		"purpose":    sessionPurpose,
 		"otp_channel": channel,
 		"token":  session.AuthToken,
@@ -196,7 +196,7 @@ func (h *AuthHandler) ensurePasswordSet(w http.ResponseWriter, r *http.Request, 
 		}
 		response.JSON(w, http.StatusConflict, map[string]interface{}{
 			"error":      "no_password_set",
-			"next_stage": "set_password_email",
+			"next": "set_password_email",
 			"token":      session.AuthToken,
 			"device":     session.DeviceID,
 		})

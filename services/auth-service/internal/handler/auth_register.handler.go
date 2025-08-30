@@ -158,7 +158,7 @@ func (h *AuthHandler) handlePartialUserError(
 		resp := map[string]interface{}{
 			"error":       "incomplete_profile",
 			"stage":       signupErr.Stage,
-			"next_stage":  "verify_otp",
+			"next":  "verify-otp",
 			"purpose":    sessionPurpose,
 			"token":  session.AuthToken,
 			"device":      session.DeviceID,

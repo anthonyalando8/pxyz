@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"auth-service/internal/domain"
 	"context"
 	"encoding/json"
 	"errors"
@@ -220,124 +221,108 @@ func (h *AuthHandler) handleNextAction(
 	resp map[string]interface{},
 ) error {
 	ctx := r.Context()
-
 	log.Printf("[handleNextAction] ▶️ userId=%s deviceID=%s next=%s extra=%v", userId, deviceID, next, extra)
 
-	switch next {
-	case "verify_email":
-		log.Printf("[handleNextAction] 📧 Verifying email for user=%s", userId)
-		if ok, err := h.uc.VerifyEmail(ctx, userId); err != nil || !ok {
-			log.Printf("[handleNextAction] ❌ Email verification failed for user=%s err=%v ok=%v", userId, err, ok)
-			response.Error(w, http.StatusInternalServerError, "Email verification failed")
-			return err
-		}
-		log.Printf("[handleNextAction] ✅ Email verified for user=%s", userId)
-		resp["action"] = "verify_email"
-
-	case "verify_phone":
-		log.Printf("[handleNextAction] 📱 Verifying phone for user=%s", userId)
-		if ok, err := h.uc.VerifyPhone(ctx, userId); err != nil || !ok {
-			log.Printf("[handleNextAction] ❌ Phone verification failed for user=%s err=%v ok=%v", userId, err, ok)
-			response.Error(w, http.StatusInternalServerError, "Phone verification failed")
-			return err
-		}
-		log.Printf("[handleNextAction] ✅ Phone verified for user=%s", userId)
-		resp["action"] = "verify_phone"
-
-	case "incomplete_profile":
-		log.Printf("[handleNextAction] 📝 Incomplete profile flow for user=%s", userId)
-		if ok, err := h.uc.VerifyEmail(ctx, userId); err != nil || !ok {
-			log.Printf("[handleNextAction] ❌ Email re-check failed in incomplete_profile for user=%s err=%v ok=%v", userId, err, ok)
-			response.Error(w, http.StatusInternalServerError, "Email verification failed")
-			return err
-		}
-
-		session, sessErr := h.createSessionHelper(
+	// --- Small helper closures ---
+	createSession := func(purpose string, temp bool) (*domain.Session, error) {
+		return h.createSessionHelper(
 			ctx,
 			userId,
-			true, // not temp
-			false, // not single use
-			"register",
+			temp,
+			false, // no single use
+			purpose,
 			nil,
 			&deviceID,
 			nil, nil, r,
 		)
-		if sessErr != nil {
-			log.Printf("[handleNextAction] ❌ Failed to create register session for user=%s err=%v", userId, sessErr)
-			response.Error(w, http.StatusInternalServerError, "Session creation failed")
-			return sessErr
-		}
-		log.Printf("[handleNextAction] ✅ Register session created for user=%s sessionID=%s", userId, session.ID)
+	}
 
+	verify := func(fn func(context.Context, string) (bool, error), label string) error {
+		if ok, err := fn(ctx, userId); err != nil || !ok {
+			log.Printf("[handleNextAction] ❌ %s verification failed user=%s err=%v ok=%v", label, userId, err, ok)
+			response.Error(w, http.StatusInternalServerError, label+" verification failed")
+			return err
+		}
+		log.Printf("[handleNextAction] ✅ %s verified for user=%s", label, userId)
+		resp["action"] = "verify_" + strings.ToLower(label)
+		return nil
+	}
+
+	// --- Main flow ---
+	switch next {
+	case "verify_email":
+		return verify(h.uc.VerifyEmail, "Email")
+
+	case "verify_phone":
+		return verify(h.uc.VerifyPhone, "Phone")
+
+	case "incomplete_profile":
+		if err := verify(h.uc.VerifyEmail, "Email"); err != nil {
+			return err
+		}
+		session, err := createSession("register", true)
+		if err != nil {
+			log.Printf("[handleNextAction] ❌ Failed to create register session user=%s err=%v", userId, err)
+			response.Error(w, http.StatusInternalServerError, "Session creation failed")
+			return err
+		}
 		resp["action"] = "incomplete_profile_verified"
 		resp["stage"] = extra["stage"]
-		resp["next_stage"] = extra["next_stage"]
+		resp["next"] = extra["next_stage"]
 		resp["token"] = session.AuthToken
 		resp["device"] = session.DeviceID
 
 	case "request_email_change":
-		log.Printf("[handleNextAction] ✉️ Requesting email change for user=%s", userId)
-		session, sessErr := h.createSessionHelper(
-			ctx,
-			userId,
-			true,  // temp
-			false, // not refresh
-			"email_change",
-			nil,
-			&deviceID,
-			nil, nil, r,
-		)
-		if sessErr != nil {
-			log.Printf("[handleNextAction] ❌ Failed to create email change session for user=%s err=%v", userId, sessErr)
+		session, err := createSession("email_change", true)
+		if err != nil {
 			response.Error(w, http.StatusInternalServerError, "Failed to process request")
-			return sessErr
+			return err
 		}
-		log.Printf("[handleNextAction] ✅ Email change session created for user=%s sessionID=%s", userId, session.ID)
-
 		resp["message"] = "Request processed successfully"
-		resp["next_stage"] = "send_new_email"
+		resp["next"] = "send_new_email"
 		resp["token"] = session.AuthToken
 		resp["device"] = session.DeviceID
 
 	case "email_change":
 		user, err := h.uc.FindUserById(ctx, userId)
 		oldEmail := ""
-		if err != nil {
-			log.Printf("[WARN] failed to fetch old email for user %s: %v", userId, err)
-		} else if user != nil && user.Email != nil {
+		if err == nil && user != nil && user.Email != nil {
 			oldEmail = *user.Email
 		}
-
-		log.Printf("[handleNextAction] 🔄 Processing email change for user=%s", userId)
 		pendingEmail, err := h.uc.GetPendingEmail(ctx, userId)
 		if err != nil {
-			log.Printf("[handleNextAction] ❌ Failed to get pending email for user=%s err=%v", userId, err)
 			response.Error(w, http.StatusInternalServerError, "Failed to retrieve pending email")
 			return err
 		}
 		if pendingEmail == "" {
-			log.Printf("[handleNextAction] ⚠️ No pending email found for user=%s", userId)
 			response.Error(w, http.StatusBadRequest, "No pending email change found")
 			return errors.New("no pending email change")
 		}
-
-		log.Printf("[handleNextAction] 📧 Changing email for user=%s newEmail=%s", userId, pendingEmail)
 		if err := h.uc.ChangeEmail(ctx, userId, pendingEmail); err != nil {
-			log.Printf("[handleNextAction] ❌ Email change failed for user=%s newEmail=%s err=%v", userId, pendingEmail, err)
 			response.Error(w, http.StatusInternalServerError, "Email change failed")
 			return err
 		}
-
-		log.Printf("[handleNextAction] ✅ Email changed for user=%s newEmail=%s", userId, pendingEmail)
 		resp["action"] = "new_email_verified"
 		resp["new_email"] = pendingEmail
 		resp["message"] = "Email changed successfully"
 		h.sendEmailChangeNotifications(ctx, userId, oldEmail, pendingEmail)
+
+	case "password_reset":
+		session, err := createSession("password_reset", true)
+		if err != nil {
+			response.Error(w, http.StatusInternalServerError, "Failed to process request")
+			return err
+		}
+		resp["message"] = "Request processed successfully"
+		resp["next"] = "reset_password"
+		resp["token"] = session.AuthToken
+		resp["device"] = session.DeviceID
 	}
 
 	log.Printf("[handleNextAction] ⏹️ Completed next=%s for user=%s", next, userId)
 	return nil
 }
+
 
 
 
