@@ -173,7 +173,7 @@
       try {
         disableBtn(submitBtn, true);
         const payload = { identifier, password };
-        const response = await postJSON('http://localhost:50051/auth/login', payload);
+        const response = await postJSON('http://localhost:8001/auth/login', payload);
 
         showAlert(loginPane, 'success', 'Logged in successfully.');
         const data = response.data;
@@ -265,7 +265,7 @@
           [identifierType]: rawInput,
         };
 
-        const data = await postJSON('http://localhost:50051/auth/register', payload);
+        const data = await postJSON('http://localhost:8001/auth/register', payload);
 
         showAlert(signupPane, 'success', 'Account created successfully. You can now login.');
 

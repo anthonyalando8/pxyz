@@ -62,98 +62,104 @@ func (h *AuthHandler) HandleResetPassword(w http.ResponseWriter, r *http.Request
 
 // Set password (signup flow)
 func (h *AuthHandler) HandleSetPassword(w http.ResponseWriter, r *http.Request) {
-	userID, ok := r.Context().Value(middleware.ContextUserID).(string)
-	deviceID, ok2 := r.Context().Value(middleware.ContextDeviceID).(string)
-	if !ok || userID == "" {
-		response.Error(w, http.StatusUnauthorized, "Unauthorized")
-		return
-	}
-	if !ok2 || deviceID == "" || deviceID == "unknown" {
-		response.Error(w, http.StatusUnauthorized, "Unauthorized device")
-		return
-	}
+    userID, ok := r.Context().Value(middleware.ContextUserID).(string)
+    deviceID, ok2 := r.Context().Value(middleware.ContextDeviceID).(string)
+    if !ok || userID == "" {
+        response.Error(w, http.StatusUnauthorized, "Unauthorized")
+        return
+    }
+    if !ok2 || deviceID == "" || deviceID == "unknown" {
+        response.Error(w, http.StatusUnauthorized, "Unauthorized device")
+        return
+    }
 
-	var req SetPasswordRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "Invalid request")
-		return
-	}
+    var req SetPasswordRequest
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        response.Error(w, http.StatusBadRequest, "Invalid request")
+        return
+    }
 
-	if err := h.uc.UpdatePassword(r.Context(), userID, req.NewPassword, false, "", true); err != nil {
-		response.Error(w, http.StatusBadRequest, err.Error())
-		return
-	}
+    // --- Password + Session ---
+    session, err := h.updatePasswordAndCreateSession(r.Context(), userID, deviceID, req.NewPassword, r)
+    if err != nil {
+        response.Error(w, http.StatusBadRequest, err.Error())
+        return
+    }
 
-	session, sessErr := h.createSessionHelper(
-		r.Context(),
-		userID, false, false, "general",
-		nil, &deviceID, nil, nil, r,
-	)
-	if sessErr != nil {
-		log.Printf("Failed to create temp session: %v", sessErr)
-		response.Error(w, http.StatusInternalServerError, "Session creation failed")
-		return
-	}
+    // --- Assign Trader role asynchronously ---
+    go func(userID string) {
+        bgCtx := context.Background()
+        traderRole := domain.Role{Name: domain.RoleTrader} // use predefined constant
+        if err := h.uc.AssignRoleToUserHelper(bgCtx, userID, traderRole); err != nil {
+            fmt.Printf("failed to assign role %s to user %s: %v\n", traderRole.Name, userID, err)
+        }
+    }(userID)
 
-	// --- Send Welcome Email in background ---
-	if h.emailClient != nil {
-		uid := userID
-		go func() {
-			subject := "Welcome to Pxyz 🎉"
+    // --- Welcome Email ---
+    h.sendWelcomeEmailAsync(userID)
 
-			body := `
-			<!DOCTYPE html>
-			<html>
-			<head><meta charset="UTF-8"><title>Welcome</title></head>
-			<body style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px;">
-				<div style="max-width: 600px; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0px 2px 5px rgba(0,0,0,0.1);">
-					<h2 style="color: #2E86C1;">Welcome to Pxyz</h2>
-					<p style="font-size: 16px; color: #333;">
-						Hello,<br><br>
-						Your account has been successfully created and your password set. 
-						We’re excited to have you onboard 🚀
-					</p>
-					<p style="font-size: 16px; color: #333;">
-						You can now log in and start exploring the platform. 
-						We’ve built Pxyz with your security and experience in mind.
-					</p>
-					<p style="margin-top: 30px; font-size: 14px; color: #999999;">
-						Thank you,<br>
-						<strong>Pxyz Team</strong>
-					</p>
-				</div>
-			</body>
-			</html>
-			`
+    // --- Response ---
+    response.JSON(w, http.StatusOK, map[string]string{
+        "message": "Password set successfully",
+        "token":   session.AuthToken,
+    })
+}
 
-			user, err := h.uc.FindUserById(context.Background(), userID)
-			if err != nil {
-				log.Printf("[WARN] failed to fetch user %s for welcome email: %v", uid, err)
-				return
-			}
-			if user == nil || user.Email == nil || *user.Email == "" {
-				log.Printf("[WARN] user %s has no email set, cannot send welcome email", uid)
-				return
-			}
-			// Send email
 
-			_, emailErr := h.emailClient.SendEmail(context.Background(), &emailpb.SendEmailRequest{
-				UserId:         uid,
-				RecipientEmail: *user.Email, // <-- needed to fetch email
-				Subject:        subject,
-				Body:           body,
-				Type:           "welcome",
-			})
-			if emailErr != nil {
-				log.Printf("[WARN] failed to send welcome email to user %s: %v", uid, emailErr)
-			}
-		}()
-	}
+func (h *AuthHandler) updatePasswordAndCreateSession(
+    ctx context.Context,
+    userID, deviceID, newPassword string,
+    r *http.Request,
+) (*domain.Session, error) {
 
-	response.JSON(w, http.StatusOK, map[string]string{
-		"message": "Password set successfully",
-		"token":   session.AuthToken,
-	})
+    // Update password
+    if err := h.uc.UpdatePassword(ctx, userID, newPassword, false, "", true); err != nil {
+        return nil, err
+    }
+
+    // Create session
+    session, err := h.createSessionHelper(
+        ctx,
+        userID, false, false, "general",
+        nil, &deviceID, nil, nil, r,
+    )
+    if err != nil {
+        log.Printf("Failed to create session for user %s: %v", userID, err)
+        return nil, fmt.Errorf("session creation failed")
+    }
+
+    return session, nil
+}
+func (h *AuthHandler) sendWelcomeEmailAsync(userID string) {
+    if h.emailClient == nil {
+        return
+    }
+
+    go func() {
+        subject := "Welcome to Pxyz 🎉"
+        body := `... HTML email template ...`
+
+        user, err := h.uc.FindUserById(context.Background(), userID)
+        if err != nil {
+            log.Printf("[WARN] failed to fetch user %s for welcome email: %v", userID, err)
+            return
+        }
+        if user == nil || user.Email == nil || *user.Email == "" {
+            log.Printf("[WARN] user %s has no email set, cannot send welcome email", userID)
+            return
+        }
+
+        _, emailErr := h.emailClient.SendEmail(context.Background(), &emailpb.SendEmailRequest{
+            UserId:         userID,
+            RecipientEmail: *user.Email,
+            Subject:        subject,
+            Body:           body,
+            Type:           "welcome",
+        })
+        if emailErr != nil {
+            log.Printf("[WARN] failed to send welcome email to user %s: %v", userID, emailErr)
+        }
+    }()
 }
 
 

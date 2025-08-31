@@ -19,7 +19,7 @@ type SMSClient struct {
 
 // NewSMSClient connects to the SMS service and returns a ready-to-use client
 func NewSMSClient() *SMSClient {
-	smsServiceAddr := getEnv("SMS_SERVICE_ADDR", "sms-service:50059")
+	smsServiceAddr := getEnv("SMS_SERVICE_ADDR", "sms-service:8012")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

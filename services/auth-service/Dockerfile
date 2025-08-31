@@ -41,7 +41,7 @@ RUN useradd -u 10001 nonroot && chown -R nonroot:nonroot /app
 USER nonroot
 
 # Expose REST port
-EXPOSE 50051
+EXPOSE 8001 8006
 
 # Run the service
 ENTRYPOINT ["/app/auth-service"]

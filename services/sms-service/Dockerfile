@@ -28,6 +28,6 @@ COPY --from=builder /app/sms-service /app/sms-service
 RUN useradd -u 10001 nonroot && chown -R nonroot:nonroot /app
 USER nonroot
 
-EXPOSE 50059
+EXPOSE 8012
 
 ENTRYPOINT ["/app/sms-service"]

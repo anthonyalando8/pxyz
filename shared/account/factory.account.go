@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	accountpb  "x/shared/genproto/accountpb"
+	accountpb "x/shared/genproto/accountpb"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -19,7 +19,7 @@ type AccountClient struct {
 
 // NewAccountClient connects to the email service and returns a ready-to-use client
 func NewAccountClient() *AccountClient {
-	accServiceAddr := getEnv("ACCOUNT_SERVICE_ADDR", "account-service:50056")
+	accServiceAddr := getEnv("ACCOUNT_SERVICE_ADDR", "account-service:8004")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

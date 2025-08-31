@@ -26,6 +26,6 @@ COPY --from=builder /app/email-service /email-service
 
 USER nonroot:nonroot
 
-EXPOSE 50054
+EXPOSE 8011
 
 ENTRYPOINT ["/email-service"]

@@ -10,5 +10,5 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o otp-service ./cmd/otp.main
 FROM gcr.io/distroless/static:nonroot
 COPY --from=builder /app/otp-service /otp-service
 USER nonroot:nonroot
-EXPOSE 50055
+EXPOSE 8003
 ENTRYPOINT ["/otp-service"]

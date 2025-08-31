@@ -20,7 +20,7 @@ type OTPService struct {
 
 // NewOTPService connects to the OTP microservice and returns a ready-to-use client wrapper.
 func NewOTPService() *OTPService {
-	otpAddr := getEnv("OTP_SERVICE_ADDR", "otp-service:50055")
+	otpAddr := getEnv("OTP_SERVICE_ADDR", "otp-service:8003")
 
 	if wd, err := os.Getwd(); err == nil {
 		fmt.Println("Working directory:", wd)

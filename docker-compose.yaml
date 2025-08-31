@@ -15,7 +15,8 @@ services:
       context: .
       dockerfile: services/auth-service/Dockerfile
     ports:
-      - "50051:50051"
+      - "8001:8001"
+      - "8006:8006"
     env_file:
       - ./services/auth-service/.env
     volumes:
@@ -39,7 +40,7 @@ services:
       context: .
       dockerfile: services/session-mngt/Dockerfile
     ports:
-      - "50050:50050"
+      - "8002:8002"
     env_file:
       - ./services/session-mngt/.env
     volumes:
@@ -64,7 +65,7 @@ services:
       context: .
       dockerfile: services/email-service/Dockerfile
     ports:
-      - "50054:50054"
+      - "8011:8011"
     env_file:
       - ./services/email-service/.env
     environment:
@@ -74,7 +75,7 @@ services:
       DB_PASSWORD: 2000
       DB_NAME: pxyz
       REDIS_ADDR: redis:6379
-      GRPCPort: 50054
+      GRPCPort: :8011
       SMTPHost: smtp.gmail.com
       SMTPUser: anthonyalando8@gmail.com
       SMTPPort: 587
@@ -90,13 +91,13 @@ services:
       context: .
       dockerfile: services/otp-service/Dockerfile
     ports:
-      - "50055:50055"
+      - "8003:8003"
     env_file:
       - ./services/otp-service/.env
     environment:
       DB_CONN: postgres://postgres:2000@host.docker.internal:5432/pxyz
       REDIS_ADDR: redis:6379
-      EMAIL_SVC_ADDR: email-service:50054
+      EMAIL_SVC_ADDR: email-service:8011
     depends_on:
       - redis
       - email-service
@@ -109,14 +110,14 @@ services:
       context: .
       dockerfile: services/account-service/Dockerfile
     ports:
-      - "50056:50056"
+      - "8004:8004"
     env_file:
       - ./services/account-service/.env
     environment:
       DB_CONN: postgres://postgres:2000@host.docker.internal:5432/pxyz
       REDIS_ADDR: redis:6379
-      EMAIL_SVC_ADDR: email-service:50054
-      GRPC_ADDR: 50056
+      EMAIL_SVC_ADDR: email-service:8011
+      GRPC_ADDR: :8004
       REDIS_PASS:
     depends_on:
       - redis
@@ -130,15 +131,15 @@ services:
       context: .
       dockerfile: services/kyc-service/Dockerfile
     ports:
-      - "50057:50057"
+      - "8005:8005"
     env_file:
       - ./services/kyc-service/.env
     environment:
-      HTTP_ADDR: :50057
+      HTTP_ADDR: :8005
       DB_CONN: postgres://postgres:2000@host.docker.internal:5432/pxyz
       REDIS_ADDR: redis:6379
       REDIS_PASS:
-      EMAIL_SVC_ADDR: email-service:50054
+      EMAIL_SVC_ADDR: email-service:8011
       JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
     depends_on:
       - redis
@@ -155,11 +156,11 @@ services:
       context: .
       dockerfile: services/cashier-service/Dockerfile
     ports:
-      - "50058:50058"
+      - "8021:8021"
     env_file:
       - ./services/cashier-service/.env
     environment:
-      HTTP_ADDR: :50058
+      HTTP_ADDR: :8021
       DB_HOST: host.docker.internal
       DB_PORT: 5432
       DB_USER: postgres
@@ -191,11 +192,11 @@ services:
       context: .
       dockerfile: services/sms-service/Dockerfile
     ports:
-      - "50059:50059"
+      - "8012:8012"
     env_file:
       - ./services/sms-service/.env
     environment:
-      GRPC_ADDR: :50059
+      GRPC_ADDR: :8012
       REDIS_PASS:
       SMS_KEY:
       WA_KEY:
@@ -209,6 +210,33 @@ services:
     depends_on:
       - redis
       - email-service
+    networks:
+      - micro_net
+  partner-service:
+    container_name: partner-service
+    build:
+      context: .
+      dockerfile: services/partner-service/Dockerfile
+    ports:
+      - "8041:8041" # HTTP
+    env_file:
+      - ./services/partner-service/.env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: 2000
+      DB_NAME: pxyz
+      HTTP_ADDR: :8041
+      GRPC_ADDR: :8042
+      REDIS_ADDR: redis:6379
+      REDIS_PASS: ""
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    volumes:
+      - ./services/partner-service/secrets:/app/secrets:ro
+    depends_on:
+      - redis
+      - auth-service
     networks:
       - micro_net
 

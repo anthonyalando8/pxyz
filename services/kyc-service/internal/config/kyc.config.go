@@ -22,11 +22,11 @@ func Load() Config {
 	}
 
 	return Config{
-		HTTPAddr:     getEnv("HTTP_ADDR", ":50057"),
+		HTTPAddr:     getEnv("HTTP_ADDR", ":8005"),
 		DBConnString: getEnv("DB_CONN", "postgres://postgres:password@host.docker.internal:5432/pxyz"),
 		RedisAddr:    getEnv("REDIS_ADDR", "redis:6379"),
 		RedisPass:    getEnv("REDIS_PASS", ""),
-		EmailSvcAddr: getEnv("EMAIL_SVC_ADDR", "email-service:50054"),
+		EmailSvcAddr: getEnv("EMAIL_SVC_ADDR", "email-service:8011"),
 	}
 }
 

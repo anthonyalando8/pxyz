@@ -12,21 +12,20 @@ import (
 
 	"kyc-service/internal/service"
 	"x/shared/auth/middleware"
-	"x/shared/response"
 	emailclient "x/shared/email"
 	"x/shared/genproto/emailpb"
-
+	"x/shared/response"
 
 	"github.com/go-chi/chi"
 )
 
 type KYCHandler struct {
-	service *service.KYCService
+	service     *service.KYCService
 	emailClient *emailclient.EmailClient
 }
 
 func NewKYCHandler(s *service.KYCService, emailClient *emailclient.EmailClient) *KYCHandler {
-	return &KYCHandler{service: s, emailClient: emailClient,}
+	return &KYCHandler{service: s, emailClient: emailClient}
 }
 
 // UploadKYC handles uploading front and back ID images + face photo + KYC submission.
@@ -122,7 +121,7 @@ func (h *KYCHandler) UploadKYC(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[INFO] Saved face photo -> %s", facePath)
 
 	// Generate URLs (example: adjust base URL to match your static file server)
-	baseURL := "http://localhost:50057/uploads/kyc_docs"
+	baseURL := "http://localhost:8005/uploads/kyc_docs"
 	frontURL := fmt.Sprintf("%s/%s/%s", baseURL, userID, frontFilename)
 	backURL := fmt.Sprintf("%s/%s/%s", baseURL, userID, backFilename)
 	faceURL := fmt.Sprintf("%s/%s/%s", baseURL, userID, faceFilename)
@@ -139,8 +138,6 @@ func (h *KYCHandler) UploadKYC(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Printf("[INFO] KYC submission stored successfully for userID=%s", userID)
-
-
 
 	h.sendKYCSubmissionNotification(userID, "")
 
@@ -231,8 +228,6 @@ func (h *KYCHandler) sendKYCReviewResult(userID, recipientEmail, status string) 
 	}
 }
 
-
-
 func (h *KYCHandler) GetKYCStatus(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.ContextUserID).(string)
 	if !ok || userID == "" {
@@ -257,7 +252,6 @@ func (h *KYCHandler) GetKYCStatus(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-
 // --- NEW: Review submission (approve/reject) ---
 func (h *KYCHandler) ReviewKYC(w http.ResponseWriter, r *http.Request) {
 	kycID := chi.URLParam(r, "kycID")
@@ -281,7 +275,7 @@ func (h *KYCHandler) ReviewKYC(w http.ResponseWriter, r *http.Request) {
 	// Call service
 	if err := h.service.Review(r.Context(), &req); err != nil {
 		log.Printf("[KYC][ERROR] Failed to review KYC submission kycID=%s: %v", kycID, err)
-		response.Error(w, http.StatusInternalServerError,"failed to review KYC submission",)
+		response.Error(w, http.StatusInternalServerError, "failed to review KYC submission")
 		return
 	}
 
@@ -290,7 +284,6 @@ func (h *KYCHandler) ReviewKYC(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusNoContent)
 }
-
 
 // --- NEW: Get audit logs ---
 func (h *KYCHandler) GetKYCAuditLogs(w http.ResponseWriter, r *http.Request) {

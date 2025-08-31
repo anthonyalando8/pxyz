@@ -5,13 +5,10 @@ import (
 	"os"
 
 	"github.com/joho/godotenv"
-
 )
 
-
-
 type AppConfig struct {
-	GRPCPort  string
+	GRPCPort string
 	SMTPHost string
 	SMTPUser string
 	SMTPPort string
@@ -23,11 +20,11 @@ func Load() AppConfig {
 		log.Println("Auth: No .env file found, relying on system env vars")
 	}
 	return AppConfig{
-		GRPCPort: getEnv("GRPCPort", ":50054"),
-		SMTPHost: getEnv("SMTPHost", ":50054"),
-		SMTPUser: getEnv("SMTPUser", ":50054"),
-		SMTPPort: getEnv("SMTPPort", ":50054"),
-		SMTPPass: getEnv("SMTPPass", ":50054"),
+		GRPCPort: getEnv("GRPCPort", ":8011"),
+		SMTPHost: getEnv("SMTPHost", ":8011"),
+		SMTPUser: getEnv("SMTPUser", ":8011"),
+		SMTPPort: getEnv("SMTPPort", ":8011"),
+		SMTPPass: getEnv("SMTPPass", ":8011"),
 	}
 }
 

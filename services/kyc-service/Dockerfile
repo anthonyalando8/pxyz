@@ -42,7 +42,7 @@ RUN useradd -u 10001 nonroot && chown -R nonroot:nonroot /app
 USER nonroot
 
 # Expose gRPC/REST port
-EXPOSE 50057
+EXPOSE 8005
 
 # Run the service
 ENTRYPOINT ["/app/kyc-service"]

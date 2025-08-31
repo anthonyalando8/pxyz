@@ -10,15 +10,15 @@ import (
 )
 
 type Config struct {
-	GRPCAddr     string
-	DBConnString string
-	RedisAddr    string
-	RedisPass    string
-	OTP_TTL      time.Duration
-	OTP_Window   time.Duration
+	GRPCAddr         string
+	DBConnString     string
+	RedisAddr        string
+	RedisPass        string
+	OTP_TTL          time.Duration
+	OTP_Window       time.Duration
 	OTP_MaxPerWindow int
-	OTP_Cooldown time.Duration
-	EmailSvcAddr string
+	OTP_Cooldown     time.Duration
+	EmailSvcAddr     string
 }
 
 func Load() Config {
@@ -30,15 +30,15 @@ func Load() Config {
 	cool, _ := time.ParseDuration(getEnv("OTP_COOLDOWN", "45s"))
 
 	return Config{
-		GRPCAddr:     getEnv("GRPC_ADDR", ":50055"),
-		DBConnString: getEnv("DB_CONN", "postgres://postgres:password@host.docker.internal:5432/pxyz"),
-		RedisAddr:    getEnv("REDIS_ADDR", "redis:6379"),
-		RedisPass:    getEnv("REDIS_PASS", ""),
-		OTP_TTL:      ttl,
-		OTP_Window:   window,
+		GRPCAddr:         getEnv("GRPC_ADDR", ":8003"),
+		DBConnString:     getEnv("DB_CONN", "postgres://postgres:password@host.docker.internal:5432/pxyz"),
+		RedisAddr:        getEnv("REDIS_ADDR", "redis:6379"),
+		RedisPass:        getEnv("REDIS_PASS", ""),
+		OTP_TTL:          ttl,
+		OTP_Window:       window,
 		OTP_MaxPerWindow: atoiOrDefault(getEnv("OTP_MAX_PER_WINDOW", "5"), 5),
-		OTP_Cooldown: cool,
-		EmailSvcAddr: getEnv("EMAIL_SVC_ADDR", "email-service:50054"),
+		OTP_Cooldown:     cool,
+		EmailSvcAddr:     getEnv("EMAIL_SVC_ADDR", "email-service:8011"),
 	}
 }
 

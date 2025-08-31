@@ -4,62 +4,50 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	stdimage "image"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"x/shared/auth/middleware"
 	accountclient "x/shared/genproto/accountpb"
 	"x/shared/response"
 	"x/shared/utils/image"
-	stdimage "image"
-	"strings"
 
 	_ "image/gif" // register gif
 	_ "image/jpeg"
 	_ "image/png"
-
 )
 
-func (h *AuthHandler) HandleProfile(w http.ResponseWriter, r *http.Request) {
-	requestedUserID, ok := r.Context().Value(middleware.ContextUserID).(string)
-	if !ok || requestedUserID == "" {
-		log.Printf("[WARN] Unauthorized access attempt from %s", r.RemoteAddr)
-		response.Error(w, http.StatusUnauthorized, "Unauthorized")
-		return
-	}
-
-	log.Printf("[INFO] Fetching profile for user_id=%s", requestedUserID)
-
+// GetFullUserProfile fetches and merges user + account-service profile into a map
+func (h *AuthHandler) GetFullUserProfile(ctx context.Context, userID string) (map[string]interface{}, error) {
 	// Get user (from user table)
-	user, err := h.uc.GetProfile(r.Context(), requestedUserID)
+	user, err := h.uc.GetProfile(ctx, userID)
 	if err != nil {
-		log.Printf("[ERROR] Failed to retrieve user record user_id=%s error=%v", requestedUserID, err)
-		response.Error(w, http.StatusInternalServerError, "Failed to retrieve user")
-		return
+		log.Printf("[ERROR] Failed to retrieve user record user_id=%s error=%v", userID, err)
+		return nil, err
 	}
-	log.Printf("[DEBUG] Retrieved user record user_id=%s email=%s", requestedUserID, safeString(user.Email))
+	log.Printf("[DEBUG] Retrieved user record user_id=%s email=%s", userID, safeString(user.Email))
 
 	// Get profile (from account-service gRPC)
-	profileResp, err := h.accountClient.Client.GetUserProfile(r.Context(), &accountclient.GetUserProfileRequest{
-		UserId: requestedUserID,
+	profileResp, err := h.accountClient.Client.GetUserProfile(ctx, &accountclient.GetUserProfileRequest{
+		UserId: userID,
 	})
 	if err != nil {
-		log.Printf("[ERROR] Failed to fetch profile from account-service user_id=%s error=%v", requestedUserID, err)
-		response.Error(w, http.StatusInternalServerError, "Failed to retrieve user profile")
-		return
+		log.Printf("[ERROR] Failed to fetch profile from account-service user_id=%s error=%v", userID, err)
+		return nil, err
 	}
 	if profileResp == nil || profileResp.Profile == nil {
-		log.Printf("[WARN] Profile not found in account-service user_id=%s", requestedUserID)
-		response.Error(w, http.StatusInternalServerError, "Failed to retrieve user profile")
-		return
+		log.Printf("[WARN] Profile not found in account-service user_id=%s", userID)
+		return nil, fmt.Errorf("profile not found")
 	}
 	profile := profileResp.Profile
-	log.Printf("[DEBUG] Retrieved profile from account-service user_id=%s", requestedUserID)
+	log.Printf("[DEBUG] Retrieved profile from account-service user_id=%s", userID)
 
 	// Merge response
 	resp := map[string]interface{}{
-		"user_id":           requestedUserID,
+		"user_id":           userID,
 		"email":             safeString(user.Email),
 		"phone":             safeString(user.Phone),
 		"is_email_verified": user.IsEmailVerified,
@@ -78,11 +66,34 @@ func (h *AuthHandler) HandleProfile(w http.ResponseWriter, r *http.Request) {
 		"profile_image": profile.ProfileImageUrl,
 		//"sys_username":  profile.SysUsername,
 	}
+
 	var address map[string]interface{}
 	if err := json.Unmarshal([]byte(profile.AddressJson), &address); err == nil {
 		resp["address"] = address
 	} else {
 		resp["address"] = profile.AddressJson // fallback to string
+	}
+
+	return resp, nil
+}
+
+// ---------- HTTP Handler ----------
+
+func (h *AuthHandler) HandleProfile(w http.ResponseWriter, r *http.Request) {
+	requestedUserID, ok := r.Context().Value(middleware.ContextUserID).(string)
+	if !ok || requestedUserID == "" {
+		log.Printf("[WARN] Unauthorized access attempt from %s", r.RemoteAddr)
+		response.Error(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	log.Printf("[INFO] Fetching profile for user_id=%s", requestedUserID)
+
+	resp, err := h.GetFullUserProfile(r.Context(), requestedUserID)
+	if err != nil {
+		log.Printf("[ERROR] Failed to build profile for user_id=%s error=%v", requestedUserID, err)
+		response.Error(w, http.StatusInternalServerError, "Failed to retrieve user profile")
+		return
 	}
 
 	log.Printf("[INFO] Successfully fetched profile user_id=%s", requestedUserID)
@@ -126,7 +137,7 @@ func (h *AuthHandler) HandleUpdateProfile(w http.ResponseWriter, r *http.Request
 	if req.DateOfBirth != nil {
 		updateReq.DateOfBirth = *req.DateOfBirth
 	}
-	
+
 	if req.Address != nil {
 		if addrBytes, err := json.Marshal(req.Address); err == nil {
 			updateReq.AddressJson = string(addrBytes)
@@ -207,7 +218,7 @@ func (h *AuthHandler) UploadProfilePicture(w http.ResponseWriter, r *http.Reques
 	log.Printf("[INFO] Successfully saved compressed profile picture for userID=%s", userID)
 
 	// Construct image URL
-	imageURL := fmt.Sprintf("http://localhost:50051/uploads/profile_pictures/%s", filename)
+	imageURL := fmt.Sprintf("http://localhost:8001/uploads/profile_pictures/%s", filename)
 
 	// Call Account service to update DB
 	_, err = h.accountClient.Client.UpdateProfilePicture(
@@ -230,5 +241,3 @@ func (h *AuthHandler) UploadProfilePicture(w http.ResponseWriter, r *http.Reques
 		"profile_image_url": imageURL,
 	})
 }
-
-

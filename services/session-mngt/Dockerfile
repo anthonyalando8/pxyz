@@ -32,7 +32,7 @@ COPY --from=builder /app/session-service /session-service
 USER nonroot:nonroot
 
 # Expose gRPC port
-EXPOSE 50050
+EXPOSE 8002
 
 # Run the service
 ENTRYPOINT ["/session-service"]

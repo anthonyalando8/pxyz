@@ -11,5 +11,5 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o account-service ./cmd/acc.
 FROM gcr.io/distroless/static:nonroot
 COPY --from=builder /app/account-service /account-service
 USER nonroot:nonroot
-EXPOSE 50056
+EXPOSE 8004
 ENTRYPOINT ["/account-service"]

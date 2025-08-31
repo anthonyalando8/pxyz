@@ -20,7 +20,7 @@ type MiddlewareWithClient struct {
 	Middleware func(http.Handler) http.Handler
 	Client     authpb.AuthServiceClient
 	Require    func(allowedTypes []string, allowedPurposes []string) func(http.Handler) http.Handler
-	RateLimit func(rdb *redis.Client, limit int, window time.Duration, blockDuration time.Duration, keyPrefix string) func(http.Handler) http.Handler
+	RateLimit  func(rdb *redis.Client, limit int, window time.Duration, blockDuration time.Duration, keyPrefix string) func(http.Handler) http.Handler
 }
 
 // RequireAuth initializes middleware + client
@@ -38,7 +38,7 @@ func RequireAuth() *MiddlewareWithClient {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	conn, err := grpc.DialContext(ctx, "session-service:50050", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.DialContext(ctx, "session-service:8002", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("Failed to connect to auth-service: %v", err)
 	}
@@ -62,7 +62,6 @@ func contains(list []string, item string) bool {
 	}
 	return false
 }
-
 
 func getEnv(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {

@@ -9,8 +9,9 @@ import (
 
 	"github.com/joho/godotenv"
 )
+
 type AppConfig struct {
-	GRPCAddr string
+	GRPCAddr  string
 	JWT       jwtutil.JWTConfig
 	RedisPass string
 	RedisAddr string
@@ -20,11 +21,11 @@ func Load() AppConfig {
 	if err := godotenv.Load(); err != nil {
 		log.Println("Session: No .env file found, relying on system env vars")
 	}
-	
+
 	ttl, _ := time.ParseDuration(getEnv("JWT_ACCESS_TTL", "5h"))
 
 	return AppConfig{
-		GRPCAddr: getEnv("GRPC_ADDR", ":50050"),
+		GRPCAddr:  getEnv("GRPC_ADDR", ":8002"),
 		RedisAddr: getEnv("REDIS_ADDR", "redis:6379"),
 		RedisPass: getEnv("REDIS_PASS", ""),
 		JWT: jwtutil.JWTConfig{

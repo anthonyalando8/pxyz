@@ -4,6 +4,7 @@ package usecase
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"auth-service/internal/domain"
 	"auth-service/internal/repository"
@@ -23,30 +24,58 @@ func NewUserUsecase(userRepo *repository.UserRepository, sf *id.Snowflake) *User
 	}
 }
 
-func (uc *UserUsecase) RegisterUser(ctx context.Context, email, password, first_name, last_name string) (*domain.User, error) {
-	if email == ""{
+func (uc *UserUsecase) RegisterUser(ctx context.Context, email, password, firstName, lastName, roleName string) (*domain.User, error) {
+	if email == "" {
 		return nil, errors.New("email required")
 	}
 	if password == "" {
 		return nil, errors.New("password required")
 	}
+
 	hashedPassword, err := utils.HashPassword(password)
 	if err != nil {
 		return nil, err
 	}
 
 	newUser := &domain.User{
-		ID:        uc.Sf.Generate(),
-		Email:      toPtr(email),
-		PasswordHash:   toPtr(hashedPassword),
-		LastName:   toPtr(last_name),
-		FirstName:  toPtr(first_name),
+		ID:           uc.Sf.Generate(),
+		Email:        toPtr(email),
+		PasswordHash: toPtr(hashedPassword),
+		LastName:     toPtr(lastName),
+		FirstName:    toPtr(firstName),
 	}
 
-	// Save to database
+	// Save user
+	createdUser, err := uc.userRepo.CreateUser(ctx, newUser)
+	if err != nil {
+		return nil, err
+	}
 
-	return uc.userRepo.CreateUser(ctx, newUser)
+	// Lookup predefined role
+	var selectedRole *domain.Role
+	for _, r := range domain.PredefinedRoles {
+		if r.Name == roleName {
+			selectedRole = &r
+			break
+		}
+	}
+	if selectedRole == nil {
+		// Invalid role was passed
+		return createdUser, fmt.Errorf("invalid role: %s", roleName)
+	}
+
+	// Assign role in background
+	go func(userID string, role domain.Role) {
+		bgCtx := context.Background()
+		if err := uc.AssignRoleToUserHelper(bgCtx, userID, role); err != nil {
+			fmt.Printf("failed to assign role %s to user %s: %v\n", role.Name, userID, err)
+		}
+	}(createdUser.ID, *selectedRole)
+
+	return createdUser, nil
 }
+
+
 
 func (uc *UserUsecase) CreatePartialUser(ctx context.Context, email string) (*domain.User, error){
 	newUser := &domain.User{

@@ -19,7 +19,7 @@ type EmailClient struct {
 
 // NewEmailClient connects to the email service and returns a ready-to-use client
 func NewEmailClient() *EmailClient {
-	emailServiceAddr := getEnv("EMAIL_SERVICE_ADDR", "email-service:50054")
+	emailServiceAddr := getEnv("EMAIL_SERVICE_ADDR", "email-service:8011")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

@@ -203,16 +203,24 @@ FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
 
+-- Existing tables remain the same
+CREATE TYPE role_enum AS ENUM (
+    'system_admin',
+    'partner_admin',
+    'partner_user',
+    'trader'
+);
+
+-- Update roles table
 CREATE TABLE roles (
     id SERIAL PRIMARY KEY,
-    name TEXT UNIQUE NOT NULL,         -- 'system_admin', 'partner_admin', 'partner_user', 'trader'
+    name role_enum UNIQUE NOT NULL,
     description TEXT
 );
 
-
 CREATE TABLE permissions (
     id SERIAL PRIMARY KEY,
-    name TEXT UNIQUE NOT NULL,          -- 'manage_users', 'view_partner_wallets', 'approve_withdrawals'
+    name TEXT UNIQUE NOT NULL,          -- 'login', 'manage_users', 'view_partner_wallets', 'approve_withdrawals'
     description TEXT
 );
 
@@ -227,4 +235,12 @@ CREATE TABLE user_roles (
     role_id INT REFERENCES roles(id) ON DELETE CASCADE,
     assigned_at TIMESTAMPTZ DEFAULT NOW(),
     PRIMARY KEY (user_id, role_id)
+);
+
+CREATE TABLE user_permissions (
+    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+    permission_id INT REFERENCES permissions(id) ON DELETE CASCADE,
+    is_allowed BOOLEAN NOT NULL,       -- true = grant, false = deny
+    assigned_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (user_id, permission_id)
 );

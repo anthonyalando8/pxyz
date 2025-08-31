@@ -29,3 +29,7 @@
 /services/sms-service/.env
 /services/sms-service/secrets/
 /services/sms-service/secrets/*
+
+/services/partner-service/.env
+/services/partner-service/secrets/
+/services/partner-service/secrets/*

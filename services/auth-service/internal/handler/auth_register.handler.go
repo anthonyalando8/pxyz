@@ -37,22 +37,15 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.uc.RegisterUser(r.Context(), req.Email, req.Password, req.FirstName, req.LastName)
+	user, err := h.uc.RegisterUser(r.Context(), req.Email, req.Password, req.FirstName, req.LastName, "trader")
+	_ =  user
 	if err != nil {
 		response.Error(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	session, err := h.createSessionHelper(r.Context(), user.ID, false, false, "general",nil, req.DeviceID, req.DeviceMetadata, req.GeoLocation, r)
-	if err != nil {
-		log.Printf("Failed to create session: %v", err)
-		response.Error(w, http.StatusInternalServerError, "Failed to create session")
-		return
-	}
-
 	response.JSON(w, http.StatusCreated, map[string]interface{}{
-		"token":      session.AuthToken,
-		"device":     session.DeviceID,
+		"message":      "User registered successfully",
 	})
 }
 
