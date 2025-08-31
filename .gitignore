@@ -25,3 +25,7 @@
 /services/cashier-service/secrets/*
 
 /services/account-service/.env
+
+/services/sms-service/.env
+/services/sms-service/secrets/
+/services/sms-service/secrets/*

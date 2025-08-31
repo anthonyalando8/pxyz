@@ -53,6 +53,12 @@ func SetupRoutes(
 		r.Post("/auth/apple", h.AppleAuthHandler)
 		r.Post("/auth/password/forgot", h.HandleForgotPassword) // reset after forgot-password
 	})
+	
+	r.Group(func(pr chi.Router) {
+		pr.Use(auth.Middleware) //must have valid session (any)
+		pr.Post("/auth/register/otp/request", h.HandleRequestOTP)
+	})
+
 
 	// ============================================================
 	// Registration & OTP flows (require temp/main session with purpose)
@@ -71,7 +77,7 @@ func SetupRoutes(
 
 	r.Group(func(pr chi.Router) {
 		// OTP request/verify (register/email change flows)
-		pr.Use(auth.Require([]string{"main", "temp"}, []string{"register", "email_change", "incomplete_profile","general", "verfiy-otp"}))
+		pr.Use(auth.Require([]string{"main", "temp"}, []string{"register", "email_change", "incomplete_profile","general", "verify-otp"}))
 		pr.Post("/auth/register/otp/request", h.HandleRequestOTP)
 		pr.Post("/auth/register/otp/verify", h.HandleVerifyOTP)
 	})

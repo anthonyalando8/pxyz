@@ -185,6 +185,32 @@ services:
       - ./services/cashier-service/secrets:/app/secrets:ro
     networks:
       - micro_net
+  sms-service:
+    container_name: sms-service
+    build:
+      context: .
+      dockerfile: services/sms-service/Dockerfile
+    ports:
+      - "50059:50059"
+    env_file:
+      - ./services/sms-service/.env
+    environment:
+      GRPC_ADDR: :50059
+      REDIS_PASS:
+      SMS_KEY:
+      WA_KEY:
+      SMS_URL: https://smsportal.hostpinnacle.co.ke/SMSApi/send
+      WA_URL: https://whatsappprovider.com/api
+      SENDER: SENDER_ID
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+      USER_ID:
+      PASSWORD:
+      REDIS_ADDR: redis:6379
+    depends_on:
+      - redis
+      - email-service
+    networks:
+      - micro_net
 
 
 networks:

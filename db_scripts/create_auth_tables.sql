@@ -201,3 +201,30 @@ CREATE TRIGGER trg_user_otps_set_updated_at
 BEFORE UPDATE ON user_otps
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
+
+
+CREATE TABLE roles (
+    id SERIAL PRIMARY KEY,
+    name TEXT UNIQUE NOT NULL,         -- 'system_admin', 'partner_admin', 'partner_user', 'trader'
+    description TEXT
+);
+
+
+CREATE TABLE permissions (
+    id SERIAL PRIMARY KEY,
+    name TEXT UNIQUE NOT NULL,          -- 'manage_users', 'view_partner_wallets', 'approve_withdrawals'
+    description TEXT
+);
+
+CREATE TABLE role_permissions (
+    role_id INT REFERENCES roles(id) ON DELETE CASCADE,
+    permission_id INT REFERENCES permissions(id) ON DELETE CASCADE,
+    PRIMARY KEY (role_id, permission_id)
+);
+
+CREATE TABLE user_roles (
+    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+    role_id INT REFERENCES roles(id) ON DELETE CASCADE,
+    assigned_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (user_id, role_id)
+);

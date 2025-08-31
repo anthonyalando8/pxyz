@@ -15,6 +15,7 @@ import (
 	"otp-service/internal/handler"
 	pb "x/shared/genproto/otppb"
 	"x/shared/email"
+	smsclient "x/shared/sms"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
@@ -46,8 +47,9 @@ func main() {
 	// repos & limiter & service
 	otpRepo := repository.NewOTPRepo(dbpool)
 	emailCli := emailclient.NewEmailClient()
+	smsCli := smsclient.NewSMSClient()
 	lim := rate.NewLimiter(rdb, cfg.OTP_Window, cfg.OTP_MaxPerWindow, cfg.OTP_Cooldown)
-	otpSvc:= service.NewOTPService(otpRepo, lim, sf, emailCli, cfg.OTP_TTL)
+	otpSvc:= service.NewOTPService(otpRepo, lim, sf, emailCli, smsCli, cfg.OTP_TTL)
 	// grpc server
 	grpcServer := grpc.NewServer()
 	otpHandler := handler.NewOTPHandler(otpSvc)

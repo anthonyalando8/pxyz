@@ -39,6 +39,7 @@ func (h *AuthHandler) HandleRequestOTP(w http.ResponseWriter, r *http.Request) {
 	allowedChannels := map[string]bool{
 		"sms":   true,
 		"email": true,
+		"whatsapp": true,
 	}
 
 	// --- Validate purpose ---

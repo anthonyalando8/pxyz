@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package smswhatsapp;
+
+option go_package = "genproto/smswhatsapppb;smswhatsapppb";
+
+service SMSWhatsAppService {
+  rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
+}
+
+enum Channel {
+  SMS = 0;
+  WHATSAPP = 1;
+}
+
+message SendMessageRequest {
+  string user_id = 1;    
+  string recipient = 2;  // phone number
+  string body = 3;       
+  Channel channel = 4;   // SMS or WHATSAPP
+  string type = 5;       // otp, alert, etc.
+}
+
+message SendMessageResponse {
+  bool success = 1;
+  string error_message = 2;
+}

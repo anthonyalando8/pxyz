@@ -16,6 +16,7 @@ import (
 	"x/shared/auth/middleware"
 	"x/shared/auth/otp"
 	emailclient "x/shared/email"
+	smsclient "x/shared/sms"
 	"x/shared/utils/id"
 
 	"github.com/go-chi/chi/v5"
@@ -46,12 +47,13 @@ func NewServer(cfg config.AppConfig) *http.Server {
 	otpSvc := otpclient.NewOTPService()
 	accountClient := accountclient.NewAccountClient()
 	emailCli := emailclient.NewEmailClient()
+	smsCli := smsclient.NewSMSClient()
 	config := &handler.Config{
 		GoogleClientID: cfg.GoogleClientID,
 		Apple: cfg.Apple,
 	}
 	telegramClient := telegramclient.NewTelegramClient(cfg.TelegramBotToken)
-	authHandler := handler.NewAuthHandler(userUC, auth, otpSvc, accountClient, emailCli, config, telegramClient)
+	authHandler := handler.NewAuthHandler(userUC, auth, otpSvc, accountClient, emailCli, smsCli, config, telegramClient)
 
 	ws_server := ws.NewServer()
 	ws_server.Start()

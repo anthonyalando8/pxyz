@@ -7,6 +7,7 @@ import (
 	"x/shared/auth/middleware"
 	"x/shared/auth/otp"
 	emailclient "x/shared/email"
+	smsclient "x/shared/sms"
 	telegramclient "auth-service/internal/service/telegram"
 	//"x/shared/genproto/emailpb"
 
@@ -23,12 +24,31 @@ type AuthHandler struct {
 	otp *otpclient.OTPService
 	accountClient *accountclient.AccountClient 
 	emailClient *emailclient.EmailClient
+	smsClient *smsclient.SMSClient
 	//config Config
 	config *Config
 	telegramClient *telegramclient.TelegramClient
-
 }
 
-func NewAuthHandler(uc *usecase.UserUsecase, auth *middleware.MiddlewareWithClient, otp *otpclient.OTPService, accountClient *accountclient.AccountClient, emailClient *emailclient.EmailClient, config *Config, telegramClient *telegramclient.TelegramClient, ) *AuthHandler {
-	return &AuthHandler{uc: uc, auth: auth, otp: otp, accountClient: accountClient, emailClient: emailClient, config: config, telegramClient: telegramClient,}
+func NewAuthHandler(
+	uc *usecase.UserUsecase,
+	auth *middleware.MiddlewareWithClient,
+	otp *otpclient.OTPService,
+	accountClient *accountclient.AccountClient,
+	emailClient *emailclient.EmailClient,
+	smsClient *smsclient.SMSClient,
+	config *Config,
+	telegramClient *telegramclient.TelegramClient,
+) *AuthHandler {
+	return &AuthHandler{
+		uc:             uc,
+		auth:           auth,
+		otp:            otp,
+		accountClient:  accountClient,
+		emailClient:    emailClient,
+		smsClient:      smsClient,
+		config:         config,
+		telegramClient: telegramClient,
+	}
 }
+

@@ -7,9 +7,12 @@ import (
 	"math/big"
 	"strings"
 	"time"
+	"log"
 
 	emailclient "x/shared/email"
+	smsclient "x/shared/sms"
 	"x/shared/genproto/emailpb"
+	"x/shared/genproto/smswhatsapppb"
 	"x/shared/utils/id"
 
 	"otp-service/internal/rate"
@@ -24,6 +27,7 @@ type OTPService struct {
 	limiter     *rate.Limiter
 	sf          *id.Snowflake
 	emailClient *emailclient.EmailClient
+	smsClient   *smsclient.SMSClient
 	ttl         time.Duration
 }
 
@@ -32,6 +36,7 @@ func NewOTPService(
 	limiter *rate.Limiter,
 	sf *id.Snowflake,
 	emailClient *emailclient.EmailClient, // inject ready client
+	smsClient *smsclient.SMSClient,
 	ttl time.Duration,
 ) *OTPService {
 	return &OTPService{
@@ -39,6 +44,7 @@ func NewOTPService(
 		limiter:     limiter,
 		sf:          sf,
 		emailClient: emailClient,
+		smsClient:   smsClient,
 		ttl:         ttl,
 	}
 }
@@ -117,6 +123,23 @@ func (s *OTPService) GenerateOTP(ctx context.Context, userID string, purpose, ch
 			// Don't block OTP persistence if email fails
 			return fmt.Errorf("failed to send email: %w", err)
 		}
+	}
+	if channel == "sms" && s.smsClient != nil {
+		smsBody := fmt.Sprintf("Your OTP code for %s is %s. It is valid for %d minutes.", 
+			formatPurpose(purpose), code, int(s.ttl.Minutes()))
+
+		_, err := s.smsClient.SendMessage(ctx, &smswhatsapppb.SendMessageRequest{
+			UserId:        userID,
+			Recipient:     recipient,
+			Body:          smsBody,
+			Channel:       smswhatsapppb.Channel_SMS,
+			Type:          "otp",
+		})
+		if err != nil {
+			log.Printf("failed to send sms: %v", err)
+			return fmt.Errorf("failed to send sms: %w", err)
+		}
+
 	}
 
 	return nil
