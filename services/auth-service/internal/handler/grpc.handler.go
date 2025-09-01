@@ -83,6 +83,30 @@ func (h *GRPCAuthHandler) RegisterUser(ctx context.Context, req *authpb.Register
 	}, nil
 }
 
+// DeleteUser removes a user by ID
+func (h *GRPCAuthHandler) DeleteUser(ctx context.Context, req *authpb.DeleteUserRequest) (*authpb.DeleteUserResponse, error) {
+	if req.UserId == "" {
+		return &authpb.DeleteUserResponse{
+			Ok:    false,
+			Error: "user_id is required",
+		}, nil
+	}
+
+	err := h.uc.DeleteUser(ctx, req.UserId)
+	if err != nil {
+		log.Printf("[ERROR] DeleteUser failed for user_id=%s: %v", req.UserId, err)
+		return &authpb.DeleteUserResponse{
+			Ok:    false,
+			Error: err.Error(),
+		}, nil
+	}
+
+	return &authpb.DeleteUserResponse{
+		Ok: true,
+	}, nil
+}
+
+
 // Get full profile (auth + account-service)
 func (h *GRPCAuthHandler) GetUserProfile(ctx context.Context, req *authpb.GetUserProfileRequest) (*authpb.GetUserProfileResponse, error) {
 	user, profile, err := h.GetFullUserProfile(ctx, req.UserId)
@@ -145,3 +169,41 @@ func (h *GRPCAuthHandler) GetFullUserProfile(ctx context.Context, userID string)
 }
 
 
+// GetUserRolesPermissions returns the user's role along with all effective permissions
+func (h *GRPCAuthHandler) GetUserRolesPermissions(ctx context.Context, req *authpb.GetUserRolesPermissionsRequest) (*authpb.GetUserRolesPermissionsResponse, error) {
+	if req.UserId == "" {
+		return &authpb.GetUserRolesPermissionsResponse{
+			Ok:    false,
+			Error: "user_id is required",
+		}, nil
+	}
+
+	// Call use case to get role + permissions
+	roleWithPerms, err := h.uc.GetUserRoleWithPermissions(ctx, req.UserId)
+	if err != nil {
+		log.Printf("[ERROR] GetUserRolesPermissions failed for user %s: %v", req.UserId, err)
+		return &authpb.GetUserRolesPermissionsResponse{
+			Ok:    false,
+			Error: err.Error(),
+		}, nil
+	}
+
+	// Map to proto Permission
+	permissions := make([]*authpb.Permission, 0, len(roleWithPerms.Permissions))
+	for _, p := range roleWithPerms.Permissions {
+		permissions = append(permissions, &authpb.Permission{
+			Name:        p.Name,
+			Description: p.Description,
+			IsAllowed:   p.IsAllowed,
+		})
+	}
+
+	return &authpb.GetUserRolesPermissionsResponse{
+		Ok: true,
+		RoleWithPermissions: &authpb.RoleWithPermissions{
+			RoleName:        roleWithPerms.Role.Name,
+			RoleDescription: roleWithPerms.Role.Description,
+			Permissions:     permissions,
+		},
+	}, nil
+}

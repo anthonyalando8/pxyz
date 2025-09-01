@@ -10,6 +10,7 @@ type Claims struct {
 	UserID    string            `json:"uid"`
 	Device    string            `json:"device,omitempty"`
 	IsTemp    bool              `json:"is_temp"`
+	Role      string			`json:"role,omitempty"`
 	ExtraData map[string]string `json:"data,omitempty"`
 	jwt.RegisteredClaims
 }

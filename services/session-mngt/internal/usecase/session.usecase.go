@@ -4,10 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"session-service/internal/domain"
 	"session-service/internal/repository"
 	"session-service/pkg/jwtutil"
 	"time"
+	authclient "x/shared/auth"
+	"x/shared/genproto/authpb"
 	sessionpb "x/shared/genproto/sessionpb"
 	"x/shared/utils/id"
 )
@@ -16,14 +19,15 @@ type SessionUsecase struct {
 	SessionRepo *repository.SessionRepository
 	Sf		  *id.Snowflake
 	jwtGen *jwtutil.Generator
-
+	authClient *authclient.AuthService
 }
 
-func NewSessionUsecase(sessionRepo *repository.SessionRepository, sf *id.Snowflake, jwtGen *jwtutil.Generator,) *SessionUsecase {
+func NewSessionUsecase(sessionRepo *repository.SessionRepository, sf *id.Snowflake, jwtGen *jwtutil.Generator, authClient *authclient.AuthService) *SessionUsecase {
 	return &SessionUsecase{
 		SessionRepo: sessionRepo,
 		Sf:          sf,
 		jwtGen: jwtGen,
+		authClient: authClient,
 	}
 }
 
@@ -43,7 +47,30 @@ func (u *SessionUsecase) CreateSession(ctx context.Context, req *sessionpb.Creat
 	if ipAddress == "" {
 		ipAddress = "unknown"
 	}
-	token, _, err := u.jwtGen.Generate(req.UserId, deviceID, req.IsTemp, req.ExtraData)
+	role := "temp" // fallback if anything fails
+	var perms []string
+
+	if u.authClient != nil && req.UserId != "" && !req.IsTemp {
+		permRes, err := u.authClient.GetUserRolesPermissions(ctx, &authpb.GetUserRolesPermissionsRequest{
+			UserId: req.UserId,
+		})
+		if err != nil {
+			log.Printf("[WARN] failed to fetch role/permissions for user %s: %v", req.UserId, err)
+		} else if permRes.Ok && permRes.RoleWithPermissions != nil {
+			// Assign role
+			role = permRes.RoleWithPermissions.RoleName
+
+			// Collect permissions
+			for _, p := range permRes.RoleWithPermissions.Permissions {
+				perms = append(perms, p.Name)
+			}
+		}
+	}
+
+log.Printf("User %s has role: %s and permissions: %v", req.UserId, role, perms)
+
+
+	token, _, err := u.jwtGen.Generate(req.UserId, role, deviceID, req.IsTemp, req.ExtraData)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate token: %w", err)

@@ -13,9 +13,24 @@ service AuthService {
 
   // Get user roles and permissions
   rpc GetUserRolesPermissions(GetUserRolesPermissionsRequest) returns (GetUserRolesPermissionsResponse);
+
+  // Delete a user and all associated auth records
+  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
 }
 
 // -------------------- Messages --------------------
+
+// Delete User
+message DeleteUserRequest {
+  string user_id = 1; // User ID to delete
+}
+
+message DeleteUserResponse {
+  bool ok = 1;       // true if delete was successful
+  string error = 2;  // empty if ok=true, otherwise error message
+}
+
+// -------------------- Existing Messages --------------------
 
 // Register User
 message RegisterUserRequest {
@@ -45,14 +60,30 @@ message GetUserProfileResponse {
 
 // Get Roles + Permissions
 message GetUserRolesPermissionsRequest {
-  int64 user_id = 1;
+  string user_id = 1; // Use string because your IDs are strings (Snowflake)
 }
 
 message GetUserRolesPermissionsResponse {
   bool ok = 1;
   string error = 2;
-  repeated string roles = 3;
-  repeated string permissions = 4;
+
+  // Only one role per user in your design
+  RoleWithPermissions role_with_permissions = 3;
+}
+
+// Represents a role and its effective permissions
+message RoleWithPermissions {
+  string role_name = 1; // e.g., "trader", "partner_user"
+  string role_description = 2;
+
+  repeated Permission permissions = 3; // effective permissions
+}
+
+// Represents a single permission with its effective allowed state
+message Permission {
+  string name = 1;       // e.g., "login", "view_partner_wallets"
+  string description = 2; 
+  bool is_allowed = 3;   // true if allowed, false if explicitly denied
 }
 
 // -------------------- Shared --------------------
@@ -80,4 +111,3 @@ message User {
   // Optional address field (as JSON string)
   string address_json = 16;
 }
-

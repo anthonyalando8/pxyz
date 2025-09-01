@@ -89,3 +89,54 @@ func (uc *UserUsecase) RemoveUserPermission(ctx context.Context, userID int64, p
 	}
 	return nil
 }
+
+
+// GetUserEffectiveRolesPermissions retrieves a user's role(s) along with their permissions,
+// considering role permissions overridden by user-specific permissions (is_allowed).
+func (uc *UserUsecase) GetUserRoleWithPermissions(ctx context.Context, userID string) (*domain.RoleWithPermissions, error) {
+	// Step 1: Get the user's role (or default "trader" role)
+	role, err := uc.userRepo.GetOrCreateUserRole(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user role: %w", err)
+	}
+
+	// Step 2: Get all permissions for that role
+	rolePerms, err := uc.userRepo.GetRolePermissions(ctx, role.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get role permissions: %w", err)
+	}
+
+	// Step 3: Get user-specific permissions (overrides)
+	userPerms, err := uc.userRepo.GetUserPermissions(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user permissions: %w", err)
+	}
+
+	// Step 4: Merge permissions
+	permMap := make(map[string]domain.Permission)
+
+	// Role permissions default to IsAllowed=true
+	for _, rp := range rolePerms {
+		rp.IsAllowed = true
+		permMap[rp.Name] = rp
+	}
+
+	// User-specific permissions override role permissions
+	for _, up := range userPerms {
+		permMap[up.Name] = up
+	}
+
+	// Step 5: Collect final permissions
+	var effectivePerms []domain.Permission
+	for _, p := range permMap {
+		effectivePerms = append(effectivePerms, p)
+	}
+
+	return &domain.RoleWithPermissions{
+		Role:        *role,
+		Permissions: effectivePerms,
+	}, nil
+}
+
+
+

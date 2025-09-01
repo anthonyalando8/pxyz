@@ -168,3 +168,90 @@ func (r *UserRepository) RemoveUserPermission(ctx context.Context, userID int64,
 // if err := userRepo.CreateRoles(ctx, roles); err != nil {
 //     log.Fatalf("failed to seed roles: %v", err)
 // }
+
+
+// GetOrCreateUserRole retrieves the user's role; if none exists, assigns "trader" by default.
+func (r *UserRepository) GetOrCreateUserRole(ctx context.Context, userID string) (*domain.Role, error) {
+	query := `
+		SELECT r.id, r.name, r.description
+		FROM user_roles ur
+		JOIN roles r ON ur.role_id = r.id
+		WHERE ur.user_id = $1
+		LIMIT 1
+	`
+	var role domain.Role
+	err := r.db.QueryRow(ctx, query, userID).Scan(&role.ID, &role.Name, &role.Description)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			// Assign default "trader" role
+			defaultRole := domain.Role{Name: "trader", Description: "Default trading user"}
+			createdRole, err := r.GetOrCreateRole(ctx, defaultRole)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create default role: %w", err)
+			}
+
+			// Assign role to user
+			if err := r.AssignRoleToUser(ctx, userID, createdRole.ID); err != nil {
+				return nil, fmt.Errorf("failed to assign default role to user: %w", err)
+			}
+			return createdRole, nil
+		}
+		return nil, fmt.Errorf("failed to fetch user role: %w", err)
+	}
+
+	return &role, nil
+}
+
+// GetUserPermissions retrieves all permissions for a user (granted/denied)
+func (r *UserRepository) GetUserPermissions(ctx context.Context, userID string) ([]domain.Permission, error) {
+	query := `
+		SELECT p.id, p.name, p.description, up.is_allowed
+		FROM user_permissions up
+		JOIN permissions p ON up.permission_id = p.id
+		WHERE up.user_id = $1
+	`
+	rows, err := r.db.Query(ctx, query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query user permissions: %w", err)
+	}
+	defer rows.Close()
+
+	var perms []domain.Permission
+	for rows.Next() {
+		var p domain.Permission
+		var isAllowed bool
+		if err := rows.Scan(&p.ID, &p.Name, &p.Description, &isAllowed); err != nil {
+			return nil, fmt.Errorf("failed to scan user permission: %w", err)
+		}
+		p.IsAllowed = isAllowed
+		perms = append(perms, p)
+	}
+
+	return perms, nil
+}
+
+// GetRolePermissions retrieves all permissions attached to a role
+func (r *UserRepository) GetRolePermissions(ctx context.Context, roleID int) ([]domain.Permission, error) {
+	query := `
+		SELECT p.id, p.name, p.description
+		FROM role_permissions rp
+		JOIN permissions p ON rp.permission_id = p.id
+		WHERE rp.role_id = $1
+	`
+	rows, err := r.db.Query(ctx, query, roleID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query role permissions: %w", err)
+	}
+	defer rows.Close()
+
+	var perms []domain.Permission
+	for rows.Next() {
+		var p domain.Permission
+		if err := rows.Scan(&p.ID, &p.Name, &p.Description); err != nil {
+			return nil, fmt.Errorf("failed to scan role permission: %w", err)
+		}
+		perms = append(perms, p)
+	}
+
+	return perms, nil
+}

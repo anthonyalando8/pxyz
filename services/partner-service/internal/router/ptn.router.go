@@ -54,10 +54,10 @@ func SetupRoutes(
 		pr.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(http.Dir(uploadDir))))
 
 		// Partner management
-		pr.Post("/partners", h.CreatePartner)
+		pr.Post("/partners/create", h.CreatePartner)
 
 		// Partner user management
-		pr.Post("/partner_users", h.CreatePartnerUser)
+		pr.Post("/partner_users/create", h.CreatePartnerUser)
 
 		// Additional endpoints (update, delete, list) can be added here
 		// pr.Put("/partners/{id}", h.UpdatePartner)

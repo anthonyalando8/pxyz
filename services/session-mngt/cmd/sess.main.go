@@ -11,6 +11,8 @@ import (
 	"session-service/internal/usecase"
 	"session-service/pkg/jwtutil"
 	pb "x/shared/genproto/sessionpb"
+	authclient "x/shared/auth"
+
 	"x/shared/utils/id"
 	"syscall"
 
@@ -34,9 +36,11 @@ func main() {
 	
 	jwtGen := jwtutil.LoadAndBuild(cfg.JWT)
 
+	authClient := authclient.NewAuthService()
+
 	// Initialize session repository and gRPC handler
 	sessionRepo := repository.NewSessionRepository(db)
-	sessionUC := usecase.NewSessionUsecase(sessionRepo, sf, jwtGen)
+	sessionUC := usecase.NewSessionUsecase(sessionRepo, sf, jwtGen, authClient)
 	authHandler := handler.NewAuthHandler(sessionUC)
 
 	// Create a gRPC server

@@ -14,6 +14,7 @@ type Claims struct {
 	UserID    string            `json:"uid"`
 	Device    string            `json:"device,omitempty"`
 	IsTemp    bool              `json:"is_temp"`
+	Role      string			`json:"role,omitempty"`
 	ExtraData map[string]string `json:"data,omitempty"`
 	jwt.RegisteredClaims
 }
@@ -31,7 +32,7 @@ func NewGenerator(priv *rsa.PrivateKey, issuer, audience, kid string, ttl time.D
 }
 
 // Updated Generate function to handle isTemp and extraData
-func (g *Generator) Generate(userID, device string, isTemp bool, extraData map[string]string) (string, string, error) {
+func (g *Generator) Generate(userID, role, device string, isTemp bool, extraData map[string]string) (string, string, error) {
 	if g.priv == nil {
 		return "", "", fmt.Errorf("jwt generator has nil private key")
 	}
@@ -46,6 +47,7 @@ func (g *Generator) Generate(userID, device string, isTemp bool, extraData map[s
 		UserID:    userID,
 		Device:    device,
 		IsTemp:    isTemp,
+		Role:      role,
 		ExtraData: extraData,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    g.issuer,

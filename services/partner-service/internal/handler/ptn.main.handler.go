@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 	accountclient "x/shared/account"
 	emailclient "x/shared/email"
 	smsclient "x/shared/sms"
@@ -212,9 +213,19 @@ func (h *PartnerHandler) CreatePartnerUser(w http.ResponseWriter, r *http.Reques
 	}
 
 	if err := h.uc.CreatePartnerUser(ctx, partnerUser); err != nil {
-		response.Error(w, http.StatusInternalServerError, err.Error())
-		return
-	}
+    // Attempt to delete the user in auth service in background
+    go func(userID string) {
+        ctxBg, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+        defer cancel()
+        if _, err := h.authClient.DeleteUser(ctxBg, userID); err != nil {
+            log.Printf("[WARN] failed to cleanup user %s after partner_user creation failure: %v", userID, err)
+        }
+    }(userResp.UserId)
+
+    response.Error(w, http.StatusInternalServerError, err.Error())
+    return
+}
+
 	h.sendNewPartnerUserNotifications(ctx, req.PartnerID, "", partnerUser, req.Password)
 
 	response.JSON(w, http.StatusCreated, partnerUser)

@@ -11,6 +11,7 @@ type Permission struct {
     ID          int
     Name        string
     Description string
+    IsAllowed   bool // true if granted, false if denied
 }
 
 // Predefined role names (must match role_enum values in DB)
@@ -37,4 +38,9 @@ func IsValidRole(name string) bool {
         }
     }
     return false
+}
+
+type RoleWithPermissions struct {
+	Role        Role
+	Permissions []Permission
 }

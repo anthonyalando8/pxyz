@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"auth-service/internal/domain"
 	"auth-service/internal/repository"
@@ -28,21 +29,28 @@ func (uc *UserUsecase) RegisterUser(ctx context.Context, email, password, firstN
 	if email == "" {
 		return nil, errors.New("email required")
 	}
-	if password == "" {
-		return nil, errors.New("password required")
-	}
-
-	hashedPassword, err := utils.HashPassword(password)
-	if err != nil {
-		return nil, err
-	}
 
 	newUser := &domain.User{
-		ID:           uc.Sf.Generate(),
-		Email:        toPtr(email),
-		PasswordHash: toPtr(hashedPassword),
-		LastName:     toPtr(lastName),
-		FirstName:    toPtr(firstName),
+		ID:        uc.Sf.Generate(),
+		Email:     toPtr(email),
+		LastName:  toPtr(lastName),
+		FirstName: toPtr(firstName),
+		AccountType: "password",
+		AccountStatus: "active",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	// Set password if provided and update signup stage
+	if password != "" {
+		hashedPassword, err := utils.HashPassword(password)
+		if err != nil {
+			return nil, err
+		}
+		newUser.PasswordHash = &hashedPassword
+		newUser.SignupStage = "password_set"
+	} else {
+		newUser.SignupStage = "email_or_phone_submitted"
 	}
 
 	// Save user
@@ -60,11 +68,10 @@ func (uc *UserUsecase) RegisterUser(ctx context.Context, email, password, firstN
 		}
 	}
 	if selectedRole == nil {
-		// Invalid role was passed
 		return createdUser, fmt.Errorf("invalid role: %s", roleName)
 	}
 
-	// Assign role in background
+	// Assign role asynchronously
 	go func(userID string, role domain.Role) {
 		bgCtx := context.Background()
 		if err := uc.AssignRoleToUserHelper(bgCtx, userID, role); err != nil {
@@ -74,6 +81,7 @@ func (uc *UserUsecase) RegisterUser(ctx context.Context, email, password, firstN
 
 	return createdUser, nil
 }
+
 
 
 

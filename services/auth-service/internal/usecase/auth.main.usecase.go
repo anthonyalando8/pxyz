@@ -76,3 +76,8 @@ func (uc *UserUsecase) GetPendingEmail(ctx context.Context, userID string) (stri
 	// Get pending email from repository
 	return uc.userRepo.GetAndClearPendingEmail(ctx, userID)
 }
+
+// DeleteUser deletes a user and all associated auth records.
+func (uc *UserUsecase) DeleteUser(ctx context.Context, userID string) error {
+	return uc.userRepo.DeleteUser(ctx, userID)
+}
