@@ -88,3 +88,45 @@ func (am *AuthMiddleware) RequireWithChecks(allowedTypes, allowedPurposes []stri
 		})
 	}
 }
+
+// WithRole sets the role in context (to be called after JWT verification)
+func WithRole(role string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := context.WithValue(r.Context(), ContextRole, role)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+// RequireRoles validates that the role in context is allowed
+func (am *AuthMiddleware) RoleMiddleware(allowedRoles []string) func(http.Handler) http.Handler {
+	roleSet := make(map[string]struct{}, len(allowedRoles))
+	for _, r := range allowedRoles {
+		roleSet[r] = struct{}{}
+	}
+
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			roleVal := r.Context().Value(ContextRole)
+			if roleVal == nil {
+				response.Error(w,http.StatusForbidden, "role not found in context" )
+				return
+			}
+
+			role, ok := roleVal.(string)
+			if !ok || role == "" {
+				response.Error(w,http.StatusForbidden, "invalid role in context")
+				return
+			}
+
+			if _, allowed := roleSet[role]; !allowed {
+				response.Error(w,http.StatusForbidden, "insufficient role")
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+

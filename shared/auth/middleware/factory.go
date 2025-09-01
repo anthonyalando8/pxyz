@@ -20,6 +20,7 @@ type MiddlewareWithClient struct {
 	Middleware func(http.Handler) http.Handler
 	Client     authpb.AuthServiceClient
 	Require    func(allowedTypes []string, allowedPurposes []string) func(http.Handler) http.Handler
+	RequireRole  func(allowedRoles []string) func(http.Handler) http.Handler
 	RateLimit  func(rdb *redis.Client, limit int, window time.Duration, blockDuration time.Duration, keyPrefix string) func(http.Handler) http.Handler
 }
 
@@ -51,6 +52,7 @@ func RequireAuth() *MiddlewareWithClient {
 		Client:     authClient,
 		Require:    m.RequireWithChecks,
 		RateLimit:  RateLimiter,
+		RequireRole: m.RoleMiddleware,
 	}
 }
 

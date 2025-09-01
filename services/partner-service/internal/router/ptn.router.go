@@ -49,6 +49,7 @@ func SetupRoutes(
 	// ---- Authenticated routes ----
 	r.Group(func(pr chi.Router) {
 		pr.Use(auth.Require([]string{"main"}, nil))
+		pr.Use(auth.RequireRole([]string{"system_admin", "partner_admin"}))
 
 		// Serve static files
 		pr.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(http.Dir(uploadDir))))
