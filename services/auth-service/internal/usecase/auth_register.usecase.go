@@ -108,3 +108,4 @@ func (uc *UserUsecase) VerifyPhone(ctx context.Context, userID string) (bool, er
 	}
 	return true, nil
 }
+

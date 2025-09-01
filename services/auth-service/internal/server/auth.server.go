@@ -2,11 +2,14 @@ package server
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
 
 	"auth-service/internal/config"
+	"auth-service/internal/domain"
 	"auth-service/internal/handler"
 	"auth-service/internal/repository"
 	"auth-service/internal/router"
@@ -14,12 +17,14 @@ import (
 	"auth-service/internal/usecase"
 	"auth-service/internal/ws"
 	"x/shared/account"
+
 	//authclient "x/shared/auth"
 	"x/shared/auth/middleware"
 	"x/shared/auth/otp"
 	emailclient "x/shared/email"
 	smsclient "x/shared/sms"
 	"x/shared/utils/id"
+	"x/shared/utils/errors"
 
 	authpb "x/shared/genproto/authpb"
 
@@ -45,6 +50,14 @@ func NewServer(cfg config.AppConfig) *http.Server {
 	})
 
 	userUC := usecase.NewUserUsecase(userRepo, sf)
+
+	ctx := context.Background()
+	if err := seedSystemAdmin(ctx, userUC, cfg); err != nil {
+		log.Printf("Warning: failed to seed system admin: %v", err)
+	} else {
+		log.Println("System admin seeding complete")
+	}
+
 
 	auth := middleware.RequireAuth()
 	otpSvc := otpclient.NewOTPService()
@@ -101,3 +114,35 @@ func NewServer(cfg config.AppConfig) *http.Server {
 		Handler: r,
 	}
 }
+
+
+func seedSystemAdmin(ctx context.Context, uc *usecase.UserUsecase, cfg config.AppConfig) error {
+	adminEmail := cfg.SystemAdminEmail
+	adminPassword := cfg.SystemAdminPassword
+	if adminEmail == "" || adminPassword == "" {
+		log.Println("System admin email or password not set, skipping seeding")
+		return nil
+	}
+
+	// Check if user already exists
+	existingUser, err := uc.FindUserByIdentifier(ctx, adminEmail)
+	if err != nil && !errors.Is(err, xerrors.ErrUserNotFound) {
+		// Only fail for unexpected errors
+		log.Printf("Warning: failed to check existing system admin: %v\n", err)
+	} 
+
+	if existingUser != nil {
+		log.Println("System admin already exists, skipping seeding")
+		return nil
+	}
+
+	// Attempt to create system admin
+	user, err := uc.RegisterUser(ctx, adminEmail, adminPassword, "System", "Admin", domain.RoleSystemAdmin)
+	if err != nil {
+		return fmt.Errorf("failed to create system admin: %w", err)
+	}
+
+	log.Printf("Seeded system admin: %s (id=%s)\n", adminEmail, user.ID)
+	return nil
+}
+

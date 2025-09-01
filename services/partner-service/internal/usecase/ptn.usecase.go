@@ -51,7 +51,7 @@ func (uc *PartnerUsecase) CreatePartnerUser(ctx context.Context, u *domain.Partn
 		return errors.New("partner_id and user_id are required")
 	}
 
-	if u.Role != "admin" && u.Role != "user" {
+	if u.Role != "partner_admin" && u.Role != "partner_user" {
 		return fmt.Errorf("invalid role: %s", u.Role)
 	}
 

@@ -110,7 +110,7 @@ func (am *AuthMiddleware) RoleMiddleware(allowedRoles []string) func(http.Handle
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			roleVal := r.Context().Value(ContextRole)
 			if roleVal == nil {
-				response.Error(w,http.StatusForbidden, "role not found in context" )
+				response.Error(w, http.StatusForbidden, "role not found in context" )
 				return
 			}
 

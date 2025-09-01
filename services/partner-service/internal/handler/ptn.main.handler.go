@@ -21,6 +21,9 @@ import (
 
 	"x/shared/genproto/authpb"
 	"x/shared/genproto/emailpb"
+
+	"github.com/go-chi/chi/v5"
+
 )
 
 type PartnerHandler struct {
@@ -65,6 +68,7 @@ func (h *PartnerHandler) CreatePartner(w http.ResponseWriter, r *http.Request) {
 		Country      string `json:"country"`
 		ContactEmail string `json:"contact_email"`
 		ContactPhone string `json:"contact_phone"`
+		Currency	 string `json:"currency"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		response.Error(w, http.StatusBadRequest, err.Error())
@@ -197,8 +201,12 @@ func (h *PartnerHandler) CreatePartnerUser(w http.ResponseWriter, r *http.Reques
 		LastName:  req.LastName,
 		Role:      string(role), // send plain string to auth
 	})
-	if err != nil {
+	if err != nil || userResp == nil {
 		response.Error(w, http.StatusInternalServerError, "failed to create user in auth service: "+err.Error(),)
+		return
+	}
+	if !userResp.Ok{
+		response.Error(w, http.StatusConflict, "failed to create user: "+userResp.Error,)
 		return
 	}
 
@@ -386,4 +394,120 @@ func (h *PartnerHandler) sendPartnerCreatedNotification(ctx context.Context, par
 			log.Printf("[WARN] failed to send partner created notification to %s: %v", partner.ContactEmail, err)
 		}
 	}(partnerUserID)
+}
+
+func (h *PartnerHandler) UpdatePartnerUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		response.Error(w, http.StatusBadRequest, "missing partner_user id")
+		return
+	}
+
+	var req struct {
+		Role      domain.PartnerUserRole `json:"role"`
+		IsActive  bool             `json:"is_active"`
+	}
+
+	if err := decodeJSON(r, &req); err != nil {
+		response.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	partnerUser := &domain.PartnerUser{
+		ID: 	  id,
+		Role:      req.Role,
+		IsActive:  req.IsActive,
+	}
+
+	if err := h.uc.UpdatePartnerUser(ctx, partnerUser); err != nil {
+		response.Error(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	h.sendPartnerUpdatedNotification(ctx, partnerUser.ID)
+	response.JSON(w, http.StatusOK, partnerUser)
+}
+
+func (h *PartnerHandler) DeletePartnerUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Extract partner_user id from URL params
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		response.Error(w, http.StatusBadRequest, "missing partner_user id")
+		return
+	}
+
+	// Extract role from context (assuming middleware sets it)
+	roleVal := ctx.Value("role")
+	role, _ := roleVal.(string)
+
+	// Authorisation check
+	if role != "system_admin" && role != "partner_admin" {
+		response.Error(w, http.StatusForbidden, "unauthorised")
+		return
+	}
+
+	// Fetch the partner user first
+	partnerUser, err := h.uc.GetPartnerUserByID(ctx, id)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "failed to fetch partner_user: "+err.Error())
+		return
+	}
+
+	// If trying to delete a partner_admin, only system_admin can do it
+	if partnerUser.Role == domain.PartnerUserRoleAdmin && role != "system_admin" {
+		response.Error(w, http.StatusForbidden, "unauthorised")
+		return
+	}
+
+	// Proceed with deletion
+	if err := h.uc.DeletePartnerUser(ctx, id); err != nil {
+		response.Error(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Cleanup the user in auth service asynchronously
+	go func(userID string) {
+		ctxBg, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if _, err := h.authClient.DeleteUser(ctxBg, userID); err != nil {
+			log.Printf("[WARN] failed to cleanup user %s after partner_user deletion: %v", userID, err)
+		}
+	}(partnerUser.UserID)
+
+	h.sendPartnerDeletedNotification(ctx, id)
+
+	response.JSON(w, http.StatusOK, map[string]string{
+		"deleted_id": id,
+	})
+}
+
+
+// Optional notification stubs
+func (h *PartnerHandler) sendPartnerUpdatedNotification(ctx context.Context, partnerUserID string) {
+	fmt.Printf("Partner user updated: %s\n", partnerUserID)
+}
+
+func (h *PartnerHandler) sendPartnerDeletedNotification(ctx context.Context, partnerUserID string) {
+	fmt.Printf("Partner user deleted: %s\n", partnerUserID)
+}
+
+
+
+func (h *PartnerHandler) DeletePartner(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	_  = ctx
+
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		response.Error(w, http.StatusBadRequest, "missing partner id")
+		return
+	}
+
+	response.JSON(w, http.StatusNotImplemented, map[string]string{
+		"partner_id": id,
+		"message":    "DeletePartner not implemented",
+	})
 }

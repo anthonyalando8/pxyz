@@ -12,7 +12,9 @@ func (r *PartnerRepo) CreatePartner(ctx context.Context, partner *domain.Partner
 	if partner.ID == "" {
 		partner.ID = id.GenerateID("PTN") // your 12-char ID generator
 	}
-
+	if partner.Status == "" {
+		partner.Status = "active" // default status
+	}
 	query := `
 		INSERT INTO partners (id, name, country, contact_email, contact_phone, status, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())

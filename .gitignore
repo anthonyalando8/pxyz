@@ -33,3 +33,5 @@
 /services/partner-service/.env
 /services/partner-service/secrets/
 /services/partner-service/secrets/*
+
+/ui/screen/auth_test.html

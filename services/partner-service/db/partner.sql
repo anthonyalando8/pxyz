@@ -20,7 +20,7 @@ CREATE INDEX idx_partners_name ON partners (name);
 
 -- Partner users
 CREATE TABLE partner_users (
-  id         BIGSERIAL PRIMARY KEY,
+  id         TEXT PRIMARY KEY,
   partner_id TEXT NOT NULL REFERENCES partners(id) ON DELETE CASCADE,
   role       VARCHAR(16) NOT NULL CHECK (role IN ('partner_admin','partner_user')),
   user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

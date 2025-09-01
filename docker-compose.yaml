@@ -29,6 +29,8 @@ services:
       DB_PASSWORD: 2000
       DB_NAME: pxyz
       REDIS_ADDR: redis:6379
+      SYSTEM_ADMIN_PASSWORD: 96211581#Aa
+      SYSTEM_ADMIN_EMAIL: anthonyalando8@gmail.com
     networks:
       - micro_net
     depends_on:
