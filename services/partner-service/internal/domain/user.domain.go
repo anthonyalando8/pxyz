@@ -5,7 +5,7 @@ import "time"
 type PartnerUserRole string
 
 const (
-	PartnerUserRoleAdmin PartnerUserRole = "admin"
+	PartnerUserRoleAdmin PartnerUserRole = "partner_admin"
 	PartnerUserRoleUser  PartnerUserRole = "partner_user"
 )
 

@@ -36,7 +36,7 @@ func main() {
 	emailHandler := handler.NewEmailHandler(emailSvc, emailRepo, sf)
 
 	// Start gRPC server
-	listener, err := net.Listen("tcp", ":"+cfg.GRPCPort)
+	listener, err := net.Listen("tcp",cfg.GRPCPort)
 	if err != nil {
 		log.Fatalf("failed to listen on port %s: %v", cfg.GRPCPort, err)
 	}

@@ -33,7 +33,7 @@ CREATE INDEX idx_fx_rates_pair ON fx_rates (base_currency, quote_currency, as_of
 CREATE TABLE accounts (
   id          BIGSERIAL PRIMARY KEY,
   owner_type  owner_type_enum NOT NULL,
-  owner_id    BIGINT, -- references partner or user in partner.db
+  owner_id    TEXT, -- updated to TEXT to support partner IDs
   currency    VARCHAR(8) NOT NULL REFERENCES currencies(code) ON UPDATE CASCADE,
   purpose     account_purpose_enum NOT NULL,
   is_active   BOOLEAN NOT NULL DEFAULT true,

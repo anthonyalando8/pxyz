@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"partner-service/internal/domain"
+	"x/shared/utils/id"
 )
 // ---------------- Partner ----------------
 
@@ -16,7 +17,7 @@ func (uc *PartnerUsecase) CreatePartner(ctx context.Context, p *domain.Partner) 
 
 	// Example: generate external ID using Snowflake
 	if p.ID == "" {
-		p.ID = uc.sf.Generate()
+		p.ID = id.GenerateID("PTN")
 	}
 
 	return uc.partnerRepo.CreatePartner(ctx, p)

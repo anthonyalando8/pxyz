@@ -222,7 +222,7 @@ services:
     env_file:
       - ./services/partner-service/.env
     environment:
-      DB_HOST: postgres
+      DB_HOST: host.docker.internal
       DB_PORT: 5432
       DB_USER: postgres
       DB_PASSWORD: 2000

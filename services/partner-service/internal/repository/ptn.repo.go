@@ -3,24 +3,32 @@ package repository
 import (
 	"context"
 	"partner-service/internal/domain"
-
+	"x/shared/utils/id"
 )
 
 // CreatePartner inserts a new partner and returns the inserted record.
 func (r *PartnerRepo) CreatePartner(ctx context.Context, partner *domain.Partner) error {
+	// 1. Generate unique partner ID
+	if partner.ID == "" {
+		partner.ID = id.GenerateID("PTN") // your 12-char ID generator
+	}
+
 	query := `
-		INSERT INTO partners (name, country, contact_email, contact_phone, status, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
-		RETURNING id, created_at, updated_at
+		INSERT INTO partners (id, name, country, contact_email, contact_phone, status, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+		RETURNING created_at, updated_at
 	`
+
 	return r.db.QueryRow(ctx, query,
+		partner.ID,
 		partner.Name,
 		partner.Country,
 		partner.ContactEmail,
 		partner.ContactPhone,
 		partner.Status,
-	).Scan(&partner.ID, &partner.CreatedAt, &partner.UpdatedAt)
+	).Scan(&partner.CreatedAt, &partner.UpdatedAt)
 }
+
 
 // GetPartnerByID fetches a partner by id
 func (r *PartnerRepo) GetPartnerByID(ctx context.Context, id string) (*domain.Partner, error) {

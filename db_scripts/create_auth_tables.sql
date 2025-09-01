@@ -125,6 +125,14 @@ CREATE TABLE IF NOT EXISTS email_logs (
     sent_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 1. Drop the foreign key constraint first
+ALTER TABLE email_logs
+DROP CONSTRAINT IF EXISTS email_logs_user_id_fkey;
+
+-- 2. Alter the column type to TEXT
+ALTER TABLE email_logs
+ALTER COLUMN user_id TYPE TEXT;
+
 --------------------------
 -- ACCOUNT DELETION REQUESTS
 --------------------------
