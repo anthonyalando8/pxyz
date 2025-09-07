@@ -31,6 +31,8 @@ const (
 	AccountService_UpdateProfile_FullMethodName         = "/account.AccountService/UpdateProfile"
 	AccountService_UpdateProfilePicture_FullMethodName  = "/account.AccountService/UpdateProfilePicture"
 	AccountService_GetUserProfile_FullMethodName        = "/account.AccountService/GetUserProfile"
+	AccountService_GetUserNationality_FullMethodName    = "/account.AccountService/GetUserNationality"
+	AccountService_UpdateUserNationality_FullMethodName = "/account.AccountService/UpdateUserNationality"
 )
 
 // AccountServiceClient is the client API for AccountService service.
@@ -56,6 +58,9 @@ type AccountServiceClient interface {
 	UpdateProfilePicture(ctx context.Context, in *UpdateProfilePictureRequest, opts ...grpc.CallOption) (*UpdateProfilePictureResponse, error)
 	// New: Get full user profile
 	GetUserProfile(ctx context.Context, in *GetUserProfileRequest, opts ...grpc.CallOption) (*GetUserProfileResponse, error)
+	// Nationality management
+	GetUserNationality(ctx context.Context, in *GetUserNationalityRequest, opts ...grpc.CallOption) (*GetUserNationalityResponse, error)
+	UpdateUserNationality(ctx context.Context, in *UpdateUserNationalityRequest, opts ...grpc.CallOption) (*UpdateUserNationalityResponse, error)
 }
 
 type accountServiceClient struct {
@@ -186,6 +191,26 @@ func (c *accountServiceClient) GetUserProfile(ctx context.Context, in *GetUserPr
 	return out, nil
 }
 
+func (c *accountServiceClient) GetUserNationality(ctx context.Context, in *GetUserNationalityRequest, opts ...grpc.CallOption) (*GetUserNationalityResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetUserNationalityResponse)
+	err := c.cc.Invoke(ctx, AccountService_GetUserNationality_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountServiceClient) UpdateUserNationality(ctx context.Context, in *UpdateUserNationalityRequest, opts ...grpc.CallOption) (*UpdateUserNationalityResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateUserNationalityResponse)
+	err := c.cc.Invoke(ctx, AccountService_UpdateUserNationality_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AccountServiceServer is the server API for AccountService service.
 // All implementations must embed UnimplementedAccountServiceServer
 // for forward compatibility.
@@ -209,6 +234,9 @@ type AccountServiceServer interface {
 	UpdateProfilePicture(context.Context, *UpdateProfilePictureRequest) (*UpdateProfilePictureResponse, error)
 	// New: Get full user profile
 	GetUserProfile(context.Context, *GetUserProfileRequest) (*GetUserProfileResponse, error)
+	// Nationality management
+	GetUserNationality(context.Context, *GetUserNationalityRequest) (*GetUserNationalityResponse, error)
+	UpdateUserNationality(context.Context, *UpdateUserNationalityRequest) (*UpdateUserNationalityResponse, error)
 	mustEmbedUnimplementedAccountServiceServer()
 }
 
@@ -254,6 +282,12 @@ func (UnimplementedAccountServiceServer) UpdateProfilePicture(context.Context, *
 }
 func (UnimplementedAccountServiceServer) GetUserProfile(context.Context, *GetUserProfileRequest) (*GetUserProfileResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetUserProfile not implemented")
+}
+func (UnimplementedAccountServiceServer) GetUserNationality(context.Context, *GetUserNationalityRequest) (*GetUserNationalityResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetUserNationality not implemented")
+}
+func (UnimplementedAccountServiceServer) UpdateUserNationality(context.Context, *UpdateUserNationalityRequest) (*UpdateUserNationalityResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateUserNationality not implemented")
 }
 func (UnimplementedAccountServiceServer) mustEmbedUnimplementedAccountServiceServer() {}
 func (UnimplementedAccountServiceServer) testEmbeddedByValue()                        {}
@@ -492,6 +526,42 @@ func _AccountService_GetUserProfile_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AccountService_GetUserNationality_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUserNationalityRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountServiceServer).GetUserNationality(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountService_GetUserNationality_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountServiceServer).GetUserNationality(ctx, req.(*GetUserNationalityRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountService_UpdateUserNationality_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateUserNationalityRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountServiceServer).UpdateUserNationality(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountService_UpdateUserNationality_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountServiceServer).UpdateUserNationality(ctx, req.(*UpdateUserNationalityRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AccountService_ServiceDesc is the grpc.ServiceDesc for AccountService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -546,6 +616,14 @@ var AccountService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetUserProfile",
 			Handler:    _AccountService_GetUserProfile_Handler,
+		},
+		{
+			MethodName: "GetUserNationality",
+			Handler:    _AccountService_GetUserNationality_Handler,
+		},
+		{
+			MethodName: "UpdateUserNationality",
+			Handler:    _AccountService_UpdateUserNationality_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+import "google/protobuf/struct.proto";
+
 package account;
 
 option go_package = "genproto/accountpb;accountpb";
@@ -92,22 +94,25 @@ message GetBackupCodesResponse {
 
 
 // ---------- Preferences ----------
+
 message GetPreferencesRequest {
   string user_id = 1;
   repeated string keys = 2; // optional, return only requested keys
 }
 
 message GetPreferencesResponse {
-  map<string, string> preferences = 1;
+  // map values can now be string, bool, number, object, array, etc.
+  map<string, google.protobuf.Value> preferences = 1;
 }
 
 message UpdatePreferencesRequest {
   string user_id = 1;
-  map<string, string> preferences = 2; // e.g. {"theme": "dark"}
+  map<string, google.protobuf.Value> preferences = 2; // can store bool/text/number
 }
 
 message UpdatePreferencesResponse {
   bool success = 1;
+  string error = 2;
 }
 
 
@@ -161,6 +166,27 @@ message UserProfile {
   string phone = 10;
   string created_at = 11;
   string updated_at = 12;
+  string nationality = 13;
+  string username = 14;
+}
+
+message GetUserNationalityRequest {
+  string user_id = 1;
+}
+
+message GetUserNationalityResponse {
+  bool has_nationality = 1;  // true if set, false if null
+  string nationality = 2;    // ISO2 code, empty if not set
+}
+
+message UpdateUserNationalityRequest {
+  string user_id = 1;
+  string nationality = 2; // ISO2 code from countries table
+}
+
+message UpdateUserNationalityResponse {
+  bool success = 1;
+  string error =2;
 }
 
 message GetUserProfileResponse {
@@ -190,4 +216,8 @@ service AccountService {
 
   // New: Get full user profile
   rpc GetUserProfile(GetUserProfileRequest) returns (GetUserProfileResponse);
+  
+  // Nationality management
+  rpc GetUserNationality(GetUserNationalityRequest) returns (GetUserNationalityResponse);
+  rpc UpdateUserNationality(UpdateUserNationalityRequest) returns (UpdateUserNationalityResponse);
 }

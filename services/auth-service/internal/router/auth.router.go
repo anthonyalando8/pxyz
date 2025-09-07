@@ -23,8 +23,8 @@ func SetupRoutes(
 	// ---- Global Middleware ----
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"http://127.0.0.1:5500", "http://localhost:5500", "https://4bcbc3ea8466.ngrok-free.app"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "PATCH"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "X-Requested-With"},
 		ExposedHeaders:   []string{"Link"},
 		AllowCredentials: true,
 		MaxAge:           300,
@@ -77,7 +77,7 @@ func SetupRoutes(
 
 	r.Group(func(pr chi.Router) {
 		// OTP request/verify (register/email change flows)
-		pr.Use(auth.Require([]string{"main", "temp"}, []string{"register", "email_change", "incomplete_profile","general", "verify-otp"}))
+		pr.Use(auth.Require([]string{"main", "temp"}, []string{"register", "email_change", "incomplete_profile","general", "verify-otp", "phone_change"}))
 		pr.Post("/auth/register/otp/request", h.HandleRequestOTP)
 		pr.Post("/auth/register/otp/verify", h.HandleVerifyOTP)
 	})
@@ -89,7 +89,10 @@ func SetupRoutes(
 		pr.Use(auth.Require([]string{"main", "temp"}, []string{"email_change"}))
 		pr.Patch("/auth/email", h.HandleChangeEmail)
 	})
-
+	r.Group(func(pr chi.Router) {
+		pr.Use(auth.Require([]string{"main", "temp"}, []string{"phone_change"}))
+		pr.Patch("/auth/phone/update", h.HandlePhoneChange)
+	})
 	// ============================================================
 	// Authenticated User Endpoints (require main session)
 	// ============================================================
@@ -112,12 +115,13 @@ func SetupRoutes(
 		pr.Get("/auth/profile", h.HandleProfile) // get full profile
 		pr.Post("/auth/profile/update", h.HandleUpdateProfile) // partial updates
 		pr.Patch("/auth/name", h.HandleUpdateName)
-		pr.Patch("/auth/phone", h.HandlePhoneChange)           // via 2FA
 		pr.Get("/auth/email/request-change", h.HandleRequestEmailChange) // via 2FA
 		pr.Post("/auth/profile/picture", h.UploadProfilePicture)
+		pr.Post("/auth/profile/nationality", h.HandleUpdateNationality)
 
 		// Password management
-		pr.Patch("/auth/password/change", h.HandleChangePassword) // change existing password
+		pr.Get("/auth/password/request-change", h.HandleRequestPasswordChange) // change existing password
+		pr.Get("/auth/phone/request-change", h.HandleRequestPhoneChange) // change phone
 		// pr.Post("/auth/password/convert", h.HandleConvertPassword) // social → hybrid
 
 		// Sessions

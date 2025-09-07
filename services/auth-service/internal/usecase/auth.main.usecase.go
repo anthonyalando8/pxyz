@@ -16,9 +16,9 @@ func (uc *UserUsecase) ChangeEmail(ctx context.Context, userID, newEmail string)
 	return uc.userRepo.UpdateEmail(ctx, userID, newEmail)
 }
 
-func (uc *UserUsecase) UpdatePhone(ctx context.Context, userID, newPhone string) error {
+func (uc *UserUsecase) UpdatePhone(ctx context.Context, userID, newPhone string, isPhoneVerified bool) error {
 	// Update phone in repository
-	return uc.userRepo.UpdatePhone(ctx, userID, newPhone)
+	return uc.userRepo.UpdatePhone(ctx, userID, newPhone, isPhoneVerified)
 }
 
 func (uc *UserUsecase) UpdatePassword(ctx context.Context, userID, newPassword string, requireOld bool, oldPassword string, advanceStage bool) error {

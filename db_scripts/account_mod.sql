@@ -17,6 +17,13 @@ CREATE TABLE IF NOT EXISTS user_profiles (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+ALTER TABLE user_profiles
+ADD COLUMN nationality CHAR(2) NULL,
+ADD CONSTRAINT fk_user_profiles_country
+    FOREIGN KEY (nationality)
+    REFERENCES countries(iso2)
+    ON DELETE SET NULL;
+
 -- Indexes for user_profiles
 -- primary key already covers lookups by user_id
 CREATE INDEX IF NOT EXISTS idx_user_profiles_dob ON user_profiles(date_of_birth);

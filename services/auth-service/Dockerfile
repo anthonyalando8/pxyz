@@ -26,9 +26,34 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build -o auth-service ./cmd/auth.main.go
 
 # -------- Stage 2: Runtime --------
+# FROM debian:bookworm-slim
+
+# WORKDIR /app
+
+# # Copy only the binary from builder stage
+# COPY --from=builder /app/auth-service /app/auth-service
+
+# # Create uploads directory for profile pictures
+# RUN mkdir -p /app/uploads/profile_pictures
+
+# # Non-root user for security
+# RUN useradd -u 10001 nonroot && chown -R nonroot:nonroot /app
+# USER nonroot
+
+# # Expose REST port
+# EXPOSE 8001 8006
+
+# # Run the service
+# ENTRYPOINT ["/app/auth-service"]
+
+# -------- Stage 2: Runtime --------
 FROM debian:bookworm-slim
 
 WORKDIR /app
+
+# Install CA certificates for HTTPS
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 
 # Copy only the binary from builder stage
 COPY --from=builder /app/auth-service /app/auth-service

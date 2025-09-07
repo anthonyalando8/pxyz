@@ -18,17 +18,29 @@ func ValidateEmail(email string) bool {
 	return emailRegex.MatchString(email)
 }
 
-// ValidatePhone checks if a phone number is valid.
-func ValidatePhone(phone string) bool {
+// ValidatePhoneWithCountry checks if a phone number is valid and matches the expected country code.
+func ValidatePhoneWithCountry(phone string, countryPhoneCode string) bool {
 	phone = strings.TrimSpace(phone)
-	if phone == "" {
+	if phone == "" || countryPhoneCode == "" {
 		return false
 	}
 
-	// E.164 format: + followed by up to 15 digits (e.g., +254712345678)
+	// E.164 format check
 	e164Regex := regexp.MustCompile(`^\+?[1-9]\d{6,14}$`)
-	return e164Regex.MatchString(phone)
+	if !e164Regex.MatchString(phone) {
+		return false
+	}
+
+	// Ensure phone starts with the country phone code
+	normalizedPhone := strings.TrimPrefix(phone, "+")
+	normalizedCode := strings.TrimPrefix(countryPhoneCode, "+")
+	if !strings.HasPrefix(normalizedPhone, normalizedCode) {
+		return false
+	}
+
+	return true
 }
+
 
 func ValidatePassword(password string) (bool, error) {
 	// Length check

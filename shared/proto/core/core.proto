@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package core;
+
+option go_package = "genproto/corepb;corepb";
+
+// Country message
+message Country {
+  int64 id = 1;
+  string iso2 = 2;
+  string iso3 = 3;
+  string name = 4;
+  string phone_code = 5;
+  string currency_code = 6;
+  string currency_name = 7;
+  string region = 8;
+  string subregion = 9;
+  string flag_url = 10;
+}
+
+// Requests & Responses
+message GetAllCountriesRequest {}
+
+message GetAllCountriesResponse {
+  repeated Country countries = 1;
+}
+
+message GetCountryRequest {
+  string iso2 = 1; // 2-letter ISO code
+}
+
+message GetCountryResponse {
+  Country country = 1;
+}
+
+// Core service definition
+service CoreService {
+  rpc GetAllCountries(GetAllCountriesRequest) returns (GetAllCountriesResponse);
+  rpc GetCountry(GetCountryRequest) returns (GetCountryResponse);
+}

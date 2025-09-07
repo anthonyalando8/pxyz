@@ -12,3 +12,4 @@ func safeString(ptr *string) string {
 	}
 	return *ptr
 }
+

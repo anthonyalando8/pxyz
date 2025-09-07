@@ -60,6 +60,11 @@ var (
 	ErrUnsupported2FAMethod = errors.New("unsupported 2FA method")
 	Err2FANotEnabled        = errors.New("2FA not enabled for this method")
 	ErrInvalidCodeProvided  = errors.New("invalid code provided")
+
+	ErrUserNoEmail = errors.New("user does not have a valid email")
+	ErrUserNoPhone = errors.New("user does not have a valid phone number")
+	ErrInvalidChannel = errors.New("invalid channel")
+	ErrUserNoComms = errors.New("No valid recipient available info available")
 )
 
 // Account state

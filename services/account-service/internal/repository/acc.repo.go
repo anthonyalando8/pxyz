@@ -2,7 +2,8 @@ package repository
 
 import (
 	"context"
-	"errors"
+	"encoding/json"
+	//"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -10,7 +11,7 @@ import (
 	"account-service/internal/domain"
 	"x/shared/utils/errors"
 
-	"github.com/jackc/pgx/v5"
+	//"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -54,17 +55,39 @@ func (r *UserProfileRepository) Create(ctx context.Context, profile *domain.User
 	).Scan(&profile.CreatedAt, &profile.UpdatedAt)
 }
 
+func (r *UserProfileRepository) UpdateNationality(ctx context.Context, userID string, nationality *string) error {
+	const q = `
+		UPDATE user_profiles
+		SET nationality = $2,
+		    updated_at = NOW()
+		WHERE user_id = $1
+	`
+
+	tag, err := r.db.Exec(ctx, q, userID, nationality)
+	if err != nil {
+		return err
+	}
+
+	if tag.RowsAffected() == 0 {
+		return xerrors.ErrNotFound
+	}
+
+	return nil
+}
+
 // GetByUserID fetches a profile by user_id
 func (r *UserProfileRepository) GetByUserID(ctx context.Context, userID string) (*domain.UserProfile, error) {
 	const q = `
 		SELECT user_id, date_of_birth, profile_image_url, first_name, last_name,
-		       surname, sys_username, address, gender, bio, created_at, updated_at
+		       surname, sys_username, address, gender, bio,
+		       nationality, created_at, updated_at
 		FROM user_profiles
 		WHERE user_id = $1
 	`
 
 	profile := &domain.UserProfile{}
 	var dob *time.Time
+	var addrJSON []byte
 
 	err := r.db.QueryRow(ctx, q, userID).Scan(
 		&profile.UserID,
@@ -74,16 +97,17 @@ func (r *UserProfileRepository) GetByUserID(ctx context.Context, userID string) 
 		&profile.LastName,
 		&profile.Surname,
 		&profile.SysUsername,
-		&profile.Address,
+		&addrJSON,
 		&profile.Gender,
 		&profile.Bio,
+		&profile.Nationality,
 		&profile.CreatedAt,
 		&profile.UpdatedAt,
 	)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, xerrors.ErrNotFound
-		}
+		// if errors.Is(err, pgx.ErrNoRows) {
+		// 	return nil, xerrors.ErrNotFound
+		// }
 		return nil, err
 	}
 
@@ -91,8 +115,16 @@ func (r *UserProfileRepository) GetByUserID(ctx context.Context, userID string) 
 		profile.DateOfBirth = dob
 	}
 
+	// decode JSONB address into map
+	if len(addrJSON) > 0 {
+		if err := json.Unmarshal(addrJSON, &profile.Address); err != nil {
+			return nil, fmt.Errorf("failed to decode address JSON: %w", err)
+		}
+	}
+
 	return profile, nil
 }
+
 
 
 // Update modifies fields in a user profile

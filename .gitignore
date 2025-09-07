@@ -35,3 +35,8 @@
 /services/partner-service/secrets/*
 
 /ui/screen/auth_test.html
+
+
+/services/core-service/.env
+/services/core-service/secrets/
+/services/core-service/secrets/*

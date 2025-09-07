@@ -9,6 +9,7 @@ package accountpb
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -818,7 +819,6 @@ func (x *GetBackupCodesResponse) GetBackupCodes() []string {
 	return nil
 }
 
-// ---------- Preferences ----------
 type GetPreferencesRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
@@ -872,8 +872,9 @@ func (x *GetPreferencesRequest) GetKeys() []string {
 }
 
 type GetPreferencesResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Preferences   map[string]string      `protobuf:"bytes,1,rep,name=preferences,proto3" json:"preferences,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// map values can now be string, bool, number, object, array, etc.
+	Preferences   map[string]*structpb.Value `protobuf:"bytes,1,rep,name=preferences,proto3" json:"preferences,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -908,7 +909,7 @@ func (*GetPreferencesResponse) Descriptor() ([]byte, []int) {
 	return file_proto_account_account_proto_rawDescGZIP(), []int{15}
 }
 
-func (x *GetPreferencesResponse) GetPreferences() map[string]string {
+func (x *GetPreferencesResponse) GetPreferences() map[string]*structpb.Value {
 	if x != nil {
 		return x.Preferences
 	}
@@ -916,9 +917,9 @@ func (x *GetPreferencesResponse) GetPreferences() map[string]string {
 }
 
 type UpdatePreferencesRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	Preferences   map[string]string      `protobuf:"bytes,2,rep,name=preferences,proto3" json:"preferences,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // e.g. {"theme": "dark"}
+	state         protoimpl.MessageState     `protogen:"open.v1"`
+	UserId        string                     `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Preferences   map[string]*structpb.Value `protobuf:"bytes,2,rep,name=preferences,proto3" json:"preferences,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // can store bool/text/number
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -960,7 +961,7 @@ func (x *UpdatePreferencesRequest) GetUserId() string {
 	return ""
 }
 
-func (x *UpdatePreferencesRequest) GetPreferences() map[string]string {
+func (x *UpdatePreferencesRequest) GetPreferences() map[string]*structpb.Value {
 	if x != nil {
 		return x.Preferences
 	}
@@ -970,6 +971,7 @@ func (x *UpdatePreferencesRequest) GetPreferences() map[string]string {
 type UpdatePreferencesResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Error         string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1009,6 +1011,13 @@ func (x *UpdatePreferencesResponse) GetSuccess() bool {
 		return x.Success
 	}
 	return false
+}
+
+func (x *UpdatePreferencesResponse) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
 }
 
 // Existing
@@ -1344,6 +1353,8 @@ type UserProfile struct {
 	Phone           string                 `protobuf:"bytes,10,opt,name=phone,proto3" json:"phone,omitempty"`
 	CreatedAt       string                 `protobuf:"bytes,11,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt       string                 `protobuf:"bytes,12,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	Nationality     string                 `protobuf:"bytes,13,opt,name=nationality,proto3" json:"nationality,omitempty"`
+	Username        string                 `protobuf:"bytes,14,opt,name=username,proto3" json:"username,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -1462,6 +1473,220 @@ func (x *UserProfile) GetUpdatedAt() string {
 	return ""
 }
 
+func (x *UserProfile) GetNationality() string {
+	if x != nil {
+		return x.Nationality
+	}
+	return ""
+}
+
+func (x *UserProfile) GetUsername() string {
+	if x != nil {
+		return x.Username
+	}
+	return ""
+}
+
+type GetUserNationalityRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetUserNationalityRequest) Reset() {
+	*x = GetUserNationalityRequest{}
+	mi := &file_proto_account_account_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetUserNationalityRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetUserNationalityRequest) ProtoMessage() {}
+
+func (x *GetUserNationalityRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_account_account_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetUserNationalityRequest.ProtoReflect.Descriptor instead.
+func (*GetUserNationalityRequest) Descriptor() ([]byte, []int) {
+	return file_proto_account_account_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *GetUserNationalityRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+type GetUserNationalityResponse struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	HasNationality bool                   `protobuf:"varint,1,opt,name=has_nationality,json=hasNationality,proto3" json:"has_nationality,omitempty"` // true if set, false if null
+	Nationality    string                 `protobuf:"bytes,2,opt,name=nationality,proto3" json:"nationality,omitempty"`                              // ISO2 code, empty if not set
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *GetUserNationalityResponse) Reset() {
+	*x = GetUserNationalityResponse{}
+	mi := &file_proto_account_account_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetUserNationalityResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetUserNationalityResponse) ProtoMessage() {}
+
+func (x *GetUserNationalityResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_account_account_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetUserNationalityResponse.ProtoReflect.Descriptor instead.
+func (*GetUserNationalityResponse) Descriptor() ([]byte, []int) {
+	return file_proto_account_account_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *GetUserNationalityResponse) GetHasNationality() bool {
+	if x != nil {
+		return x.HasNationality
+	}
+	return false
+}
+
+func (x *GetUserNationalityResponse) GetNationality() string {
+	if x != nil {
+		return x.Nationality
+	}
+	return ""
+}
+
+type UpdateUserNationalityRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Nationality   string                 `protobuf:"bytes,2,opt,name=nationality,proto3" json:"nationality,omitempty"` // ISO2 code from countries table
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateUserNationalityRequest) Reset() {
+	*x = UpdateUserNationalityRequest{}
+	mi := &file_proto_account_account_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateUserNationalityRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateUserNationalityRequest) ProtoMessage() {}
+
+func (x *UpdateUserNationalityRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_account_account_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateUserNationalityRequest.ProtoReflect.Descriptor instead.
+func (*UpdateUserNationalityRequest) Descriptor() ([]byte, []int) {
+	return file_proto_account_account_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *UpdateUserNationalityRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *UpdateUserNationalityRequest) GetNationality() string {
+	if x != nil {
+		return x.Nationality
+	}
+	return ""
+}
+
+type UpdateUserNationalityResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Error         string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateUserNationalityResponse) Reset() {
+	*x = UpdateUserNationalityResponse{}
+	mi := &file_proto_account_account_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateUserNationalityResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateUserNationalityResponse) ProtoMessage() {}
+
+func (x *UpdateUserNationalityResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_account_account_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateUserNationalityResponse.ProtoReflect.Descriptor instead.
+func (*UpdateUserNationalityResponse) Descriptor() ([]byte, []int) {
+	return file_proto_account_account_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *UpdateUserNationalityResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *UpdateUserNationalityResponse) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
 type GetUserProfileResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Profile       *UserProfile           `protobuf:"bytes,1,opt,name=profile,proto3" json:"profile,omitempty"`
@@ -1471,7 +1696,7 @@ type GetUserProfileResponse struct {
 
 func (x *GetUserProfileResponse) Reset() {
 	*x = GetUserProfileResponse{}
-	mi := &file_proto_account_account_proto_msgTypes[24]
+	mi := &file_proto_account_account_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1483,7 +1708,7 @@ func (x *GetUserProfileResponse) String() string {
 func (*GetUserProfileResponse) ProtoMessage() {}
 
 func (x *GetUserProfileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_account_account_proto_msgTypes[24]
+	mi := &file_proto_account_account_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1496,7 +1721,7 @@ func (x *GetUserProfileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetUserProfileResponse.ProtoReflect.Descriptor instead.
 func (*GetUserProfileResponse) Descriptor() ([]byte, []int) {
-	return file_proto_account_account_proto_rawDescGZIP(), []int{24}
+	return file_proto_account_account_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *GetUserProfileResponse) GetProfile() *UserProfile {
@@ -1510,7 +1735,7 @@ var File_proto_account_account_proto protoreflect.FileDescriptor
 
 const file_proto_account_account_proto_rawDesc = "" +
 	"\n" +
-	"\x1bproto/account/account.proto\x12\aaccount\"0\n" +
+	"\x1bproto/account/account.proto\x12\aaccount\x1a\x1cgoogle/protobuf/struct.proto\"0\n" +
 	"\x15GetTwoFAStatusRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\"O\n" +
 	"\x16GetTwoFAStatusResponse\x12\x1d\n" +
@@ -1572,20 +1797,21 @@ const file_proto_account_account_proto_rawDesc = "" +
 	"\fbackup_codes\x18\x01 \x03(\tR\vbackupCodes\"D\n" +
 	"\x15GetPreferencesRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x12\n" +
-	"\x04keys\x18\x02 \x03(\tR\x04keys\"\xac\x01\n" +
+	"\x04keys\x18\x02 \x03(\tR\x04keys\"\xc4\x01\n" +
 	"\x16GetPreferencesResponse\x12R\n" +
-	"\vpreferences\x18\x01 \x03(\v20.account.GetPreferencesResponse.PreferencesEntryR\vpreferences\x1a>\n" +
+	"\vpreferences\x18\x01 \x03(\v20.account.GetPreferencesResponse.PreferencesEntryR\vpreferences\x1aV\n" +
 	"\x10PreferencesEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xc9\x01\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12,\n" +
+	"\x05value\x18\x02 \x01(\v2\x16.google.protobuf.ValueR\x05value:\x028\x01\"\xe1\x01\n" +
 	"\x18UpdatePreferencesRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12T\n" +
-	"\vpreferences\x18\x02 \x03(\v22.account.UpdatePreferencesRequest.PreferencesEntryR\vpreferences\x1a>\n" +
+	"\vpreferences\x18\x02 \x03(\v22.account.UpdatePreferencesRequest.PreferencesEntryR\vpreferences\x1aV\n" +
 	"\x10PreferencesEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"5\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12,\n" +
+	"\x05value\x18\x02 \x01(\v2\x16.google.protobuf.ValueR\x05value:\x028\x01\"K\n" +
 	"\x19UpdatePreferencesResponse\x12\x18\n" +
-	"\asuccess\x18\x01 \x01(\bR\asuccess\"\xd9\x02\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x14\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error\"\xd9\x02\n" +
 	"\x14UpdateProfileRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1d\n" +
 	"\n" +
@@ -1611,7 +1837,7 @@ const file_proto_account_account_proto_rawDesc = "" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12*\n" +
 	"\x11profile_image_url\x18\x02 \x01(\tR\x0fprofileImageUrl\"0\n" +
 	"\x15GetUserProfileRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\"\xe9\x02\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\"\xa7\x03\n" +
 	"\vUserProfile\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1d\n" +
 	"\n" +
@@ -1628,9 +1854,22 @@ const file_proto_account_account_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\v \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\f \x01(\tR\tupdatedAt\"H\n" +
+	"updated_at\x18\f \x01(\tR\tupdatedAt\x12 \n" +
+	"\vnationality\x18\r \x01(\tR\vnationality\x12\x1a\n" +
+	"\busername\x18\x0e \x01(\tR\busername\"4\n" +
+	"\x19GetUserNationalityRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\"g\n" +
+	"\x1aGetUserNationalityResponse\x12'\n" +
+	"\x0fhas_nationality\x18\x01 \x01(\bR\x0ehasNationality\x12 \n" +
+	"\vnationality\x18\x02 \x01(\tR\vnationality\"Y\n" +
+	"\x1cUpdateUserNationalityRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12 \n" +
+	"\vnationality\x18\x02 \x01(\tR\vnationality\"O\n" +
+	"\x1dUpdateUserNationalityResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x14\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error\"H\n" +
 	"\x16GetUserProfileResponse\x12.\n" +
-	"\aprofile\x18\x01 \x01(\v2\x14.account.UserProfileR\aprofile2\x92\b\n" +
+	"\aprofile\x18\x01 \x01(\v2\x14.account.UserProfileR\aprofile2\xd9\t\n" +
 	"\x0eAccountService\x12Z\n" +
 	"\x11InitiateTOTPSetup\x12!.account.InitiateTOTPSetupRequest\x1a\".account.InitiateTOTPSetupResponse\x12Q\n" +
 	"\x0eGetTwoFAStatus\x12\x1e.account.GetTwoFAStatusRequest\x1a\x1f.account.GetTwoFAStatusResponse\x12H\n" +
@@ -1643,7 +1882,9 @@ const file_proto_account_account_proto_rawDesc = "" +
 	"\x11UpdatePreferences\x12!.account.UpdatePreferencesRequest\x1a\".account.UpdatePreferencesResponse\x12N\n" +
 	"\rUpdateProfile\x12\x1d.account.UpdateProfileRequest\x1a\x1e.account.UpdateProfileResponse\x12c\n" +
 	"\x14UpdateProfilePicture\x12$.account.UpdateProfilePictureRequest\x1a%.account.UpdateProfilePictureResponse\x12Q\n" +
-	"\x0eGetUserProfile\x12\x1e.account.GetUserProfileRequest\x1a\x1f.account.GetUserProfileResponseB\x1eZ\x1cgenproto/accountpb;accountpbb\x06proto3"
+	"\x0eGetUserProfile\x12\x1e.account.GetUserProfileRequest\x1a\x1f.account.GetUserProfileResponse\x12]\n" +
+	"\x12GetUserNationality\x12\".account.GetUserNationalityRequest\x1a#.account.GetUserNationalityResponse\x12f\n" +
+	"\x15UpdateUserNationality\x12%.account.UpdateUserNationalityRequest\x1a&.account.UpdateUserNationalityResponseB\x1eZ\x1cgenproto/accountpb;accountpbb\x06proto3"
 
 var (
 	file_proto_account_account_proto_rawDescOnce sync.Once
@@ -1657,7 +1898,7 @@ func file_proto_account_account_proto_rawDescGZIP() []byte {
 	return file_proto_account_account_proto_rawDescData
 }
 
-var file_proto_account_account_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
+var file_proto_account_account_proto_msgTypes = make([]protoimpl.MessageInfo, 31)
 var file_proto_account_account_proto_goTypes = []any{
 	(*GetTwoFAStatusRequest)(nil),         // 0: account.GetTwoFAStatusRequest
 	(*GetTwoFAStatusResponse)(nil),        // 1: account.GetTwoFAStatusResponse
@@ -1683,43 +1924,54 @@ var file_proto_account_account_proto_goTypes = []any{
 	(*UpdateProfilePictureResponse)(nil),  // 21: account.UpdateProfilePictureResponse
 	(*GetUserProfileRequest)(nil),         // 22: account.GetUserProfileRequest
 	(*UserProfile)(nil),                   // 23: account.UserProfile
-	(*GetUserProfileResponse)(nil),        // 24: account.GetUserProfileResponse
-	nil,                                   // 25: account.GetPreferencesResponse.PreferencesEntry
-	nil,                                   // 26: account.UpdatePreferencesRequest.PreferencesEntry
+	(*GetUserNationalityRequest)(nil),     // 24: account.GetUserNationalityRequest
+	(*GetUserNationalityResponse)(nil),    // 25: account.GetUserNationalityResponse
+	(*UpdateUserNationalityRequest)(nil),  // 26: account.UpdateUserNationalityRequest
+	(*UpdateUserNationalityResponse)(nil), // 27: account.UpdateUserNationalityResponse
+	(*GetUserProfileResponse)(nil),        // 28: account.GetUserProfileResponse
+	nil,                                   // 29: account.GetPreferencesResponse.PreferencesEntry
+	nil,                                   // 30: account.UpdatePreferencesRequest.PreferencesEntry
+	(*structpb.Value)(nil),                // 31: google.protobuf.Value
 }
 var file_proto_account_account_proto_depIdxs = []int32{
-	25, // 0: account.GetPreferencesResponse.preferences:type_name -> account.GetPreferencesResponse.PreferencesEntry
-	26, // 1: account.UpdatePreferencesRequest.preferences:type_name -> account.UpdatePreferencesRequest.PreferencesEntry
+	29, // 0: account.GetPreferencesResponse.preferences:type_name -> account.GetPreferencesResponse.PreferencesEntry
+	30, // 1: account.UpdatePreferencesRequest.preferences:type_name -> account.UpdatePreferencesRequest.PreferencesEntry
 	23, // 2: account.GetUserProfileResponse.profile:type_name -> account.UserProfile
-	2,  // 3: account.AccountService.InitiateTOTPSetup:input_type -> account.InitiateTOTPSetupRequest
-	0,  // 4: account.AccountService.GetTwoFAStatus:input_type -> account.GetTwoFAStatusRequest
-	4,  // 5: account.AccountService.EnableTwoFA:input_type -> account.EnableTwoFARequest
-	6,  // 6: account.AccountService.DisableTwoFA:input_type -> account.DisableTwoFARequest
-	8,  // 7: account.AccountService.VerifyTwoFA:input_type -> account.VerifyTwoFARequest
-	10, // 8: account.AccountService.RegenerateBackupCodes:input_type -> account.RegenerateBackupCodesRequest
-	12, // 9: account.AccountService.GetBackupCodes:input_type -> account.GetBackupCodesRequest
-	14, // 10: account.AccountService.GetPreferences:input_type -> account.GetPreferencesRequest
-	16, // 11: account.AccountService.UpdatePreferences:input_type -> account.UpdatePreferencesRequest
-	18, // 12: account.AccountService.UpdateProfile:input_type -> account.UpdateProfileRequest
-	20, // 13: account.AccountService.UpdateProfilePicture:input_type -> account.UpdateProfilePictureRequest
-	22, // 14: account.AccountService.GetUserProfile:input_type -> account.GetUserProfileRequest
-	3,  // 15: account.AccountService.InitiateTOTPSetup:output_type -> account.InitiateTOTPSetupResponse
-	1,  // 16: account.AccountService.GetTwoFAStatus:output_type -> account.GetTwoFAStatusResponse
-	5,  // 17: account.AccountService.EnableTwoFA:output_type -> account.EnableTwoFAResponse
-	7,  // 18: account.AccountService.DisableTwoFA:output_type -> account.DisableTwoFAResponse
-	9,  // 19: account.AccountService.VerifyTwoFA:output_type -> account.VerifyTwoFAResponse
-	11, // 20: account.AccountService.RegenerateBackupCodes:output_type -> account.RegenerateBackupCodesResponse
-	13, // 21: account.AccountService.GetBackupCodes:output_type -> account.GetBackupCodesResponse
-	15, // 22: account.AccountService.GetPreferences:output_type -> account.GetPreferencesResponse
-	17, // 23: account.AccountService.UpdatePreferences:output_type -> account.UpdatePreferencesResponse
-	19, // 24: account.AccountService.UpdateProfile:output_type -> account.UpdateProfileResponse
-	21, // 25: account.AccountService.UpdateProfilePicture:output_type -> account.UpdateProfilePictureResponse
-	24, // 26: account.AccountService.GetUserProfile:output_type -> account.GetUserProfileResponse
-	15, // [15:27] is the sub-list for method output_type
-	3,  // [3:15] is the sub-list for method input_type
-	3,  // [3:3] is the sub-list for extension type_name
-	3,  // [3:3] is the sub-list for extension extendee
-	0,  // [0:3] is the sub-list for field type_name
+	31, // 3: account.GetPreferencesResponse.PreferencesEntry.value:type_name -> google.protobuf.Value
+	31, // 4: account.UpdatePreferencesRequest.PreferencesEntry.value:type_name -> google.protobuf.Value
+	2,  // 5: account.AccountService.InitiateTOTPSetup:input_type -> account.InitiateTOTPSetupRequest
+	0,  // 6: account.AccountService.GetTwoFAStatus:input_type -> account.GetTwoFAStatusRequest
+	4,  // 7: account.AccountService.EnableTwoFA:input_type -> account.EnableTwoFARequest
+	6,  // 8: account.AccountService.DisableTwoFA:input_type -> account.DisableTwoFARequest
+	8,  // 9: account.AccountService.VerifyTwoFA:input_type -> account.VerifyTwoFARequest
+	10, // 10: account.AccountService.RegenerateBackupCodes:input_type -> account.RegenerateBackupCodesRequest
+	12, // 11: account.AccountService.GetBackupCodes:input_type -> account.GetBackupCodesRequest
+	14, // 12: account.AccountService.GetPreferences:input_type -> account.GetPreferencesRequest
+	16, // 13: account.AccountService.UpdatePreferences:input_type -> account.UpdatePreferencesRequest
+	18, // 14: account.AccountService.UpdateProfile:input_type -> account.UpdateProfileRequest
+	20, // 15: account.AccountService.UpdateProfilePicture:input_type -> account.UpdateProfilePictureRequest
+	22, // 16: account.AccountService.GetUserProfile:input_type -> account.GetUserProfileRequest
+	24, // 17: account.AccountService.GetUserNationality:input_type -> account.GetUserNationalityRequest
+	26, // 18: account.AccountService.UpdateUserNationality:input_type -> account.UpdateUserNationalityRequest
+	3,  // 19: account.AccountService.InitiateTOTPSetup:output_type -> account.InitiateTOTPSetupResponse
+	1,  // 20: account.AccountService.GetTwoFAStatus:output_type -> account.GetTwoFAStatusResponse
+	5,  // 21: account.AccountService.EnableTwoFA:output_type -> account.EnableTwoFAResponse
+	7,  // 22: account.AccountService.DisableTwoFA:output_type -> account.DisableTwoFAResponse
+	9,  // 23: account.AccountService.VerifyTwoFA:output_type -> account.VerifyTwoFAResponse
+	11, // 24: account.AccountService.RegenerateBackupCodes:output_type -> account.RegenerateBackupCodesResponse
+	13, // 25: account.AccountService.GetBackupCodes:output_type -> account.GetBackupCodesResponse
+	15, // 26: account.AccountService.GetPreferences:output_type -> account.GetPreferencesResponse
+	17, // 27: account.AccountService.UpdatePreferences:output_type -> account.UpdatePreferencesResponse
+	19, // 28: account.AccountService.UpdateProfile:output_type -> account.UpdateProfileResponse
+	21, // 29: account.AccountService.UpdateProfilePicture:output_type -> account.UpdateProfilePictureResponse
+	28, // 30: account.AccountService.GetUserProfile:output_type -> account.GetUserProfileResponse
+	25, // 31: account.AccountService.GetUserNationality:output_type -> account.GetUserNationalityResponse
+	27, // 32: account.AccountService.UpdateUserNationality:output_type -> account.UpdateUserNationalityResponse
+	19, // [19:33] is the sub-list for method output_type
+	5,  // [5:19] is the sub-list for method input_type
+	5,  // [5:5] is the sub-list for extension type_name
+	5,  // [5:5] is the sub-list for extension extendee
+	0,  // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_proto_account_account_proto_init() }
@@ -1733,7 +1985,7 @@ func file_proto_account_account_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_account_account_proto_rawDesc), len(file_proto_account_account_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   27,
+			NumMessages:   31,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

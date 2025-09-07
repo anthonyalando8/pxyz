@@ -23,6 +23,11 @@ FROM debian:bookworm-slim
 
 WORKDIR /app
 
+# Install CA certificates so HTTPS works
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
 COPY --from=builder /app/sms-service /app/sms-service
 
 RUN useradd -u 10001 nonroot && chown -R nonroot:nonroot /app

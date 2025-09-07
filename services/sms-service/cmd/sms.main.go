@@ -22,8 +22,9 @@ func main() {
 	sender := cfg.Sender
 	userId := cfg.UserId
 	password := cfg.Password // replace with actual password
+	waSender := cfg.WaSender
 
-	uc := usecase.NewMessageUsecase(smsKey, waKey, smsURL, waURL, sender, userId, password)
+	uc := usecase.NewMessageUsecase(smsKey, waKey, waSender, smsURL, waURL, sender, userId, password)
 	h := handler.NewMessageHandler(uc)
 
 	lis, err := net.Listen("tcp", ":8012")

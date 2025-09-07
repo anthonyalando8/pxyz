@@ -45,6 +45,10 @@ func (h *AccountHandler) GetUserProfile(ctx context.Context, req *accountpb.GetU
 		}
 		addressJSON = string(addrBytes)
 	}
+	var nationality string
+	if profile.Nationality != nil {
+		nationality = *profile.Nationality
+	}
 
 	return &accountpb.GetUserProfileResponse{
 		Profile: &accountpb.UserProfile{
@@ -56,12 +60,37 @@ func (h *AccountHandler) GetUserProfile(ctx context.Context, req *accountpb.GetU
 			DateOfBirth:   dob,
 			AddressJson:   addressJSON,
 			ProfileImageUrl: profile.ProfileImageURL,
+			Nationality: nationality,
+			Username: profile.SysUsername,
 			CreatedAt:     profile.CreatedAt.Format(time.RFC3339),
 			UpdatedAt:     profile.UpdatedAt.Format(time.RFC3339),
 			// If you later add email/phone fields, map them here
 		},
 	}, nil
 }
+
+func (h *AccountHandler) GetUserNationalityStatus(
+    ctx context.Context,
+    req *accountpb.GetUserNationalityRequest,
+) (*accountpb.GetUserNationalityResponse, error) {
+
+    // Ensure profile exists (create if missing)
+    profile, err := h.accService.GetOrCreateProfile(ctx, req.UserId, "", "")
+    if err != nil {
+        return nil, err
+    }
+
+    resp := &accountpb.GetUserNationalityResponse{
+        HasNationality: profile.Nationality != nil && *profile.Nationality != "",
+    }
+
+    if profile.Nationality != nil {
+        resp.Nationality = *profile.Nationality
+    }
+
+    return resp, nil
+}
+
 
 func (h *AccountHandler) UpdateAccountHandler(ctx context.Context, req *accountpb.UpdateProfileRequest) (*accountpb.UpdateProfileResponse, error) {
 	// Fetch existing profile
@@ -119,4 +148,24 @@ func (h *AccountHandler) UpdateProfilePicture(ctx context.Context, req *accountp
 		return &accountpb.UpdateProfilePictureResponse{Success: false}, err
 	}
 	return &accountpb.UpdateProfilePictureResponse{Success: true, ProfileImageUrl: req.ImageUrl}, nil
+}
+
+func (h *AccountHandler) UpdateUserNationality(
+	ctx context.Context,
+	req *accountpb.UpdateUserNationalityRequest,
+) (*accountpb.UpdateUserNationalityResponse, error) {
+
+	// Allow clearing nationality if empty string provided
+	var nationality *string
+	if req.Nationality != "" {
+		nationality = &req.Nationality
+	}
+
+	if err := h.accService.UpdateNationality(ctx, req.UserId, nationality); err != nil {
+		return &accountpb.UpdateUserNationalityResponse{Success: false, Error: err.Error()}, err
+	}
+
+	return &accountpb.UpdateUserNationalityResponse{
+		Success:     true,
+	}, nil
 }

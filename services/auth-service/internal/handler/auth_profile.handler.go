@@ -60,10 +60,12 @@ func (h *AuthHandler) GetFullUserProfile(ctx context.Context, userID string) (ma
 		// Extended profile
 		"first_name":    profile.FirstName,
 		"last_name":     profile.LastName,
+		"username": profile.Username,
 		"bio":           profile.Bio,
 		"gender":        profile.Gender,
 		"date_of_birth": profile.DateOfBirth,
 		"profile_image": profile.ProfileImageUrl,
+		"nationality": profile.Nationality,
 		//"sys_username":  profile.SysUsername,
 	}
 
@@ -239,5 +241,72 @@ func (h *AuthHandler) UploadProfilePicture(w http.ResponseWriter, r *http.Reques
 		"success":           true,
 		"message":           "Profile picture updated",
 		"profile_image_url": imageURL,
+	})
+}
+
+func (h *AuthHandler) HandleUpdateNationality(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(middleware.ContextUserID).(string)
+	if !ok || userID == "" {
+		response.Error(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	// --- Parse request body ---
+	var req struct {
+		Nationality string `json:"nationality"` // ISO2 code
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "Invalid request")
+		return
+	}
+
+	if req.Nationality == "" {
+		response.Error(w, http.StatusBadRequest, "Nationality must be provided")
+		return
+	}
+
+	ctx := r.Context()
+
+	// --- Check if nationality already exists ---
+	natResp, err := h.accountClient.Client.GetUserNationality(ctx, &accountclient.GetUserNationalityRequest{
+		UserId: userID,
+	})
+	if err != nil {
+		log.Printf("GetUserNationality failed for user %s: %v", userID, err)
+		response.Error(w, http.StatusInternalServerError, "Failed to check nationality")
+		return
+	}
+
+	if natResp.HasNationality {
+		// Already set → inform user to contact support if they want to update
+		response.JSON(w, http.StatusConflict, map[string]interface{}{
+			"message": "Nationality is already set. Please contact support if you want to update it.",
+		})
+		return
+	}
+
+	// --- Update nationality ---
+	updateResp, err := h.accountClient.Client.UpdateUserNationality(ctx, &accountclient.UpdateUserNationalityRequest{
+		UserId:      userID,
+		Nationality: req.Nationality,
+	})
+	if err != nil {
+		log.Printf("UpdateUserNationality failed for user %s: %v", userID, err)
+		response.Error(w, http.StatusInternalServerError, "Failed to update nationality")
+		return
+	}
+
+	if !updateResp.Success {
+		errMsg := updateResp.Error
+		if errMsg == "" {
+			errMsg = "Unknown error"
+		}
+		response.Error(w, http.StatusInternalServerError, errMsg)
+		return
+	}
+
+	// --- Success response ---
+	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"message": "Nationality updated successfully",
 	})
 }

@@ -218,23 +218,36 @@ func (r *UserRepository) GetUserByID(ctx context.Context, userID string) (*domai
 	return &user, nil
 }
 
-
-func (r *UserRepository) UpdatePhone(ctx context.Context, userID, newPhone string) error {
+func (r *UserRepository) UpdatePhone(ctx context.Context, userID, newPhone string, isPhoneVerified bool) error {
 	query := `
 		UPDATE users
 		SET 
 			phone = $1,
-			is_phone_verified = false,
-			changed_phones = COALESCE(changed_phones, '[]'::jsonb) || jsonb_build_object(
-				'phone', phone,
-				'changed_at', NOW()
-			),
+			is_phone_verified = CASE
+				WHEN phone <> $1 THEN $3  -- phone changed → use passed verified state
+				ELSE is_phone_verified    -- phone unchanged → keep existing
+			END,
+			changed_phones = COALESCE(
+				changed_phones,
+				'[]'::jsonb
+			) || 
+			CASE 
+				WHEN phone IS NOT NULL AND phone <> '' AND phone <> $1 THEN
+					jsonb_build_object(
+						'phone', phone,
+						'changed_at', NOW()
+					)
+				ELSE
+					'[]'::jsonb
+			END,
 			updated_at = NOW()
 		WHERE id = $2
 	`
-	_, err := r.db.Exec(ctx, query, newPhone, userID)
+	_, err := r.db.Exec(ctx, query, newPhone, userID, isPhoneVerified)
 	return err
 }
+
+
 
 
 func (r *UserRepository) DeleteUser(ctx context.Context, userID string) error {

@@ -200,14 +200,15 @@ services:
     environment:
       GRPC_ADDR: :8012
       REDIS_PASS:
-      SMS_KEY:
-      WA_KEY:
-      SMS_URL: https://smsportal.hostpinnacle.co.ke/SMSApi/send
-      WA_URL: https://whatsappprovider.com/api
-      SENDER: SENDER_ID
       JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
-      USER_ID:
-      PASSWORD:
+      WA_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiJieXVmU1hvSnFHY2NPcWNXOW82NXRWMWI4WVdsMEd3aSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzU2NzQ3MjMzfQ.npCbVvXb2i_gAkBr3iXi_spHVbBG4l_ZXgqevm8jfjg
+      WA_URL: https://www.whatsupsender.co.ke
+      WA_SENDER: 254792207010
+      SMS_URL: https://smsportal.hostpinnacle.co.ke/SMSApi/send
+      SMS_KEY:
+      SENDER: DERINANCE
+      USER_ID: samderinance
+      PASSWORD: Fbq75Ttz
       REDIS_ADDR: redis:6379
     depends_on:
       - redis
@@ -242,6 +243,34 @@ services:
     networks:
       - micro_net
 
+  core-service:
+    container_name: core-service
+    build:
+      context: .
+      dockerfile: services/core-service/Dockerfile
+    ports:
+      - "8051:8051"   # REST
+      - "8052:8052"   # gRPC
+    env_file:
+      - ./services/core-service/.env
+    volumes:
+      - ./services/core-service/secrets:/app/secrets:ro
+      - ./uploads:/app/uploads
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: 2000
+      DB_NAME: pxyz
+      REDIS_ADDR: redis:6379
+      HTTP_ADDR: :8051
+      GRPC_ADDR: :8052
+      REDIS_PASS:
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    networks:
+      - micro_net
+    depends_on:
+      - redis
 
 networks:
   micro_net:

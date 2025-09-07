@@ -51,7 +51,6 @@ func (uc *UserUsecase) RegisterWithGoogle(ctx context.Context, idToken, clientID
 	return user, nil
 }
 
-
 type AppleDeps struct {
 	ServiceID   string
 	TeamID      string

@@ -8,7 +8,9 @@ import (
 	"x/shared/auth/otp"
 	emailclient "x/shared/email"
 	smsclient "x/shared/sms"
+	coreclient "x/shared/core"
 	telegramclient "auth-service/internal/service/telegram"
+	"github.com/redis/go-redis/v9"
 	//"x/shared/genproto/emailpb"
 
 )
@@ -19,16 +21,18 @@ type Config struct {
 }
 
 type AuthHandler struct {
-	uc     *usecase.UserUsecase
-	auth   *middleware.MiddlewareWithClient
-	otp *otpclient.OTPService
-	accountClient *accountclient.AccountClient 
-	emailClient *emailclient.EmailClient
-	smsClient *smsclient.SMSClient
-	//config Config
-	config *Config
+	uc             *usecase.UserUsecase
+	auth           *middleware.MiddlewareWithClient
+	otp            *otpclient.OTPService
+	accountClient  *accountclient.AccountClient
+	emailClient    *emailclient.EmailClient
+	smsClient      *smsclient.SMSClient
+	redisClient    *redis.Client      // <- added
+	coreClient		*coreclient.CoreService
+	config         *Config
 	telegramClient *telegramclient.TelegramClient
 }
+
 
 func NewAuthHandler(
 	uc *usecase.UserUsecase,
@@ -37,6 +41,8 @@ func NewAuthHandler(
 	accountClient *accountclient.AccountClient,
 	emailClient *emailclient.EmailClient,
 	smsClient *smsclient.SMSClient,
+	redisClient *redis.Client,           // <- added
+	coreClient		*coreclient.CoreService,
 	config *Config,
 	telegramClient *telegramclient.TelegramClient,
 ) *AuthHandler {
@@ -47,8 +53,11 @@ func NewAuthHandler(
 		accountClient:  accountClient,
 		emailClient:    emailClient,
 		smsClient:      smsClient,
+		redisClient:    redisClient,      // <- assigned
+		coreClient:		coreClient,
 		config:         config,
 		telegramClient: telegramClient,
 	}
 }
+
 

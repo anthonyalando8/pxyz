@@ -1,14 +1,16 @@
 package handler
 
 import (
-	"auth-service/pkg/utils"
 	"auth-service/internal/domain"
+	"auth-service/pkg/utils"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"net/http"
 
+	"x/shared/genproto/accountpb"
 	"x/shared/genproto/otppb"
 	"x/shared/response"
 	"x/shared/utils/errors"
@@ -213,6 +215,7 @@ func (h *AuthHandler) ensurePasswordSet(w http.ResponseWriter, r *http.Request, 
 
 // 6. Handle successful login
 func (h *AuthHandler) handleSuccessfulLogin(w http.ResponseWriter, r *http.Request, user *domain.User, req *LoginRequest) {
+	// ---- Create session ----
 	session, err := h.createSessionHelper(
 		r.Context(),
 		user.ID, false, false, "general",
@@ -224,11 +227,52 @@ func (h *AuthHandler) handleSuccessfulLogin(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.JSON(w, http.StatusOK, map[string]interface{}{
+	// ---- Nationality check via helper ----
+	next, _ := h.ensureNationality(r.Context(), user.ID)
+
+	// ---- Build response ----
+	resp := map[string]interface{}{
 		"token":  session.AuthToken,
 		"device": session.DeviceID,
-	})
+	}
+	if next != "" {
+		resp["next"] = next
+	}
+
+	response.JSON(w, http.StatusOK, resp)
 }
+
+// ensureNationality checks if user has nationality set.
+// If missing, it tries to ensure profile exists (logs errors only),
+// and returns the next action string ("set_nationality") if required.
+func (h *AuthHandler) ensureNationality(ctx context.Context, userID string) (next string, nationality string) {
+	nationalityResp, err := h.accountClient.Client.GetUserNationality(ctx,
+		&accountpb.GetUserNationalityRequest{UserId: userID},
+	)
+	if err != nil {
+		log.Printf("GetUserNationality failed for user %s: %v", userID, err)
+		return "set_nationality", ""
+	}
+
+	if nationalityResp.HasNationality {
+		return "", nationalityResp.Nationality // nationality value from proto
+	}
+
+	// Ensure profile exists (logs only)
+	_, perr := h.accountClient.Client.GetUserProfile(ctx,
+		&accountpb.GetUserProfileRequest{UserId: userID},
+	)
+	if perr != nil {
+		log.Printf("GetUserProfile failed for user %s: %v", userID, perr)
+	} else {
+		log.Printf("Profile check successful for user %s", userID)
+	}
+
+	return "set_nationality", ""
+}
+
+
+
 
 
 

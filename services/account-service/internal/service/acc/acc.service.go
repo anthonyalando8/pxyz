@@ -76,6 +76,18 @@ func (uc *AccountService) UpdateProfileImage(ctx context.Context, userID, imageU
 	return uc.repo.Update(ctx, profile)
 }
 
+func (uc *AccountService) UpdateNationality(ctx context.Context, userID string, nationality *string) error {
+	// Fetch existing profile
+	_, err := uc.repo.GetByUserID(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	// Save changes
+	return uc.repo.UpdateNationality(ctx,userID, nationality)
+}
+
+
 func (uc *AccountService) RemoveProfileImage(ctx context.Context, userID string) error {
 	// Fetch existing profile
 	profile, err := uc.repo.GetByUserID(ctx, userID)

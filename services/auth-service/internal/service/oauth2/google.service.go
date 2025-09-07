@@ -2,6 +2,8 @@ package oauth2svc
 
 import (
 	"context"
+	"log"
+
 	"google.golang.org/api/idtoken"
 )
 
@@ -17,7 +19,7 @@ func VerifyGoogleToken(ctx context.Context, token string, clientID string) (*Goo
 	if err != nil {
 		return nil, err
 	}
-
+	log.Printf("Google token payload: %+v\n", payload)
 	email, _ := payload.Claims["email"].(string)
 	firstName, _ := payload.Claims["given_name"].(string)
 	lastName, _ := payload.Claims["family_name"].(string)

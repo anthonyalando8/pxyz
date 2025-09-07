@@ -118,3 +118,10 @@ func (s *Server) UpdateProfilePicture(ctx context.Context, req *pb.UpdateProfile
     return s.accHandler.UpdateProfilePicture(ctx, req)
 }
 
+func (s *Server) UpdateUserNationality(ctx context.Context, req *pb.UpdateUserNationalityRequest) (*pb.UpdateUserNationalityResponse, error) {
+    return s.accHandler.UpdateUserNationality(ctx, req)
+}
+
+func (s *Server) GetUserNationality(ctx context.Context, req *pb.GetUserNationalityRequest) (*pb.GetUserNationalityResponse, error) {
+    return s.accHandler.GetUserNationalityStatus(ctx, req)
+}

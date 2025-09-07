@@ -6,11 +6,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"mime/multipart"
-	"net/http"
-	"sms-service/internal/domain"
-	"time"
 	"log"
+	"net/http"
+	"net/url"
+	"sms-service/internal/domain"
+	"strings"
+	"time"
 )
 
 type MessageUsecase struct {
@@ -19,15 +20,17 @@ type MessageUsecase struct {
     SMSBaseURL   string
     WAAPIBaseURL string
     SenderID     string
+	WaSender   string
 	UserID   string
 	Password string
     client       *http.Client
 }
 
-func NewMessageUsecase(smsKey, waKey, smsURL, waURL, sender, userID, password string) *MessageUsecase {
+func NewMessageUsecase(smsKey, waKey, waSender, smsURL, waURL, sender, userID, password string) *MessageUsecase {
     return &MessageUsecase{
         SMSAPIKey:    smsKey,
         WhatsAppKey:  waKey,
+		WaSender: waSender,
         SMSBaseURL:   smsURL,
         WAAPIBaseURL: waURL,
         SenderID:     sender,
@@ -51,31 +54,35 @@ func (u *MessageUsecase) SendMessage(ctx context.Context, msg *domain.Message) e
 
 func (u *MessageUsecase) sendSMS(ctx context.Context, msg *domain.Message) error {
 	start := time.Now()
-	log.Printf("[SMS] Preparing to send message to %s via %s", msg.Recipient, u.SMSAPIKey)
 
-	// Build multipart body
-	var buf bytes.Buffer
-	writer := multipart.NewWriter(&buf)
+	log.Printf("[SMS] Preparing to send message | Recipient=%s | SenderID=%s | UserID=%s | APIKeySet=%t",
+		msg.Recipient, u.SenderID, u.UserID, u.SMSAPIKey != "")
 
-	_ = writer.WriteField("userid", u.UserID)
-	_ = writer.WriteField("password", u.Password)
-	_ = writer.WriteField("senderid", u.SenderID)
-	_ = writer.WriteField("sendMethod", "quick")
-	_ = writer.WriteField("msgType", "text")
-	_ = writer.WriteField("msg", msg.Body)
-	_ = writer.WriteField("mobile", msg.Recipient) // phone number with country code
-	_ = writer.WriteField("duplicatecheck", "true")
-	_ = writer.WriteField("output", "json")
-
-	_ = writer.Close()
+	// Build form data
+	form := url.Values{}
+	form.Set("userid", u.UserID)
+	form.Set("password", u.Password)
+	form.Set("senderid", u.SenderID)
+	form.Set("sendMethod", "quick")
+	form.Set("msgType", "text")
+	form.Set("msg", msg.Body)
+	form.Set("mobile", msg.Recipient)
+	form.Set("duplicatecheck", "true")
+	form.Set("output", "json")
 
 	// Send request
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", u.SMSAPIKey, &buf)
+	apiURL := "https://smsportal.hostpinnacle.co.ke/SMSApi/send"
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", apiURL, strings.NewReader(form.Encode()))
 	if err != nil {
-		log.Printf("[SMS] Failed to create request: %v", err)
 		return fmt.Errorf("failed to create request: %w", err)
 	}
-	httpReq.Header.Set("Content-Type", writer.FormDataContentType())
+
+	httpReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	// If using API key authentication instead of userid/password
+	if u.SMSAPIKey != "" {
+		httpReq.Header.Set("apikey", u.SMSAPIKey)
+	}
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(httpReq)
@@ -89,39 +96,75 @@ func (u *MessageUsecase) sendSMS(ctx context.Context, msg *domain.Message) error
 	duration := time.Since(start)
 
 	if resp.StatusCode != http.StatusOK {
-		log.Printf("[SMS] Failed sending to %s | Status: %d | Duration: %v | Response: %s",
-			msg.Recipient, resp.StatusCode, duration, string(body))
+		log.Printf("[SMS] Failed sending | Recipient=%s | SenderID=%s | Status=%d | Duration=%v | Response=%s",
+			msg.Recipient, u.SenderID, resp.StatusCode, duration, string(body))
 		return fmt.Errorf("sms api error: %s", string(body))
 	}
 
-	log.Printf("[SMS] Successfully sent to %s | Duration: %v | Response: %s",
-		msg.Recipient, duration, string(body))
+	log.Printf("[SMS] Successfully sent | Recipient=%s | SenderID=%s | Duration=%v | Response=%s",
+		msg.Recipient, u.SenderID, duration, string(body))
 
-	// Optional: parse response JSON if needed
 	return nil
 }
 
 
+func (u *MessageUsecase) sendWhatsApp(ctx context.Context, msg *domain.Message) error {
+	start := time.Now()
 
-func (u *MessageUsecase) sendWhatsApp(_ context.Context, msg *domain.Message) error {
-    payload := map[string]interface{}{
-        "api_key":  u.WhatsAppKey,
-        "to":       msg.Recipient,
-        "message":  msg.Body,
-    }
+	log.Printf(
+		"[WhatsApp] Preparing to send | Recipient=%s | Sender=%s | BaseURL=%s | TokenSet=%t",
+		msg.Recipient, u.WaSender, u.WAAPIBaseURL, u.WhatsAppKey != "",
+	)
 
-    body, _ := json.Marshal(payload)
-    req, _ := http.NewRequest("POST", fmt.Sprintf("%s/send", u.WAAPIBaseURL), bytes.NewBuffer(body))
-    req.Header.Set("Content-Type", "application/json")
+	// Build payload
+	payload := map[string]interface{}{
+		"messageType": "text",
+		"requestType": "POST",
+		"token":       u.WhatsAppKey,
+		"from":        u.WaSender,    // registered WA sender number
+		"to":          msg.Recipient, // recipient phone number
+		"text":        msg.Body,
+	}
 
-    resp, err := u.client.Do(req)
-    if err != nil {
-        return err
-    }
-    defer resp.Body.Close()
+	body, err := json.Marshal(payload)
+	if err != nil {
+		log.Printf("[WhatsApp] Failed to marshal payload | Error=%v | Payload=%+v", err, payload)
+		return fmt.Errorf("failed to marshal WhatsApp payload: %w", err)
+	}
 
-    if resp.StatusCode != http.StatusOK {
-        return fmt.Errorf("failed to send WhatsApp, status: %d", resp.StatusCode)
-    }
-    return nil
+	// Build request
+	url := fmt.Sprintf("%s/api/qr/rest/send_message", u.WAAPIBaseURL)
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(body))
+	if err != nil {
+		log.Printf("[WhatsApp] Failed to create request | Error=%v | URL=%s", err, url)
+		return fmt.Errorf("failed to create WhatsApp request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	// Send
+	resp, err := u.client.Do(req)
+	if err != nil {
+		log.Printf("[WhatsApp] HTTP error | Recipient=%s | Sender=%s | Error=%v", msg.Recipient, u.WaSender, err)
+		return fmt.Errorf("WhatsApp HTTP error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(resp.Body)
+	duration := time.Since(start)
+
+	if resp.StatusCode != http.StatusOK {
+		log.Printf(
+			"[WhatsApp] Failed sending | Recipient=%s | Sender=%s | Status=%d | Duration=%v | Response=%s",
+			msg.Recipient, u.WaSender, resp.StatusCode, duration, string(respBody),
+		)
+		return fmt.Errorf("failed to send WhatsApp | Status=%d | Response=%s", resp.StatusCode, string(respBody))
+	}
+
+	log.Printf(
+		"[WhatsApp] Successfully sent | Recipient=%s | Sender=%s | Duration=%v | Response=%s",
+		msg.Recipient, u.WaSender, duration, string(respBody),
+	)
+
+	return nil
 }
+

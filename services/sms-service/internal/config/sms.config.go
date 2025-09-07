@@ -13,6 +13,7 @@ type AppConfig struct {
 	RedisAddr string
 	SmsKey    string
 	WaKey     string
+	WaSender  string
 	SmsURL    string
 	WaURL     string
 	Sender    string
@@ -31,11 +32,12 @@ func Load() AppConfig {
 		RedisPass: getEnv("REDIS_PASS", ""),
 		SmsKey:    getEnv("SMS_KEY", ""),
 		WaKey:     getEnv("WA_KEY", ""),
+		WaSender:  getEnv("WA_SENDER", "254792207010"),
 		SmsURL:    getEnv("SMS_URL", "https://smsportal.hostpinnacle.co.ke/SMSApi/send"),
-		WaURL:     getEnv("WA_URL", "https://whatsappprovider.com/api"),
-		Sender:    getEnv("SENDER", "SENDER_ID"),
-		UserId:    getEnv("USER_ID", "your_user_id"),
-		Password:  getEnv("PASSWORD", "your_password"),
+		WaURL:     getEnv("WA_URL", "https://www.whatsupsender.co.ke/api/qr/rest/send_message"),
+		Sender:    getEnv("SENDER", "DERINANCE"),
+		UserId:    getEnv("USER_ID", "samderinance"),
+		Password:  getEnv("PASSWORD", "Fbq75Ttz"),
 	}
 }
 

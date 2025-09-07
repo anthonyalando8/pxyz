@@ -10,119 +10,51 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 	"x/shared/auth/middleware"
+	"x/shared/genproto/corepb"
 	"x/shared/genproto/emailpb"
 	"x/shared/genproto/otppb"
 	"x/shared/response"
+
+	"github.com/redis/go-redis/v9"
 )
 
 func (h *AuthHandler) HandleRequestOTP(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Purpose string `json:"purpose"` // e.g. "login", "password_reset", "verify_email"
-		Channel string `json:"channel"` // optional, e.g. "sms", "email"
-		Target  string `json:"target"`  // optional override
-	}
+	var req RequestOTP
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.Error(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
-	// --- Allowed purposes & channels ---
-	allowedPurposes := map[string]bool{
-		"login":          true,
-		"password_reset": true,
-		"verify_email":   true,
-		"verify_phone":   true,
-		"email_change":   true,
-		"register":       true,
-	}
-	allowedChannels := map[string]bool{
-		"sms":   true,
-		"email": true,
-		"whatsapp": true,
-	}
-
-	// --- Validate purpose ---
-	if req.Purpose == "" || !allowedPurposes[req.Purpose] {
+	// Validate purpose
+	if !isAllowedPurpose(req.Purpose) {
 		response.Error(w, http.StatusBadRequest, "Invalid or unsupported OTP purpose")
 		return
 	}
 
-	// --- Extract user ID from context ---
+	// Extract user ID
 	userID, ok := r.Context().Value(middleware.ContextUserID).(string)
 	if !ok || userID == "" {
 		response.Error(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
-	// --- Fetch user ---
+	// Fetch user
 	user, err := h.uc.FindUserById(r.Context(), userID)
 	if err != nil {
 		response.Error(w, http.StatusNotFound, "User not found")
 		return
 	}
 
-	// --- Determine channel & recipient ---
-	var channel, recipient string
-
-	// --- If target explicitly provided, prefer it ---
-	if req.Target != "" {
-		recipient = req.Target
-
-		// If channel not specified, infer from target
-		if req.Channel == "" {
-			if strings.Contains(recipient, "@") {
-				channel = "email"
-			} else {
-				channel = "sms"
-			}
-		} else {
-			if !allowedChannels[req.Channel] {
-				response.Error(w, http.StatusBadRequest, "Invalid channel")
-				return
-			}
-			channel = req.Channel
-		}
-	} else {
-		// --- Fallback: no target provided, use stored contact ---
-		if req.Channel != "" {
-			// Validate explicitly requested channel
-			if !allowedChannels[req.Channel] {
-				response.Error(w, http.StatusBadRequest, "Invalid channel")
-				return
-			}
-			switch req.Channel {
-			case "sms":
-				if user.Phone == nil || *user.Phone == "" {
-					response.Error(w, http.StatusBadRequest, "User does not have a valid phone for SMS")
-					return
-				}
-				channel = "sms"
-				recipient = *user.Phone
-			case "email":
-				if user.Email == nil || *user.Email == "" {
-					response.Error(w, http.StatusBadRequest, "User does not have a valid email for Email OTP")
-					return
-				}
-				channel = "email"
-				recipient = *user.Email
-			}
-		} else {
-			// No channel provided → auto-fallback
-			if user.Email != nil && *user.Email != "" {
-				channel = "email"
-				recipient = *user.Email
-			}else if user.Phone != nil && *user.Phone != "" {
-				channel = "sms"
-				recipient = *user.Phone
-			} else {
-				response.Error(w, http.StatusBadRequest, "No valid recipient available for OTP")
-				return
-			}
-		}
+	// Determine channel & recipient
+	channel, recipient, err := resolveChannelAndRecipient(req, user)
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, err.Error())
+		return
 	}
 
-	// --- Request OTP from OTP service ---
+	// Call OTP service
 	resp, err := h.otp.Client.GenerateOTP(
 		r.Context(),
 		&otppb.GenerateOTPRequest{
@@ -132,23 +64,24 @@ func (h *AuthHandler) HandleRequestOTP(w http.ResponseWriter, r *http.Request) {
 			Recipient: recipient,
 		},
 	)
-	if err != nil {
+	if err != nil || !resp.Ok {
 		log.Printf("Failed to generate OTP for user %s: %v", user.ID, err)
-		response.Error(w, http.StatusInternalServerError, "Failed to generate OTP")
-		return
-	}
-	if !resp.Ok {
-		response.Error(w, http.StatusInternalServerError, resp.Error)
+		msg := "Failed to generate OTP"
+		if resp != nil && !resp.Ok {
+			msg = resp.Error
+		}
+		response.Error(w, http.StatusInternalServerError, msg)
 		return
 	}
 
+	// Respond with masked target
+	masked := maskRecipient(channel, recipient)
 	response.JSON(w, http.StatusOK, map[string]string{
-		"message": "OTP sent successfully",
+		"message": fmt.Sprintf("OTP sent to %s via %s", masked, channel),
 		"channel": channel,
-		"target":  recipient,
+		"purpose": req.Purpose,
 	})
 }
-
 
 
 
@@ -308,7 +241,7 @@ func (h *AuthHandler) handleNextAction(
 		resp["message"] = "Email changed successfully"
 		h.sendEmailChangeNotifications(ctx, userId, oldEmail, pendingEmail)
 
-	case "password_reset":
+	case "password_reset","request_password_change":
 		session, err := createSession("password_reset", true)
 		if err != nil {
 			response.Error(w, http.StatusInternalServerError, "Failed to process request")
@@ -318,7 +251,107 @@ func (h *AuthHandler) handleNextAction(
 		resp["next"] = "reset_password"
 		resp["token"] = session.AuthToken
 		resp["device"] = session.DeviceID
+
+	case "request_phone_change":
+		// --- Ensure nationality exists ---
+		nextAction, nationality := h.ensureNationality(ctx, userId)
+		if nextAction != "" {
+			resp["message"] = "Please update your nationality to continue."
+			resp["next"] = nextAction
+			response.JSON(w, http.StatusOK, resp)
+			return nil
+		}
+
+		// --- Create temporary session for phone change ---
+		session, err := createSession("phone_change", true)
+		if err != nil {
+			response.Error(w, http.StatusInternalServerError, "Failed to process request")
+			return err
+		}
+
+		// --- Cache user nationality for 5 minutes ---
+		userNatKey := fmt.Sprintf("user_nationality:%s", userId)
+		if err := h.redisClient.Set(ctx, userNatKey, nationality, 5*time.Minute).Err(); err != nil {
+			log.Printf("[request_phone_change] failed to cache user nationality for %s: %v", userId, err)
+		}
+
+		// --- Attempt to get country info from Redis cache ---
+		countryCacheKey := fmt.Sprintf("country_info:%s", nationality)
+		phoneInfo := map[string]interface{}{"nationality": nationality} // fallback
+		cached, err := h.redisClient.Get(ctx, countryCacheKey).Result()
+		if err == nil && cached != "" {
+			if err := json.Unmarshal([]byte(cached), &phoneInfo); err != nil {
+				log.Printf("[request_phone_change] failed to unmarshal cached country info for %s: %v", nationality, err)
+			}
+		} else {
+			// --- Fetch from CoreService if not cached ---
+			countryResp, err := h.coreClient.Client.GetCountry(ctx, &corepb.GetCountryRequest{
+				Iso2: nationality,
+			})
+			if err == nil && countryResp != nil && countryResp.Country != nil {
+				c := countryResp.Country
+				phoneInfo = map[string]interface{}{
+					"nationality":   nationality,
+					"country_name":  c.Name,
+					"phone_code":    c.PhoneCode,
+					"currency_code": c.CurrencyCode,
+					"currency_name": c.CurrencyName,
+					"region":        c.Region,
+					"subregion":     c.Subregion,
+					"flag_url":      c.FlagUrl,
+				}
+
+				// --- Cache country info for 5 minutes ---
+				data, _ := json.Marshal(phoneInfo)
+				if err := h.redisClient.Set(ctx, countryCacheKey, data, 5*time.Minute).Err(); err != nil {
+					log.Printf("[request_phone_change] failed to cache country info for %s: %v", nationality, err)
+				}
+			} else {
+				log.Printf("[request_phone_change] CoreService GetCountry failed for iso2=%s: %v", nationality, err)
+			}
+		}
+
+		// --- Build response ---
+		resp["message"] = "Request processed successfully"
+		resp["next"] = "send_new_phone"
+		resp["token"] = session.AuthToken
+		resp["device"] = session.DeviceID
+		resp["phone_info"] = phoneInfo
+
+
+	case "phone_change":
+		// --- Retrieve cached phone number ---
+		redisKey := fmt.Sprintf("phone_change:%s", userId)
+		cachedPhone, err := h.redisClient.Get(ctx, redisKey).Result()
+		if err == redis.Nil || cachedPhone == "" {
+			log.Printf("[handleNextAction] ❌ No cached phone found for user=%s", userId)
+			response.Error(w, http.StatusBadRequest, "No pending phone change request found")
+			return fmt.Errorf("no cached phone")
+		} else if err != nil {
+			log.Printf("[handleNextAction] ❌ Failed to get cached phone for user=%s: %v", userId, err)
+			response.Error(w, http.StatusInternalServerError, "Internal server error")
+			return err
+		}
+
+		// --- Update phone in database ---
+		if err := h.uc.UpdatePhone(ctx, userId, cachedPhone, true); err != nil {
+			log.Printf("[handleNextAction] ❌ Failed to update phone for user=%s, newPhone=%s, err=%v",
+				userId, cachedPhone, err,
+			)
+			response.Error(w, http.StatusInternalServerError, "Phone update processing failed")
+			return err
+		}
+
+		h.sendPhoneChangeNotification(userId, cachedPhone)
+		// --- Delete cached phone ---
+		if err := h.redisClient.Del(ctx, redisKey).Err(); err != nil {
+			log.Printf("[handleNextAction] ⚠️ Failed to delete cached phone for user=%s: %v", userId, err)
+		}
+		// --- Respond ---
+		resp["message"] = "Phone number updated successfully"
+
 	}
+	
 
 	log.Printf("[handleNextAction] ⏹️ Completed next=%s for user=%s", next, userId)
 	return nil
@@ -427,5 +460,58 @@ func (h *AuthHandler) VerifyOtpHelper(w http.ResponseWriter, ctx context.Context
 		return false
 	}
 	return true
+}
+
+
+func (h *AuthHandler) sendPhoneChangeNotification(userID, newPhone string) {
+	if h.emailClient == nil || newPhone == "" {
+		return
+	}
+
+	// Run everything in background to avoid blocking main flow
+	go func(uid, phone string) {
+		// Fetch user details
+		user, err := h.uc.FindUserById(context.Background(), uid)
+		if err != nil {
+			log.Printf("[WARN] failed to fetch user %s for phone change notification: %v", uid, err)
+			return
+		}
+
+		if user.Email == nil || *user.Email == "" {
+			log.Printf("[WARN] user %s has no email, skipping phone change notification", uid)
+			return
+		}
+
+		subject := "Your Pxyz account phone number has been updated"
+		body := fmt.Sprintf(`
+			<!DOCTYPE html>
+			<html><head><meta charset="UTF-8"><title>Phone Updated</title></head>
+			<body style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px;">
+				<div style="max-width: 600px; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0px 2px 5px rgba(0,0,0,0.1);">
+					<h2 style="color: #2E86C1;">Primary Phone Updated</h2>
+					<p style="font-size: 16px; color: #333;">
+						Hello,<br><br>
+						Your primary phone number has been successfully changed to <strong>%s</strong>.
+						This phone will now be used for login verification and communication from Pxyz.
+					</p>
+					<p style="margin-top: 30px; font-size: 14px; color: #999999;">
+						Thank you,<br>
+						<strong>Pxyz Team</strong>
+					</p>
+				</div>
+			</body>
+			</html>`, phone)
+
+		_, err = h.emailClient.SendEmail(context.Background(), &emailpb.SendEmailRequest{
+			UserId:         uid,
+			RecipientEmail: *user.Email,
+			Subject:        subject,
+			Body:           body,
+			Type:           "phone_update",
+		})
+		if err != nil {
+			log.Printf("[WARN] failed to send phone change notification to %s: %v", *user.Email, err)
+		}
+	}(userID, newPhone)
 }
 

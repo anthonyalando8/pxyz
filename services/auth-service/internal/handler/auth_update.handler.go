@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 	"x/shared/auth/middleware"
 
 	//"x/shared/genproto/accountpb"
+	"x/shared/genproto/corepb"
 	"x/shared/genproto/emailpb"
 	"x/shared/genproto/otppb"
 	"x/shared/response"
@@ -34,6 +36,7 @@ func (h *AuthHandler) HandleChangePassword(w http.ResponseWriter, r *http.Reques
 		response.Error(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	h.sendPasswordChangeNotification(userID, nil)
 
 	response.JSON(w, http.StatusOK, map[string]string{"message": "Password updated"})
 }
@@ -57,54 +60,61 @@ func (h *AuthHandler) HandleResetPassword(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	h.sendPasswordChangeNotification(userID, nil)
+
 	response.JSON(w, http.StatusOK, map[string]string{"message": "Password reset successful"})
 }
 
 // Set password (signup flow)
 func (h *AuthHandler) HandleSetPassword(w http.ResponseWriter, r *http.Request) {
-    userID, ok := r.Context().Value(middleware.ContextUserID).(string)
-    deviceID, ok2 := r.Context().Value(middleware.ContextDeviceID).(string)
-    if !ok || userID == "" {
-        response.Error(w, http.StatusUnauthorized, "Unauthorized")
-        return
-    }
-    if !ok2 || deviceID == "" || deviceID == "unknown" {
-        response.Error(w, http.StatusUnauthorized, "Unauthorized device")
-        return
-    }
+	userID, ok := r.Context().Value(middleware.ContextUserID).(string)
+	deviceID, ok2 := r.Context().Value(middleware.ContextDeviceID).(string)
+	if !ok || userID == "" {
+		response.Error(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+	if !ok2 || deviceID == "" || deviceID == "unknown" {
+		response.Error(w, http.StatusUnauthorized, "Unauthorized device")
+		return
+	}
 
-    var req SetPasswordRequest
-    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-        response.Error(w, http.StatusBadRequest, "Invalid request")
-        return
-    }
+	var req SetPasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "Invalid request")
+		return
+	}
 
-    // --- Password + Session ---
-    session, err := h.updatePasswordAndCreateSession(r.Context(), userID, deviceID, req.NewPassword, r)
-    if err != nil {
-        response.Error(w, http.StatusBadRequest, err.Error())
-        return
-    }
+	// --- Password + Session ---
+	session, err := h.updatePasswordAndCreateSession(r.Context(), userID, deviceID, req.NewPassword, r)
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
-    // --- Assign Trader role asynchronously ---
-    go func(userID string) {
-        bgCtx := context.Background()
-        traderRole := domain.Role{Name: domain.RoleTrader} // use predefined constant
-        if err := h.uc.AssignRoleToUserHelper(bgCtx, userID, traderRole); err != nil {
-            fmt.Printf("failed to assign role %s to user %s: %v\n", traderRole.Name, userID, err)
-        }
-    }(userID)
+	// --- Assign Trader role asynchronously ---
+	go func(userID string) {
+		bgCtx := context.Background()
+		traderRole := domain.Role{Name: domain.RoleTrader}
+		if err := h.uc.AssignRoleToUserHelper(bgCtx, userID, traderRole); err != nil {
+			fmt.Printf("failed to assign role %s to user %s: %v\n", traderRole.Name, userID, err)
+		}
+	}(userID)
 
-    // --- Welcome Email ---
-    h.sendWelcomeEmailAsync(userID)
+	// --- Ensure profile exists in background ---
+	go h.ensureNationality(context.Background(), userID) // logs errors only
 
-    // --- Response ---
-    response.JSON(w, http.StatusOK, map[string]string{
-        "message": "Password set successfully",
-        "token":   session.AuthToken,
-    })
+	// --- Welcome Email ---
+	h.sendWelcomeEmailAsync(userID)
+
+	// --- Response: always include next as set_nationality ---
+	resp := map[string]interface{}{
+		"message": "Password set successfully",
+		"token":   session.AuthToken,
+		"next":    "set_nationality",
+	}
+
+	response.JSON(w, http.StatusOK, resp)
 }
-
 
 func (h *AuthHandler) updatePasswordAndCreateSession(
     ctx context.Context,
@@ -257,52 +267,126 @@ func (h *AuthHandler) HandleUpdateName(w http.ResponseWriter, r *http.Request) {
 
 
 func (h *AuthHandler) HandleRequestEmailChange(w http.ResponseWriter, r *http.Request) {
-	requestedUserID, ok := r.Context().Value(middleware.ContextUserID).(string)
+	userID, ok := r.Context().Value(middleware.ContextUserID).(string)
 	deviceID, ok2 := r.Context().Value(middleware.ContextDeviceID).(string)
-	if (!ok || requestedUserID == "") || (!ok2 || deviceID == "") {
+	if (!ok || userID == "") || (!ok2 || deviceID == "") {
 		response.Error(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
-	user, err := h.uc.FindUserById(context.Background(), requestedUserID)
+	user, err := h.uc.FindUserById(context.Background(), userID)
 	if err != nil {
-		log.Printf("[WARN] failed to fetch user %s for email change request: %v", requestedUserID, err)
+		log.Printf("[WARN] failed to fetch user %s for email change request: %v", userID, err)
 		response.Error(w, http.StatusInternalServerError, "User lookup failed")
 		return
 	}
-	if user == nil || user.Email == nil || *user.Email == "" {
-		log.Printf("[WARN] user %s has no email set, cannot send OTP", requestedUserID)
+
+	h.handleRequestChange(r.Context(), w, userID, *user.Email, "email", "request_email_change")
+}
+
+func (h *AuthHandler) HandleRequestPhoneChange(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(middleware.ContextUserID).(string)
+	deviceID, ok2 := r.Context().Value(middleware.ContextDeviceID).(string)
+	if (!ok || userID == "") || (!ok2 || deviceID == "") {
+		response.Error(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	// --- Fetch user ---
+	user, err := h.uc.FindUserById(context.Background(), userID)
+	if err != nil {
+		log.Printf("[WARN] failed to fetch user %s for phone change request: %v", userID, err)
+		response.Error(w, http.StatusInternalServerError, "User lookup failed")
+		return
+	}
+
+	// --- Check if phone already exists ---
+	if user.Phone != nil && *user.Phone != "" {
+		log.Printf("[INFO] user %s already has a phone set", userID)
+		response.JSON(w, http.StatusBadRequest, map[string]string{
+			"message": "Phone number already updated. Contact support if you want to change your phone.",
+		})
+		return
+	}
+
+	// --- Check if email exists for OTP sending ---
+	if user.Email == nil || *user.Email == "" {
+		log.Printf("[WARN] user %s has no email set, cannot send OTP", userID)
 		response.Error(w, http.StatusBadRequest, "User email not set")
 		return
 	}
 
-	// Respond first
+	// --- Call OTP helper with email channel ---
+	h.handleRequestChange(r.Context(), w, userID, *user.Email, "email", "request_phone_change")
+}
+
+
+func (h *AuthHandler) HandleRequestPasswordChange(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(middleware.ContextUserID).(string)
+	deviceID, ok2 := r.Context().Value(middleware.ContextDeviceID).(string)
+	if (!ok || userID == "") || (!ok2 || deviceID == "") {
+		response.Error(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	user, err := h.uc.FindUserById(context.Background(), userID)
+	if err != nil {
+		log.Printf("[WARN] failed to fetch user %s for password change request: %v", userID, err)
+		response.Error(w, http.StatusInternalServerError, "User lookup failed")
+		return
+	}
+
+	if user.Email == nil || *user.Email == "" {
+		log.Printf("[WARN] user %s has no email set, cannot send OTP", userID)
+		response.Error(w, http.StatusBadRequest, "User email not set")
+		return
+	}
+
+	// --- Call helper with email channel ---
+	h.handleRequestChange(r.Context(), w, userID, *user.Email, "email", "request_password_change")
+}
+
+
+func (h *AuthHandler) handleRequestChange(
+	_ context.Context,
+	w http.ResponseWriter,
+	userID string,
+	recipient string,
+	channel string,      // "email" or "phone"
+	otpPurpose string,   // e.g., "request_email_change" or "request_phone_change" or "request_password_change"
+) {
+	if recipient == "" {
+		response.Error(w, http.StatusBadRequest, fmt.Sprintf("User %s has no %s set", userID, channel))
+		return
+	}
+
+	// Respond immediately
 	response.JSON(w, http.StatusOK, map[string]interface{}{
-		"message":      "Request processed successfully. Verify OTP sent to old email to confirm action.",
-		"next":   "verify-otp",
-		"otp_purpose":  "request_email_change",
+		"message":     fmt.Sprintf("Request processed successfully. Verify OTP sent to %s to confirm action.", channel),
+		"next":        "verify-otp",
+		"otp_purpose": otpPurpose,
 	})
 
-	// Send OTP in background
+	// Send OTP asynchronously
 	go func() {
 		otpResp, otpErr := h.otp.Client.GenerateOTP(
 			context.Background(),
 			&otppb.GenerateOTPRequest{
-				UserId:    requestedUserID,
-				Channel:   "email",
-				Purpose:   "request_email_change",
-				Recipient: *user.Email,
+				UserId:    userID,
+				Channel:   channel,
+				Purpose:   otpPurpose,
+				Recipient: recipient,
 			},
 		)
 		if otpErr != nil || otpResp == nil || !otpResp.Ok {
-			log.Printf("[HandleRequestEmailChange] ❌ OTP generation failed userID=%v, otpErr=%v, serviceErr=%v",
-				user.ID, otpErr, otpResp.GetError(),
-			)
+			log.Printf("[handleRequestChange] ❌ OTP generation failed userID=%v, otpErr=%v, serviceErr=%v",
+				userID, otpErr, otpResp.GetError())
 			return
 		}
-		log.Printf("[HandleRequestEmailChange] OTP sent successfully to %s for userID=%v", *user.Email, user.ID)
+		log.Printf("[handleRequestChange] OTP sent successfully to %s for userID=%v", recipient, userID)
 	}()
 }
+
 
 func (h *AuthHandler) HandlePhoneChange(w http.ResponseWriter, r *http.Request) {
 	requestedUserID, ok := r.Context().Value(middleware.ContextUserID).(string)
@@ -310,6 +394,7 @@ func (h *AuthHandler) HandlePhoneChange(w http.ResponseWriter, r *http.Request) 
 		response.Error(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
+
 	var req RequestPhoneChange
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.Error(w, http.StatusBadRequest, "Invalid JSON payload")
@@ -319,22 +404,138 @@ func (h *AuthHandler) HandlePhoneChange(w http.ResponseWriter, r *http.Request) 
 		response.Error(w, http.StatusBadRequest, "New phone number required")
 		return
 	}
-	if valid := utils.ValidatePhone(req.NewPhone); !valid {
-		response.Error(w, http.StatusBadRequest, "Invalid phone number format")
+
+	ctx := r.Context()
+
+	// --- Fetch user nationality ---
+	userNatKey := fmt.Sprintf("user_nationality:%s", requestedUserID)
+	nationality, err := h.redisClient.Get(ctx, userNatKey).Result()
+	if err != nil || nationality == "" {
+		// not cached → call ensureNationality
+		nextAction, nat := h.ensureNationality(ctx, requestedUserID)
+		if nextAction != "" {
+			response.JSON(w, http.StatusOK, map[string]string{
+				"message": "Please update your nationality to continue.",
+				"next":    nextAction,
+			})
+			return
+		}
+		nationality = nat
+		// cache nationality for 5 min
+		if err := h.redisClient.Set(ctx, userNatKey, nationality, 5*time.Minute).Err(); err != nil {
+			log.Printf("Failed to cache user nationality %s: %v", requestedUserID, err)
+		}
+	}
+
+	// --- Get country info from cache or CoreService ---
+	countryCacheKey := fmt.Sprintf("country_info:%s", nationality)
+	countryInfo := map[string]interface{}{"nationality": nationality} // fallback
+	cached, err := h.redisClient.Get(ctx, countryCacheKey).Result()
+	if err == nil && cached != "" {
+		if err := json.Unmarshal([]byte(cached), &countryInfo); err != nil {
+			log.Printf("Failed to unmarshal cached country info for %s: %v", nationality, err)
+		}
+	} else {
+		countryResp, err := h.coreClient.Client.GetCountry(ctx, &corepb.GetCountryRequest{Iso2: nationality})
+		if err == nil && countryResp != nil && countryResp.Country != nil {
+			c := countryResp.Country
+			countryInfo = map[string]interface{}{
+				"nationality":   nationality,
+				"country_name":  c.Name,
+				"phone_code":    c.PhoneCode,
+				"currency_code": c.CurrencyCode,
+				"currency_name": c.CurrencyName,
+				"region":        c.Region,
+				"subregion":     c.Subregion,
+				"flag_url":      c.FlagUrl,
+			}
+			data, _ := json.Marshal(countryInfo)
+			if err := h.redisClient.Set(ctx, countryCacheKey, data, 5*time.Minute).Err(); err != nil {
+				log.Printf("Failed to cache country info for %s: %v", nationality, err)
+			}
+		} else {
+			log.Printf("CoreService GetCountry failed for iso2=%s: %v", nationality, err)
+		}
+	}
+
+	// --- Validate phone against country phone code ---
+	phoneCode := ""
+	if pc, ok := countryInfo["phone_code"].(string); ok {
+		phoneCode = pc
+	}
+	if !utils.ValidatePhoneWithCountry(req.NewPhone, phoneCode) {
+		response.Error(w, http.StatusBadRequest, fmt.Sprintf("Phone number must start with %s", phoneCode))
 		return
 	}
-	err := h.uc.UpdatePhone(r.Context(), requestedUserID, req.NewPhone)
-	if err != nil {
-		log.Printf("[HandleRequestPhoneChange]  Failed to update phone userID=%s, newPhone=%s, err=%v",
-			requestedUserID, req.NewPhone, err,
-		)
-		response.Error(w, http.StatusInternalServerError, "Phone update processing failed")
+
+	// --- Cache new phone number for 15 minutes ---
+	redisKey := fmt.Sprintf("phone_change:%s", requestedUserID)
+	if err := h.redisClient.Set(ctx, redisKey, req.NewPhone, 15*time.Minute).Err(); err != nil {
+		log.Printf("Failed to cache phone change for user %s: %v", requestedUserID, err)
+		response.Error(w, http.StatusInternalServerError, "Internal server error")
 		return
 	}
+
+	// --- Respond to user immediately ---
 	response.JSON(w, http.StatusOK, map[string]string{
-		"message": "Phone number updated successfully",
+		"message":     "OTP sent to your new phone. Please verify to continue.",
+		"next":        "verify-otp",
+		"otp_purpose": "phone_change",
 	})
+
+	// --- Send OTP asynchronously ---
+	go func() {
+		otpResp, otpErr := h.otp.Client.GenerateOTP(
+			context.Background(),
+			&otppb.GenerateOTPRequest{
+				UserId:    requestedUserID,
+				Channel:   "sms",
+				Purpose:   "phone_change",
+				Recipient: req.NewPhone,
+			},
+		)
+		if otpErr != nil || otpResp == nil || !otpResp.Ok {
+			log.Printf("OTP generation failed for phone change user %s: %v, serviceErr=%v",
+				requestedUserID, otpErr, otpResp.GetError())
+			return
+		}
+		log.Printf("OTP sent successfully to %s for user %s", req.NewPhone, requestedUserID)
+	}()
 }
+
+
+// func (h *AuthHandler) HandlePhoneChange(w http.ResponseWriter, r *http.Request) {
+// 	requestedUserID, ok := r.Context().Value(middleware.ContextUserID).(string)
+// 	if !ok || requestedUserID == "" {
+// 		response.Error(w, http.StatusUnauthorized, "Unauthorized")
+// 		return
+// 	}
+// 	var req RequestPhoneChange
+// 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+// 		response.Error(w, http.StatusBadRequest, "Invalid JSON payload")
+// 		return
+// 	}
+// 	if req.NewPhone == "" {
+// 		response.Error(w, http.StatusBadRequest, "New phone number required")
+// 		return
+// 	}
+// 	if valid := utils.ValidatePhone(req.NewPhone); !valid {
+// 		response.Error(w, http.StatusBadRequest, "Invalid phone number format")
+// 		return
+// 	}
+// 	err := h.uc.UpdatePhone(r.Context(), requestedUserID, req.NewPhone)
+// 	if err != nil {
+// 		log.Printf("[HandleRequestPhoneChange]  Failed to update phone userID=%s, newPhone=%s, err=%v",
+// 			requestedUserID, req.NewPhone, err,
+// 		)
+// 		response.Error(w, http.StatusInternalServerError, "Phone update processing failed")
+// 		return
+// 	}
+// 	response.JSON(w, http.StatusOK, map[string]string{
+// 		"message": "Phone number updated successfully",
+// 	})
+// }
+
 
 // verify 2fa enabled
 	// _2faRes, err := h.accountClient.Client.GetTwoFAStatus(r.Context(), &accountpb.GetTwoFAStatusRequest{
@@ -451,4 +652,75 @@ func (h *AuthHandler) HandleForgotPassword(w http.ResponseWriter, r *http.Reques
 		log.Printf("[ForgotPassword] ✅ OTP sent successfully to %s for userID=%v", *u.Email, u.ID)
 	}(user)
 }
+
+func (h *AuthHandler) sendPasswordChangeNotification(userID string, deviceInfo map[string]string) {
+	if h.emailClient == nil {
+		return
+	}
+
+	// Run in background
+	go func(uid string, device map[string]string) {
+		// Fetch user info
+		user, err := h.uc.FindUserById(context.Background(), uid)
+		if err != nil {
+			log.Printf("[WARN] failed to fetch user %s for password change notification: %v", uid, err)
+			return
+		}
+
+		if user.Email != nil || *user.Email == "" {
+			log.Printf("[WARN] user %s has no email, skipping password change notification", uid)
+			return
+		}
+
+		// Build device info string if available
+		deviceDetails := ""
+		if len(device) > 0 {
+			for k, v := range device {
+				deviceDetails += fmt.Sprintf("<li><strong>%s:</strong> %s</li>", k, v)
+			}
+			deviceDetails = fmt.Sprintf("<ul>%s</ul>", deviceDetails)
+		}
+
+		subject := "Your Pxyz account password has been changed"
+		body := fmt.Sprintf(`
+			<!DOCTYPE html>
+			<html><head><meta charset="UTF-8"><title>Password Changed</title></head>
+			<body style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px;">
+				<div style="max-width: 600px; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0px 2px 5px rgba(0,0,0,0.1);">
+					<h2 style="color: #C0392B;">Password Changed</h2>
+					<p style="font-size: 16px; color: #333;">
+						Hello,<br><br>
+						Your Pxyz account password was recently changed.
+					</p>
+					%s
+					<p style="font-size: 16px; color: #333;">
+						If you did not perform this action, we recommend securing your account immediately.
+					</p>
+					<p style="margin-top: 30px; font-size: 14px; color: #999999;">
+						Thank you,<br>
+						<strong>Pxyz Team</strong>
+					</p>
+				</div>
+			</body>
+			</html>
+		`, func() string {
+			if deviceDetails != "" {
+				return fmt.Sprintf("<p><strong>Device information:</strong></p>%s", deviceDetails)
+			}
+			return ""
+		}())
+
+		_, err = h.emailClient.SendEmail(context.Background(), &emailpb.SendEmailRequest{
+			UserId:         uid,
+			RecipientEmail: *user.Email,
+			Subject:        subject,
+			Body:           body,
+			Type:           "password_change",
+		})
+		if err != nil {
+			log.Printf("[WARN] failed to send password change notification to %s: %v", *user.Email, err)
+		}
+	}(userID, deviceInfo)
+}
+
 
