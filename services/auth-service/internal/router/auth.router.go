@@ -119,6 +119,10 @@ func SetupRoutes(
 		pr.Post("/auth/profile/picture", h.UploadProfilePicture)
 		pr.Post("/auth/profile/nationality", h.HandleUpdateNationality)
 
+		// --- Preferences ---
+		pr.Get("/auth/preferences", h.HandleGetPreferences)         // get user preferences
+		pr.Post("/auth/preferences/update", h.HandleUpdatePreferences) // update user preferences
+
 		// Password management
 		pr.Get("/auth/password/request-change", h.HandleRequestPasswordChange) // change existing password
 		pr.Get("/auth/phone/request-change", h.HandleRequestPhoneChange) // change phone

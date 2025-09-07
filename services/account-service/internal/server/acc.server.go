@@ -3,12 +3,13 @@ package server
 import (
 	"account-service/internal/config"
 	"account-service/internal/handler/2fa"
-    "account-service/internal/handler/acc"
+	acchandler "account-service/internal/handler/acc"
+	prefhandler "account-service/internal/handler/prefs"
 	"account-service/internal/repository"
 	"account-service/internal/service/2fa"
-    "account-service/internal/service/acc"
+	acservice "account-service/internal/service/acc"
+	prefservice "account-service/internal/service/prefs"
 	"log"
-
 	"context"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -20,57 +21,66 @@ import (
 )
 
 type Server struct {
-    pb.UnimplementedAccountServiceServer
-    Cfg  config.Config
-    DB   *pgxpool.Pool
-    Rdb  *redis.Client
+	pb.UnimplementedAccountServiceServer
+	Cfg  config.Config
+	DB   *pgxpool.Pool
+	Rdb  *redis.Client
 
-    twofaHandler *_2fahandler.TwoFAHandler
-    accHandler   *acchandler.AccountHandler
+	twofaHandler *_2fahandler.TwoFAHandler
+	accHandler   *acchandler.AccountHandler
+	prefHandler  *prefhandler.PreferencesHandler
 }
 
 func NewServer() *Server {
-    cfg := config.Load()
+	cfg := config.Load()
 
-    // DB (mandatory)
-    dbpool, err := pgxpool.New(context.Background(), cfg.DBConnString)
-    if err != nil {
-        log.Fatalf("[FATAL] failed to connect to DB: %v", err)
-    }
+	// DB
+	dbpool, err := pgxpool.New(context.Background(), cfg.DBConnString)
+	if err != nil {
+		log.Fatalf("[FATAL] failed to connect to DB: %v", err)
+	}
 
-    // Redis (optional but recommended, adjust logic if mandatory)
-    rdb := redis.NewClient(&redis.Options{
-        Addr: cfg.RedisAddr, Password: cfg.RedisPass,
-    })
-    if err := rdb.Ping(context.Background()).Err(); err != nil {
-        log.Printf("[WARN] failed to connect to Redis: %v", err)
-    }
+	// Redis
+	rdb := redis.NewClient(&redis.Options{
+		Addr: cfg.RedisAddr, Password: cfg.RedisPass,
+	})
+	if err := rdb.Ping(context.Background()).Err(); err != nil {
+		log.Printf("[WARN] failed to connect to Redis: %v", err)
+	}
 
-    // Snowflake (mandatory, since IDs depend on it)
-    sf, err := id.NewSnowflake(4)
-    if err != nil {
-        log.Fatalf("[FATAL] snowflake init failed: %v", err)
-    }
+	// Snowflake
+	sf, err := id.NewSnowflake(4)
+	if err != nil {
+		log.Fatalf("[FATAL] snowflake init failed: %v", err)
+	}
 
-    emailCli := emailclient.NewEmailClient()
+	emailCli := emailclient.NewEmailClient()
 
-    // 2FA wiring (relies on DB + snowflake)
-    _2faRepo := repository.NewTwoFARepository(dbpool)
-    _2faUc := _2faservice.NewTwoFAService(_2faRepo, sf)
-    twofaHandler := _2fahandler.NewTwoFAHandler(_2faUc, emailCli)
+	// 2FA wiring
+	_2faRepo := repository.NewTwoFARepository(dbpool)
+	_2faUc := _2faservice.NewTwoFAService(_2faRepo, sf)
+	twofaHandler := _2fahandler.NewTwoFAHandler(_2faUc, emailCli)
 
-    accRepo := repository.NewUserProfileRepository(dbpool)
-    accUc := accservice.NewAccountService(accRepo, sf)
-    accHandler := acchandler.NewAccountHandler(accUc, emailCli)
+	// Account wiring
+	accRepo := repository.NewUserProfileRepository(dbpool)
+	accUc := acservice.NewAccountService(accRepo, sf)
+	accHandler := acchandler.NewAccountHandler(accUc, emailCli)
 
-    return &Server{
-        Cfg:          cfg,
-        DB:           dbpool,
-        Rdb:          rdb,
-        twofaHandler: twofaHandler,
-        accHandler:   accHandler,
-    }
+	// Preferences wiring
+	prefRepo := repository.NewPreferencesRepository(dbpool)
+	prefSvc := prefservice.NewPreferencesService(prefRepo, sf)
+	prefHandler := prefhandler.NewPreferencesHandler(prefSvc)
+
+	return &Server{
+		Cfg:          cfg,
+		DB:           dbpool,
+		Rdb:          rdb,
+		twofaHandler: twofaHandler,
+		accHandler:   accHandler,
+		prefHandler:  prefHandler,
+	}
 }
+
 
 
 func (s *Server) InitiateTOTPSetup(ctx context.Context, req *pb.InitiateTOTPSetupRequest) (*pb.InitiateTOTPSetupResponse, error) {
@@ -125,3 +135,14 @@ func (s *Server) UpdateUserNationality(ctx context.Context, req *pb.UpdateUserNa
 func (s *Server) GetUserNationality(ctx context.Context, req *pb.GetUserNationalityRequest) (*pb.GetUserNationalityResponse, error) {
     return s.accHandler.GetUserNationalityStatus(ctx, req)
 }
+
+// Preferences RPCs
+
+func (s *Server) GetPreferences(ctx context.Context, req *pb.GetPreferencesRequest) (*pb.GetPreferencesResponse, error) {
+	return s.prefHandler.GetPreferences(ctx, req)
+}
+
+func (s *Server) UpdatePreferences(ctx context.Context, req *pb.UpdatePreferencesRequest) (*pb.UpdatePreferencesResponse, error) {
+	return s.prefHandler.UpdatePreferences(ctx, req)
+}
+

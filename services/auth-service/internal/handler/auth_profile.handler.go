@@ -18,6 +18,8 @@ import (
 	_ "image/gif" // register gif
 	_ "image/jpeg"
 	_ "image/png"
+
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // GetFullUserProfile fetches and merges user + account-service profile into a map
@@ -310,3 +312,112 @@ func (h *AuthHandler) HandleUpdateNationality(w http.ResponseWriter, r *http.Req
 		"message": "Nationality updated successfully",
 	})
 }
+
+
+func (h *AuthHandler) HandleGetPreferences(w http.ResponseWriter, r *http.Request) {
+	// --- Extract user ID from context ---
+	userID, ok := r.Context().Value(middleware.ContextUserID).(string)
+	if !ok || userID == "" {
+		response.Error(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	ctx := r.Context()
+
+	// --- Call account service to fetch preferences ---
+	prefResp, err := h.accountClient.Client.GetPreferences(ctx, &accountclient.GetPreferencesRequest{
+		UserId: userID,
+	})
+	if err != nil {
+		log.Printf("GetPreferences failed for user %s: %v", userID, err)
+		response.Error(w, http.StatusInternalServerError, "Failed to fetch preferences")
+		return
+	}
+
+	// --- Return preferences in response ---
+	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"preferences": prefResp.Preferences,
+	})
+}
+
+func (h *AuthHandler) HandleUpdatePreferences(w http.ResponseWriter, r *http.Request) {
+	// --- Extract user ID from context ---
+	userID, ok := r.Context().Value(middleware.ContextUserID).(string)
+	if !ok || userID == "" {
+		response.Error(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	ctx := r.Context()
+
+	// --- Parse request body ---
+	var req struct {
+		DarkMode            *bool `json:"dark_mode,omitempty"`
+		DarkModeEmails      *bool `json:"dark_mode_emails,omitempty"`
+		LocationTracking    *bool `json:"location_tracking,omitempty"`
+		AutoLogin           *bool `json:"auto_login,omitempty"`
+		MarketingEmails     *bool `json:"marketing_emails,omitempty"`
+		PushNotifications   *bool `json:"push_notifications,omitempty"`
+		SMSNotifications    *bool `json:"sms_notifications,omitempty"`
+		ChartMessageSound   *bool `json:"chart_message_sound,omitempty"`
+		NotificationSound   *bool `json:"notification_sound,omitempty"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	// --- Build map of preferences to update ---
+	prefs := make(map[string]*structpb.Value)
+
+	if req.DarkMode != nil {
+		prefs["dark_mode"] = structpb.NewBoolValue(*req.DarkMode)
+	}
+	if req.DarkModeEmails != nil {
+		prefs["dark_mode_emails"] = structpb.NewBoolValue(*req.DarkModeEmails)
+	}
+	if req.LocationTracking != nil {
+		prefs["location_tracking"] = structpb.NewBoolValue(*req.LocationTracking)
+	}
+	if req.AutoLogin != nil {
+		prefs["auto_login"] = structpb.NewBoolValue(*req.AutoLogin)
+	}
+	if req.MarketingEmails != nil {
+		prefs["marketing_emails"] = structpb.NewBoolValue(*req.MarketingEmails)
+	}
+	if req.PushNotifications != nil {
+		prefs["push_notifications"] = structpb.NewBoolValue(*req.PushNotifications)
+	}
+	if req.SMSNotifications != nil {
+		prefs["sms_notifications"] = structpb.NewBoolValue(*req.SMSNotifications)
+	}
+	if req.ChartMessageSound != nil {
+		prefs["chart_message_sound"] = structpb.NewBoolValue(*req.ChartMessageSound)
+	}
+	if req.NotificationSound != nil {
+		prefs["notification_sound"] = structpb.NewBoolValue(*req.NotificationSound)
+	}
+
+	if len(prefs) == 0 {
+		response.Error(w, http.StatusBadRequest, "No valid preferences provided")
+		return
+	}
+
+	// --- Call account service to update preferences ---
+	_, err := h.accountClient.Client.UpdatePreferences(ctx, &accountclient.UpdatePreferencesRequest{
+		UserId:      userID,
+		Preferences: prefs,
+	})
+	if err != nil {
+		log.Printf("UpdatePreferences failed for user %s: %v", userID, err)
+		response.Error(w, http.StatusInternalServerError, "Failed to update preferences")
+		return
+	}
+
+	// --- Success response ---
+	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"message": "Preferences updated successfully",
+	})
+}
+
