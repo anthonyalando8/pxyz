@@ -724,3 +724,96 @@ func (h *AuthHandler) sendPasswordChangeNotification(userID string, deviceInfo m
 }
 
 
+// --- Email verification request ---
+func (h *AuthHandler) HandleRequestEmailVerification(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(middleware.ContextUserID).(string)
+	if !ok || userID == "" {
+		response.Error(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	ctx := r.Context()
+
+	user, err := h.uc.FindUserById(ctx, userID)
+	if err != nil {
+		log.Printf("[WARN] failed to fetch user %s: %v", userID, err)
+		response.Error(w, http.StatusInternalServerError, "User lookup failed")
+		return
+	}
+
+	if user.IsEmailVerified || user.Email == nil || *user.Email == "" {
+		response.JSON(w, http.StatusOK, map[string]interface{}{
+			"message": "Email is already verified or not set",
+		})
+		return
+	}
+
+	// --- Generate OTP asynchronously ---
+	go func() {
+		otpResp, otpErr := h.otp.Client.GenerateOTP(
+			context.Background(),
+			&otppb.GenerateOTPRequest{
+				UserId:    user.ID,
+				Channel:   "email",
+				Purpose:   "verify_email",
+				Recipient: *user.Email,
+			},
+		)
+		if otpErr != nil || otpResp == nil || !otpResp.Ok {
+			log.Printf("[WARN] OTP generation failed for user %s email: %v", user.ID, otpErr)
+		}
+	}()
+
+	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"message":    "OTP sent for email verification",
+		"otp_channel": "email",
+		"otp_purpose": "verify_email",
+	})
+}
+
+// --- Phone verification request ---
+func (h *AuthHandler) HandleRequestPhoneVerification(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(middleware.ContextUserID).(string)
+	if !ok || userID == "" {
+		response.Error(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	ctx := r.Context()
+
+	user, err := h.uc.FindUserById(ctx, userID)
+	if err != nil {
+		log.Printf("[WARN] failed to fetch user %s: %v", userID, err)
+		response.Error(w, http.StatusInternalServerError, "User lookup failed")
+		return
+	}
+
+	if user.IsPhoneVerified || user.Phone == nil || *user.Phone == "" {
+		response.JSON(w, http.StatusOK, map[string]interface{}{
+			"message": "Phone is already verified or not set",
+		})
+		return
+	}
+
+	// --- Generate OTP asynchronously ---
+	go func() {
+		otpResp, otpErr := h.otp.Client.GenerateOTP(
+			context.Background(),
+			&otppb.GenerateOTPRequest{
+				UserId:    user.ID,
+				Channel:   "sms",
+				Purpose:   "verify_phone",
+				Recipient: *user.Phone,
+			},
+		)
+		if otpErr != nil || otpResp == nil || !otpResp.Ok {
+			log.Printf("[WARN] OTP generation failed for user %s phone: %v", user.ID, otpErr)
+		}
+	}()
+
+	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"message":    "OTP sent for phone verification",
+		"otp_channel": "sms",
+		"otp_purpose": "verify_phone",
+	})
+}

@@ -3,12 +3,12 @@ package handler
 import (
 	"auth-service/internal/domain"
 	"auth-service/pkg/utils"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"net/http"
-	"sync"
 	"x/shared/genproto/otppb"
 	"x/shared/response"
 	"x/shared/utils/errors"
@@ -184,18 +184,28 @@ func (h *AuthHandler) handleFreshUserSignup(
 ) error {
 	channel, target := detectChannel(req)
 
-	var wg sync.WaitGroup
-	wg.Add(2)
+	// --- Create session first (synchronous) ---
+	extraData := map[string]string{"next": "verify_" + channel}
+	session, sessErr := h.createSessionHelper(
+		r.Context(),
+		user.ID,
+		true,  // isNew
+		false, // isRestricted
+		"register",
+		extraData,
+		req.DeviceID,
+		req.DeviceMetadata,
+		req.GeoLocation,
+		r,
+	)
+	if sessErr != nil {
+		return fmt.Errorf("session creation failed: %v", sessErr)
+	}
 
-	var otpResp *otppb.GenerateOTPResponse
-	var otpErr error
-	var session *domain.Session
-	var sessErr error
-
+	// --- Generate OTP asynchronously (non-blocking) ---
 	go func() {
-		defer wg.Done()
-		otpResp, otpErr = h.otp.Client.GenerateOTP(
-			r.Context(),
+		otpResp, otpErr := h.otp.Client.GenerateOTP(
+			context.Background(), // use background to avoid cancelling if HTTP context times out
 			&otppb.GenerateOTPRequest{
 				UserId:    user.ID,
 				Channel:   channel,
@@ -203,27 +213,12 @@ func (h *AuthHandler) handleFreshUserSignup(
 				Recipient: target,
 			},
 		)
+		if otpErr != nil || otpResp == nil || !otpResp.Ok {
+			log.Printf("[WARN] OTP generation failed for user %s on %s: %v", user.ID, channel, otpErr)
+		}
 	}()
 
-	go func() {
-		defer wg.Done()
-		extraData := map[string]string{"next": "verify_" + channel}
-		session, sessErr = h.createSessionHelper(
-			r.Context(),
-			user.ID, true, false, "register",
-			extraData, req.DeviceID, req.DeviceMetadata, req.GeoLocation, r,
-		)
-	}()
-
-	wg.Wait()
-
-	if otpErr != nil || otpResp == nil || !otpResp.Ok {
-		return fmt.Errorf("OTP generation failed: %v", otpErr)
-	}
-	if sessErr != nil {
-		return fmt.Errorf("session creation failed: %v", sessErr)
-	}
-
+	// --- Respond immediately with session token ---
 	response.JSON(w, http.StatusOK, map[string]interface{}{
 		"message":     "Signup initiated. Verify OTP to continue.",
 		"next":        "verify-otp",
@@ -233,12 +228,11 @@ func (h *AuthHandler) handleFreshUserSignup(
 	})
 	return nil
 }
-
-func detectChannel(req RegisterInit) (string, string) {
-	if req.Phone != "" {
-		return "sms", req.Phone
-	}
-	return "email", req.Email
+func detectChannel(req RegisterInit) (string, string) { 
+	if req.Phone != "" { 
+		return "sms", req.Phone 
+	} 
+	return "email", req.Email 
 }
 
 

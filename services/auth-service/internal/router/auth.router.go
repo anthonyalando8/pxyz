@@ -29,77 +29,69 @@ func SetupRoutes(
 		AllowCredentials: true,
 		MaxAge:           300,
 	}))
-
 	r.Use(auth.RateLimit(rdb, 100, time.Minute, 10*time.Minute, "global"))
 
 	uploadDir := "/app/uploads"
-
-	// Ensure directory exists
 	if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
 		os.MkdirAll(uploadDir, 0755)
 	}
-	
-	// Login attempts (stricter)
+
+	// ============================================================
+	// Public Endpoints (No Auth Required)
+	// ============================================================
 	r.Group(func(r chi.Router) {
 		r.Use(auth.RateLimit(rdb, 5, 30*time.Second, 30*time.Second, "auth"))
-		// ============================================================
-		// Public Endpoints (no auth required)
-		// ============================================================
 		r.Post("/auth/exists", h.HandleUserExists)
 		r.Post("/auth/register/init", h.HandleInitSignup)
 		r.Post("/auth/login", h.HandleLogin)
 		r.Post("/auth/google", h.GoogleAuthHandler)
 		r.Post("/auth/telegram", h.TelegramLogin)
 		r.Post("/auth/apple", h.AppleAuthHandler)
-		r.Post("/auth/password/forgot", h.HandleForgotPassword) // reset after forgot-password
-	})
-	
-	r.Group(func(pr chi.Router) {
-		pr.Use(auth.Middleware) //must have valid session (any)
-		pr.Post("/auth/register/otp/request", h.HandleRequestOTP)
+		r.Post("/auth/password/forgot", h.HandleForgotPassword)
 	})
 
-
-	// ============================================================
-	// Registration & OTP flows (require temp/main session with purpose)
-	// ============================================================
-	r.Group(func(pr chi.Router) {
-		// Password setup flows
-		pr.Use(auth.Require([]string{"main", "temp"}, []string{"register"}))
-		pr.Post("/auth/password/set", h.HandleSetPassword)     // first-time set during signup
-	})
-	
-	r.Group(func(pr chi.Router) {
-		// Password setup flows
-		pr.Use(auth.Require([]string{"temp"}, []string{"password_reset"}))
-		pr.Post("/auth/password/reset", h.HandleResetPassword) // reset after forgot-password
-	})
-
-	r.Group(func(pr chi.Router) {
-		// OTP request/verify (register/email change flows)
-		pr.Use(auth.Require([]string{"main", "temp"}, []string{"register", "email_change", "incomplete_profile","general", "verify-otp", "phone_change"}))
-		pr.Post("/auth/register/otp/request", h.HandleRequestOTP)
-		pr.Post("/auth/register/otp/verify", h.HandleVerifyOTP)
+	// OTP request with temporary session
+	r.Group(func(r chi.Router) {
+		r.Use(auth.Middleware)
+		r.Post("/auth/register/otp/request", h.HandleRequestOTP)
 	})
 
 	// ============================================================
-	// Email change (OTP-protected)
+	// Registration & Password Flows (require specific session/purpose)
 	// ============================================================
-	r.Group(func(pr chi.Router) {
-		pr.Use(auth.Require([]string{"main", "temp"}, []string{"email_change"}))
-		pr.Patch("/auth/email", h.HandleChangeEmail)
+	r.Group(func(r chi.Router) {
+		r.Use(auth.Require([]string{"main", "temp"}, []string{"register"}))
+		r.Post("/auth/password/set", h.HandleSetPassword)
 	})
-	r.Group(func(pr chi.Router) {
-		pr.Use(auth.Require([]string{"main", "temp"}, []string{"phone_change"}))
-		pr.Patch("/auth/phone/update", h.HandlePhoneChange)
+
+	r.Group(func(r chi.Router) {
+		r.Use(auth.Require([]string{"temp"}, []string{"password_reset"}))
+		r.Post("/auth/password/reset", h.HandleResetPassword)
 	})
+
+	r.Group(func(r chi.Router) {
+		r.Use(auth.Require([]string{"main", "temp"}, []string{"register", "email_change", "incomplete_profile", "general", "verify-otp", "phone_change"}))
+		r.Post("/auth/register/otp/request", h.HandleRequestOTP)
+		r.Post("/auth/register/otp/verify", h.HandleVerifyOTP)
+	})
+
+	// Email & Phone Change (OTP-protected)
+	r.Group(func(r chi.Router) {
+		r.Use(auth.Require([]string{"main", "temp"}, []string{"email_change"}))
+		r.Patch("/auth/email", h.HandleChangeEmail)
+	})
+	r.Group(func(r chi.Router) {
+		r.Use(auth.Require([]string{"main", "temp"}, []string{"phone_change"}))
+		r.Patch("/auth/phone/update", h.HandlePhoneChange)
+	})
+
 	// ============================================================
-	// Authenticated User Endpoints (require main session)
+	// Authenticated User Endpoints (main session required)
 	// ============================================================
 	r.Group(func(pr chi.Router) {
 		pr.Use(auth.Require([]string{"main"}, nil))
 
-		// Serve /uploads/... -> files from ./uploads/
+		// Serve uploads
 		pr.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(http.Dir(uploadDir))))
 		// WebSocket
 		pr.Get("/auth/ws", wsHandler.HandleWS)
@@ -112,21 +104,22 @@ func SetupRoutes(
 		pr.Get("/auth/2fa/status", h.Handle2FAStatus)
 
 		// Profile
-		pr.Get("/auth/profile", h.HandleProfile) // get full profile
-		pr.Post("/auth/profile/update", h.HandleUpdateProfile) // partial updates
+		pr.Get("/auth/profile", h.HandleProfile)
+		pr.Post("/auth/profile/update", h.HandleUpdateProfile)
 		pr.Patch("/auth/name", h.HandleUpdateName)
-		pr.Get("/auth/email/request-change", h.HandleRequestEmailChange) // via 2FA
+		pr.Get("/auth/email/request-change", h.HandleRequestEmailChange)
 		pr.Post("/auth/profile/picture", h.UploadProfilePicture)
 		pr.Post("/auth/profile/nationality", h.HandleUpdateNationality)
 
-		// --- Preferences ---
-		pr.Get("/auth/preferences", h.HandleGetPreferences)         // get user preferences
-		pr.Post("/auth/preferences/update", h.HandleUpdatePreferences) // update user preferences
+		// Preferences
+		pr.Get("/auth/preferences", h.HandleGetPreferences)
+		pr.Post("/auth/preferences/update", h.HandleUpdatePreferences)
 
 		// Password management
-		pr.Get("/auth/password/request-change", h.HandleRequestPasswordChange) // change existing password
-		pr.Get("/auth/phone/request-change", h.HandleRequestPhoneChange) // change phone
-		// pr.Post("/auth/password/convert", h.HandleConvertPassword) // social → hybrid
+		pr.Get("/auth/password/request-change", h.HandleRequestPasswordChange)
+		pr.Get("/auth/phone/request-change", h.HandleRequestPhoneChange)
+		pr.Get("/auth/phone/request-verification", h.HandleRequestPhoneVerification)
+		pr.Get("/auth/email/request-verification", h.HandleRequestEmailVerification)
 
 		// Sessions
 		pr.Get("/auth/sessions", h.ListSessionsHandler(auth.Client))
