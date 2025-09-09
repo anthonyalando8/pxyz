@@ -45,12 +45,11 @@ const (
 	RBACService_AssignUserRole_FullMethodName               = "/urbac.RBACService/AssignUserRole"
 	RBACService_RemoveUserRole_FullMethodName               = "/urbac.RBACService/RemoveUserRole"
 	RBACService_ListUserRoles_FullMethodName                = "/urbac.RBACService/ListUserRoles"
+	RBACService_UpgradeUserRole_FullMethodName              = "/urbac.RBACService/UpgradeUserRole"
 	RBACService_AssignUserPermissionOverride_FullMethodName = "/urbac.RBACService/AssignUserPermissionOverride"
 	RBACService_RevokeUserPermissionOverride_FullMethodName = "/urbac.RBACService/RevokeUserPermissionOverride"
 	RBACService_ListUserPermissionOverrides_FullMethodName  = "/urbac.RBACService/ListUserPermissionOverrides"
-	RBACService_GetUserPermissions_FullMethodName           = "/urbac.RBACService/GetUserPermissions"
-	RBACService_GetUserModulePermissions_FullMethodName     = "/urbac.RBACService/GetUserModulePermissions"
-	RBACService_GetUserSubmodulePermissions_FullMethodName  = "/urbac.RBACService/GetUserSubmodulePermissions"
+	RBACService_GetEffectiveUserPermissions_FullMethodName  = "/urbac.RBACService/GetEffectiveUserPermissions"
 	RBACService_CheckUserPermission_FullMethodName          = "/urbac.RBACService/CheckUserPermission"
 	RBACService_ListPermissionAuditEvents_FullMethodName    = "/urbac.RBACService/ListPermissionAuditEvents"
 )
@@ -99,6 +98,7 @@ type RBACServiceClient interface {
 	AssignUserRole(ctx context.Context, in *AssignUserRoleRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	RemoveUserRole(ctx context.Context, in *RemoveUserRoleRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ListUserRoles(ctx context.Context, in *ListUserRolesRequest, opts ...grpc.CallOption) (*ListUserRolesResponse, error)
+	UpgradeUserRole(ctx context.Context, in *UpgradeUserRoleRequest, opts ...grpc.CallOption) (*UserRoleResponse, error)
 	// ----------------------
 	// USER PERMISSION OVERRIDES
 	// ----------------------
@@ -108,9 +108,7 @@ type RBACServiceClient interface {
 	// ----------------------
 	// PERMISSION QUERIES
 	// ----------------------
-	GetUserPermissions(ctx context.Context, in *GetUserPermissionsRequest, opts ...grpc.CallOption) (*GetUserPermissionsResponse, error)
-	GetUserModulePermissions(ctx context.Context, in *GetUserModulePermissionsRequest, opts ...grpc.CallOption) (*GetUserModulePermissionsResponse, error)
-	GetUserSubmodulePermissions(ctx context.Context, in *GetUserSubmodulePermissionsRequest, opts ...grpc.CallOption) (*GetUserSubmodulePermissionsResponse, error)
+	GetEffectiveUserPermissions(ctx context.Context, in *GetEffectiveUserPermissionsRequest, opts ...grpc.CallOption) (*GetEffectiveUserPermissionsResponse, error)
 	CheckUserPermission(ctx context.Context, in *CheckUserPermissionRequest, opts ...grpc.CallOption) (*CheckUserPermissionResponse, error)
 	// ----------------------
 	// AUDIT LOGS
@@ -376,6 +374,16 @@ func (c *rBACServiceClient) ListUserRoles(ctx context.Context, in *ListUserRoles
 	return out, nil
 }
 
+func (c *rBACServiceClient) UpgradeUserRole(ctx context.Context, in *UpgradeUserRoleRequest, opts ...grpc.CallOption) (*UserRoleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UserRoleResponse)
+	err := c.cc.Invoke(ctx, RBACService_UpgradeUserRole_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *rBACServiceClient) AssignUserPermissionOverride(ctx context.Context, in *AssignUserPermissionOverrideRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
@@ -406,30 +414,10 @@ func (c *rBACServiceClient) ListUserPermissionOverrides(ctx context.Context, in 
 	return out, nil
 }
 
-func (c *rBACServiceClient) GetUserPermissions(ctx context.Context, in *GetUserPermissionsRequest, opts ...grpc.CallOption) (*GetUserPermissionsResponse, error) {
+func (c *rBACServiceClient) GetEffectiveUserPermissions(ctx context.Context, in *GetEffectiveUserPermissionsRequest, opts ...grpc.CallOption) (*GetEffectiveUserPermissionsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetUserPermissionsResponse)
-	err := c.cc.Invoke(ctx, RBACService_GetUserPermissions_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *rBACServiceClient) GetUserModulePermissions(ctx context.Context, in *GetUserModulePermissionsRequest, opts ...grpc.CallOption) (*GetUserModulePermissionsResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetUserModulePermissionsResponse)
-	err := c.cc.Invoke(ctx, RBACService_GetUserModulePermissions_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *rBACServiceClient) GetUserSubmodulePermissions(ctx context.Context, in *GetUserSubmodulePermissionsRequest, opts ...grpc.CallOption) (*GetUserSubmodulePermissionsResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetUserSubmodulePermissionsResponse)
-	err := c.cc.Invoke(ctx, RBACService_GetUserSubmodulePermissions_FullMethodName, in, out, cOpts...)
+	out := new(GetEffectiveUserPermissionsResponse)
+	err := c.cc.Invoke(ctx, RBACService_GetEffectiveUserPermissions_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -500,6 +488,7 @@ type RBACServiceServer interface {
 	AssignUserRole(context.Context, *AssignUserRoleRequest) (*emptypb.Empty, error)
 	RemoveUserRole(context.Context, *RemoveUserRoleRequest) (*emptypb.Empty, error)
 	ListUserRoles(context.Context, *ListUserRolesRequest) (*ListUserRolesResponse, error)
+	UpgradeUserRole(context.Context, *UpgradeUserRoleRequest) (*UserRoleResponse, error)
 	// ----------------------
 	// USER PERMISSION OVERRIDES
 	// ----------------------
@@ -509,9 +498,7 @@ type RBACServiceServer interface {
 	// ----------------------
 	// PERMISSION QUERIES
 	// ----------------------
-	GetUserPermissions(context.Context, *GetUserPermissionsRequest) (*GetUserPermissionsResponse, error)
-	GetUserModulePermissions(context.Context, *GetUserModulePermissionsRequest) (*GetUserModulePermissionsResponse, error)
-	GetUserSubmodulePermissions(context.Context, *GetUserSubmodulePermissionsRequest) (*GetUserSubmodulePermissionsResponse, error)
+	GetEffectiveUserPermissions(context.Context, *GetEffectiveUserPermissionsRequest) (*GetEffectiveUserPermissionsResponse, error)
 	CheckUserPermission(context.Context, *CheckUserPermissionRequest) (*CheckUserPermissionResponse, error)
 	// ----------------------
 	// AUDIT LOGS
@@ -602,6 +589,9 @@ func (UnimplementedRBACServiceServer) RemoveUserRole(context.Context, *RemoveUse
 func (UnimplementedRBACServiceServer) ListUserRoles(context.Context, *ListUserRolesRequest) (*ListUserRolesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListUserRoles not implemented")
 }
+func (UnimplementedRBACServiceServer) UpgradeUserRole(context.Context, *UpgradeUserRoleRequest) (*UserRoleResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpgradeUserRole not implemented")
+}
 func (UnimplementedRBACServiceServer) AssignUserPermissionOverride(context.Context, *AssignUserPermissionOverrideRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AssignUserPermissionOverride not implemented")
 }
@@ -611,14 +601,8 @@ func (UnimplementedRBACServiceServer) RevokeUserPermissionOverride(context.Conte
 func (UnimplementedRBACServiceServer) ListUserPermissionOverrides(context.Context, *ListUserPermissionOverridesRequest) (*ListUserPermissionOverridesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListUserPermissionOverrides not implemented")
 }
-func (UnimplementedRBACServiceServer) GetUserPermissions(context.Context, *GetUserPermissionsRequest) (*GetUserPermissionsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetUserPermissions not implemented")
-}
-func (UnimplementedRBACServiceServer) GetUserModulePermissions(context.Context, *GetUserModulePermissionsRequest) (*GetUserModulePermissionsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetUserModulePermissions not implemented")
-}
-func (UnimplementedRBACServiceServer) GetUserSubmodulePermissions(context.Context, *GetUserSubmodulePermissionsRequest) (*GetUserSubmodulePermissionsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetUserSubmodulePermissions not implemented")
+func (UnimplementedRBACServiceServer) GetEffectiveUserPermissions(context.Context, *GetEffectiveUserPermissionsRequest) (*GetEffectiveUserPermissionsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetEffectiveUserPermissions not implemented")
 }
 func (UnimplementedRBACServiceServer) CheckUserPermission(context.Context, *CheckUserPermissionRequest) (*CheckUserPermissionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CheckUserPermission not implemented")
@@ -1097,6 +1081,24 @@ func _RBACService_ListUserRoles_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RBACService_UpgradeUserRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpgradeUserRoleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RBACServiceServer).UpgradeUserRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RBACService_UpgradeUserRole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RBACServiceServer).UpgradeUserRole(ctx, req.(*UpgradeUserRoleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _RBACService_AssignUserPermissionOverride_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(AssignUserPermissionOverrideRequest)
 	if err := dec(in); err != nil {
@@ -1151,56 +1153,20 @@ func _RBACService_ListUserPermissionOverrides_Handler(srv interface{}, ctx conte
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RBACService_GetUserPermissions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetUserPermissionsRequest)
+func _RBACService_GetEffectiveUserPermissions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetEffectiveUserPermissionsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RBACServiceServer).GetUserPermissions(ctx, in)
+		return srv.(RBACServiceServer).GetEffectiveUserPermissions(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: RBACService_GetUserPermissions_FullMethodName,
+		FullMethod: RBACService_GetEffectiveUserPermissions_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RBACServiceServer).GetUserPermissions(ctx, req.(*GetUserPermissionsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RBACService_GetUserModulePermissions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetUserModulePermissionsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RBACServiceServer).GetUserModulePermissions(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: RBACService_GetUserModulePermissions_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RBACServiceServer).GetUserModulePermissions(ctx, req.(*GetUserModulePermissionsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RBACService_GetUserSubmodulePermissions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetUserSubmodulePermissionsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RBACServiceServer).GetUserSubmodulePermissions(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: RBACService_GetUserSubmodulePermissions_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RBACServiceServer).GetUserSubmodulePermissions(ctx, req.(*GetUserSubmodulePermissionsRequest))
+		return srv.(RBACServiceServer).GetEffectiveUserPermissions(ctx, req.(*GetEffectiveUserPermissionsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1349,6 +1315,10 @@ var RBACService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RBACService_ListUserRoles_Handler,
 		},
 		{
+			MethodName: "UpgradeUserRole",
+			Handler:    _RBACService_UpgradeUserRole_Handler,
+		},
+		{
 			MethodName: "AssignUserPermissionOverride",
 			Handler:    _RBACService_AssignUserPermissionOverride_Handler,
 		},
@@ -1361,16 +1331,8 @@ var RBACService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RBACService_ListUserPermissionOverrides_Handler,
 		},
 		{
-			MethodName: "GetUserPermissions",
-			Handler:    _RBACService_GetUserPermissions_Handler,
-		},
-		{
-			MethodName: "GetUserModulePermissions",
-			Handler:    _RBACService_GetUserModulePermissions_Handler,
-		},
-		{
-			MethodName: "GetUserSubmodulePermissions",
-			Handler:    _RBACService_GetUserSubmodulePermissions_Handler,
+			MethodName: "GetEffectiveUserPermissions",
+			Handler:    _RBACService_GetEffectiveUserPermissions_Handler,
 		},
 		{
 			MethodName: "CheckUserPermission",

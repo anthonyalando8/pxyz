@@ -14,4 +14,9 @@ type RolePermission struct {
 	CreatedBy        int64      `json:"created_by"`
 	UpdatedAt        *time.Time `json:"updated_at,omitempty"`
 	UpdatedBy        *int64     `json:"updated_by,omitempty"`
+
+	RoleName       string  `json:"-"` // ignore in DB
+	PermissionCode string  `json:"-"`
+	SubmoduleCode  *string `json:"-"`
+	ModuleCode     string  `json:"-"`
 }

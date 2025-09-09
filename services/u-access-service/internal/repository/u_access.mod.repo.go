@@ -26,13 +26,21 @@ func (r *rbacRepo) CreateModules(ctx context.Context, modules []*domain.Module) 
 
 	for _, m := range modules {
 		query := `
-			INSERT INTO modules (parent_id, code, name, meta, is_active, created_by)
+			INSERT INTO rbac_modules (parent_id, code, name, meta, is_active, created_by)
 			VALUES ($1, $2, $3, $4, $5, $6)
-			RETURNING id, created_at
+			ON CONFLICT (code) DO UPDATE
+			SET
+				parent_id = EXCLUDED.parent_id,
+				name = EXCLUDED.name,
+				meta = EXCLUDED.meta,
+				is_active = EXCLUDED.is_active,
+				updated_at = now(),
+				updated_by = EXCLUDED.created_by
+			RETURNING id, created_at, updated_at
 		`
 		err := tx.QueryRow(ctx, query,
 			m.ParentID, m.Code, m.Name, m.Meta, m.IsActive, m.CreatedBy,
-		).Scan(&m.ID, &m.CreatedAt)
+		).Scan(&m.ID, &m.CreatedAt, &m.UpdatedAt)
 
 		if err != nil {
 			repoErr := &xerrors.RepoError{
@@ -53,6 +61,7 @@ func (r *rbacRepo) CreateModules(ctx context.Context, modules []*domain.Module) 
 
 	return created, errs, nil
 }
+
 
 func (r *rbacRepo) UpdateModule(ctx context.Context, module *domain.Module) error {
 	query := `
@@ -199,20 +208,28 @@ func (r *rbacRepo) ListModules(ctx context.Context) ([]*domain.Module, error) {
 }
 
 func (r *rbacRepo) CreateSubmodules(ctx context.Context, subs []*domain.Submodule) ([]*domain.Submodule, []*xerrors.RepoError, error) {
-	query := `
-		INSERT INTO rbac_submodules (
-			module_id, code, name, meta, is_active, created_at, created_by
-		)
-		VALUES ($1, $2, $3, $4, COALESCE($5, true), $6, $7)
-		RETURNING id, created_at
-	`
-
 	var createdSubs []*domain.Submodule
 	var repoErrs []*xerrors.RepoError
+
+	query := `
+		INSERT INTO rbac_submodules (
+			module_id, code, name, meta, is_active, created_by
+		)
+		VALUES ($1, $2, $3, $4, COALESCE($5, true), $6)
+		ON CONFLICT (module_id, code) DO UPDATE
+		SET
+			name = EXCLUDED.name,
+			meta = EXCLUDED.meta,
+			is_active = EXCLUDED.is_active,
+			updated_at = now(),
+			updated_by = EXCLUDED.created_by
+		RETURNING id, created_at, updated_at
+	`
 
 	for _, s := range subs {
 		var id int64
 		var createdAt time.Time
+		var updatedAt *time.Time
 
 		err := r.db.QueryRow(
 			ctx,
@@ -222,9 +239,8 @@ func (r *rbacRepo) CreateSubmodules(ctx context.Context, subs []*domain.Submodul
 			s.Name,
 			s.Meta,
 			s.IsActive,
-			time.Now(),
 			s.CreatedBy,
-		).Scan(&id, &createdAt)
+		).Scan(&id, &createdAt, &updatedAt)
 
 		if err != nil {
 			repoErrs = append(repoErrs, &xerrors.RepoError{
@@ -238,6 +254,7 @@ func (r *rbacRepo) CreateSubmodules(ctx context.Context, subs []*domain.Submodul
 
 		s.ID = id
 		s.CreatedAt = createdAt
+		s.UpdatedAt = updatedAt
 		createdSubs = append(createdSubs, s)
 	}
 
@@ -247,6 +264,7 @@ func (r *rbacRepo) CreateSubmodules(ctx context.Context, subs []*domain.Submodul
 
 	return createdSubs, repoErrs, nil
 }
+
 
 func (r *rbacRepo) UpdateSubmodule(ctx context.Context, sub *domain.Submodule) error {
 	query := `

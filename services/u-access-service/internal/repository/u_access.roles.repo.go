@@ -17,7 +17,12 @@ func (r *rbacRepo) CreateRoles(ctx context.Context, roles []*domain.Role) ([]*do
 	query := `
 		INSERT INTO rbac_roles (name, description, is_active, created_by)
 		VALUES ($1, $2, COALESCE($3, true), $4)
-		RETURNING id, created_at
+		ON CONFLICT (name) DO UPDATE
+		SET description = EXCLUDED.description,
+		    is_active = EXCLUDED.is_active,
+		    updated_at = NOW(),
+		    updated_by = EXCLUDED.created_by
+		RETURNING id, created_at, updated_at
 	`
 
 	tx, err := r.db.Begin(ctx)
@@ -32,19 +37,20 @@ func (r *rbacRepo) CreateRoles(ctx context.Context, roles []*domain.Role) ([]*do
 	for _, role := range roles {
 		var id int64
 		var createdAt time.Time
+		var updatedAt *time.Time
 
 		err := tx.QueryRow(ctx, query,
 			role.Name,
 			role.Description,
 			role.IsActive,
 			role.CreatedBy,
-		).Scan(&id, &createdAt)
+		).Scan(&id, &createdAt, &updatedAt)
 
 		if err != nil {
 			perrs = append(perrs, &xerrors.RepoError{
 				Entity: "Role",
 				Code:   "DB_INSERT_ERROR",
-				Msg:    fmt.Sprintf("failed to insert role %q: %v", role.Name, err),
+				Msg:    fmt.Sprintf("failed to insert/update role %q: %v", role.Name, err),
 				Ref:    role.Name,
 			})
 			continue
@@ -52,6 +58,7 @@ func (r *rbacRepo) CreateRoles(ctx context.Context, roles []*domain.Role) ([]*do
 
 		role.ID = id
 		role.CreatedAt = createdAt
+		role.UpdatedAt = updatedAt
 		created = append(created, role)
 	}
 
@@ -66,6 +73,7 @@ func (r *rbacRepo) CreateRoles(ctx context.Context, roles []*domain.Role) ([]*do
 
 	return created, perrs, nil
 }
+
 
 func (r *rbacRepo) UpdateRole(ctx context.Context, role *domain.Role) error {
 	now := time.Now()

@@ -76,8 +76,10 @@ CREATE TABLE rbac_user_roles (
   assigned_by BIGINT REFERENCES users(id),
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ,
-  updated_by BIGINT
+  updated_by BIGINT,
+  CONSTRAINT uq_user_role UNIQUE (user_id, role_id)
 );
+
 
 -- rbac user-specific overrides
 CREATE TABLE rbac_user_permissions_override (

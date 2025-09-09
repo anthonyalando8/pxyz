@@ -8,11 +8,11 @@ import (
 )
 
 type ModuleHandler struct{
-	uc *usecase.ModuleUsecase;
+	uc *usecase.RBACUsecase;
 }
 
 // NewModuleHandler initializes a new ModuleHandler
-func NewModuleHandler(uc *usecase.ModuleUsecase,) *ModuleHandler {
+func NewModuleHandler(uc *usecase.RBACUsecase,) *ModuleHandler {
 	return &ModuleHandler{
 		uc: uc,
 	}

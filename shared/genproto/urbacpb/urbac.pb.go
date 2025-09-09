@@ -3277,6 +3277,214 @@ func (x *ListPermissionAuditEventsResponse) GetEvents() []*AuditEvent {
 	return nil
 }
 
+type UpgradeUserRoleRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	NewRoleId     int64                  `protobuf:"varint,2,opt,name=new_role_id,json=newRoleId,proto3" json:"new_role_id,omitempty"`
+	AssignedBy    int64                  `protobuf:"varint,3,opt,name=assigned_by,json=assignedBy,proto3" json:"assigned_by,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpgradeUserRoleRequest) Reset() {
+	*x = UpgradeUserRoleRequest{}
+	mi := &file_proto_urbac_urbac_proto_msgTypes[55]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpgradeUserRoleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpgradeUserRoleRequest) ProtoMessage() {}
+
+func (x *UpgradeUserRoleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_urbac_urbac_proto_msgTypes[55]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpgradeUserRoleRequest.ProtoReflect.Descriptor instead.
+func (*UpgradeUserRoleRequest) Descriptor() ([]byte, []int) {
+	return file_proto_urbac_urbac_proto_rawDescGZIP(), []int{55}
+}
+
+func (x *UpgradeUserRoleRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *UpgradeUserRoleRequest) GetNewRoleId() int64 {
+	if x != nil {
+		return x.NewRoleId
+	}
+	return 0
+}
+
+func (x *UpgradeUserRoleRequest) GetAssignedBy() int64 {
+	if x != nil {
+		return x.AssignedBy
+	}
+	return 0
+}
+
+type UserRoleResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Role          *UserRole              `protobuf:"bytes,1,opt,name=role,proto3" json:"role,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UserRoleResponse) Reset() {
+	*x = UserRoleResponse{}
+	mi := &file_proto_urbac_urbac_proto_msgTypes[56]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UserRoleResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UserRoleResponse) ProtoMessage() {}
+
+func (x *UserRoleResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_urbac_urbac_proto_msgTypes[56]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UserRoleResponse.ProtoReflect.Descriptor instead.
+func (*UserRoleResponse) Descriptor() ([]byte, []int) {
+	return file_proto_urbac_urbac_proto_rawDescGZIP(), []int{56}
+}
+
+func (x *UserRoleResponse) GetRole() *UserRole {
+	if x != nil {
+		return x.Role
+	}
+	return nil
+}
+
+type GetEffectiveUserPermissionsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	ModuleCode    string                 `protobuf:"bytes,2,opt,name=module_code,json=moduleCode,proto3" json:"module_code,omitempty"`          // optional
+	SubmoduleCode string                 `protobuf:"bytes,3,opt,name=submodule_code,json=submoduleCode,proto3" json:"submodule_code,omitempty"` // optional
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetEffectiveUserPermissionsRequest) Reset() {
+	*x = GetEffectiveUserPermissionsRequest{}
+	mi := &file_proto_urbac_urbac_proto_msgTypes[57]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetEffectiveUserPermissionsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetEffectiveUserPermissionsRequest) ProtoMessage() {}
+
+func (x *GetEffectiveUserPermissionsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_urbac_urbac_proto_msgTypes[57]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetEffectiveUserPermissionsRequest.ProtoReflect.Descriptor instead.
+func (*GetEffectiveUserPermissionsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_urbac_urbac_proto_rawDescGZIP(), []int{57}
+}
+
+func (x *GetEffectiveUserPermissionsRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *GetEffectiveUserPermissionsRequest) GetModuleCode() string {
+	if x != nil {
+		return x.ModuleCode
+	}
+	return ""
+}
+
+func (x *GetEffectiveUserPermissionsRequest) GetSubmoduleCode() string {
+	if x != nil {
+		return x.SubmoduleCode
+	}
+	return ""
+}
+
+type GetEffectiveUserPermissionsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Permissions   []*RolePermission      `protobuf:"bytes,1,rep,name=permissions,proto3" json:"permissions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetEffectiveUserPermissionsResponse) Reset() {
+	*x = GetEffectiveUserPermissionsResponse{}
+	mi := &file_proto_urbac_urbac_proto_msgTypes[58]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetEffectiveUserPermissionsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetEffectiveUserPermissionsResponse) ProtoMessage() {}
+
+func (x *GetEffectiveUserPermissionsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_urbac_urbac_proto_msgTypes[58]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetEffectiveUserPermissionsResponse.ProtoReflect.Descriptor instead.
+func (*GetEffectiveUserPermissionsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_urbac_urbac_proto_rawDescGZIP(), []int{58}
+}
+
+func (x *GetEffectiveUserPermissionsResponse) GetPermissions() []*RolePermission {
+	if x != nil {
+		return x.Permissions
+	}
+	return nil
+}
+
 var File_proto_urbac_urbac_proto protoreflect.FileDescriptor
 
 const file_proto_urbac_urbac_proto_rawDesc = "" +
@@ -3524,7 +3732,21 @@ const file_proto_urbac_urbac_proto_rawDesc = "" +
 	"\fsubmodule_id\x18\x03 \x01(\x03R\vsubmoduleId\x12\x17\n" +
 	"\arole_id\x18\x04 \x01(\x03R\x06roleId\"N\n" +
 	"!ListPermissionAuditEventsResponse\x12)\n" +
-	"\x06events\x18\x01 \x03(\v2\x11.urbac.AuditEventR\x06events2\xbe\x15\n" +
+	"\x06events\x18\x01 \x03(\v2\x11.urbac.AuditEventR\x06events\"r\n" +
+	"\x16UpgradeUserRoleRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1e\n" +
+	"\vnew_role_id\x18\x02 \x01(\x03R\tnewRoleId\x12\x1f\n" +
+	"\vassigned_by\x18\x03 \x01(\x03R\n" +
+	"assignedBy\"7\n" +
+	"\x10UserRoleResponse\x12#\n" +
+	"\x04role\x18\x01 \x01(\v2\x0f.urbac.UserRoleR\x04role\"\x85\x01\n" +
+	"\"GetEffectiveUserPermissionsRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1f\n" +
+	"\vmodule_code\x18\x02 \x01(\tR\n" +
+	"moduleCode\x12%\n" +
+	"\x0esubmodule_code\x18\x03 \x01(\tR\rsubmoduleCode\"^\n" +
+	"#GetEffectiveUserPermissionsResponse\x127\n" +
+	"\vpermissions\x18\x01 \x03(\v2\x15.urbac.RolePermissionR\vpermissions2\xc1\x14\n" +
 	"\vRBACService\x12A\n" +
 	"\fCreateModule\x12\x1a.urbac.CreateModuleRequest\x1a\x15.urbac.ModuleResponse\x12A\n" +
 	"\fUpdateModule\x12\x1a.urbac.UpdateModuleRequest\x1a\x15.urbac.ModuleResponse\x12J\n" +
@@ -3553,13 +3775,12 @@ const file_proto_urbac_urbac_proto_rawDesc = "" +
 	"\x13ListRolePermissions\x12!.urbac.ListRolePermissionsRequest\x1a\".urbac.ListRolePermissionsResponse\x12F\n" +
 	"\x0eAssignUserRole\x12\x1c.urbac.AssignUserRoleRequest\x1a\x16.google.protobuf.Empty\x12F\n" +
 	"\x0eRemoveUserRole\x12\x1c.urbac.RemoveUserRoleRequest\x1a\x16.google.protobuf.Empty\x12J\n" +
-	"\rListUserRoles\x12\x1b.urbac.ListUserRolesRequest\x1a\x1c.urbac.ListUserRolesResponse\x12b\n" +
+	"\rListUserRoles\x12\x1b.urbac.ListUserRolesRequest\x1a\x1c.urbac.ListUserRolesResponse\x12I\n" +
+	"\x0fUpgradeUserRole\x12\x1d.urbac.UpgradeUserRoleRequest\x1a\x17.urbac.UserRoleResponse\x12b\n" +
 	"\x1cAssignUserPermissionOverride\x12*.urbac.AssignUserPermissionOverrideRequest\x1a\x16.google.protobuf.Empty\x12b\n" +
 	"\x1cRevokeUserPermissionOverride\x12*.urbac.RevokeUserPermissionOverrideRequest\x1a\x16.google.protobuf.Empty\x12t\n" +
-	"\x1bListUserPermissionOverrides\x12).urbac.ListUserPermissionOverridesRequest\x1a*.urbac.ListUserPermissionOverridesResponse\x12Y\n" +
-	"\x12GetUserPermissions\x12 .urbac.GetUserPermissionsRequest\x1a!.urbac.GetUserPermissionsResponse\x12k\n" +
-	"\x18GetUserModulePermissions\x12&.urbac.GetUserModulePermissionsRequest\x1a'.urbac.GetUserModulePermissionsResponse\x12t\n" +
-	"\x1bGetUserSubmodulePermissions\x12).urbac.GetUserSubmodulePermissionsRequest\x1a*.urbac.GetUserSubmodulePermissionsResponse\x12\\\n" +
+	"\x1bListUserPermissionOverrides\x12).urbac.ListUserPermissionOverridesRequest\x1a*.urbac.ListUserPermissionOverridesResponse\x12t\n" +
+	"\x1bGetEffectiveUserPermissions\x12).urbac.GetEffectiveUserPermissionsRequest\x1a*.urbac.GetEffectiveUserPermissionsResponse\x12\\\n" +
 	"\x13CheckUserPermission\x12!.urbac.CheckUserPermissionRequest\x1a\".urbac.CheckUserPermissionResponse\x12n\n" +
 	"\x19ListPermissionAuditEvents\x12'.urbac.ListPermissionAuditEventsRequest\x1a(.urbac.ListPermissionAuditEventsResponseB\x1aZ\x18genproto/urbacpb;urbacpbb\x06proto3"
 
@@ -3575,7 +3796,7 @@ func file_proto_urbac_urbac_proto_rawDescGZIP() []byte {
 	return file_proto_urbac_urbac_proto_rawDescData
 }
 
-var file_proto_urbac_urbac_proto_msgTypes = make([]protoimpl.MessageInfo, 55)
+var file_proto_urbac_urbac_proto_msgTypes = make([]protoimpl.MessageInfo, 59)
 var file_proto_urbac_urbac_proto_goTypes = []any{
 	(*Module)(nil),                              // 0: urbac.Module
 	(*Submodule)(nil),                           // 1: urbac.Submodule
@@ -3632,32 +3853,36 @@ var file_proto_urbac_urbac_proto_goTypes = []any{
 	(*CheckUserPermissionResponse)(nil),         // 52: urbac.CheckUserPermissionResponse
 	(*ListPermissionAuditEventsRequest)(nil),    // 53: urbac.ListPermissionAuditEventsRequest
 	(*ListPermissionAuditEventsResponse)(nil),   // 54: urbac.ListPermissionAuditEventsResponse
-	(*structpb.Struct)(nil),                     // 55: google.protobuf.Struct
-	(*timestamppb.Timestamp)(nil),               // 56: google.protobuf.Timestamp
-	(*emptypb.Empty)(nil),                       // 57: google.protobuf.Empty
+	(*UpgradeUserRoleRequest)(nil),              // 55: urbac.UpgradeUserRoleRequest
+	(*UserRoleResponse)(nil),                    // 56: urbac.UserRoleResponse
+	(*GetEffectiveUserPermissionsRequest)(nil),  // 57: urbac.GetEffectiveUserPermissionsRequest
+	(*GetEffectiveUserPermissionsResponse)(nil), // 58: urbac.GetEffectiveUserPermissionsResponse
+	(*structpb.Struct)(nil),                     // 59: google.protobuf.Struct
+	(*timestamppb.Timestamp)(nil),               // 60: google.protobuf.Timestamp
+	(*emptypb.Empty)(nil),                       // 61: google.protobuf.Empty
 }
 var file_proto_urbac_urbac_proto_depIdxs = []int32{
-	55, // 0: urbac.Module.meta:type_name -> google.protobuf.Struct
-	56, // 1: urbac.Module.created_at:type_name -> google.protobuf.Timestamp
-	56, // 2: urbac.Module.updated_at:type_name -> google.protobuf.Timestamp
-	56, // 3: urbac.Submodule.created_at:type_name -> google.protobuf.Timestamp
-	56, // 4: urbac.Submodule.updated_at:type_name -> google.protobuf.Timestamp
-	56, // 5: urbac.PermissionType.created_at:type_name -> google.protobuf.Timestamp
-	56, // 6: urbac.PermissionType.updated_at:type_name -> google.protobuf.Timestamp
-	56, // 7: urbac.Role.created_at:type_name -> google.protobuf.Timestamp
-	56, // 8: urbac.Role.updated_at:type_name -> google.protobuf.Timestamp
-	56, // 9: urbac.RolePermission.created_at:type_name -> google.protobuf.Timestamp
-	56, // 10: urbac.RolePermission.updated_at:type_name -> google.protobuf.Timestamp
-	56, // 11: urbac.UserRole.created_at:type_name -> google.protobuf.Timestamp
-	56, // 12: urbac.UserRole.updated_at:type_name -> google.protobuf.Timestamp
-	56, // 13: urbac.UserPermissionOverride.created_at:type_name -> google.protobuf.Timestamp
-	56, // 14: urbac.UserPermissionOverride.updated_at:type_name -> google.protobuf.Timestamp
-	55, // 15: urbac.AuditEvent.payload:type_name -> google.protobuf.Struct
-	56, // 16: urbac.AuditEvent.created_at:type_name -> google.protobuf.Timestamp
-	55, // 17: urbac.CreateModuleRequest.meta:type_name -> google.protobuf.Struct
+	59, // 0: urbac.Module.meta:type_name -> google.protobuf.Struct
+	60, // 1: urbac.Module.created_at:type_name -> google.protobuf.Timestamp
+	60, // 2: urbac.Module.updated_at:type_name -> google.protobuf.Timestamp
+	60, // 3: urbac.Submodule.created_at:type_name -> google.protobuf.Timestamp
+	60, // 4: urbac.Submodule.updated_at:type_name -> google.protobuf.Timestamp
+	60, // 5: urbac.PermissionType.created_at:type_name -> google.protobuf.Timestamp
+	60, // 6: urbac.PermissionType.updated_at:type_name -> google.protobuf.Timestamp
+	60, // 7: urbac.Role.created_at:type_name -> google.protobuf.Timestamp
+	60, // 8: urbac.Role.updated_at:type_name -> google.protobuf.Timestamp
+	60, // 9: urbac.RolePermission.created_at:type_name -> google.protobuf.Timestamp
+	60, // 10: urbac.RolePermission.updated_at:type_name -> google.protobuf.Timestamp
+	60, // 11: urbac.UserRole.created_at:type_name -> google.protobuf.Timestamp
+	60, // 12: urbac.UserRole.updated_at:type_name -> google.protobuf.Timestamp
+	60, // 13: urbac.UserPermissionOverride.created_at:type_name -> google.protobuf.Timestamp
+	60, // 14: urbac.UserPermissionOverride.updated_at:type_name -> google.protobuf.Timestamp
+	59, // 15: urbac.AuditEvent.payload:type_name -> google.protobuf.Struct
+	60, // 16: urbac.AuditEvent.created_at:type_name -> google.protobuf.Timestamp
+	59, // 17: urbac.CreateModuleRequest.meta:type_name -> google.protobuf.Struct
 	0,  // 18: urbac.ListModulesResponse.modules:type_name -> urbac.Module
 	0,  // 19: urbac.ModuleResponse.module:type_name -> urbac.Module
-	55, // 20: urbac.CreateSubmoduleRequest.meta:type_name -> google.protobuf.Struct
+	59, // 20: urbac.CreateSubmoduleRequest.meta:type_name -> google.protobuf.Struct
 	1,  // 21: urbac.ListSubmodulesResponse.submodules:type_name -> urbac.Submodule
 	1,  // 22: urbac.SubmoduleResponse.submodule:type_name -> urbac.Submodule
 	2,  // 23: urbac.ListPermissionTypesResponse.permission_types:type_name -> urbac.PermissionType
@@ -3671,77 +3896,77 @@ var file_proto_urbac_urbac_proto_depIdxs = []int32{
 	4,  // 31: urbac.GetUserModulePermissionsResponse.permissions:type_name -> urbac.RolePermission
 	4,  // 32: urbac.GetUserSubmodulePermissionsResponse.permissions:type_name -> urbac.RolePermission
 	7,  // 33: urbac.ListPermissionAuditEventsResponse.events:type_name -> urbac.AuditEvent
-	8,  // 34: urbac.RBACService.CreateModule:input_type -> urbac.CreateModuleRequest
-	9,  // 35: urbac.RBACService.UpdateModule:input_type -> urbac.UpdateModuleRequest
-	10, // 36: urbac.RBACService.DeactivateModule:input_type -> urbac.DeactivateModuleRequest
-	11, // 37: urbac.RBACService.DeleteModule:input_type -> urbac.DeleteModuleRequest
-	12, // 38: urbac.RBACService.ListModules:input_type -> urbac.ListModulesRequest
-	15, // 39: urbac.RBACService.CreateSubmodule:input_type -> urbac.CreateSubmoduleRequest
-	16, // 40: urbac.RBACService.UpdateSubmodule:input_type -> urbac.UpdateSubmoduleRequest
-	17, // 41: urbac.RBACService.DeactivateSubmodule:input_type -> urbac.DeactivateSubmoduleRequest
-	18, // 42: urbac.RBACService.DeleteSubmodule:input_type -> urbac.DeleteSubmoduleRequest
-	19, // 43: urbac.RBACService.ListSubmodules:input_type -> urbac.ListSubmodulesRequest
-	22, // 44: urbac.RBACService.CreatePermissionType:input_type -> urbac.CreatePermissionTypeRequest
-	23, // 45: urbac.RBACService.UpdatePermissionType:input_type -> urbac.UpdatePermissionTypeRequest
-	24, // 46: urbac.RBACService.DeactivatePermissionType:input_type -> urbac.DeactivatePermissionTypeRequest
-	57, // 47: urbac.RBACService.ListPermissionTypes:input_type -> google.protobuf.Empty
-	27, // 48: urbac.RBACService.CreateRole:input_type -> urbac.CreateRoleRequest
-	28, // 49: urbac.RBACService.UpdateRole:input_type -> urbac.UpdateRoleRequest
-	29, // 50: urbac.RBACService.DeactivateRole:input_type -> urbac.DeactivateRoleRequest
-	30, // 51: urbac.RBACService.DeleteRole:input_type -> urbac.DeleteRoleRequest
-	57, // 52: urbac.RBACService.ListRoles:input_type -> google.protobuf.Empty
-	33, // 53: urbac.RBACService.AssignRolePermission:input_type -> urbac.AssignRolePermissionRequest
-	34, // 54: urbac.RBACService.RevokeRolePermission:input_type -> urbac.RevokeRolePermissionRequest
-	35, // 55: urbac.RBACService.ListRolePermissions:input_type -> urbac.ListRolePermissionsRequest
-	37, // 56: urbac.RBACService.AssignUserRole:input_type -> urbac.AssignUserRoleRequest
-	38, // 57: urbac.RBACService.RemoveUserRole:input_type -> urbac.RemoveUserRoleRequest
-	39, // 58: urbac.RBACService.ListUserRoles:input_type -> urbac.ListUserRolesRequest
-	41, // 59: urbac.RBACService.AssignUserPermissionOverride:input_type -> urbac.AssignUserPermissionOverrideRequest
-	42, // 60: urbac.RBACService.RevokeUserPermissionOverride:input_type -> urbac.RevokeUserPermissionOverrideRequest
-	43, // 61: urbac.RBACService.ListUserPermissionOverrides:input_type -> urbac.ListUserPermissionOverridesRequest
-	45, // 62: urbac.RBACService.GetUserPermissions:input_type -> urbac.GetUserPermissionsRequest
-	47, // 63: urbac.RBACService.GetUserModulePermissions:input_type -> urbac.GetUserModulePermissionsRequest
-	49, // 64: urbac.RBACService.GetUserSubmodulePermissions:input_type -> urbac.GetUserSubmodulePermissionsRequest
-	51, // 65: urbac.RBACService.CheckUserPermission:input_type -> urbac.CheckUserPermissionRequest
-	53, // 66: urbac.RBACService.ListPermissionAuditEvents:input_type -> urbac.ListPermissionAuditEventsRequest
-	14, // 67: urbac.RBACService.CreateModule:output_type -> urbac.ModuleResponse
-	14, // 68: urbac.RBACService.UpdateModule:output_type -> urbac.ModuleResponse
-	57, // 69: urbac.RBACService.DeactivateModule:output_type -> google.protobuf.Empty
-	57, // 70: urbac.RBACService.DeleteModule:output_type -> google.protobuf.Empty
-	13, // 71: urbac.RBACService.ListModules:output_type -> urbac.ListModulesResponse
-	21, // 72: urbac.RBACService.CreateSubmodule:output_type -> urbac.SubmoduleResponse
-	21, // 73: urbac.RBACService.UpdateSubmodule:output_type -> urbac.SubmoduleResponse
-	57, // 74: urbac.RBACService.DeactivateSubmodule:output_type -> google.protobuf.Empty
-	57, // 75: urbac.RBACService.DeleteSubmodule:output_type -> google.protobuf.Empty
-	20, // 76: urbac.RBACService.ListSubmodules:output_type -> urbac.ListSubmodulesResponse
-	26, // 77: urbac.RBACService.CreatePermissionType:output_type -> urbac.PermissionTypeResponse
-	26, // 78: urbac.RBACService.UpdatePermissionType:output_type -> urbac.PermissionTypeResponse
-	57, // 79: urbac.RBACService.DeactivatePermissionType:output_type -> google.protobuf.Empty
-	25, // 80: urbac.RBACService.ListPermissionTypes:output_type -> urbac.ListPermissionTypesResponse
-	32, // 81: urbac.RBACService.CreateRole:output_type -> urbac.RoleResponse
-	32, // 82: urbac.RBACService.UpdateRole:output_type -> urbac.RoleResponse
-	57, // 83: urbac.RBACService.DeactivateRole:output_type -> google.protobuf.Empty
-	57, // 84: urbac.RBACService.DeleteRole:output_type -> google.protobuf.Empty
-	31, // 85: urbac.RBACService.ListRoles:output_type -> urbac.ListRolesResponse
-	57, // 86: urbac.RBACService.AssignRolePermission:output_type -> google.protobuf.Empty
-	57, // 87: urbac.RBACService.RevokeRolePermission:output_type -> google.protobuf.Empty
-	36, // 88: urbac.RBACService.ListRolePermissions:output_type -> urbac.ListRolePermissionsResponse
-	57, // 89: urbac.RBACService.AssignUserRole:output_type -> google.protobuf.Empty
-	57, // 90: urbac.RBACService.RemoveUserRole:output_type -> google.protobuf.Empty
-	40, // 91: urbac.RBACService.ListUserRoles:output_type -> urbac.ListUserRolesResponse
-	57, // 92: urbac.RBACService.AssignUserPermissionOverride:output_type -> google.protobuf.Empty
-	57, // 93: urbac.RBACService.RevokeUserPermissionOverride:output_type -> google.protobuf.Empty
-	44, // 94: urbac.RBACService.ListUserPermissionOverrides:output_type -> urbac.ListUserPermissionOverridesResponse
-	46, // 95: urbac.RBACService.GetUserPermissions:output_type -> urbac.GetUserPermissionsResponse
-	48, // 96: urbac.RBACService.GetUserModulePermissions:output_type -> urbac.GetUserModulePermissionsResponse
-	50, // 97: urbac.RBACService.GetUserSubmodulePermissions:output_type -> urbac.GetUserSubmodulePermissionsResponse
+	5,  // 34: urbac.UserRoleResponse.role:type_name -> urbac.UserRole
+	4,  // 35: urbac.GetEffectiveUserPermissionsResponse.permissions:type_name -> urbac.RolePermission
+	8,  // 36: urbac.RBACService.CreateModule:input_type -> urbac.CreateModuleRequest
+	9,  // 37: urbac.RBACService.UpdateModule:input_type -> urbac.UpdateModuleRequest
+	10, // 38: urbac.RBACService.DeactivateModule:input_type -> urbac.DeactivateModuleRequest
+	11, // 39: urbac.RBACService.DeleteModule:input_type -> urbac.DeleteModuleRequest
+	12, // 40: urbac.RBACService.ListModules:input_type -> urbac.ListModulesRequest
+	15, // 41: urbac.RBACService.CreateSubmodule:input_type -> urbac.CreateSubmoduleRequest
+	16, // 42: urbac.RBACService.UpdateSubmodule:input_type -> urbac.UpdateSubmoduleRequest
+	17, // 43: urbac.RBACService.DeactivateSubmodule:input_type -> urbac.DeactivateSubmoduleRequest
+	18, // 44: urbac.RBACService.DeleteSubmodule:input_type -> urbac.DeleteSubmoduleRequest
+	19, // 45: urbac.RBACService.ListSubmodules:input_type -> urbac.ListSubmodulesRequest
+	22, // 46: urbac.RBACService.CreatePermissionType:input_type -> urbac.CreatePermissionTypeRequest
+	23, // 47: urbac.RBACService.UpdatePermissionType:input_type -> urbac.UpdatePermissionTypeRequest
+	24, // 48: urbac.RBACService.DeactivatePermissionType:input_type -> urbac.DeactivatePermissionTypeRequest
+	61, // 49: urbac.RBACService.ListPermissionTypes:input_type -> google.protobuf.Empty
+	27, // 50: urbac.RBACService.CreateRole:input_type -> urbac.CreateRoleRequest
+	28, // 51: urbac.RBACService.UpdateRole:input_type -> urbac.UpdateRoleRequest
+	29, // 52: urbac.RBACService.DeactivateRole:input_type -> urbac.DeactivateRoleRequest
+	30, // 53: urbac.RBACService.DeleteRole:input_type -> urbac.DeleteRoleRequest
+	61, // 54: urbac.RBACService.ListRoles:input_type -> google.protobuf.Empty
+	33, // 55: urbac.RBACService.AssignRolePermission:input_type -> urbac.AssignRolePermissionRequest
+	34, // 56: urbac.RBACService.RevokeRolePermission:input_type -> urbac.RevokeRolePermissionRequest
+	35, // 57: urbac.RBACService.ListRolePermissions:input_type -> urbac.ListRolePermissionsRequest
+	37, // 58: urbac.RBACService.AssignUserRole:input_type -> urbac.AssignUserRoleRequest
+	38, // 59: urbac.RBACService.RemoveUserRole:input_type -> urbac.RemoveUserRoleRequest
+	39, // 60: urbac.RBACService.ListUserRoles:input_type -> urbac.ListUserRolesRequest
+	55, // 61: urbac.RBACService.UpgradeUserRole:input_type -> urbac.UpgradeUserRoleRequest
+	41, // 62: urbac.RBACService.AssignUserPermissionOverride:input_type -> urbac.AssignUserPermissionOverrideRequest
+	42, // 63: urbac.RBACService.RevokeUserPermissionOverride:input_type -> urbac.RevokeUserPermissionOverrideRequest
+	43, // 64: urbac.RBACService.ListUserPermissionOverrides:input_type -> urbac.ListUserPermissionOverridesRequest
+	57, // 65: urbac.RBACService.GetEffectiveUserPermissions:input_type -> urbac.GetEffectiveUserPermissionsRequest
+	51, // 66: urbac.RBACService.CheckUserPermission:input_type -> urbac.CheckUserPermissionRequest
+	53, // 67: urbac.RBACService.ListPermissionAuditEvents:input_type -> urbac.ListPermissionAuditEventsRequest
+	14, // 68: urbac.RBACService.CreateModule:output_type -> urbac.ModuleResponse
+	14, // 69: urbac.RBACService.UpdateModule:output_type -> urbac.ModuleResponse
+	61, // 70: urbac.RBACService.DeactivateModule:output_type -> google.protobuf.Empty
+	61, // 71: urbac.RBACService.DeleteModule:output_type -> google.protobuf.Empty
+	13, // 72: urbac.RBACService.ListModules:output_type -> urbac.ListModulesResponse
+	21, // 73: urbac.RBACService.CreateSubmodule:output_type -> urbac.SubmoduleResponse
+	21, // 74: urbac.RBACService.UpdateSubmodule:output_type -> urbac.SubmoduleResponse
+	61, // 75: urbac.RBACService.DeactivateSubmodule:output_type -> google.protobuf.Empty
+	61, // 76: urbac.RBACService.DeleteSubmodule:output_type -> google.protobuf.Empty
+	20, // 77: urbac.RBACService.ListSubmodules:output_type -> urbac.ListSubmodulesResponse
+	26, // 78: urbac.RBACService.CreatePermissionType:output_type -> urbac.PermissionTypeResponse
+	26, // 79: urbac.RBACService.UpdatePermissionType:output_type -> urbac.PermissionTypeResponse
+	61, // 80: urbac.RBACService.DeactivatePermissionType:output_type -> google.protobuf.Empty
+	25, // 81: urbac.RBACService.ListPermissionTypes:output_type -> urbac.ListPermissionTypesResponse
+	32, // 82: urbac.RBACService.CreateRole:output_type -> urbac.RoleResponse
+	32, // 83: urbac.RBACService.UpdateRole:output_type -> urbac.RoleResponse
+	61, // 84: urbac.RBACService.DeactivateRole:output_type -> google.protobuf.Empty
+	61, // 85: urbac.RBACService.DeleteRole:output_type -> google.protobuf.Empty
+	31, // 86: urbac.RBACService.ListRoles:output_type -> urbac.ListRolesResponse
+	61, // 87: urbac.RBACService.AssignRolePermission:output_type -> google.protobuf.Empty
+	61, // 88: urbac.RBACService.RevokeRolePermission:output_type -> google.protobuf.Empty
+	36, // 89: urbac.RBACService.ListRolePermissions:output_type -> urbac.ListRolePermissionsResponse
+	61, // 90: urbac.RBACService.AssignUserRole:output_type -> google.protobuf.Empty
+	61, // 91: urbac.RBACService.RemoveUserRole:output_type -> google.protobuf.Empty
+	40, // 92: urbac.RBACService.ListUserRoles:output_type -> urbac.ListUserRolesResponse
+	56, // 93: urbac.RBACService.UpgradeUserRole:output_type -> urbac.UserRoleResponse
+	61, // 94: urbac.RBACService.AssignUserPermissionOverride:output_type -> google.protobuf.Empty
+	61, // 95: urbac.RBACService.RevokeUserPermissionOverride:output_type -> google.protobuf.Empty
+	44, // 96: urbac.RBACService.ListUserPermissionOverrides:output_type -> urbac.ListUserPermissionOverridesResponse
+	58, // 97: urbac.RBACService.GetEffectiveUserPermissions:output_type -> urbac.GetEffectiveUserPermissionsResponse
 	52, // 98: urbac.RBACService.CheckUserPermission:output_type -> urbac.CheckUserPermissionResponse
 	54, // 99: urbac.RBACService.ListPermissionAuditEvents:output_type -> urbac.ListPermissionAuditEventsResponse
-	67, // [67:100] is the sub-list for method output_type
-	34, // [34:67] is the sub-list for method input_type
-	34, // [34:34] is the sub-list for extension type_name
-	34, // [34:34] is the sub-list for extension extendee
-	0,  // [0:34] is the sub-list for field type_name
+	68, // [68:100] is the sub-list for method output_type
+	36, // [36:68] is the sub-list for method input_type
+	36, // [36:36] is the sub-list for extension type_name
+	36, // [36:36] is the sub-list for extension extendee
+	0,  // [0:36] is the sub-list for field type_name
 }
 
 func init() { file_proto_urbac_urbac_proto_init() }
@@ -3755,7 +3980,7 @@ func file_proto_urbac_urbac_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_urbac_urbac_proto_rawDesc), len(file_proto_urbac_urbac_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   55,
+			NumMessages:   59,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

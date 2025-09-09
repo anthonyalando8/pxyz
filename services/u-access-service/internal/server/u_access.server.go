@@ -44,9 +44,9 @@ func NewServer(cfg config.AppConfig) *http.Server {
 		log.Fatalf("failed to init snowflake: %v", err)
 	}
 
-	moduleUC := usecase.NewModuleUsecase(rbacRepo, sf)
+	moduleUC := usecase.NewRBACUsecase(rbacRepo, sf)
 	moduleHandler := hrest.NewModuleHandler(moduleUC)
-	moduleGRPCHandler := hgrpc.NewModuleGRPCHandler(moduleUC)
+	moduleGRPCHandler := hgrpc.NewRBACGRPCHandler(moduleUC)
 
 	// --- HTTP routes ---
 	r := chi.NewRouter()

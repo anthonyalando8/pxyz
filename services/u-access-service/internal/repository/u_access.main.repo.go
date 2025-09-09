@@ -38,6 +38,7 @@ type RBACRepository interface {
 	// User Roles
 	AssignUserRoles(ctx context.Context, roles []*domain.UserRole) ([]*domain.UserRole, []*xerrors.RepoError, error)
 	ListUserRoles(ctx context.Context, userID string) ([]*domain.UserRole, error)
+	UpgradeUserRole(ctx context.Context, userID string, newRoleID, assignedBy int64) (*domain.UserRole, error) 
 
 	// User Permission Overrides
 	AssignUserPermissionOverrides(ctx context.Context, overrides []*domain.UserPermissionOverride) ([]*domain.UserPermissionOverride, []*xerrors.RepoError, error)

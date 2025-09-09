@@ -6,6 +6,7 @@ import "time"
 type Submodule struct {
 	ID        int64      `json:"id"`
 	ModuleID  int64      `json:"module_id"`
+	ModuleCode string `json:"-"` // only for seeding
 	Code      string     `json:"code"`
 	Name      string     `json:"name"`
 	Meta      []byte     `json:"meta,omitempty"`

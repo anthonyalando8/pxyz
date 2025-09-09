@@ -12,25 +12,23 @@ import (
 	"x/shared/utils/id"
 )
 
-type ModuleUsecase struct {
+type RBACUsecase struct {
 	rbacRepo repository.RBACRepository
 	sf       *id.Snowflake
 }
 
-// NewModuleUsecase initializes ModuleUsecase
-func NewModuleUsecase(rbacRepo repository.RBACRepository, sf *id.Snowflake) *ModuleUsecase {
-	return &ModuleUsecase{
+// NewRBACUsecase initializes the RBACUsecase
+func NewRBACUsecase(rbacRepo repository.RBACRepository, sf *id.Snowflake) *RBACUsecase {
+	return &RBACUsecase{
 		rbacRepo: rbacRepo,
 		sf:       sf,
 	}
 }
 
-// CreateModules handles module creation (one or many)
-func (uc *ModuleUsecase) CreateModules(ctx context.Context, mods []*domain.Module) ([]*domain.Module, []*xerrors.RepoError, error) {
+// ------------------------ Modules ------------------------
+func (uc *RBACUsecase) CreateModules(ctx context.Context, modules []*domain.Module) ([]*domain.Module, []*xerrors.RepoError, error) {
 	now := time.Now().UTC()
-
-	// inject IDs + timestamps if missing
-	for _, m := range mods {
+	for _, m := range modules {
 		idStr := uc.sf.Generate()
 		idInt, err := strconv.ParseInt(idStr, 10, 64)
 		if err != nil {
@@ -40,12 +38,171 @@ func (uc *ModuleUsecase) CreateModules(ctx context.Context, mods []*domain.Modul
 		m.CreatedAt = now
 		m.UpdatedAt = &now
 	}
-	created, perr, err := uc.rbacRepo.CreateModules(ctx, mods)
-	if err != nil {
-		return nil, perr, fmt.Errorf("usecase: failed to create modules: %w", err)
+	return uc.rbacRepo.CreateModules(ctx, modules)
+}
+
+func (uc *RBACUsecase) UpdateModule(ctx context.Context, module *domain.Module) error {
+	module.UpdatedAt = ptrTime(time.Now().UTC())
+	return uc.rbacRepo.UpdateModule(ctx, module)
+}
+
+func (uc *RBACUsecase) GetModuleByCode(ctx context.Context, code string) (*domain.Module, error) {
+	return uc.rbacRepo.GetModuleByCode(ctx, code)
+}
+
+func (uc *RBACUsecase) ListModules(ctx context.Context) ([]*domain.Module, error) {
+	return uc.rbacRepo.ListModules(ctx)
+}
+
+// ------------------------ Submodules ------------------------
+func (uc *RBACUsecase) CreateSubmodules(ctx context.Context, subs []*domain.Submodule) ([]*domain.Submodule, []*xerrors.RepoError, error) {
+	now := time.Now().UTC()
+	for _, s := range subs {
+		idStr := uc.sf.Generate()
+		idInt, err := strconv.ParseInt(idStr, 10, 64)
+		if err != nil {
+			return nil, nil, fmt.Errorf("usecase: failed to parse generated ID: %w", err)
+		}
+		s.ID = idInt
+		s.CreatedAt = now
+		s.UpdatedAt = &now
 	}
-	return created, perr, nil
-		
+	return uc.rbacRepo.CreateSubmodules(ctx, subs)
+}
+
+func (uc *RBACUsecase) UpdateSubmodule(ctx context.Context, sub *domain.Submodule) error {
+	sub.UpdatedAt = ptrTime(time.Now().UTC())
+	return uc.rbacRepo.UpdateSubmodule(ctx, sub)
+}
+
+func (uc *RBACUsecase) GetSubmoduleByCode(ctx context.Context, moduleID int64, code string) (*domain.Submodule, error) {
+	return uc.rbacRepo.GetSubmoduleByCode(ctx, moduleID, code)
+}
+
+func (uc *RBACUsecase) ListSubmodules(ctx context.Context, moduleID int64) ([]*domain.Submodule, error) {
+	return uc.rbacRepo.ListSubmodules(ctx, moduleID)
+}
+
+// ------------------------ Roles ------------------------
+func (uc *RBACUsecase) CreateRoles(ctx context.Context, roles []*domain.Role) ([]*domain.Role, []*xerrors.RepoError, error) {
+	now := time.Now().UTC()
+	for _, r := range roles {
+		idStr := uc.sf.Generate()
+		idInt, _ := strconv.ParseInt(idStr, 10, 64)
+		r.ID = idInt
+		r.CreatedAt = now
+		r.UpdatedAt = &now
+	}
+	return uc.rbacRepo.CreateRoles(ctx, roles)
+}
+
+func (uc *RBACUsecase) UpdateRole(ctx context.Context, role *domain.Role) error {
+	role.UpdatedAt = ptrTime(time.Now().UTC())
+	return uc.rbacRepo.UpdateRole(ctx, role)
+}
+
+func (uc *RBACUsecase) ListRoles(ctx context.Context) ([]*domain.Role, error) {
+	return uc.rbacRepo.ListRoles(ctx)
+}
+
+// ------------------------ Permission Types ------------------------
+func (uc *RBACUsecase) CreatePermissionTypes(ctx context.Context, perms []*domain.PermissionType) ([]*domain.PermissionType, []*xerrors.RepoError, error) {
+	now := time.Now().UTC()
+	for _, p := range perms {
+		idStr := uc.sf.Generate()
+		idInt, _ := strconv.ParseInt(idStr, 10, 64)
+		p.ID = idInt
+		p.CreatedAt = now
+		p.UpdatedAt = &now
+	}
+	return uc.rbacRepo.CreatePermissionTypes(ctx, perms)
+}
+
+func (uc *RBACUsecase) ListPermissionTypes(ctx context.Context) ([]*domain.PermissionType, error) {
+	return uc.rbacRepo.ListPermissionTypes(ctx)
+}
+
+// ------------------------ Role Permissions ------------------------
+func (uc *RBACUsecase) AssignRolePermissions(ctx context.Context, perms []*domain.RolePermission) ([]*domain.RolePermission, []*xerrors.RepoError, error) {
+	now := time.Now().UTC()
+	for _, rp := range perms {
+		rp.CreatedAt = now
+		rp.UpdatedAt = &now
+	}
+	return uc.rbacRepo.AssignRolePermissions(ctx, perms)
+}
+
+func (uc *RBACUsecase) ListRolePermissions(ctx context.Context, roleID int64) ([]*domain.RolePermission, error) {
+	return uc.rbacRepo.ListRolePermissions(ctx, roleID)
+}
+
+// ------------------------ User Roles ------------------------
+func (uc *RBACUsecase) AssignUserRoles(ctx context.Context, roles []*domain.UserRole) ([]*domain.UserRole, []*xerrors.RepoError, error) {
+	now := time.Now().UTC()
+	for _, r := range roles {
+		r.CreatedAt = now
+		r.UpdatedAt = &now
+	}
+	return uc.rbacRepo.AssignUserRoles(ctx, roles)
+}
+
+func (uc *RBACUsecase) ListUserRoles(ctx context.Context, userID string) ([]*domain.UserRole, error) {
+	return uc.rbacRepo.ListUserRoles(ctx, userID)
+}
+
+func (uc *RBACUsecase) UpgradeUserRole(ctx context.Context, userID string, newRoleID, assignedBy int64) (*domain.UserRole, error) {
+	return uc.rbacRepo.UpgradeUserRole(ctx, userID, newRoleID, assignedBy)
+}
+
+// ------------------------ User Permission Overrides ------------------------
+func (uc *RBACUsecase) AssignUserPermissionOverrides(ctx context.Context, overrides []*domain.UserPermissionOverride) ([]*domain.UserPermissionOverride, []*xerrors.RepoError, error) {
+	now := time.Now().UTC()
+	for _, o := range overrides {
+		o.CreatedAt = now
+		o.UpdatedAt = &now
+	}
+	return uc.rbacRepo.AssignUserPermissionOverrides(ctx, overrides)
+}
+
+func (uc *RBACUsecase) ListUserPermissionOverrides(ctx context.Context, userID string) ([]*domain.UserPermissionOverride, error) {
+	return uc.rbacRepo.ListUserPermissionOverrides(ctx, userID)
+}
+
+// ------------------------ Audit ------------------------
+func (uc *RBACUsecase) LogPermissionEvent(ctx context.Context, audit *domain.PermissionsAudit) error {
+	audit.CreatedAt = time.Now().UTC()
+	return uc.rbacRepo.LogPermissionEvent(ctx, audit)
+}
+
+func (uc *RBACUsecase) ListAuditEvents(ctx context.Context, filter map[string]interface{}) ([]*domain.PermissionsAudit, error) {
+	return uc.rbacRepo.ListAuditEvents(ctx, filter)
+}
+
+// ------------------------ Effective Permissions ------------------------
+func (uc *RBACUsecase) GetEffectivePermissions(ctx context.Context, userID string, moduleCode, submoduleCode *string) ([]*domain.EffectivePermission, error) {
+	return uc.rbacRepo.GetEffectivePermissions(ctx, userID, moduleCode, submoduleCode)
+}
+
+func (uc *RBACUsecase) CheckUserPermission(ctx context.Context, userID string, moduleID int64, submoduleID int64, permissionTypeID int64) (bool, error) {
+	// fetch effective permissions for the user and check if the specific permission is allowed
+	perms, err := uc.GetEffectivePermissions(ctx, userID, nil, nil)
+	if err != nil {
+		return false, err
+	}
+
+	for _, p := range perms {
+		if p.ModuleID == moduleID && 
+		   (p.SubmoduleID == nil || *p.SubmoduleID == submoduleID) &&
+		   p.PermissionTypeID == permissionTypeID {
+			return p.Allow, nil
+		}
+	}
+
+	return false, nil
 }
 
 
+// ------------------------ Helpers ------------------------
+func ptrTime(t time.Time) *time.Time {
+	return &t
+}

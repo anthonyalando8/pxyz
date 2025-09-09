@@ -5,7 +5,7 @@ import "time"
 // UserPermissionOverride overrides permissions at user-level
 type UserPermissionOverride struct {
 	ID               int64      `json:"id"`
-	UserID           int64      `json:"user_id"`
+	UserID           string      `json:"user_id"`
 	ModuleID         int64      `json:"module_id"`
 	SubmoduleID      *int64     `json:"submodule_id,omitempty"`
 	PermissionTypeID int64      `json:"permission_type_id"`

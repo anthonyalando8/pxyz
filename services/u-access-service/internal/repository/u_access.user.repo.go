@@ -15,6 +15,9 @@ func (r *rbacRepo) AssignUserRoles(ctx context.Context, roles []*domain.UserRole
 	query := `
 		INSERT INTO rbac_user_roles (user_id, role_id, assigned_by, created_at)
 		VALUES ($1, $2, $3, NOW())
+		ON CONFLICT (user_id, role_id) DO UPDATE 
+			SET assigned_by = EXCLUDED.assigned_by,
+			    updated_at = NOW()
 		RETURNING id, user_id, role_id, assigned_by, created_at, updated_at, updated_by
 	`
 
@@ -38,7 +41,7 @@ func (r *rbacRepo) AssignUserRoles(ctx context.Context, roles []*domain.UserRole
 				Entity: "UserRole",
 				Code:   "INSERT_FAILED",
 				Msg:    err.Error(),
-				Ref:    fmt.Sprintf("user:%d-role:%d", ur.UserID, ur.RoleID),
+				Ref:    fmt.Sprintf("user:%s-role:%d", ur.UserID, ur.RoleID),
 			}
 			perr = append(perr, re)
 			continue
@@ -48,11 +51,65 @@ func (r *rbacRepo) AssignUserRoles(ctx context.Context, roles []*domain.UserRole
 	}
 
 	if len(perr) > 0 && len(created) == 0 {
-		return nil, perr, nil // everything failed
+		return nil, perr, nil // all failed
 	}
 
 	return created, perr, nil
 }
+
+// UpgradeUserRole replaces a user's current role with a new role
+func (r *rbacRepo) UpgradeUserRole(ctx context.Context, userID string, newRoleID, assignedBy int64) (*domain.UserRole, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	// Check if user already has the new role
+	var exists bool
+	err = tx.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM rbac_user_roles
+			WHERE user_id = $1 AND role_id = $2
+		)
+	`, userID, newRoleID).Scan(&exists)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check existing role: %w", err)
+	}
+	if exists {
+		// already has role, nothing to do
+		return nil, nil
+	}
+
+	// Delete current role (assumes only 1 role per user)
+	_, err = tx.Exec(ctx, `
+		DELETE FROM rbac_user_roles
+		WHERE user_id = $1
+	`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to remove old role: %w", err)
+	}
+
+	// Insert new role
+	var ur domain.UserRole
+	err = tx.QueryRow(ctx, `
+		INSERT INTO rbac_user_roles (user_id, role_id, assigned_by, created_at)
+		VALUES ($1, $2, $3, NOW())
+		RETURNING id, user_id, role_id, assigned_by, created_at, updated_at, updated_by
+	`, userID, newRoleID, assignedBy).Scan(
+		&ur.ID, &ur.UserID, &ur.RoleID, &ur.AssignedBy, &ur.CreatedAt, &ur.UpdatedAt, &ur.UpdatedBy,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to assign new role: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return &ur, nil
+}
+
 
 
 func (r *rbacRepo) ListUserRoles(ctx context.Context, userID string) ([]*domain.UserRole, error) {
@@ -149,7 +206,7 @@ func (r *rbacRepo) AssignUserPermissionOverrides(
 				Entity: "UserPermissionOverride",
 				Code:   "DB_ERROR",
 				Msg:    err.Error(),
-				Ref:    fmt.Sprintf("user_id=%d,module_id=%d,perm_type_id=%d",
+				Ref:    fmt.Sprintf("user_id=%s,module_id=%d,perm_type_id=%d",
 					o.UserID, o.ModuleID, o.PermissionTypeID),
 			})
 			continue
