@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Auth Demo</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+<h1>Auth Demo</h1>
+
+<!-- Google Sign-In button -->
+<div id="g_id_onload"
+     data-client_id="866559606665-nt1g6q72e0kfulbc2qeoba1m35e3tr5a.apps.googleusercontent.com"
+     data-callback="handleGoogleCredential">
+</div>
+<div class="g_id_signin"></div>
+
+<!-- Telegram login button container -->
+<div id="telegram-button"></div>
+
+<script>
+/* ---------------- Google ---------------- */
+function handleGoogleCredential(response) {
+    console.log("Google ID Token:", response.credential);
+
+    fetch('http://localhost:8001/auth/google', {  // update with your ngrok URL
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_token: response.credential })
+    })
+    .then(res => res.json())
+    .then(data => {
+        console.log("Server response (Google):", data);
+        alert("Logged in via Google! Token: " + data.token);
+    })
+    .catch(err => console.error(err));
+}
+
+/* ---------------- Telegram ---------------- */
+// Callback triggered after successful Telegram login
+function onTelegramAuth(user) {
+    console.log("Telegram user data:", user);
+
+    fetch('http://localhost:8001/auth/telegram', {  // your ngrok URL
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            id: user.id.toString(),
+            first_name: user.first_name || "",
+            last_name: user.last_name || "",
+            username: user.username || "",
+            photo_url: user.photo_url || "",
+            auth_date: user.auth_date.toString(),
+            hash: user.hash || "",
+            device_id: "browser-test",
+            geo_location: "Nairobi, Kenya",
+            device_metadata: {
+                "os": "windows"
+            }
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        console.log("Server response (Telegram):", data);
+        if (data.next) {
+            alert("Next step required: " + data.next);
+        } else {
+            alert("Logged in via Telegram! Token: " + data.token);
+        }
+    })
+    .catch(err => console.error(err));
+}
+
+// Dynamically load Telegram login widget
+const script = document.createElement('script');
+script.src = "https://telegram.org/js/telegram-widget.js?7";
+script.setAttribute("data-telegram-login", "PxyzAuthBot"); // your bot username
+script.setAttribute("data-size", "large");
+script.setAttribute("data-userpic", "true");
+script.setAttribute("data-lang", "en");
+script.setAttribute("data-onauth", "onTelegramAuth(user)");
+script.async = true;
+document.getElementById('telegram-button').appendChild(script);
+</script>
+
+</body>
+</html>

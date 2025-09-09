@@ -271,6 +271,34 @@ services:
       - micro_net
     depends_on:
       - redis
+  u-access-service:
+    container_name: u-access-service
+    build:
+      context: .
+      dockerfile: services/u-access-service/Dockerfile
+    ports:
+      - "8031:8031"   # REST
+      - "8032:8032"   # gRPC
+    env_file:
+      - ./services/u-access-service/.env
+    volumes:
+      - ./services/u-access-service/secrets:/app/secrets:ro
+      - ./uploads:/app/uploads
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: 2000
+      DB_NAME: pxyz
+      REDIS_ADDR: redis:6379
+      HTTP_ADDR: :8041
+      GRPC_ADDR: :8042
+      REDIS_PASS:
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    networks:
+      - micro_net
+    depends_on:
+      - redis
 
 networks:
   micro_net:

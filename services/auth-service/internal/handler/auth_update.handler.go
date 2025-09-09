@@ -299,15 +299,34 @@ func (h *AuthHandler) HandleRequestPhoneChange(w http.ResponseWriter, r *http.Re
 		response.Error(w, http.StatusInternalServerError, "User lookup failed")
 		return
 	}
+	ctx := r.Context()
 
-	// --- Check if phone already exists ---
-	if user.Phone != nil && *user.Phone != "" {
-		log.Printf("[INFO] user %s already has a phone set", userID)
-		response.JSON(w, http.StatusBadRequest, map[string]string{
-			"message": "Phone number already updated. Contact support if you want to change your phone.",
-		})
-		return
+	userNatKey := fmt.Sprintf("user_nationality:%s", userID)
+	nationality, err := h.redisClient.Get(ctx, userNatKey).Result()
+	if err != nil || nationality == "" {
+		// not cached → call ensureNationality
+		nextAction, nat := h.ensureNationality(ctx, userID)
+		if nextAction != "" {
+			response.JSON(w, http.StatusOK, map[string]string{
+				"message": "Please update your nationality to continue.",
+				"next":    nextAction,
+			})
+			return
+		}
+		nationality = nat
+		// cache nationality for 5 min
+		if err := h.redisClient.Set(ctx, userNatKey, nationality, 5*time.Minute).Err(); err != nil {
+			log.Printf("Failed to cache user nationality %s: %v", userID, err)
+		}
 	}
+	// --- Check if phone already exists ---
+	// if user.Phone != nil && *user.Phone != "" {
+	// 	log.Printf("[INFO] user %s already has a phone set", userID)
+	// 	response.JSON(w, http.StatusBadRequest, map[string]string{
+	// 		"message": "Phone number already updated. Contact support if you want to change your phone.",
+	// 	})
+	// 	return
+	// }
 
 	// --- Check if email exists for OTP sending ---
 	if user.Email == nil || *user.Email == "" {
@@ -741,12 +760,20 @@ func (h *AuthHandler) HandleRequestEmailVerification(w http.ResponseWriter, r *h
 		return
 	}
 
-	if user.IsEmailVerified || user.Email == nil || *user.Email == "" {
-		response.JSON(w, http.StatusOK, map[string]interface{}{
-			"message": "Email is already verified or not set",
+	if user.Email == nil || *user.Email == "" {
+		response.JSON(w, http.StatusBadRequest, map[string]interface{}{
+			"message": "Email is not set",
 		})
 		return
 	}
+
+	if user.IsEmailVerified {
+		response.JSON(w, http.StatusOK, map[string]interface{}{
+			"message": "Email is already verified",
+		})
+		return
+	}
+
 
 	// --- Generate OTP asynchronously ---
 	go func() {
@@ -788,12 +815,20 @@ func (h *AuthHandler) HandleRequestPhoneVerification(w http.ResponseWriter, r *h
 		return
 	}
 
-	if user.IsPhoneVerified || user.Phone == nil || *user.Phone == "" {
-		response.JSON(w, http.StatusOK, map[string]interface{}{
-			"message": "Phone is already verified or not set",
+	if user.Phone == nil || *user.Phone == "" {
+		response.JSON(w, http.StatusBadRequest, map[string]interface{}{
+			"message": "Phone is not set",
 		})
 		return
 	}
+
+	if user.IsPhoneVerified {
+		response.JSON(w, http.StatusOK, map[string]interface{}{
+			"message": "Phone is already verified",
+		})
+		return
+	}
+
 
 	// --- Generate OTP asynchronously ---
 	go func() {

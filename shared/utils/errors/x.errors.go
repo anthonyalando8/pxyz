@@ -1,6 +1,21 @@
 package xerrors
 
 import "errors"
+import "github.com/jackc/pgx/v5/pgconn"
+
+type RepoError struct {
+	Entity string
+	Code   string
+	Msg    string
+	Ref    string
+}
+
+func ParsePGErrorCode(err error) string {
+	if pgErr, ok := err.(*pgconn.PgError); ok {
+		return pgErr.Code // e.g. 23505 for unique_violation
+	}
+	return "unknown"
+}
 
 // Generic
 var (

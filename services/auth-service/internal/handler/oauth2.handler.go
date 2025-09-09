@@ -1,11 +1,13 @@
 package handler
 
 import (
+	"auth-service/internal/usecase"
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
+	accountclient "x/shared/genproto/accountpb"
 	"x/shared/response"
-	"auth-service/internal/usecase"
 )
 
 type GoogleAuthRequest struct {
@@ -21,7 +23,7 @@ func (h *AuthHandler) GoogleAuthHandler(w http.ResponseWriter, r *http.Request) 
 
 	var req GoogleAuthRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w,  http.StatusBadRequest, "invalid request",)
+		response.Error(w, http.StatusBadRequest, "invalid request")
 		return
 	}
 
@@ -30,28 +32,49 @@ func (h *AuthHandler) GoogleAuthHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	user, err := h.uc.RegisterWithGoogle(ctx, req.IDToken, h.config.GoogleClientID)
+	// Register or fetch user using Google token
+	user, googleUser, err := h.uc.RegisterWithGoogle(ctx, req.IDToken, h.config.GoogleClientID)
 	if err != nil {
 		response.Error(w, http.StatusUnauthorized, err.Error())
 		return
 	}
 
+	// Ensure nationality
+	next, _ := h.ensureNationality(ctx, user.ID)
+
+	// Create session
 	session, err := h.createSessionHelper(
-		r.Context(),
+		ctx,
 		user.ID, false, false, "general",
 		nil, req.DeviceID, req.DeviceMetadata, req.GeoLocation, r,
 	)
 	if err != nil {
-		log.Printf("Failed to create session: %v", err)
+		log.Printf("[GoogleAuth] Failed to create session: %v", err)
 		response.Error(w, http.StatusInternalServerError, "session creation failed")
 		return
 	}
 
-	response.JSON(w, http.StatusOK, map[string]interface{}{
+	// Build response
+	resp := map[string]interface{}{
 		"token":  session.AuthToken,
 		"device": session.DeviceID,
-	})
+	}
+	if next != "" {
+		resp["next"] = next
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+
+	// ---------------- Background profile update ----------------
+	h.BackgroundUpdateProfile(
+		user.ID,
+		toPtr(googleUser.FirstName),
+		toPtr(googleUser.LastName),
+		nil,
+		nil,
+	)
 }
+
 
 type AppleAuthRequest struct {
 	IDToken string `json:"id_token,omitempty"` // if using Apple JS directly
@@ -70,15 +93,16 @@ func (h *AuthHandler) AppleAuthHandler(w http.ResponseWriter, r *http.Request) {
 
 	var req AppleAuthRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w,  http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.IDToken == "" && req.Code == "" {
-		response.Error(w,http.StatusBadRequest ,"either id_token or code is required", )
+		response.Error(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
-	// Build deps from your config/env
+	if req.IDToken == "" && req.Code == "" {
+		response.Error(w, http.StatusBadRequest, "either id_token or code is required")
+		return
+	}
+
+	// Build Apple deps
 	deps := usecase.AppleDeps{
 		ServiceID:   h.config.Apple.ServiceID,
 		TeamID:      h.config.Apple.TeamID,
@@ -93,7 +117,7 @@ func (h *AuthHandler) AppleAuthHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If Apple sent name only once (first time) via your frontend, you can persist here
+	// Persist first/last name if Apple sent them first time
 	if isNew && (req.FirstName != nil || req.LastName != nil) {
 		firstName := ""
 		lastName := ""
@@ -106,22 +130,43 @@ func (h *AuthHandler) AppleAuthHandler(w http.ResponseWriter, r *http.Request) {
 		_ = h.uc.UpdateName(ctx, user.ID, firstName, lastName)
 	}
 
+	// Ensure nationality
+	next, _ := h.ensureNationality(ctx, user.ID)
+
+	// Create session
 	session, err := h.createSessionHelper(
-		r.Context(),
+		ctx,
 		user.ID, false, false, "general",
 		nil, req.DeviceID, req.DeviceMetadata, req.GeoLocation, r,
 	)
 	if err != nil {
-		log.Printf("Failed to create session: %v", err)
+		log.Printf("[AppleAuth] Failed to create session: %v", err)
 		response.Error(w, http.StatusInternalServerError, "session creation failed")
 		return
 	}
 
-	response.JSON(w, http.StatusOK, map[string]interface{}{
+	// Build response
+	resp := map[string]interface{}{
 		"token":  session.AuthToken,
 		"device": session.DeviceID,
-	})
+	}
+	if next != "" {
+		resp["next"] = next
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+
+	// ---------------- Background profile update ----------------
+	h.BackgroundUpdateProfile(
+		user.ID,
+		req.FirstName,
+		req.LastName,
+		nil, // Apple does not send username
+		nil, // No profile image URL by default
+	)
 }
+
+
 
 
 type TelegramLoginRequest struct {
@@ -141,11 +186,14 @@ type TelegramLoginRequest struct {
 func (h *AuthHandler) TelegramLogin(w http.ResponseWriter, r *http.Request) {
 	var req TelegramLoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest,"invalid request",)
+		log.Printf("[TelegramLogin] Invalid request body: %v", err)
+		response.Error(w, http.StatusBadRequest, "invalid request")
 		return
 	}
 
-	// Convert request to map for verification
+	log.Printf("[TelegramLogin] Received login request for Telegram ID: %s", req.ID)
+
+	// Map for verification
 	data := map[string]string{
 		"id":         req.ID,
 		"first_name": req.FirstName,
@@ -156,32 +204,101 @@ func (h *AuthHandler) TelegramLogin(w http.ResponseWriter, r *http.Request) {
 		"hash":       req.Hash,
 	}
 
+	// Verify Telegram authentication
 	if !h.telegramClient.VerifyTelegramAuth(data) {
-		response.Error(w, http.StatusUnauthorized,"unauthorized", )
+		log.Printf("[TelegramLogin] Telegram auth verification failed for ID: %s", req.ID)
+		response.Error(w, http.StatusUnauthorized, "Telegram verification failed")
 		return
 	}
+	log.Printf("[TelegramLogin] Telegram auth verified successfully for ID: %s", req.ID)
 
-	// At this point, the Telegram login is valid.
-	// Now you can link/create user in DB using your usecase
+	// Handle user creation/linking
 	user, err := h.uc.HandleTelegramLogin(r.Context(), data)
 	if err != nil {
-		response.Error(w,  http.StatusInternalServerError,"failed to process login",)
+		log.Printf("[TelegramLogin] Failed to handle Telegram login for ID %s: %v", req.ID, err)
+		response.Error(w, http.StatusInternalServerError, "failed to process login")
 		return
 	}
+	log.Printf("[TelegramLogin] User processed successfully: userID=%s", user.ID)
 
+	// Ensure nationality
+	next, _ := h.ensureNationality(r.Context(), user.ID)
+	if next != "" {
+		log.Printf("[TelegramLogin] User %s requires next step: %s", user.ID, next)
+	}
+
+	// Create session
 	session, err := h.createSessionHelper(
 		r.Context(),
 		user.ID, false, false, "general",
 		nil, req.DeviceID, req.DeviceMetadata, req.GeoLocation, r,
 	)
 	if err != nil {
-		log.Printf("Failed to create session: %v", err)
+		log.Printf("[TelegramLogin] Failed to create session for user %s: %v", user.ID, err)
 		response.Error(w, http.StatusInternalServerError, "session creation failed")
 		return
 	}
+	log.Printf("[TelegramLogin] Session created successfully for user %s, device %v", user.ID, req.DeviceID)
 
-	response.JSON(w, http.StatusOK, map[string]interface{}{
+	// Build response
+	resp := map[string]interface{}{
 		"token":  session.AuthToken,
 		"device": session.DeviceID,
-	})
+	}
+	if next != "" {
+		resp["next"] = next
+	}
+
+	log.Printf("[TelegramLogin] Sending response for user %s", user.ID)
+	response.JSON(w, http.StatusOK, resp)
+
+	// ---------------- Background profile update ----------------
+	h.BackgroundUpdateProfile(
+		user.ID,
+		toPtr(req.FirstName),
+		toPtr(req.LastName),
+		toPtr(req.Username),
+		toPtr(req.PhotoURL),
+	)
+}
+
+
+
+// BackgroundUpdateProfile updates the profile and profile picture in the background
+func (h *AuthHandler) BackgroundUpdateProfile(userID string, firstName, lastName, username, photoURL *string) {
+	go func() {
+		// 1. Update main profile fields
+		updateReq := &UpdateProfileRequest{
+			FirstName:   firstName,
+			LastName:    lastName,
+			SysUsername: username,
+		}
+
+		protoReq, err := BuildUpdateProfileRequest(userID, updateReq)
+		if err != nil {
+			log.Printf("[BG][UpdateProfile] Failed to build gRPC request for user %s: %v", userID, err)
+			return
+		}
+
+		if _, err := h.accountClient.Client.UpdateProfile(context.Background(), protoReq); err != nil {
+			log.Printf("[BG][UpdateProfile] Failed to update profile for user %s: %v", userID, err)
+			return
+		}
+		log.Printf("[BG][UpdateProfile] Profile updated successfully for user %s", userID)
+
+		// 2. Update profile picture if provided
+		if photoURL != nil && *photoURL != "" {
+			if _, err := h.accountClient.Client.UpdateProfilePicture(
+				context.Background(),
+				&accountclient.UpdateProfilePictureRequest{
+					UserId:   userID,
+					ImageUrl: *photoURL,
+				},
+			); err != nil {
+				log.Printf("[BG][UpdateProfilePicture] Failed to update profile picture for user %s: %v", userID, err)
+				return
+			}
+			log.Printf("[BG][UpdateProfilePicture] Profile picture updated successfully for user %s", userID)
+		}
+	}()
 }

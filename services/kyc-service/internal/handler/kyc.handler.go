@@ -49,11 +49,25 @@ func (h *KYCHandler) UploadKYC(w http.ResponseWriter, r *http.Request) {
 	idNumber := r.FormValue("id_number")
 	documentType := r.FormValue("document_type")
 	dateOfBirth := r.FormValue("date_of_birth")
+	agreeTerms := r.FormValue("agree_terms") // checkbox from frontend
+
+	// Check required fields
 	if idNumber == "" || documentType == "" || dateOfBirth == "" {
 		log.Printf("[WARN] Missing required KYC fields for userID=%s", userID)
 		response.Error(w, http.StatusBadRequest, "missing required fields")
 		return
 	}
+
+	// Check that terms were agreed
+	if agreeTerms != "true" && agreeTerms != "on" {
+		log.Printf("[WARN] User %s did not agree to terms", userID)
+		response.Error(w, http.StatusBadRequest, "terms must be accepted")
+		return
+	}
+
+	// Proceed with KYC processing
+	log.Printf("[INFO] KYC fields valid for userID=%s", userID)
+
 
 	// Get uploaded files
 	frontFile, frontHeader, err := r.FormFile("document_front")

@@ -6,6 +6,8 @@
 /services/auth-service/.env
 /services/auth-service/secrets/
 /services/auth-service/secrets/*
+/services/auth-service/static/
+/services/auth-service/static/*
 
 /services/session-mngt/.env
 /services/session-mngt/secrets/
@@ -40,3 +42,7 @@
 /services/core-service/.env
 /services/core-service/secrets/
 /services/core-service/secrets/*
+
+/services/u-access-service/.env
+/services/u-access-service/secrets/
+/services/u-access-service/secrets/*

@@ -42,7 +42,7 @@ func Load() AppConfig {
 			RedirectURI:   getEnv("APPLE_REDIRECT_URI", ""),
 			PrivateKeyPEM: getEnv("APPLE_PRIVATE_KEY_PEM", ""),
 		},
-		TelegramBotToken: getEnv("TELEGRAM_BOT_TOKEN", ""),
+		TelegramBotToken: getEnv("TELEGRAM_BOT_TOKEN", "8310235335:AAG40N9VHTuAdGnRkFv4388k6GgMx1sR1Os"),
 		TelegramChatID:   getEnv("TELEGRAM_CHAT_ID", ""),
 	}
 }

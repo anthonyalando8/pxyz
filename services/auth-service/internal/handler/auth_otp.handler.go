@@ -259,7 +259,7 @@ func (h *AuthHandler) handleNextAction(
 			resp["message"] = "Please update your nationality to continue."
 			resp["next"] = nextAction
 			response.JSON(w, http.StatusOK, resp)
-			return nil
+			return errors.New("update nationality")
 		}
 
 		// --- Create temporary session for phone change ---

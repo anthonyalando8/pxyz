@@ -10,7 +10,10 @@ import (
 
 	"encoding/hex"
 	"math/big"
-	
+
+
+	"strings"
+	"sync/atomic"	
 )
 
 const (
@@ -91,6 +94,50 @@ func GenerateID(prefix string) string {
 	id := fmt.Sprintf("%s%s%s", prefix, tsHex, randHex)
 
 	return id
+}
+
+var globalCounter uint64
+
+// GenerateWalletID creates unique, obfuscated, uppercase alphanumeric IDs.
+// Example: DN4F7X2K
+func GenerateWalletID(prefix string, length int) string {
+	if length <= len(prefix) {
+		panic("length must be greater than prefix length")
+	}
+
+	// Monotonic counter + timestamp (ensures ordering + uniqueness)
+	counter := atomic.AddUint64(&globalCounter, 1)
+	ts := time.Now().UnixNano() / 1e6 // milliseconds
+
+	// Base number = timestamp + counter
+	num := big.NewInt(ts + int64(counter))
+	base36 := strings.ToUpper(num.Text(36))
+
+	// Add a random 2-char salt to break predictability
+	salt := randomBase36(2)
+
+	// Combine
+	idBody := base36 + salt
+
+	// Ensure fixed length
+	needed := length - len(prefix)
+	if len(idBody) > needed {
+		idBody = idBody[len(idBody)-needed:]
+	} else if len(idBody) < needed {
+		idBody = strings.Repeat("0", needed-len(idBody)) + idBody
+	}
+
+	return prefix + idBody
+}
+
+func randomBase36(n int) string {
+	const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	out := make([]byte, n)
+	for i := 0; i < n; i++ {
+		num, _ := rand.Int(rand.Reader, big.NewInt(int64(len(chars))))
+		out[i] = chars[num.Int64()]
+	}
+	return string(out)
 }
 
 const (

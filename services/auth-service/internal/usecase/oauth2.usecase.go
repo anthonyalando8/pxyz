@@ -8,33 +8,38 @@ import (
 	"time"
 )
 
-func (uc *UserUsecase) RegisterWithGoogle(ctx context.Context, idToken, clientID string) (*domain.User, error) {
+func (uc *UserUsecase) RegisterWithGoogle(ctx context.Context, idToken, clientID string) (*domain.User, *oauth2svc.GoogleUser, error) {
+	// Verify Google ID token
 	googleUser, err := oauth2svc.VerifyGoogleToken(ctx, idToken, clientID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Check if this Google account already exists
 	oauthAcc, err := uc.userRepo.FindByProviderUID(ctx, "google", googleUser.Sub)
 	if err == nil && oauthAcc != nil {
 		// Existing account → fetch user
-		return uc.userRepo.GetUserByID(ctx, oauthAcc.UserID)
+		user, err := uc.userRepo.GetUserByID(ctx, oauthAcc.UserID)
+		if err != nil {
+			return nil, nil, err
+		}
+		return user, googleUser, nil
 	}
 
 	// Otherwise → new user
 	newUser := &domain.User{
-		ID:           uc.Sf.Generate(),
-		Email:        toPtr(googleUser.Email),
-		FirstName:    toPtr(googleUser.FirstName),
-		LastName:     toPtr(googleUser.LastName),
-		SignupStage:  "complete",
-		AccountType:  "social",
+		ID:             uc.Sf.Generate(),
+		Email:          toPtr(googleUser.Email),
+		FirstName:      toPtr(googleUser.FirstName),
+		LastName:       toPtr(googleUser.LastName),
+		SignupStage:    "complete",
+		AccountType:    "social",
 		IsEmailVerified: true,
 	}
 
 	user, err := uc.userRepo.CreateUser(ctx, newUser)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Link OAuth account
@@ -45,11 +50,12 @@ func (uc *UserUsecase) RegisterWithGoogle(ctx context.Context, idToken, clientID
 		ProviderUID: googleUser.Sub,
 	}
 	if err := uc.userRepo.CreateOAuthAccount(ctx, newOAuth); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return user, nil
+	return user, googleUser, nil
 }
+
 
 type AppleDeps struct {
 	ServiceID   string
@@ -148,7 +154,7 @@ func (uc *UserUsecase) HandleTelegramLogin(ctx context.Context, data map[string]
 		LastName:  strOrNil(data["last_name"]),
 		// Telegram doesn’t guarantee username/email/phone
 		// You can add heuristics if username exists
-		AccountType: "oauth", 
+		AccountType: "social", 
 		SignupStage: "complete", // since oauth users are "ready"
 	}
 

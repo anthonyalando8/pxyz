@@ -49,27 +49,35 @@ func (h *AuthHandler) GetFullUserProfile(ctx context.Context, userID string) (ma
 
 	// Merge response
 	resp := map[string]interface{}{
-		"user_id":           userID,
-		"email":             safeString(user.Email),
-		"phone":             safeString(user.Phone),
-		"is_email_verified": user.IsEmailVerified,
-		"is_phone_verified": user.IsPhoneVerified,
-		"account_type":      user.AccountType,
-		"account_status":    user.AccountStatus,
-		"created_at":        user.CreatedAt,
-		"updated_at":        user.UpdatedAt,
+		"user_id":        userID,
+		"email":          safeString(user.Email),
+		"phone":          safeString(user.Phone),
+		"account_type":   user.AccountType,
+		"account_status": user.AccountStatus,
+		"created_at":     user.CreatedAt,
+		"updated_at":     user.UpdatedAt,
 
 		// Extended profile
 		"first_name":    profile.FirstName,
 		"last_name":     profile.LastName,
-		"username": profile.Username,
+		"username":      profile.Username,
 		"bio":           profile.Bio,
 		"gender":        profile.Gender,
 		"date_of_birth": profile.DateOfBirth,
 		"profile_image": profile.ProfileImageUrl,
-		"nationality": profile.Nationality,
-		//"sys_username":  profile.SysUsername,
+		"nationality":   profile.Nationality,
 	}
+
+	// Add is_email_verified only if email exists
+	if user.Email != nil && *user.Email != "" {
+		resp["is_email_verified"] = user.IsEmailVerified
+	}
+
+	// Add is_phone_verified only if phone exists
+	if user.Phone != nil && *user.Phone != "" {
+		resp["is_phone_verified"] = user.IsPhoneVerified
+	}
+
 
 	var address map[string]interface{}
 	if err := json.Unmarshal([]byte(profile.AddressJson), &address); err == nil {
@@ -104,25 +112,19 @@ func (h *AuthHandler) HandleProfile(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, resp)
 }
 
-func (h *AuthHandler) HandleUpdateProfile(w http.ResponseWriter, r *http.Request) {
-	requestedUserID, ok := r.Context().Value(middleware.ContextUserID).(string)
-	if !ok || requestedUserID == "" {
-		response.Error(w, http.StatusUnauthorized, "Unauthorized")
-		return
+
+// BuildUpdateProfileRequest constructs a gRPC UpdateProfileRequest
+// from a user ID and partial UpdateProfileRequest payload.
+// Only sets fields that are non-nil.
+func BuildUpdateProfileRequest(userID string, req *UpdateProfileRequest) (*accountclient.UpdateProfileRequest, error) {
+	if userID == "" {
+		return nil, fmt.Errorf("user ID is required")
 	}
 
-	var req UpdateProfileRequest
-	if err := decodeRequestBody(r, &req); err != nil {
-		response.Error(w, http.StatusBadRequest, "Invalid request body")
-		return
-	}
-
-	// Prepare gRPC request
 	updateReq := &accountclient.UpdateProfileRequest{
-		UserId: requestedUserID,
+		UserId: userID,
 	}
 
-	// Only set fields if non-nil
 	if req.FirstName != nil {
 		updateReq.FirstName = *req.FirstName
 	}
@@ -141,18 +143,37 @@ func (h *AuthHandler) HandleUpdateProfile(w http.ResponseWriter, r *http.Request
 	if req.DateOfBirth != nil {
 		updateReq.DateOfBirth = *req.DateOfBirth
 	}
-
 	if req.Address != nil {
-		if addrBytes, err := json.Marshal(req.Address); err == nil {
-			updateReq.AddressJson = string(addrBytes)
-		} else {
-			response.Error(w, http.StatusBadRequest, "Invalid address format")
-			return
+		addrBytes, err := json.Marshal(req.Address)
+		if err != nil {
+			return nil, fmt.Errorf("invalid address format: %w", err)
 		}
+		updateReq.AddressJson = string(addrBytes)
 	}
 
-	// Call account-service gRPC
-	_, err := h.accountClient.Client.UpdateProfile(r.Context(), updateReq)
+	return updateReq, nil
+}
+
+func (h *AuthHandler) HandleUpdateProfile(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(middleware.ContextUserID).(string)
+	if !ok || userID == "" {
+		response.Error(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	var req UpdateProfileRequest
+	if err := decodeRequestBody(r, &req); err != nil {
+		response.Error(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	updateReq, err := BuildUpdateProfileRequest(userID, &req)
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	_, err = h.accountClient.Client.UpdateProfile(r.Context(), updateReq)
 	if err != nil {
 		response.Error(w, http.StatusInternalServerError, "Failed to update profile")
 		return
@@ -163,6 +184,7 @@ func (h *AuthHandler) HandleUpdateProfile(w http.ResponseWriter, r *http.Request
 		"message": "Profile updated successfully",
 	})
 }
+
 
 // UploadProfilePicture handles profile picture uploads
 func (h *AuthHandler) UploadProfilePicture(w http.ResponseWriter, r *http.Request) {
