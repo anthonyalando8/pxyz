@@ -10,6 +10,7 @@ import (
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/encoding/protojson"
+
 )
 
 type RBACGRPCHandler struct {
@@ -17,7 +18,7 @@ type RBACGRPCHandler struct {
 	rbacUC *usecase.RBACUsecase
 }
 
-func NewRBACGRPCHandler(uc *usecase.RBACUsecase) *RBACGRPCHandler {
+func NewRBACGRPCHandler(uc *usecase.RBACUsecase, ) *RBACGRPCHandler {
 	return &RBACGRPCHandler{rbacUC: uc}
 }
 

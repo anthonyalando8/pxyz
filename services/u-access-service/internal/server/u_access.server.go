@@ -59,9 +59,21 @@ func NewServer(cfg config.AppConfig) *http.Server {
 		}
 	}()
 
-	moduleUC := usecase.NewRBACUsecase(rbacRepo, sf)
+	moduleUC := usecase.NewRBACUsecase(rbacRepo, sf, rdb)
 	moduleHandler := hrest.NewModuleHandler(moduleUC)
 	moduleGRPCHandler := hgrpc.NewRBACGRPCHandler(moduleUC)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+
+		err := moduleUC.BatchAssignRolesToUnassignedUsers(ctx, 0)
+		if err != nil {
+			log.Printf("⚠️  batch role assignment failed: %v", err)
+		} else {
+			log.Println("✅ batch role assignment completed successfully")
+		}
+	}()
+
 
 	// --- HTTP routes ---
 	r := chi.NewRouter()

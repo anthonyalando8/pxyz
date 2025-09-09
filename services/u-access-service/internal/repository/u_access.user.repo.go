@@ -57,6 +57,102 @@ func (r *rbacRepo) AssignUserRoles(ctx context.Context, roles []*domain.UserRole
 	return created, perr, nil
 }
 
+func (r *rbacRepo) BatchAssignRolesToUsers(ctx context.Context, systemUserID int64, roleIDResolver func(ctx context.Context, roleName string) (int64, error)) error {
+	// Step 1: Fetch and classify users without roles
+	assignments, err := r.GetUsersWithoutRolesAndClassify(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get unassigned users: %w", err)
+	}
+
+	if len(assignments) == 0 {
+		return nil // nothing to assign
+	}
+
+	const batchSize = 1000
+	var rolesBatch []*domain.UserRole
+
+	for i, ua := range assignments {
+		roleID, err := roleIDResolver(ctx, ua.RoleName)
+		if err != nil {
+			// Optionally log and skip, or abort entirely
+			fmt.Printf("role lookup failed for %s: %v\n", ua.RoleName, err)
+			continue
+		}
+
+		rolesBatch = append(rolesBatch, &domain.UserRole{
+			UserID:     ua.UserID,
+			RoleID:     roleID,
+			AssignedBy: systemUserID,
+		})
+
+		// When batch full or final item — insert
+		if len(rolesBatch) == batchSize || i == len(assignments)-1 {
+			created, perr, err := r.AssignUserRoles(ctx, rolesBatch)
+			if err != nil {
+				return fmt.Errorf("batch insert failed: %w", err)
+			}
+			if len(perr) > 0 {
+				fmt.Printf("partial failures in batch: %d\n", len(perr))
+				// Optionally log errors here
+			}
+			rolesBatch = rolesBatch[:0] // reset batch
+			fmt.Printf("Batch of %d roles assigned. Total so far: %d\n", batchSize, len(created))
+		}
+	}
+
+	return nil
+}
+
+func (r *rbacRepo) GetUsersWithoutRolesAndClassify(ctx context.Context) ([]*UserRoleAssignment, error) {
+	query := `
+		SELECT 
+			u.id::TEXT AS user_id,
+			CASE
+				WHEN 
+					u.signup_stage != 'complete'
+					OR (u.account_type = 'hybrid' AND u.password_hash IS NULL)
+					OR (u.account_type = 'password' AND u.password_hash IS NULL)
+					OR NOT u.is_email_verified
+				THEN 'any'
+				
+				WHEN ks.status IS DISTINCT FROM 'approved'
+				THEN 'kyc_unverified'
+				
+				ELSE 'trader'
+			END AS role_name
+		FROM users u
+		LEFT JOIN rbac_user_roles rur ON rur.user_id = u.id
+		LEFT JOIN (
+			SELECT DISTINCT ON (user_id) *
+			FROM kyc_submissions
+			ORDER BY user_id, submitted_at DESC
+		) ks ON ks.user_id = u.id
+		WHERE rur.user_id IS NULL
+		  AND u.account_status != 'deleted'
+	`
+
+	rows, err := r.db.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to classify users: %w", err)
+	}
+	defer rows.Close()
+
+	var result []*UserRoleAssignment
+	for rows.Next() {
+		var ua UserRoleAssignment
+		if err := rows.Scan(&ua.UserID, &ua.RoleName); err != nil {
+			return nil, fmt.Errorf("scan error: %w", err)
+		}
+		result = append(result, &ua)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows error: %w", err)
+	}
+
+	return result, nil
+}
+
 // UpgradeUserRole replaces a user's current role with a new role
 func (r *rbacRepo) UpgradeUserRole(ctx context.Context, userID string, newRoleID, assignedBy int64) (*domain.UserRole, error) {
 	tx, err := r.db.Begin(ctx)

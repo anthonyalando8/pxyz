@@ -22,11 +22,13 @@ func SetupRoutes(
 ) chi.Router {
 	// ---- Global Middleware ----
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"http://127.0.0.1:5500", "http://localhost:5500", "https://38d9f221ec3b.ngrok-free.app"},
+		//AllowedOrigins:   []string{"http://127.0.0.1:5500", "http://localhost:5500", "https://38d9f221ec3b.ngrok-free.app"},
+		AllowedOrigins: []string{"*"}, // allow all origins
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "X-Requested-With"},
 		ExposedHeaders:   []string{"Link"},
-		AllowCredentials: true,
+		//AllowCredentials: true,
+		AllowCredentials: false, // must be false when using "*"
 		MaxAge:           300,
 	}))
 	r.Use(auth.RateLimit(rdb, 100, time.Minute, 10*time.Minute, "global"))
