@@ -1,15 +1,18 @@
 package server
 
 import (
+	"context"
 	"log"
 	"net"
 	"net/http"
+	"time"
 
 	"u-rbac-service/internal/config"
 	hgrpc "u-rbac-service/internal/handler/grpc"
 	hrest "u-rbac-service/internal/handler/rest"
 	"u-rbac-service/internal/repository"
 	"u-rbac-service/internal/router"
+	"u-rbac-service/internal/service"
 	"u-rbac-service/internal/usecase"
 	"x/shared/auth/middleware"
 	rbacpb "x/shared/genproto/urbacpb"
@@ -43,6 +46,18 @@ func NewServer(cfg config.AppConfig) *http.Server {
 	if err != nil {
 		log.Fatalf("failed to init snowflake: %v", err)
 	}
+
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		sync := service.NewRBACSeedService(rbacRepo)
+		if err := sync.SeedDefaults(ctx); err != nil {
+			log.Printf("⚠️  failed to sync data on startup: %v", err)
+		} else {
+			log.Println("✅ data synced successfully on startup")
+		}
+	}()
 
 	moduleUC := usecase.NewRBACUsecase(rbacRepo, sf)
 	moduleHandler := hrest.NewModuleHandler(moduleUC)

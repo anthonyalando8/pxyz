@@ -10,6 +10,8 @@ import (
 
 	"x/shared/auth/pkg/jwtutil"
 	authpb "x/shared/genproto/sessionpb"
+	"x/shared/urbac"
+	"x/shared/genproto/urbacpb"
 
 	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
@@ -17,12 +19,15 @@ import (
 )
 
 type MiddlewareWithClient struct {
-	Middleware func(http.Handler) http.Handler
-	Client     authpb.AuthServiceClient
-	Require    func(allowedTypes []string, allowedPurposes []string) func(http.Handler) http.Handler
+	Client       authpb.AuthServiceClient
+	RBACClient   urbacpb.RBACServiceClient
+	
+	Middleware   func(http.Handler) http.Handler
+	Require      func(allowedTypes []string, allowedPurposes []string) func(http.Handler) http.Handler
 	RequireRole  func(allowedRoles []string) func(http.Handler) http.Handler
-	RateLimit  func(rdb *redis.Client, limit int, window time.Duration, blockDuration time.Duration, keyPrefix string) func(http.Handler) http.Handler
+	RateLimit    func(rdb *redis.Client, limit int, window time.Duration, blockDuration time.Duration, keyPrefix string) func(http.Handler) http.Handler
 }
+
 
 // RequireAuth initializes middleware + client
 func RequireAuth() *MiddlewareWithClient {
@@ -39,12 +44,16 @@ func RequireAuth() *MiddlewareWithClient {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	conn, err := grpc.DialContext(ctx, "session-service:8002", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	// Connect to auth/session service
+	connAuth, err := grpc.DialContext(ctx, "session-service:8002", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("Failed to connect to auth-service: %v", err)
 	}
+	authClient := authpb.NewAuthServiceClient(connAuth)
 
-	authClient := authpb.NewAuthServiceClient(conn)
+	// Connect to RBAC service
+	rbacService := rbacclient.NewRBACService() // uses default or RBAC_SERVICE_ADDR env
+
 	m := NewAuthMiddleware(jwtVerifier, authClient)
 
 	return &MiddlewareWithClient{
@@ -53,8 +62,11 @@ func RequireAuth() *MiddlewareWithClient {
 		Require:    m.RequireWithChecks,
 		RateLimit:  RateLimiter,
 		RequireRole: m.RoleMiddleware,
+		// Include RBAC client
+		RBACClient: rbacService.Client,
 	}
 }
+
 
 func contains(list []string, item string) bool {
 	for _, v := range list {
