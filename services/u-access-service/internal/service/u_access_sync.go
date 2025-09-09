@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"time"
+	xerrors "x/shared/utils/errors"
 
 	"u-rbac-service/internal/domain"
 	"u-rbac-service/internal/repository"
@@ -24,10 +25,9 @@ func (s *RBACSeedService) SeedDefaults(ctx context.Context) error {
 	now := time.Now()
 	_ = now
 
-	// --- Modules/Submodules ---
 	modules, submodules, err := domain.GetDefaultModules()
 	if err != nil {
-		log.Printf("❌ Failed to get default modules: %v", err)
+		logError("Failed to get default modules", err)
 		return err
 	}
 
@@ -35,24 +35,135 @@ func (s *RBACSeedService) SeedDefaults(ctx context.Context) error {
 	if len(modules) > 0 {
 		createdModules, moduleErrs, err := s.repo.CreateModules(ctx, modules)
 		if err != nil {
-			log.Printf("❌ Error creating modules: %v", err)
+			logError("Error creating modules", err)
 			return err
 		}
-		for _, e := range moduleErrs {
-			log.Printf("⚠️ Module creation warning: %s - %s", e.Code, e.Msg)
+		logWarnings("Module creation warning", moduleErrs)
+		logCreatedModules(createdModules)
+	}
+
+	modMap, err := s.mapModules(ctx, createdModules)
+	if err != nil {
+		log.Printf("⚠️ Warning: proceeding with empty module map due to error: %v", err)
+		modMap = make(map[string]int64) // ensure it's not nil to avoid panic
+	}
+
+	mapSubmodulesToModules(submodules, modMap)
+
+	validSubmodules := filterValidSubmodules(submodules)
+
+	if len(validSubmodules) > 0 {
+		createdSubs, subErrs, err := s.repo.CreateSubmodules(ctx, validSubmodules)
+		if err != nil {
+			logError("Error creating submodules", err)
+			return err
 		}
-		if len(createdModules) == 0 {
-			log.Println("⚠️ No modules were created")
+		logWarnings("Submodule creation warning", subErrs)
+		if len(createdSubs) == 0 {
+			log.Println("⚠️ No submodules were created")
 		}
 	}
 
-	// Map module code → DB ID
+	log.Println("✅ Default RBAC modules and submodules seeded")
+
+	permissions, roles, rolePerms, err := domain.GetDefaultRolesAndPermissions()
+	if err != nil {
+		logError("Failed to get default roles and permissions", err)
+		return err
+	}
+
+	createdPerms, permErrs, err := s.repo.CreatePermissionTypes(ctx, permissions)
+	if err != nil {
+		logError("Error creating permission types", err)
+		return err
+	}
+	logWarnings("Permission creation warning", permErrs)
+	permMap := mapPermissions(createdPerms)
+
+	createdRoles, roleErrs, err := s.repo.CreateRoles(ctx, roles)
+	if err != nil {
+		logError("Error creating roles", err)
+		return err
+	}
+	logWarnings("Role creation warning", roleErrs)
+	roleMap := mapRoles(createdRoles)
+
+	mapRolePermissions(rolePerms, roleMap, permMap, modMap)
+
+	_, rpErrs, err := s.repo.AssignRolePermissions(ctx, rolePerms)
+	if err != nil {
+		logError("Error assigning role permissions", err)
+		return err
+	}
+	logRolePermissionWarnings(rpErrs)
+
+	log.Println("✅ Default RBAC roles, permissions, and role-permissions seeded successfully")
+	return nil
+}
+func logError(message string, err error) {
+	log.Printf("❌ %s: %v", message, err)
+}
+
+func logWarnings(prefix string, warnings []*xerrors.RepoError) {
+	for _, e := range warnings {
+		log.Printf("⚠️ %s: %v", prefix, e)
+	}
+}
+
+
+func logCreatedModules(modules []*domain.Module) {
+	if len(modules) == 0 {
+		log.Println("⚠️ No modules were created")
+		return
+	}
+	log.Println("Created modules:")
+	for _, m := range modules {
+		log.Printf("- %s: ID = %d", m.Code, m.ID)
+	}
+}
+
+func (s *RBACSeedService) mapModules(ctx context.Context, modules []*domain.Module) (map[string]int64, error) {
 	modMap := make(map[string]int64)
-	for _, m := range createdModules {
-		modMap[m.Code] = m.ID
+
+	// Build from provided modules
+	for _, m := range modules {
+		if m.ID != 0 {
+			modMap[m.Code] = m.ID
+		}
 	}
 
-	// Update submodules' ModuleID
+	// Fallback: fetch from DB if empty
+	if len(modMap) == 0 {
+		log.Println("⚠️ Module ID map is empty, falling back to DB query")
+		var err error
+		modMap, err = s.repo.GetModulesMap(ctx)
+		if err != nil {
+			log.Printf("❌ Failed to fetch module ID map from DB: %v", err)
+			return nil, err
+		}
+	}
+
+	return modMap, nil
+}
+
+
+func mapPermissions(perms []*domain.PermissionType) map[string]int64 {
+	permMap := make(map[string]int64)
+	for _, p := range perms {
+		permMap[p.Code] = p.ID
+	}
+	return permMap
+}
+
+func mapRoles(roles []*domain.Role) map[string]int64 {
+	roleMap := make(map[string]int64)
+	for _, r := range roles {
+		roleMap[r.Name] = r.ID
+	}
+	return roleMap
+}
+
+func mapSubmodulesToModules(submodules []*domain.Submodule, modMap map[string]int64) {
 	for _, sm := range submodules {
 		if sm.ModuleID == 0 {
 			if id, ok := modMap[sm.ModuleCode]; ok {
@@ -62,82 +173,46 @@ func (s *RBACSeedService) SeedDefaults(ctx context.Context) error {
 			}
 		}
 	}
+}
 
-	if len(submodules) > 0 {
-		createdSubs, subErrs, err := s.repo.CreateSubmodules(ctx, submodules)
-		if err != nil {
-			log.Printf("❌ Error creating submodules: %v", err)
-			return err
-		}
-		for _, e := range subErrs {
-			log.Printf("⚠️ Submodule creation warning: %s - %s", e.Code, e.Msg)
-		}
-		if len(createdSubs) == 0 {
-			log.Println("⚠️ No submodules were created")
+func filterValidSubmodules(submodules []*domain.Submodule) []*domain.Submodule {
+	valid := []*domain.Submodule{}
+	for _, sm := range submodules {
+		if sm.ModuleID != 0 {
+			valid = append(valid, sm)
+		} else {
+			log.Printf("⚠️ Skipping submodule %s: no ModuleID found for module code %s", sm.Code, sm.ModuleCode)
 		}
 	}
+	return valid
+}
 
-	log.Println("✅ Default RBAC modules and submodules seeded")
-
-	// --- Permissions/Roles ---
-	permissions, roles, rolePerms, err := domain.GetDefaultRolesAndPermissions()
-	if err != nil {
-		log.Printf("❌ Failed to get default roles and permissions: %v", err)
-		return err
-	}
-
-	// Insert PermissionTypes
-	createdPerms, permErrs, err := s.repo.CreatePermissionTypes(ctx, permissions)
-	if err != nil {
-		log.Printf("❌ Error creating permission types: %v", err)
-		return err
-	}
-	for _, e := range permErrs {
-		log.Printf("⚠️ Permission creation warning: %s - %s", e.Code, e.Msg)
-	}
-	permMap := make(map[string]int64)
-	for _, p := range createdPerms {
-		permMap[p.Code] = p.ID
-	}
-
-	// Insert Roles
-	createdRoles, roleErrs, err := s.repo.CreateRoles(ctx, roles)
-	if err != nil {
-		log.Printf("❌ Error creating roles: %v", err)
-		return err
-	}
-	for _, e := range roleErrs {
-		log.Printf("⚠️ Role creation warning: %s - %s", e.Code, e.Msg)
-	}
-	roleMap := make(map[string]int64)
-	for _, r := range createdRoles {
-		roleMap[r.Name] = r.ID
-	}
-
-	// Assign RolePermissions using DB IDs
+func mapRolePermissions(rolePerms []*domain.RolePermission, roleMap, permMap, modMap map[string]int64) {
 	for _, rp := range rolePerms {
 		if roleID, ok := roleMap[rp.RoleName]; ok {
 			rp.RoleID = roleID
+		} else {
+			log.Printf("⚠️ Cannot find RoleID for role: %s", rp.RoleName)
 		}
+
 		if permID, ok := permMap[rp.PermissionCode]; ok {
 			rp.PermissionTypeID = permID
+		} else {
+			log.Printf("❌ Missing PermissionTypeID for permission code: %s (role: %s, module: %s)",
+				rp.PermissionCode, rp.RoleName, rp.ModuleCode)
 		}
+
 		if modID, ok := modMap[rp.ModuleCode]; ok {
 			rp.ModuleID = modID
 		} else {
 			log.Printf("⚠️ Cannot map role-permission for role %s to module %s", rp.RoleName, rp.ModuleCode)
 		}
 	}
+}
 
-	_, rpErrs, err := s.repo.AssignRolePermissions(ctx, rolePerms)
-	if err != nil {
-		log.Printf("❌ Error assigning role permissions: %v", err)
-		return err
-	}
-	for _, e := range rpErrs {
+
+func logRolePermissionWarnings(warnings []*xerrors.RepoError) {
+	for _, e := range warnings {
 		log.Printf("⚠️ RolePermission assignment warning: role=%s, perm=%s", e.Ref, e.Msg)
 	}
-
-	log.Println("✅ Default RBAC roles, permissions, and role-permissions seeded successfully")
-	return nil
 }

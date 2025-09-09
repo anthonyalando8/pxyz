@@ -35,8 +35,9 @@ func (s *CountrySync) Sync(ctx context.Context) error {
 	snippet := string(body)
 	if len(snippet) > 2000 {
 		snippet = snippet[:2000] + "...[truncated]"
+		_ = snippet
 	}
-	log.Printf("[CountrySync] API response snippet: %s", snippet)
+	//log.Printf("[CountrySync] API response snippet: %s", snippet)
 
 	// Decode response into array or object
 	var rawArr []map[string]interface{}
@@ -112,7 +113,7 @@ func (s *CountrySync) Sync(ctx context.Context) error {
 				country.Name, country.ISO2, err)
 		} else {
 			count++
-			log.Printf("[CountrySync] ✅ upserted country: %s (%s)", country.Name, country.ISO2)
+			//log.Printf("[CountrySync] ✅ upserted country: %s (%s)", country.Name, country.ISO2)
 		}
 	}
 

@@ -50,7 +50,7 @@ type RBACRepository interface {
 
 	// GetEffectivePermissions fetches all permissions for a user across modules and submodules
 	GetEffectivePermissions(ctx context.Context, userID string, moduleCode *string, submoduleCode *string) ([]*domain.EffectivePermission, error)
-
+	GetModulesMap(ctx context.Context) (map[string]int64, error)
 }
 
 // Implementation struct

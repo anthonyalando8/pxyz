@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 
 	"time"
 
@@ -11,7 +12,6 @@ import (
 	"x/shared/utils/errors"
 
 	"github.com/jackc/pgx/v5"
-
 )
 
 func (r *rbacRepo) CreateModules(ctx context.Context, modules []*domain.Module) ([]*domain.Module, []*xerrors.RepoError, error) {
@@ -38,11 +38,21 @@ func (r *rbacRepo) CreateModules(ctx context.Context, modules []*domain.Module) 
 				updated_by = EXCLUDED.created_by
 			RETURNING id, created_at, updated_at
 		`
-		err := tx.QueryRow(ctx, query,
-			m.ParentID, m.Code, m.Name, m.Meta, m.IsActive, m.CreatedBy,
+
+		err := tx.QueryRow(
+			ctx,
+			query,
+			m.ParentID,
+			m.Code,
+			m.Name,
+			m.Meta,
+			m.IsActive,
+			m.CreatedBy,
 		).Scan(&m.ID, &m.CreatedAt, &m.UpdatedAt)
 
 		if err != nil {
+			log.Printf("❌ Module insert failed for code=%s: %v", m.Code, err)
+
 			repoErr := &xerrors.RepoError{
 				Entity: "module",
 				Code:   xerrors.ParsePGErrorCode(err),
@@ -52,6 +62,8 @@ func (r *rbacRepo) CreateModules(ctx context.Context, modules []*domain.Module) 
 			errs = append(errs, repoErr)
 			continue
 		}
+
+		log.Printf("✅ Module inserted/updated: %s → ID = %d", m.Code, m.ID)
 		created = append(created, m)
 	}
 
@@ -61,6 +73,7 @@ func (r *rbacRepo) CreateModules(ctx context.Context, modules []*domain.Module) 
 
 	return created, errs, nil
 }
+
 
 
 func (r *rbacRepo) UpdateModule(ctx context.Context, module *domain.Module) error {
@@ -206,6 +219,26 @@ func (r *rbacRepo) ListModules(ctx context.Context) ([]*domain.Module, error) {
 
 	return modules, nil
 }
+
+func (r *rbacRepo) GetModulesMap(ctx context.Context) (map[string]int64, error) {
+	rows, err := r.db.Query(ctx, "SELECT code, id FROM rbac_modules")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make(map[string]int64)
+	for rows.Next() {
+		var code string
+		var id int64
+		if err := rows.Scan(&code, &id); err != nil {
+			return nil, err
+		}
+		result[code] = id
+	}
+	return result, nil
+}
+
 
 func (r *rbacRepo) CreateSubmodules(ctx context.Context, subs []*domain.Submodule) ([]*domain.Submodule, []*xerrors.RepoError, error) {
 	var createdSubs []*domain.Submodule
