@@ -57,25 +57,35 @@ func (r *rbacRepo) AssignUserRoles(ctx context.Context, roles []*domain.UserRole
 	return created, perr, nil
 }
 
-func (r *rbacRepo) BatchAssignRolesToUsers(ctx context.Context, systemUserID int64, roleIDResolver func(ctx context.Context, roleName string) (int64, error)) error {
+func (r *rbacRepo) BatchAssignRolesToUsers(
+	ctx context.Context,
+	systemUserID int64,
+	roleIDResolver func(ctx context.Context, roleName string) (int64, error),
+) error {
 	// Step 1: Fetch and classify users without roles
 	assignments, err := r.GetUsersWithoutRolesAndClassify(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get unassigned users: %w", err)
 	}
 
-	if len(assignments) == 0 {
-		return nil // nothing to assign
+	total := len(assignments)
+	if total == 0 {
+		fmt.Println("✅ No users without roles found. Nothing to assign.")
+		return nil
 	}
+
+	fmt.Printf("📝 Found %d users without roles to classify and assign\n", total)
 
 	const batchSize = 1000
 	var rolesBatch []*domain.UserRole
+	var totalAssigned int
+	var totalFailed int
 
 	for i, ua := range assignments {
 		roleID, err := roleIDResolver(ctx, ua.RoleName)
 		if err != nil {
-			// Optionally log and skip, or abort entirely
-			fmt.Printf("role lookup failed for %s: %v\n", ua.RoleName, err)
+			fmt.Printf("❌ Failed to resolve role ID for user %s (role: %s): %v\n", ua.UserID, ua.RoleName, err)
+			totalFailed++
 			continue
 		}
 
@@ -87,21 +97,35 @@ func (r *rbacRepo) BatchAssignRolesToUsers(ctx context.Context, systemUserID int
 
 		// When batch full or final item — insert
 		if len(rolesBatch) == batchSize || i == len(assignments)-1 {
+			fmt.Printf("📦 Assigning batch of %d users...\n", len(rolesBatch))
+
 			created, perr, err := r.AssignUserRoles(ctx, rolesBatch)
 			if err != nil {
-				return fmt.Errorf("batch insert failed: %w", err)
+				fmt.Printf("🚨 Batch insert failed: %v\n", err)
+				totalFailed += len(rolesBatch)
+				rolesBatch = rolesBatch[:0]
+				continue
 			}
+
+			totalAssigned += len(created)
+
 			if len(perr) > 0 {
-				fmt.Printf("partial failures in batch: %d\n", len(perr))
-				// Optionally log errors here
+				totalFailed += len(perr)
+				for _, e := range perr {
+					fmt.Printf("⚠️ Partial failure: user-role %s → %s\n", e.Ref, e.Msg)
+				}
 			}
+
+			fmt.Printf("✅ Batch completed. Assigned: %d, Partial failures: %d\n", len(created), len(perr))
 			rolesBatch = rolesBatch[:0] // reset batch
-			fmt.Printf("Batch of %d roles assigned. Total so far: %d\n", batchSize, len(created))
 		}
 	}
 
+	fmt.Printf("🎯 Done. Total users processed: %d | Assigned: %d | Failed: %d\n", total, totalAssigned, totalFailed)
+
 	return nil
 }
+
 
 func (r *rbacRepo) GetUsersWithoutRolesAndClassify(ctx context.Context) ([]*UserRoleAssignment, error) {
 	query := `

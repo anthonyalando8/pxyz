@@ -73,7 +73,7 @@ CREATE TABLE rbac_user_roles (
   id BIGSERIAL PRIMARY KEY,
   user_id BIGINT NOT NULL REFERENCES users(id),
   role_id BIGINT NOT NULL REFERENCES rbac_roles(id) ON DELETE CASCADE,
-  assigned_by BIGINT REFERENCES users(id),
+  assigned_by BIGINT,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ,
   updated_by BIGINT,
