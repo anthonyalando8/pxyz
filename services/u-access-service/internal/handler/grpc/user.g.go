@@ -178,7 +178,10 @@ func (h *RBACGRPCHandler) ListUserPermissionOverrides(ctx context.Context, req *
 // ---------------------- EFFECTIVE USER PERMISSIONS ----------------------
 
 // GetEffectiveUserPermissions returns all effective permissions for a user
-func (h *RBACGRPCHandler) GetEffectiveUserPermissions(ctx context.Context, req *rbacpb.GetEffectiveUserPermissionsRequest) (*rbacpb.GetEffectiveUserPermissionsResponse, error) {
+func (h *RBACGRPCHandler) GetEffectiveUserPermissions(
+	ctx context.Context,
+	req *rbacpb.GetEffectiveUserPermissionsRequest,
+) (*rbacpb.GetEffectiveUserPermissionsResponse, error) {
 	log.Printf("[gRPC] GetEffectiveUserPermissions request: %+v", req)
 
 	perms, err := h.rbacUC.GetEffectivePermissions(ctx, req.GetUserId(), nil, nil)
@@ -191,17 +194,34 @@ func (h *RBACGRPCHandler) GetEffectiveUserPermissions(ctx context.Context, req *
 	for _, p := range perms {
 		pbPerms = append(pbPerms, &rbacpb.RolePermission{
 			RoleId:           int64PtrToProto(p.RoleID),
-			ModuleId:         p.ModuleID,
-			SubmoduleId:      int64PtrToProto(p.SubmoduleID),
+
+			// ✅ Module info
+			ModuleId:   p.ModuleID,
+			ModuleCode: p.ModuleCode,
+			ModuleName: p.ModuleName,
+
+			// ✅ Submodule info
+			SubmoduleId:   int64PtrToProto(p.SubmoduleID),
+			SubmoduleCode: stringPtrToProto(p.SubmoduleCode),
+			SubmoduleName: stringPtrToProto(p.SubmoduleName),
+
+			// ✅ Permission type info
 			PermissionTypeId: p.PermissionTypeID,
-			Allow:            p.Allow,
-			CreatedAt:        timestamppb.New(p.CreatedAt),
-			UpdatedAt:        ptrToTimestamp(p.UpdatedAt),
+			PermissionCode:   p.PermissionCode,
+			PermissionName:   p.PermissionName,
+
+			// ✅ Status
+			Allow:     p.Allow,
+			CreatedAt: timestamppb.New(p.CreatedAt),
+			UpdatedAt: ptrToTimestamp(p.UpdatedAt),
 		})
 	}
 
-	return &rbacpb.GetEffectiveUserPermissionsResponse{Permissions: pbPerms}, nil
+	return &rbacpb.GetEffectiveUserPermissionsResponse{
+		Permissions: pbPerms,
+	}, nil
 }
+
 
 // CheckUserPermission checks if a user has a specific permission
 func (h *RBACGRPCHandler) CheckUserPermission(ctx context.Context, req *rbacpb.CheckUserPermissionRequest) (*rbacpb.CheckUserPermissionResponse, error) {

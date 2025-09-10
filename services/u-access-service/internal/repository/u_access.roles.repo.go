@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"time"
@@ -10,7 +11,8 @@ import (
 	"u-rbac-service/internal/domain"
 	"x/shared/utils/errors"
 
-	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5"
+	//"github.com/jackc/pgx/v5/pgconn"
 )
 
 func (r *rbacRepo) CreateRoles(ctx context.Context, roles []*domain.Role) ([]*domain.Role, []*xerrors.RepoError, error) {
@@ -166,7 +168,9 @@ func (r *rbacRepo) AssignRolePermissions(
 		INSERT INTO rbac_role_permissions (
 			role_id, module_id, submodule_id, permission_type_id, allow, created_by
 		) VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, role_id, module_id, submodule_id, permission_type_id, allow, created_at, created_by, updated_at, updated_by
+		ON CONFLICT DO NOTHING
+		RETURNING id, role_id, module_id, submodule_id, permission_type_id,
+		          allow, created_at, created_by, updated_at, updated_by
 	`
 
 	var created []*domain.RolePermission
@@ -177,7 +181,7 @@ func (r *rbacRepo) AssignRolePermissions(
 		var updatedAt sql.NullTime
 		var updatedBy sql.NullInt64
 
-		err := r.db.QueryRow(
+		row := r.db.QueryRow(
 			ctx,
 			query,
 			p.RoleID,
@@ -186,7 +190,9 @@ func (r *rbacRepo) AssignRolePermissions(
 			p.PermissionTypeID,
 			p.Allow,
 			p.CreatedBy,
-		).Scan(
+		)
+
+		err := row.Scan(
 			&rp.ID,
 			&rp.RoleID,
 			&rp.ModuleID,
@@ -200,14 +206,14 @@ func (r *rbacRepo) AssignRolePermissions(
 		)
 
 		if err != nil {
-			// handle uniqueness violation
-			if pgErr, ok := err.(*pgconn.PgError); ok && pgErr.Code == "23505" {
+			if errors.Is(err, pgx.ErrNoRows) {
+				// duplicate case (conflict -> DO NOTHING -> no row returned)
 				errs = append(errs, &xerrors.RepoError{
 					Entity: "RolePermission",
 					Code:   "duplicate",
 					Msg:    fmt.Sprintf("permission already assigned: role=%d, module=%d, submodule=%v, perm_type=%d",
 						p.RoleID, p.ModuleID, p.SubmoduleID, p.PermissionTypeID),
-					Ref: fmt.Sprintf("role:%d,module:%d,sub:%d,perm:%d",
+					Ref: fmt.Sprintf("role:%d,module:%d,sub:%v,perm:%d",
 						p.RoleID, p.ModuleID, p.SubmoduleID, p.PermissionTypeID),
 				})
 				continue
@@ -227,6 +233,7 @@ func (r *rbacRepo) AssignRolePermissions(
 
 	return created, errs, nil
 }
+
 
 func (r *rbacRepo) ListRolePermissions(ctx context.Context, roleID int64) ([]*domain.RolePermission, error) {
 	query := `

@@ -401,12 +401,21 @@ func (x *Role) GetUpdatedAt() *timestamppb.Timestamp {
 }
 
 type RolePermission struct {
-	state            protoimpl.MessageState `protogen:"open.v1"`
-	Id               int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	RoleId           int64                  `protobuf:"varint,2,opt,name=role_id,json=roleId,proto3" json:"role_id,omitempty"`
-	ModuleId         int64                  `protobuf:"varint,3,opt,name=module_id,json=moduleId,proto3" json:"module_id,omitempty"`
-	SubmoduleId      int64                  `protobuf:"varint,4,opt,name=submodule_id,json=submoduleId,proto3" json:"submodule_id,omitempty"`
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Id     int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	RoleId int64                  `protobuf:"varint,2,opt,name=role_id,json=roleId,proto3" json:"role_id,omitempty"`
+	// Module
+	ModuleId   int64  `protobuf:"varint,3,opt,name=module_id,json=moduleId,proto3" json:"module_id,omitempty"`
+	ModuleCode string `protobuf:"bytes,9,opt,name=module_code,json=moduleCode,proto3" json:"module_code,omitempty"`
+	ModuleName string `protobuf:"bytes,10,opt,name=module_name,json=moduleName,proto3" json:"module_name,omitempty"`
+	// Submodule (nullable)
+	SubmoduleId   int64  `protobuf:"varint,4,opt,name=submodule_id,json=submoduleId,proto3" json:"submodule_id,omitempty"`
+	SubmoduleCode string `protobuf:"bytes,11,opt,name=submodule_code,json=submoduleCode,proto3" json:"submodule_code,omitempty"`
+	SubmoduleName string `protobuf:"bytes,12,opt,name=submodule_name,json=submoduleName,proto3" json:"submodule_name,omitempty"`
+	// Permission type
 	PermissionTypeId int64                  `protobuf:"varint,5,opt,name=permission_type_id,json=permissionTypeId,proto3" json:"permission_type_id,omitempty"`
+	PermissionCode   string                 `protobuf:"bytes,13,opt,name=permission_code,json=permissionCode,proto3" json:"permission_code,omitempty"`
+	PermissionName   string                 `protobuf:"bytes,14,opt,name=permission_name,json=permissionName,proto3" json:"permission_name,omitempty"`
 	Allow            bool                   `protobuf:"varint,6,opt,name=allow,proto3" json:"allow,omitempty"`
 	CreatedAt        *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt        *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
@@ -465,6 +474,20 @@ func (x *RolePermission) GetModuleId() int64 {
 	return 0
 }
 
+func (x *RolePermission) GetModuleCode() string {
+	if x != nil {
+		return x.ModuleCode
+	}
+	return ""
+}
+
+func (x *RolePermission) GetModuleName() string {
+	if x != nil {
+		return x.ModuleName
+	}
+	return ""
+}
+
 func (x *RolePermission) GetSubmoduleId() int64 {
 	if x != nil {
 		return x.SubmoduleId
@@ -472,11 +495,39 @@ func (x *RolePermission) GetSubmoduleId() int64 {
 	return 0
 }
 
+func (x *RolePermission) GetSubmoduleCode() string {
+	if x != nil {
+		return x.SubmoduleCode
+	}
+	return ""
+}
+
+func (x *RolePermission) GetSubmoduleName() string {
+	if x != nil {
+		return x.SubmoduleName
+	}
+	return ""
+}
+
 func (x *RolePermission) GetPermissionTypeId() int64 {
 	if x != nil {
 		return x.PermissionTypeId
 	}
 	return 0
+}
+
+func (x *RolePermission) GetPermissionCode() string {
+	if x != nil {
+		return x.PermissionCode
+	}
+	return ""
+}
+
+func (x *RolePermission) GetPermissionName() string {
+	if x != nil {
+		return x.PermissionName
+	}
+	return ""
 }
 
 func (x *RolePermission) GetAllow() bool {
@@ -3541,13 +3592,22 @@ const file_proto_urbac_urbac_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xb3\x02\n" +
+	"updated_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\x95\x04\n" +
 	"\x0eRolePermission\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x17\n" +
 	"\arole_id\x18\x02 \x01(\x03R\x06roleId\x12\x1b\n" +
-	"\tmodule_id\x18\x03 \x01(\x03R\bmoduleId\x12!\n" +
-	"\fsubmodule_id\x18\x04 \x01(\x03R\vsubmoduleId\x12,\n" +
-	"\x12permission_type_id\x18\x05 \x01(\x03R\x10permissionTypeId\x12\x14\n" +
+	"\tmodule_id\x18\x03 \x01(\x03R\bmoduleId\x12\x1f\n" +
+	"\vmodule_code\x18\t \x01(\tR\n" +
+	"moduleCode\x12\x1f\n" +
+	"\vmodule_name\x18\n" +
+	" \x01(\tR\n" +
+	"moduleName\x12!\n" +
+	"\fsubmodule_id\x18\x04 \x01(\x03R\vsubmoduleId\x12%\n" +
+	"\x0esubmodule_code\x18\v \x01(\tR\rsubmoduleCode\x12%\n" +
+	"\x0esubmodule_name\x18\f \x01(\tR\rsubmoduleName\x12,\n" +
+	"\x12permission_type_id\x18\x05 \x01(\x03R\x10permissionTypeId\x12'\n" +
+	"\x0fpermission_code\x18\r \x01(\tR\x0epermissionCode\x12'\n" +
+	"\x0fpermission_name\x18\x0e \x01(\tR\x0epermissionName\x12\x14\n" +
 	"\x05allow\x18\x06 \x01(\bR\x05allow\x129\n" +
 	"\n" +
 	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +

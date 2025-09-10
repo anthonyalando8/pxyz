@@ -128,13 +128,28 @@ message Role {
 message RolePermission {
   int64 id = 1;
   int64 role_id = 2;
+
+  // Module
   int64 module_id = 3;
+  string module_code = 9;
+  string module_name = 10;
+
+  // Submodule (nullable)
   int64 submodule_id = 4;
+  string submodule_code = 11;
+  string submodule_name = 12;
+
+  // Permission type
   int64 permission_type_id = 5;
+  string permission_code = 13;
+  string permission_name = 14;
+
   bool allow = 6;
+
   google.protobuf.Timestamp created_at = 7;
   google.protobuf.Timestamp updated_at = 8;
 }
+
 
 message UserRole {
   int64 id = 1;

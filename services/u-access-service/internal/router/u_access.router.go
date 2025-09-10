@@ -36,12 +36,6 @@ func SetupRoutes(
 		os.MkdirAll(uploadDir, 0755)
 	}
 
-	// ============================================================
-	// Public Endpoints (RBAC lookup)
-	// ============================================================
-	// r.Group(func(r chi.Router) {
-	// 	r.Get("/modules", h.HandleListModules) // List all modules
-	// })
 
 	// ============================================================
 	// Protected Endpoints (require auth)
@@ -51,7 +45,7 @@ func SetupRoutes(
 
 		// Module management
 		pr.Post("/modules/create", h.HandleCreateModule)    // Create new module
-		//pr.Put("/modules/{code}", h.HandleUpdateModule) // Update module by code
+		pr.Get("/user/permission", h.HandleGetUserPermissions) // Update module by code
 	})
 
 	return r

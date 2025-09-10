@@ -51,6 +51,7 @@ type RBACRepository interface {
 	// GetEffectivePermissions fetches all permissions for a user across modules and submodules
 	GetEffectivePermissions(ctx context.Context, userID string, moduleCode *string, submoduleCode *string) ([]*domain.EffectivePermission, error)
 	GetModulesMap(ctx context.Context) (map[string]int64, error)
+	GetSubmodulesMap(ctx context.Context) (map[string]int64, error)
 	GetUsersWithoutRolesAndClassify(ctx context.Context) ([]*UserRoleAssignment, error)
 	BatchAssignRolesToUsers(ctx context.Context, systemUserID int64, roleIDResolver func(ctx context.Context, roleName string) (int64, error)) error
 }

@@ -32,26 +32,27 @@ type EffectivePermission struct {
 
 
 type ModuleWithPermissions struct {
-	ID         int64                     `json:"id"`
-	Code       string                    `json:"code"`
-	Name       string                    `json:"name"`
-	IsActive   bool                      `json:"is_active"`
-	Submodules []*SubmoduleWithPermissions `json:"submodules"`
+	ID         int64                       `json:"id"`
+	Code       string                      `json:"code"`
+	Name       string                      `json:"name"`
+	IsActive   bool                        `json:"is_active"`
+	Permissions []*PermissionInfo          `json:"permissions"`   // ✅ module-level perms
+	Submodules  []*SubmoduleWithPermissions `json:"submodules"`
 }
 
 type SubmoduleWithPermissions struct {
-	ID          *int64           `json:"id,omitempty"`
-	Code        *string          `json:"code,omitempty"`
-	Name        *string          `json:"name,omitempty"`
-	IsActive    *bool            `json:"is_active,omitempty"`
+	ID          *int64            `json:"id,omitempty"`
+	Code        *string           `json:"code,omitempty"`
+	Name        *string           `json:"name,omitempty"`
+	IsActive    *bool             `json:"is_active,omitempty"`
 	Permissions []*PermissionInfo `json:"permissions"`
 }
 
 type PermissionInfo struct {
-	ID       int64  `json:"id"`
-	Code     string `json:"code"`
-	Name     string `json:"name"`
-	Allowed  bool   `json:"allowed"` // final allowed after override
-	RoleID   *int64 `json:"role_id,omitempty"`
-	UserID   string  `json:"user_id"`
+	ID      int64   `json:"id"`
+	Code    string  `json:"code"`
+	Name    string  `json:"name"`
+	Allowed bool    `json:"allowed"`
+	RoleID  *int64  `json:"role_id,omitempty"`
+	UserID  string  `json:"user_id"`
 }

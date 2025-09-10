@@ -505,18 +505,30 @@ func GroupEffectivePermissions(eps []*domain.EffectivePermission) []*domain.Modu
 		mod, exists := modMap[ep.ModuleID]
 		if !exists {
 			mod = &domain.ModuleWithPermissions{
-				ID:         ep.ModuleID,
-				Code:       ep.ModuleCode,
-				Name:       ep.ModuleName,
-				IsActive:   ep.ModuleActive,
-				Submodules: []*domain.SubmoduleWithPermissions{},
+				ID:          ep.ModuleID,
+				Code:        ep.ModuleCode,
+				Name:        ep.ModuleName,
+				IsActive:    ep.ModuleActive,
+				Permissions: []*domain.PermissionInfo{},
+				Submodules:  []*domain.SubmoduleWithPermissions{},
 			}
 			modMap[ep.ModuleID] = mod
 		}
 
-		// Submodule
-		var sub *domain.SubmoduleWithPermissions
-		if ep.SubmoduleID != nil {
+		// Decide if this is a module-level or submodule-level permission
+		if ep.SubmoduleID == nil {
+			// ✅ module-level permission
+			mod.Permissions = append(mod.Permissions, &domain.PermissionInfo{
+				ID:      ep.PermissionTypeID,
+				Code:    ep.PermissionCode,
+				Name:    ep.PermissionName,
+				Allowed: ep.Allow,
+				RoleID:  ep.RoleID,
+				UserID:  ep.UserID,
+			})
+		} else {
+			// ✅ submodule-level permission
+			var sub *domain.SubmoduleWithPermissions
 			for _, sm := range mod.Submodules {
 				if sm.ID != nil && *sm.ID == *ep.SubmoduleID {
 					sub = sm
@@ -533,27 +545,16 @@ func GroupEffectivePermissions(eps []*domain.EffectivePermission) []*domain.Modu
 				}
 				mod.Submodules = append(mod.Submodules, sub)
 			}
-		} else {
-			// Module-level permissions without a submodule
-			sub = &domain.SubmoduleWithPermissions{
-				ID:          nil,
-				Code:        nil,
-				Name:        nil,
-				IsActive:    nil,
-				Permissions: []*domain.PermissionInfo{},
-			}
-			mod.Submodules = append(mod.Submodules, sub)
-		}
 
-		// Add permission info
-		sub.Permissions = append(sub.Permissions, &domain.PermissionInfo{
-			ID:      ep.PermissionTypeID,
-			Code:    ep.PermissionCode,
-			Name:    ep.PermissionName,
-			Allowed: ep.Allow,
-			RoleID:  ep.RoleID,
-			UserID:  ep.UserID,
-		})
+			sub.Permissions = append(sub.Permissions, &domain.PermissionInfo{
+				ID:      ep.PermissionTypeID,
+				Code:    ep.PermissionCode,
+				Name:    ep.PermissionName,
+				Allowed: ep.Allow,
+				RoleID:  ep.RoleID,
+				UserID:  ep.UserID,
+			})
+		}
 	}
 
 	// Convert map to slice

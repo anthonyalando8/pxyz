@@ -61,12 +61,24 @@ CREATE TABLE rbac_role_permissions (
   submodule_id BIGINT REFERENCES rbac_submodules(id) ON DELETE CASCADE,
   permission_type_id BIGINT NOT NULL REFERENCES rbac_permission_types(id),
   allow BOOLEAN NOT NULL DEFAULT TRUE,
-  UNIQUE(role_id, module_id, submodule_id, permission_type_id),
   created_at TIMESTAMPTZ DEFAULT now(),
   created_by BIGINT,
   updated_at TIMESTAMPTZ,
-  updated_by BIGINT
+  updated_by BIGINT,
+
+  -- enforce no exact duplicates at full granularity
+  UNIQUE(role_id, module_id, submodule_id, permission_type_id)
 );
+
+-- Prevent duplicate module-level permissions (when submodule_id IS NULL)
+CREATE UNIQUE INDEX uniq_role_module_permission
+ON rbac_role_permissions(role_id, module_id, permission_type_id)
+WHERE submodule_id IS NULL;
+
+-- Prevent duplicate submodule-level permissions (when submodule_id IS NOT NULL)
+CREATE UNIQUE INDEX uniq_role_module_submodule_permission
+ON rbac_role_permissions(role_id, module_id, submodule_id, permission_type_id)
+WHERE submodule_id IS NOT NULL;
 
 -- rbac user roles (assigning roles to users)
 CREATE TABLE rbac_user_roles (

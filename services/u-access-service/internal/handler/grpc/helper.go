@@ -9,14 +9,6 @@ import (
 
 // ---------------------- HELPERS ----------------------
 
-// Convert *int64 to int64 (returns 0 if nil)
-func int64PtrToProto(v *int64) int64 {
-	if v == nil {
-		return 0
-	}
-	return *v
-}
-
 func ptrToTimestamp(t *time.Time) *timestamppb.Timestamp {
 	if t != nil {
 		return timestamppb.New(*t)
@@ -40,4 +32,18 @@ func ptrToInt64(i *int64) int64 {
 
 func Int64Ptr(v int64) *int64 {
     return &v
+}
+
+func int64PtrToProto(v *int64) int64 {
+	if v == nil {
+		return 0
+	}
+	return *v
+}
+
+func stringPtrToProto(v *string) string {
+	if v == nil {
+		return ""
+	}
+	return *v
 }

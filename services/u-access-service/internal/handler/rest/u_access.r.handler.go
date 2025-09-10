@@ -2,9 +2,12 @@ package hrest
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
-	"x/shared/response"
+	"u-rbac-service/internal/repository"
 	"u-rbac-service/internal/usecase"
+	"x/shared/auth/middleware"
+	"x/shared/response"
 )
 
 type ModuleHandler struct{
@@ -43,4 +46,45 @@ func (h *ModuleHandler) HandleCreateModule(w http.ResponseWriter, r *http.Reques
 	}
 
 	response.JSON(w, http.StatusCreated, resp)
+}
+
+// HandleGetUserPermissions handles GET /users/me/permissions
+func (h *ModuleHandler) HandleGetUserPermissions(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	//  Extract user ID from context (middleware should set this)
+	userID, ok := ctx.Value(middleware.ContextUserID).(string)
+	if !ok || userID == "" {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid user ID")
+		return
+	}
+	moduleCode := r.URL.Query().Get("mod")
+	submoduleCode := r.URL.Query().Get("subm")
+
+	var modPtr, submPtr *string
+	if moduleCode != "" {
+		modPtr = &moduleCode
+	}
+	if submoduleCode != "" {
+		submPtr = &submoduleCode
+	}
+
+	//  Fetch effective permissions
+	perms, err := h.uc.GetEffectivePermissions(ctx, userID, modPtr, submPtr)
+	if err != nil {
+		log.Printf("❌ HandleGetUserPermissions failed: %v", err)
+		response.Error(w, http.StatusInternalServerError, "failed to fetch permissions")
+		return
+	}
+
+	//  Group by module → submodule → permissions
+	grouped := repository.GroupEffectivePermissions(perms)
+
+	//  Response
+	resp := map[string]interface{}{
+		"user_id":     userID,
+		"modules": grouped,
+	}
+
+	response.JSON(w, http.StatusOK, resp)
 }

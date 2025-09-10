@@ -88,7 +88,13 @@ func (s *RBACSeedService) SeedDefaults(ctx context.Context) error {
 	logWarnings("Role creation warning", roleErrs)
 	roleMap := mapRoles(createdRoles)
 
-	mapRolePermissions(rolePerms, roleMap, permMap, modMap)
+	subMap, err := s.mapSubmodules(ctx)
+	if err != nil {
+		log.Printf("⚠️ Warning: proceeding with empty submodule map due to error: %v", err)
+		subMap = make(map[string]int64)
+	}
+
+	mapRolePermissions(rolePerms, roleMap, permMap, modMap, subMap)
 
 	_, rpErrs, err := s.repo.AssignRolePermissions(ctx, rolePerms)
 	if err != nil {
@@ -146,6 +152,20 @@ func (s *RBACSeedService) mapModules(ctx context.Context, modules []*domain.Modu
 	return modMap, nil
 }
 
+func (s *RBACSeedService) mapSubmodules(ctx context.Context) (map[string]int64, error) {
+	subMap := make(map[string]int64)
+
+	subs, err := s.repo.GetSubmodulesMap(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	for code, id := range subs {
+		subMap[code] = id
+	}
+	return subMap, nil
+}
+
 
 func mapPermissions(perms []*domain.PermissionType) map[string]int64 {
 	permMap := make(map[string]int64)
@@ -187,7 +207,7 @@ func filterValidSubmodules(submodules []*domain.Submodule) []*domain.Submodule {
 	return valid
 }
 
-func mapRolePermissions(rolePerms []*domain.RolePermission, roleMap, permMap, modMap map[string]int64) {
+func mapRolePermissions(rolePerms []*domain.RolePermission, roleMap, permMap, modMap, subMap map[string]int64) {
 	for _, rp := range rolePerms {
 		if roleID, ok := roleMap[rp.RoleName]; ok {
 			rp.RoleID = roleID
@@ -207,8 +227,18 @@ func mapRolePermissions(rolePerms []*domain.RolePermission, roleMap, permMap, mo
 		} else {
 			log.Printf("⚠️ Cannot map role-permission for role %s to module %s", rp.RoleName, rp.ModuleCode)
 		}
+
+		if rp.SubmoduleCode != nil {
+			if subID, ok := subMap[*rp.SubmoduleCode]; ok {
+				rp.SubmoduleID = &subID
+			} else {
+				log.Printf("⚠️ Cannot map role-permission for role %s to submodule %s",
+					rp.RoleName, *rp.SubmoduleCode)
+			}
+		}
 	}
 }
+
 
 
 func logRolePermissionWarnings(warnings []*xerrors.RepoError) {

@@ -239,6 +239,26 @@ func (r *rbacRepo) GetModulesMap(ctx context.Context) (map[string]int64, error) 
 	return result, nil
 }
 
+func (r *rbacRepo) GetSubmodulesMap(ctx context.Context) (map[string]int64, error) {
+	rows, err := r.db.Query(ctx, "SELECT code, id FROM rbac_submodules")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make(map[string]int64)
+	for rows.Next() {
+		var code string
+		var id int64
+		if err := rows.Scan(&code, &id); err != nil {
+			return nil, err
+		}
+		result[code] = id
+	}
+
+	return result, nil
+}
+
 
 func (r *rbacRepo) CreateSubmodules(ctx context.Context, subs []*domain.Submodule) ([]*domain.Submodule, []*xerrors.RepoError, error) {
 	var createdSubs []*domain.Submodule
