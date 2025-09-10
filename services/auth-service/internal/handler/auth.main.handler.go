@@ -10,6 +10,7 @@ import (
 	smsclient "x/shared/sms"
 	coreclient "x/shared/core"
 	telegramclient "auth-service/internal/service/telegram"
+	urbacservice "x/shared/urbac/utils"
 	"github.com/redis/go-redis/v9"
 	//"x/shared/genproto/emailpb"
 
@@ -29,8 +30,10 @@ type AuthHandler struct {
 	smsClient      *smsclient.SMSClient
 	redisClient    *redis.Client      // <- added
 	coreClient		*coreclient.CoreService
+	urbacservice  *urbacservice.Service
 	config         *Config
 	telegramClient *telegramclient.TelegramClient
+	
 }
 
 
@@ -43,6 +46,8 @@ func NewAuthHandler(
 	smsClient *smsclient.SMSClient,
 	redisClient *redis.Client,           // <- added
 	coreClient		*coreclient.CoreService,
+	urbacservice  *urbacservice.Service,
+
 	config *Config,
 	telegramClient *telegramclient.TelegramClient,
 ) *AuthHandler {
@@ -55,6 +60,7 @@ func NewAuthHandler(
 		smsClient:      smsClient,
 		redisClient:    redisClient,      // <- assigned
 		coreClient:		coreClient,
+		urbacservice: urbacservice,
 		config:         config,
 		telegramClient: telegramClient,
 	}

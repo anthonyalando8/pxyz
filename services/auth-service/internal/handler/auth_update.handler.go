@@ -91,14 +91,6 @@ func (h *AuthHandler) HandleSetPassword(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// --- Assign Trader role asynchronously ---
-	go func(userID string) {
-		bgCtx := context.Background()
-		traderRole := domain.Role{Name: domain.RoleTrader}
-		if err := h.uc.AssignRoleToUserHelper(bgCtx, userID, traderRole); err != nil {
-			fmt.Printf("failed to assign role %s to user %s: %v\n", traderRole.Name, userID, err)
-		}
-	}(userID)
 
 	// --- Ensure profile exists in background ---
 	go h.ensureNationality(context.Background(), userID) // logs errors only

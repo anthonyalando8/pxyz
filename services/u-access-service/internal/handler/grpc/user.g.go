@@ -61,6 +61,7 @@ func (h *RBACGRPCHandler) ListUserRoles(ctx context.Context, req *rbacpb.ListUse
 			Id:        ur.ID,
 			UserId:    ur.UserID,
 			RoleId:    ur.RoleID,
+			RoleName: ur.RoleName,
 			AssignedBy: ur.AssignedBy,
 			CreatedAt: timestamppb.New(ur.CreatedAt),
 			UpdatedAt: ptrToTimestamp(ur.UpdatedAt),

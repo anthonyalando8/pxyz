@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"x/shared/auth/middleware"
 	accountclient "x/shared/genproto/accountpb"
 	"x/shared/response"
 )
@@ -21,6 +22,14 @@ type GoogleAuthRequest struct {
 func (h *AuthHandler) GoogleAuthHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	// --- Extract current role from context ---
+	currentRoleVal := ctx.Value(middleware.ContextRole)
+	currentRole, ok := currentRoleVal.(string)
+	if !ok || currentRole == "" || currentRole == "temp" {
+		currentRole = "any"
+	}
+
+	// --- Parse request ---
 	var req GoogleAuthRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid request")
@@ -32,21 +41,45 @@ func (h *AuthHandler) GoogleAuthHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Register or fetch user using Google token
+	// --- Register or fetch user using Google token ---
 	user, googleUser, err := h.uc.RegisterWithGoogle(ctx, req.IDToken, h.config.GoogleClientID)
 	if err != nil {
 		response.Error(w, http.StatusUnauthorized, err.Error())
 		return
 	}
 
+	// --- Attempt role upgrade if current role is "any" ---
+	if currentRole == "any" {
+		if err := h.handleRoleUpgrade(ctx, user.ID, currentRole); err != nil {
+			log.Printf("Role upgrade failed for user %s: %v", user.ID, err)
+			// Optional: continue even if upgrade fails
+		}
+	}
+
+
 	// Ensure nationality
 	next, _ := h.ensureNationality(ctx, user.ID)
+
+	// Determine session type and force completion flag
+	sessionType := "general"
+	forceComplete := false
+	if next != "" {
+		sessionType = "incomplete_profile"
+		forceComplete = true
+	}
 
 	// Create session
 	session, err := h.createSessionHelper(
 		ctx,
-		user.ID, false, false, "general",
-		nil, req.DeviceID, req.DeviceMetadata, req.GeoLocation, r,
+		user.ID,
+		forceComplete,
+		false, // isSudo
+		sessionType,
+		nil,
+		req.DeviceID,
+		req.DeviceMetadata,
+		req.GeoLocation,
+		r,
 	)
 	if err != nil {
 		log.Printf("[GoogleAuth] Failed to create session: %v", err)
@@ -76,6 +109,7 @@ func (h *AuthHandler) GoogleAuthHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 
+
 type AppleAuthRequest struct {
 	IDToken string `json:"id_token,omitempty"` // if using Apple JS directly
 	Code    string `json:"code,omitempty"`     // if using OAuth redirect/code flow
@@ -90,6 +124,12 @@ type AppleAuthRequest struct {
 
 func (h *AuthHandler) AppleAuthHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	// --- Extract current role from context ---
+	currentRoleVal := ctx.Value(middleware.ContextRole)
+	currentRole, ok := currentRoleVal.(string)
+	if !ok || currentRole == "" || currentRole == "temp" {
+		currentRole = "any"
+	}
 
 	var req AppleAuthRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -117,6 +157,13 @@ func (h *AuthHandler) AppleAuthHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if currentRole == "any" {
+		if err := h.handleRoleUpgrade(ctx, user.ID, currentRole); err != nil {
+			log.Printf("Role upgrade failed for user %s: %v", user.ID, err)
+			// Optional: continue even if upgrade fails
+		}
+	}
+
 	// Persist first/last name if Apple sent them first time
 	if isNew && (req.FirstName != nil || req.LastName != nil) {
 		firstName := ""
@@ -133,11 +180,26 @@ func (h *AuthHandler) AppleAuthHandler(w http.ResponseWriter, r *http.Request) {
 	// Ensure nationality
 	next, _ := h.ensureNationality(ctx, user.ID)
 
+	// Determine session type and force completion flag
+	sessionType := "general"
+	forceComplete := false
+	if next != "" {
+		sessionType = "incomplete_profile"
+		forceComplete = true
+	}
+
 	// Create session
 	session, err := h.createSessionHelper(
 		ctx,
-		user.ID, false, false, "general",
-		nil, req.DeviceID, req.DeviceMetadata, req.GeoLocation, r,
+		user.ID,
+		forceComplete,
+		false, // isSudo
+		sessionType,
+		nil,
+		req.DeviceID,
+		req.DeviceMetadata,
+		req.GeoLocation,
+		r,
 	)
 	if err != nil {
 		log.Printf("[AppleAuth] Failed to create session: %v", err)
@@ -169,6 +231,7 @@ func (h *AuthHandler) AppleAuthHandler(w http.ResponseWriter, r *http.Request) {
 
 
 
+
 type TelegramLoginRequest struct {
 	ID        string `json:"id"`
 	FirstName string `json:"first_name"`
@@ -184,6 +247,13 @@ type TelegramLoginRequest struct {
 }
 
 func (h *AuthHandler) TelegramLogin(w http.ResponseWriter, r *http.Request) {
+	// --- Extract current role from context ---
+	ctx := r.Context()
+	currentRoleVal := ctx.Value(middleware.ContextRole)
+	currentRole, ok := currentRoleVal.(string)
+	if !ok || currentRole == "" || currentRole == "temp" {
+		currentRole = "any"
+	}
 	var req TelegramLoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		log.Printf("[TelegramLogin] Invalid request body: %v", err)
@@ -220,6 +290,12 @@ func (h *AuthHandler) TelegramLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Printf("[TelegramLogin] User processed successfully: userID=%s", user.ID)
+	if currentRole == "any" {
+		if err := h.handleRoleUpgrade(ctx, user.ID, currentRole); err != nil {
+			log.Printf("Role upgrade failed for user %s: %v", user.ID, err)
+			// Optional: continue even if upgrade fails
+		}
+	}
 
 	// Ensure nationality
 	next, _ := h.ensureNationality(r.Context(), user.ID)
@@ -227,11 +303,26 @@ func (h *AuthHandler) TelegramLogin(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[TelegramLogin] User %s requires next step: %s", user.ID, next)
 	}
 
+	// Determine session type and force completion
+	sessionType := "general"
+	forceComplete := false
+	if next != "" {
+		sessionType = "incomplete_profile"
+		forceComplete = true
+	}
+
 	// Create session
 	session, err := h.createSessionHelper(
 		r.Context(),
-		user.ID, false, false, "general",
-		nil, req.DeviceID, req.DeviceMetadata, req.GeoLocation, r,
+		user.ID,
+		forceComplete,
+		false, // isSudo
+		sessionType,
+		nil,
+		req.DeviceID,
+		req.DeviceMetadata,
+		req.GeoLocation,
+		r,
 	)
 	if err != nil {
 		log.Printf("[TelegramLogin] Failed to create session for user %s: %v", user.ID, err)
@@ -261,6 +352,7 @@ func (h *AuthHandler) TelegramLogin(w http.ResponseWriter, r *http.Request) {
 		toPtr(req.PhotoURL),
 	)
 }
+
 
 
 

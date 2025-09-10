@@ -87,6 +87,11 @@ func SetupRoutes(
 		r.Patch("/auth/phone/update", h.HandlePhoneChange)
 	})
 
+	r.Group(func(r chi.Router) {
+		r.Use(auth.Require([]string{"main", "temp"}, []string{"general", "register","incomplete_profile"}))
+		r.Post("/auth/profile/nationality", h.HandleUpdateNationality)
+	})
+
 	// ============================================================
 	// Authenticated User Endpoints (main session required)
 	// ============================================================
@@ -111,7 +116,6 @@ func SetupRoutes(
 		pr.Patch("/auth/name", h.HandleUpdateName)
 		pr.Get("/auth/email/request-change", h.HandleRequestEmailChange)
 		pr.Post("/auth/profile/picture", h.UploadProfilePicture)
-		pr.Post("/auth/profile/nationality", h.HandleUpdateNationality)
 
 		// Preferences
 		pr.Get("/auth/preferences", h.HandleGetPreferences)

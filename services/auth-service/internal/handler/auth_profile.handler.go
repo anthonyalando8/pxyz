@@ -267,10 +267,24 @@ func (h *AuthHandler) UploadProfilePicture(w http.ResponseWriter, r *http.Reques
 		"profile_image_url": imageURL,
 	})
 }
+//currentRole, ok2 = r.Context().Value(middleware.ContextRole).(string)
+
 
 func (h *AuthHandler) HandleUpdateNationality(w http.ResponseWriter, r *http.Request) {
-	userID, ok := r.Context().Value(middleware.ContextUserID).(string)
-	if !ok || userID == "" {
+	ctx := r.Context()
+
+	// --- Get user ID and session type from context ---
+	userIDVal := ctx.Value(middleware.ContextUserID)
+	sessionTypeVal := ctx.Value(middleware.ContextSessionType)
+	deviceIDVal := ctx.Value(middleware.ContextDeviceID)
+	currentRoleVal := ctx.Value(middleware.ContextRole)
+
+	userID, ok1 := userIDVal.(string)
+	sessionType, ok2 := sessionTypeVal.(string)
+	deviceID, ok3 := deviceIDVal.(string)
+	currentRole, ok4 := currentRoleVal.(string)
+
+	if !ok1 || userID == "" || !ok2 || !ok3 || !ok4 {
 		response.Error(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
@@ -283,13 +297,10 @@ func (h *AuthHandler) HandleUpdateNationality(w http.ResponseWriter, r *http.Req
 		response.Error(w, http.StatusBadRequest, "Invalid request")
 		return
 	}
-
 	if req.Nationality == "" {
 		response.Error(w, http.StatusBadRequest, "Nationality must be provided")
 		return
 	}
-
-	ctx := r.Context()
 
 	// --- Check if nationality already exists ---
 	natResp, err := h.accountClient.Client.GetUserNationality(ctx, &accountclient.GetUserNationalityRequest{
@@ -300,7 +311,6 @@ func (h *AuthHandler) HandleUpdateNationality(w http.ResponseWriter, r *http.Req
 		response.Error(w, http.StatusInternalServerError, "Failed to check nationality")
 		return
 	}
-
 	if natResp.HasNationality {
 		// Already set → inform user to contact support if they want to update
 		response.JSON(w, http.StatusConflict, map[string]interface{}{
@@ -319,7 +329,6 @@ func (h *AuthHandler) HandleUpdateNationality(w http.ResponseWriter, r *http.Req
 		response.Error(w, http.StatusInternalServerError, "Failed to update nationality")
 		return
 	}
-
 	if !updateResp.Success {
 		errMsg := updateResp.Error
 		if errMsg == "" {
@@ -329,10 +338,47 @@ func (h *AuthHandler) HandleUpdateNationality(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// --- Success response ---
-	response.JSON(w, http.StatusOK, map[string]interface{}{
+	// --- Upgrade role if currentRole is "any" ---
+	if currentRole == "any" {
+		log.Printf("Upgrading role for user %s from 'any' to 'kyc_unverified'", userID)
+		err := h.handleRoleUpgrade(ctx, userID,"kyc_unverified")
+		if err != nil {
+			log.Printf("Role upgrade failed for user %s: %v", userID, err)
+			// Optional: still proceed even if role upgrade fails
+		}
+	}
+
+	// --- Create new general session if session was temp ---
+	resp := map[string]interface{}{
 		"message": "Nationality updated successfully",
-	})
+	}
+	if sessionType == "temp" {
+		session, err := h.createSessionHelper(
+			ctx,
+			userID,
+			false, // isTemp
+			false, // isSingleUse
+			"general",
+			nil,
+			&deviceID, nil, nil, r,
+		)
+		if err != nil {
+			log.Printf("[HandleUpdateNationality] Failed to create new session for user %s: %v", userID, err)
+			resp["warning"] = "Nationality updated but session creation failed. Please re-login."
+		} else {
+			resp["token"] = session.AuthToken
+			resp["device"] = session.DeviceID
+		}
+	}
+
+	// --- Final response ---
+	response.JSON(w, http.StatusOK, resp)
+}
+
+
+
+func (h *AuthHandler) handleRoleUpgrade(ctx context.Context, userID,newRole string)error{
+	return h.urbacservice.AssignRoleByName(ctx, userID, newRole, 0)
 }
 
 

@@ -24,6 +24,9 @@ import (
 	emailclient "x/shared/email"
 	smsclient "x/shared/sms"
 	coreclient "x/shared/core"
+	urbacservice "x/shared/urbac/utils"
+
+
 	"x/shared/utils/id"
 	"x/shared/utils/errors"
 
@@ -68,9 +71,11 @@ func NewServer(cfg config.AppConfig) *http.Server {
 	coreClient := coreclient.NewCoreService()
 	config := &handler.Config{ GoogleClientID: cfg.GoogleClientID, Apple: cfg.Apple, }
 	telegramClient := telegramclient.NewTelegramClient(cfg.TelegramBotToken)
+	urbacSvc :=	urbacservice.NewService(auth.RBACClient, rdb)
+
 
 	authHandler := handler.NewAuthHandler(
-		userUC, auth, otpSvc, accountClient, emailCli, smsCli, rdb, coreClient, config, telegramClient,
+		userUC, auth, otpSvc, accountClient, emailCli, smsCli, rdb, coreClient,urbacSvc, config, telegramClient,
 	)
 
 	// gRPC handler

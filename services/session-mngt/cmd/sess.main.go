@@ -1,21 +1,24 @@
 package main
 
 import (
+	urbac "x/shared/urbac"
 	"log"
 	"net"
 	"os"
 	"os/signal"
 	"session-service/internal/config"
-	"session-service/internal/repository"
 	"session-service/internal/handler"
+	"session-service/internal/repository"
 	"session-service/internal/usecase"
 	"session-service/pkg/jwtutil"
-	pb "x/shared/genproto/sessionpb"
 	authclient "x/shared/auth"
+	pb "x/shared/genproto/sessionpb"
+	urbacservice "x/shared/urbac/utils"
 
-	"x/shared/utils/id"
 	"syscall"
+	"x/shared/utils/id"
 
+	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 )
 
@@ -28,6 +31,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     cfg.RedisAddr,
+		Password: cfg.RedisPass,
+		DB:       0,
+	})
 	// Initialize Snowflake ID generator
 	sf, err := id.NewSnowflake(1)
 	if err != nil {
@@ -37,10 +45,13 @@ func main() {
 	jwtGen := jwtutil.LoadAndBuild(cfg.JWT)
 
 	authClient := authclient.NewAuthService()
+	urbacCli := urbac.NewRBACService()
+	urbacSvc :=	urbacservice.NewService(urbacCli.Client, rdb)
+
 
 	// Initialize session repository and gRPC handler
 	sessionRepo := repository.NewSessionRepository(db)
-	sessionUC := usecase.NewSessionUsecase(sessionRepo, sf, jwtGen, authClient)
+	sessionUC := usecase.NewSessionUsecase(sessionRepo, sf, jwtGen, authClient,urbacSvc)
 	authHandler := handler.NewAuthHandler(sessionUC)
 
 	// Create a gRPC server

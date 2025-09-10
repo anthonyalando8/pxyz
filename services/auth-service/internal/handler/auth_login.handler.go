@@ -215,20 +215,35 @@ func (h *AuthHandler) ensurePasswordSet(w http.ResponseWriter, r *http.Request, 
 
 // 6. Handle successful login
 func (h *AuthHandler) handleSuccessfulLogin(w http.ResponseWriter, r *http.Request, user *domain.User, req *LoginRequest) {
+	// ---- Nationality check via helper ----
+	next, _ := h.ensureNationality(r.Context(), user.ID)
+
+	// ---- Determine session type ----
+	sessionType := "general"
+	forceComplete := false
+	if next != "" {
+		sessionType = "incomplete_profile"
+		forceComplete = true
+	}
+
 	// ---- Create session ----
 	session, err := h.createSessionHelper(
 		r.Context(),
-		user.ID, false, false, "general",
-		nil, req.DeviceID, req.DeviceMetadata, req.GeoLocation, r,
+		user.ID,
+		forceComplete, // forceProfileCompletion
+		false,         // isSudo
+		sessionType,
+		nil,
+		req.DeviceID,
+		req.DeviceMetadata,
+		req.GeoLocation,
+		r,
 	)
 	if err != nil {
 		log.Printf("Failed to create session: %v", err)
 		response.Error(w, http.StatusInternalServerError, "session creation failed")
 		return
 	}
-
-	// ---- Nationality check via helper ----
-	next, _ := h.ensureNationality(r.Context(), user.ID)
 
 	// ---- Build response ----
 	resp := map[string]interface{}{
@@ -241,6 +256,7 @@ func (h *AuthHandler) handleSuccessfulLogin(w http.ResponseWriter, r *http.Reque
 
 	response.JSON(w, http.StatusOK, resp)
 }
+
 
 // ensureNationality checks if user has nationality set.
 // If missing, it tries to ensure profile exists (logs errors only),

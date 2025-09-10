@@ -10,8 +10,10 @@ import (
 	"session-service/pkg/jwtutil"
 	"time"
 	authclient "x/shared/auth"
-	"x/shared/genproto/authpb"
+	//"x/shared/genproto/authpb"
 	sessionpb "x/shared/genproto/sessionpb"
+	urbacservice "x/shared/urbac/utils"
+
 	"x/shared/utils/id"
 )
 
@@ -20,14 +22,16 @@ type SessionUsecase struct {
 	Sf		  *id.Snowflake
 	jwtGen *jwtutil.Generator
 	authClient *authclient.AuthService
+	urbacservice  *urbacservice.Service
 }
 
-func NewSessionUsecase(sessionRepo *repository.SessionRepository, sf *id.Snowflake, jwtGen *jwtutil.Generator, authClient *authclient.AuthService) *SessionUsecase {
+func NewSessionUsecase(sessionRepo *repository.SessionRepository, sf *id.Snowflake, jwtGen *jwtutil.Generator, authClient *authclient.AuthService, 	urbacservice  *urbacservice.Service) *SessionUsecase {
 	return &SessionUsecase{
 		SessionRepo: sessionRepo,
 		Sf:          sf,
 		jwtGen: jwtGen,
 		authClient: authClient,
+		urbacservice: urbacservice,
 	}
 }
 
@@ -47,27 +51,40 @@ func (u *SessionUsecase) CreateSession(ctx context.Context, req *sessionpb.Creat
 	if ipAddress == "" {
 		ipAddress = "unknown"
 	}
-	role := "temp" // fallback if anything fails
-	var perms []string
+	role := "temp" // fallback if something fails
 
-	if u.authClient != nil && req.UserId != "" && !req.IsTemp {
-		permRes, err := u.authClient.GetUserRolesPermissions(ctx, &authpb.GetUserRolesPermissionsRequest{
-			UserId: req.UserId,
-		})
+	if u.urbacservice != nil && req.UserId != "" {
+		rolesRes, err := u.urbacservice.GetUserRoles(ctx, req.UserId)
 		if err != nil {
-			log.Printf("[WARN] failed to fetch role/permissions for user %s: %v", req.UserId, err)
-		} else if permRes.Ok && permRes.RoleWithPermissions != nil {
-			// Assign role
-			role = permRes.RoleWithPermissions.RoleName
-
-			// Collect permissions
-			for _, p := range permRes.RoleWithPermissions.Permissions {
-				perms = append(perms, p.Name)
+			log.Printf("[WARN] failed to fetch roles for user %s: %v", req.UserId, err)
+		} else if len(rolesRes) > 0 {
+			// Define priority: lower number = higher priority
+			rolePriority := map[string]int{
+				"any":            1,
+				"kyc_unverified": 2,
+				"trader":         3,
 			}
+
+			// Start with lowest
+			highest := "any"
+			highestRank := rolePriority[highest]
+
+			for _, r := range rolesRes {
+				roleName := r.GetRoleName()
+				if rank, ok := rolePriority[roleName]; ok && rank > highestRank {
+					highest = roleName
+					highestRank = rank
+				}
+			}
+
+			role = highest
+		} else {
+			log.Printf("[INFO] user %s has no roles assigned", req.UserId)
 		}
 	}
 
-log.Printf("User %s has role: %s and permissions: %v", req.UserId, role, perms)
+
+	log.Printf("User %s has role: %s", req.UserId, role)
 
 
 	token, _, err := u.jwtGen.Generate(req.UserId, role, deviceID, req.IsTemp, req.ExtraData)

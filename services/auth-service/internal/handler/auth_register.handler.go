@@ -37,7 +37,7 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.uc.RegisterUser(r.Context(), req.Email, req.Password, req.FirstName, req.LastName, "trader")
+	user, err := h.uc.RegisterUser(r.Context(), req.Email, req.Password, req.FirstName, req.LastName, "any")
 	_ =  user
 	if err != nil {
 		response.Error(w, http.StatusBadRequest, err.Error())
@@ -183,6 +183,12 @@ func (h *AuthHandler) handleFreshUserSignup(
 	req RegisterInit, user *domain.User,
 ) error {
 	channel, target := detectChannel(req)
+
+	err := h.handleRoleUpgrade(r.Context(), user.ID,"any")
+	if err != nil {
+		log.Printf("Role upgrade failed for user %s: %v", user.ID, err)
+		// Optional: still proceed even if role upgrade fails
+	}
 
 	// --- Create session first (synchronous) ---
 	extraData := map[string]string{"next": "verify_" + channel}

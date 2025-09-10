@@ -19,10 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AuthService_RegisterUser_FullMethodName            = "/auth.AuthService/RegisterUser"
-	AuthService_GetUserProfile_FullMethodName          = "/auth.AuthService/GetUserProfile"
-	AuthService_GetUserRolesPermissions_FullMethodName = "/auth.AuthService/GetUserRolesPermissions"
-	AuthService_DeleteUser_FullMethodName              = "/auth.AuthService/DeleteUser"
+	AuthService_RegisterUser_FullMethodName   = "/auth.AuthService/RegisterUser"
+	AuthService_GetUserProfile_FullMethodName = "/auth.AuthService/GetUserProfile"
+	AuthService_DeleteUser_FullMethodName     = "/auth.AuthService/DeleteUser"
 )
 
 // AuthServiceClient is the client API for AuthService service.
@@ -33,8 +32,6 @@ type AuthServiceClient interface {
 	RegisterUser(ctx context.Context, in *RegisterUserRequest, opts ...grpc.CallOption) (*RegisterUserResponse, error)
 	// Get full user profile by ID
 	GetUserProfile(ctx context.Context, in *GetUserProfileRequest, opts ...grpc.CallOption) (*GetUserProfileResponse, error)
-	// Get user roles and permissions
-	GetUserRolesPermissions(ctx context.Context, in *GetUserRolesPermissionsRequest, opts ...grpc.CallOption) (*GetUserRolesPermissionsResponse, error)
 	// Delete a user and all associated auth records
 	DeleteUser(ctx context.Context, in *DeleteUserRequest, opts ...grpc.CallOption) (*DeleteUserResponse, error)
 }
@@ -67,16 +64,6 @@ func (c *authServiceClient) GetUserProfile(ctx context.Context, in *GetUserProfi
 	return out, nil
 }
 
-func (c *authServiceClient) GetUserRolesPermissions(ctx context.Context, in *GetUserRolesPermissionsRequest, opts ...grpc.CallOption) (*GetUserRolesPermissionsResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetUserRolesPermissionsResponse)
-	err := c.cc.Invoke(ctx, AuthService_GetUserRolesPermissions_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *authServiceClient) DeleteUser(ctx context.Context, in *DeleteUserRequest, opts ...grpc.CallOption) (*DeleteUserResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(DeleteUserResponse)
@@ -95,8 +82,6 @@ type AuthServiceServer interface {
 	RegisterUser(context.Context, *RegisterUserRequest) (*RegisterUserResponse, error)
 	// Get full user profile by ID
 	GetUserProfile(context.Context, *GetUserProfileRequest) (*GetUserProfileResponse, error)
-	// Get user roles and permissions
-	GetUserRolesPermissions(context.Context, *GetUserRolesPermissionsRequest) (*GetUserRolesPermissionsResponse, error)
 	// Delete a user and all associated auth records
 	DeleteUser(context.Context, *DeleteUserRequest) (*DeleteUserResponse, error)
 	mustEmbedUnimplementedAuthServiceServer()
@@ -114,9 +99,6 @@ func (UnimplementedAuthServiceServer) RegisterUser(context.Context, *RegisterUse
 }
 func (UnimplementedAuthServiceServer) GetUserProfile(context.Context, *GetUserProfileRequest) (*GetUserProfileResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetUserProfile not implemented")
-}
-func (UnimplementedAuthServiceServer) GetUserRolesPermissions(context.Context, *GetUserRolesPermissionsRequest) (*GetUserRolesPermissionsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetUserRolesPermissions not implemented")
 }
 func (UnimplementedAuthServiceServer) DeleteUser(context.Context, *DeleteUserRequest) (*DeleteUserResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteUser not implemented")
@@ -178,24 +160,6 @@ func _AuthService_GetUserProfile_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
-func _AuthService_GetUserRolesPermissions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetUserRolesPermissionsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AuthServiceServer).GetUserRolesPermissions(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: AuthService_GetUserRolesPermissions_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AuthServiceServer).GetUserRolesPermissions(ctx, req.(*GetUserRolesPermissionsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _AuthService_DeleteUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeleteUserRequest)
 	if err := dec(in); err != nil {
@@ -228,10 +192,6 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetUserProfile",
 			Handler:    _AuthService_GetUserProfile_Handler,
-		},
-		{
-			MethodName: "GetUserRolesPermissions",
-			Handler:    _AuthService_GetUserRolesPermissions_Handler,
 		},
 		{
 			MethodName: "DeleteUser",

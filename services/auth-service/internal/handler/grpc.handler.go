@@ -169,41 +169,4 @@ func (h *GRPCAuthHandler) GetFullUserProfile(ctx context.Context, userID string)
 }
 
 
-// GetUserRolesPermissions returns the user's role along with all effective permissions
-func (h *GRPCAuthHandler) GetUserRolesPermissions(ctx context.Context, req *authpb.GetUserRolesPermissionsRequest) (*authpb.GetUserRolesPermissionsResponse, error) {
-	if req.UserId == "" {
-		return &authpb.GetUserRolesPermissionsResponse{
-			Ok:    false,
-			Error: "user_id is required",
-		}, nil
-	}
 
-	// Call use case to get role + permissions
-	roleWithPerms, err := h.uc.GetUserRoleWithPermissions(ctx, req.UserId)
-	if err != nil {
-		log.Printf("[ERROR] GetUserRolesPermissions failed for user %s: %v", req.UserId, err)
-		return &authpb.GetUserRolesPermissionsResponse{
-			Ok:    false,
-			Error: err.Error(),
-		}, nil
-	}
-
-	// Map to proto Permission
-	permissions := make([]*authpb.Permission, 0, len(roleWithPerms.Permissions))
-	for _, p := range roleWithPerms.Permissions {
-		permissions = append(permissions, &authpb.Permission{
-			Name:        p.Name,
-			Description: p.Description,
-			IsAllowed:   p.IsAllowed,
-		})
-	}
-
-	return &authpb.GetUserRolesPermissionsResponse{
-		Ok: true,
-		RoleWithPermissions: &authpb.RoleWithPermissions{
-			RoleName:        roleWithPerms.Role.Name,
-			RoleDescription: roleWithPerms.Role.Description,
-			Permissions:     permissions,
-		},
-	}, nil
-}

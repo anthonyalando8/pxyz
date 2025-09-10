@@ -35,6 +35,11 @@ services:
       - micro_net
     depends_on:
       - redis
+      - core-service
+      - session-service
+      - email-service
+      - otp-service
+      - u-access-service
 
   session-service:
     container_name: session-service
@@ -60,6 +65,7 @@ services:
       - micro_net
     depends_on:
       - redis
+      - u-access-service
 
   email-service:
     container_name: email-service
@@ -291,8 +297,8 @@ services:
       DB_PASSWORD: 2000
       DB_NAME: pxyz
       REDIS_ADDR: redis:6379
-      HTTP_ADDR: :8041
-      GRPC_ADDR: :8042
+      HTTP_ADDR: :8031
+      GRPC_ADDR: :8032
       REDIS_PASS:
       JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
     networks:

@@ -4,7 +4,6 @@ package usecase
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"auth-service/internal/domain"
@@ -60,24 +59,16 @@ func (uc *UserUsecase) RegisterUser(ctx context.Context, email, password, firstN
 	}
 
 	// Lookup predefined role
-	var selectedRole *domain.Role
-	for _, r := range domain.PredefinedRoles {
-		if r.Name == roleName {
-			selectedRole = &r
-			break
-		}
-	}
-	if selectedRole == nil {
-		return createdUser, fmt.Errorf("invalid role: %s", roleName)
-	}
-
-	// Assign role asynchronously
-	go func(userID string, role domain.Role) {
-		bgCtx := context.Background()
-		if err := uc.AssignRoleToUserHelper(bgCtx, userID, role); err != nil {
-			fmt.Printf("failed to assign role %s to user %s: %v\n", role.Name, userID, err)
-		}
-	}(createdUser.ID, *selectedRole)
+	// var selectedRole *domain.Role
+	// for _, r := range domain.PredefinedRoles {
+	// 	if r.Name == roleName {
+	// 		selectedRole = &r
+	// 		break
+	// 	}
+	// }
+	// if selectedRole == nil {
+	// 	return createdUser, fmt.Errorf("invalid role: %s", roleName)
+	// }
 
 	return createdUser, nil
 }

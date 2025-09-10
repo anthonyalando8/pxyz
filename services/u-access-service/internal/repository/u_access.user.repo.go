@@ -3,12 +3,11 @@ package repository
 import (
 	"context"
 	"fmt"
+	"log"
 	"strconv"
-
 
 	"u-rbac-service/internal/domain"
 	"x/shared/utils/errors"
-
 )
 
 func (r *rbacRepo) AssignUserRoles(ctx context.Context, roles []*domain.UserRole) ([]*domain.UserRole, []*xerrors.RepoError, error) {
@@ -24,6 +23,8 @@ func (r *rbacRepo) AssignUserRoles(ctx context.Context, roles []*domain.UserRole
 	var created []*domain.UserRole
 	var perr []*xerrors.RepoError
 
+	log.Printf("🔄 Starting assignment of %d user roles", len(roles))
+
 	for _, ur := range roles {
 		var newUR domain.UserRole
 		err := r.db.QueryRow(ctx, query, ur.UserID, ur.RoleID, ur.AssignedBy).Scan(
@@ -37,6 +38,8 @@ func (r *rbacRepo) AssignUserRoles(ctx context.Context, roles []*domain.UserRole
 		)
 
 		if err != nil {
+			log.Printf("❌ Failed to assign role %d to user %s: %v", ur.RoleID, ur.UserID, err)
+
 			re := &xerrors.RepoError{
 				Entity: "UserRole",
 				Code:   "INSERT_FAILED",
@@ -47,8 +50,11 @@ func (r *rbacRepo) AssignUserRoles(ctx context.Context, roles []*domain.UserRole
 			continue
 		}
 
+		log.Printf("✅ Assigned role %d to user %s (id: %d)", newUR.RoleID, newUR.UserID, newUR.ID)
 		created = append(created, &newUR)
 	}
+
+	log.Printf("📦 Finished user-role assignment: Success: %d | Failed: %d", len(created), len(perr))
 
 	if len(perr) > 0 && len(created) == 0 {
 		return nil, perr, nil // all failed
@@ -56,6 +62,7 @@ func (r *rbacRepo) AssignUserRoles(ctx context.Context, roles []*domain.UserRole
 
 	return created, perr, nil
 }
+
 
 func (r *rbacRepo) BatchAssignRolesToUsers(
 	ctx context.Context,
@@ -130,29 +137,31 @@ func (r *rbacRepo) BatchAssignRolesToUsers(
 func (r *rbacRepo) GetUsersWithoutRolesAndClassify(ctx context.Context) ([]*UserRoleAssignment, error) {
 	query := `
 		SELECT 
-			u.id::TEXT AS user_id,
-			CASE
-				WHEN 
-					u.signup_stage != 'complete'
-					OR (u.account_type = 'hybrid' AND u.password_hash IS NULL)
-					OR (u.account_type = 'password' AND u.password_hash IS NULL)
-					OR NOT u.is_email_verified
-				THEN 'any'
-				
-				WHEN ks.status IS DISTINCT FROM 'approved'
-				THEN 'kyc_unverified'
-				
-				ELSE 'trader'
-			END AS role_name
-		FROM users u
-		LEFT JOIN rbac_user_roles rur ON rur.user_id = u.id
-		LEFT JOIN (
-			SELECT DISTINCT ON (user_id) *
-			FROM kyc_submissions
-			ORDER BY user_id, submitted_at DESC
-		) ks ON ks.user_id = u.id
-		WHERE rur.user_id IS NULL
-		  AND u.account_status != 'deleted'
+		u.id::TEXT AS user_id,
+		CASE
+			WHEN 
+				u.signup_stage NOT IN ('complete', 'password_set')
+				OR (u.account_type = 'hybrid' AND u.password_hash IS NULL)
+				OR (u.account_type = 'password' AND u.password_hash IS NULL)
+				OR NOT u.is_email_verified
+				OR up.nationality IS NULL
+			THEN 'any'
+
+			WHEN ks.status IS DISTINCT FROM 'approved'
+			THEN 'kyc_unverified'
+
+			ELSE 'trader'
+		END AS role_name
+	FROM users u
+	LEFT JOIN rbac_user_roles rur ON rur.user_id = u.id
+	LEFT JOIN (
+		SELECT DISTINCT ON (user_id) *
+		FROM kyc_submissions
+		ORDER BY user_id, submitted_at DESC
+	) ks ON ks.user_id = u.id
+	LEFT JOIN user_profiles up ON up.user_id = u.id
+	WHERE rur.user_id IS NULL
+	AND u.account_status != 'deleted';
 	`
 
 	rows, err := r.db.Query(ctx, query)
@@ -234,10 +243,19 @@ func (r *rbacRepo) UpgradeUserRole(ctx context.Context, userID string, newRoleID
 
 func (r *rbacRepo) ListUserRoles(ctx context.Context, userID string) ([]*domain.UserRole, error) {
 	const query = `
-		SELECT id, user_id, role_id, assigned_by, created_at, updated_at, updated_by
-		FROM rbac_user_roles
-		WHERE user_id = $1
-		ORDER BY created_at DESC
+		SELECT 
+			rur.id,
+			rur.user_id,
+			rur.role_id,
+			rr.name AS role_name,
+			rur.assigned_by,
+			rur.created_at,
+			rur.updated_at,
+			rur.updated_by
+		FROM rbac_user_roles rur
+		JOIN rbac_roles rr ON rur.role_id = rr.id
+		WHERE rur.user_id = $1
+		ORDER BY rur.created_at DESC
 	`
 
 	// convert userID string → int64
@@ -259,6 +277,7 @@ func (r *rbacRepo) ListUserRoles(ctx context.Context, userID string) ([]*domain.
 			&ur.ID,
 			&ur.UserID,
 			&ur.RoleID,
+			&ur.RoleName,     // Add this field in your struct
 			&ur.AssignedBy,
 			&ur.CreatedAt,
 			&ur.UpdatedAt,
@@ -275,6 +294,7 @@ func (r *rbacRepo) ListUserRoles(ctx context.Context, userID string) ([]*domain.
 
 	return roles, nil
 }
+
 
 
 func (r *rbacRepo) AssignUserPermissionOverrides(

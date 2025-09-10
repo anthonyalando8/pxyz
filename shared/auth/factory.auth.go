@@ -64,10 +64,6 @@ func (a *AuthService) GetUserProfile(ctx context.Context, req *authpb.GetUserPro
 	return a.Client.GetUserProfile(ctx, req)
 }
 
-func (a *AuthService) GetUserRolesPermissions(ctx context.Context, req *authpb.GetUserRolesPermissionsRequest) (*authpb.GetUserRolesPermissionsResponse, error) {
-	return a.Client.GetUserRolesPermissions(ctx, req)
-}
-
 // -------------------- DeleteUser --------------------
 func (a *AuthService) DeleteUser(ctx context.Context, userID string) (*authpb.DeleteUserResponse, error) {
 	req := &authpb.DeleteUserRequest{

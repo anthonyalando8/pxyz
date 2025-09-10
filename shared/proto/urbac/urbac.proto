@@ -144,6 +144,7 @@ message UserRole {
   google.protobuf.Timestamp created_at = 5;
   google.protobuf.Timestamp updated_at = 6;
   int64 updated_by = 7;
+  string role_name = 8;
 }
 
 

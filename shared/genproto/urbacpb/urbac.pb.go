@@ -509,6 +509,7 @@ type UserRole struct {
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	UpdatedBy     int64                  `protobuf:"varint,7,opt,name=updated_by,json=updatedBy,proto3" json:"updated_by,omitempty"`
+	RoleName      string                 `protobuf:"bytes,8,opt,name=role_name,json=roleName,proto3" json:"role_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -590,6 +591,13 @@ func (x *UserRole) GetUpdatedBy() int64 {
 		return x.UpdatedBy
 	}
 	return 0
+}
+
+func (x *UserRole) GetRoleName() string {
+	if x != nil {
+		return x.RoleName
+	}
+	return ""
 }
 
 type UserPermissionOverride struct {
@@ -3544,7 +3552,7 @@ const file_proto_urbac_urbac_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\x82\x02\n" +
+	"updated_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\x9f\x02\n" +
 	"\bUserRole\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x17\n" +
@@ -3556,7 +3564,8 @@ const file_proto_urbac_urbac_proto_rawDesc = "" +
 	"\n" +
 	"updated_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x1d\n" +
 	"\n" +
-	"updated_by\x18\a \x01(\x03R\tupdatedBy\"\xbb\x02\n" +
+	"updated_by\x18\a \x01(\x03R\tupdatedBy\x12\x1b\n" +
+	"\trole_name\x18\b \x01(\tR\broleName\"\xbb\x02\n" +
 	"\x16UserPermissionOverride\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x1b\n" +
