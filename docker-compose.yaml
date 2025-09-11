@@ -1,22 +1,41 @@
 version: '3.9'
 
 services:
-  redis:
-    image: redis:7
-    container_name: redis
+  # 🔹 Traefik - the single entrypoint
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik
+    command:
+      - "--api.dashboard=true"
+      - "--api.insecure=true"   # ⚠️ remove in production
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
     ports:
-      - "6379:6379"
+      - "80:80"      # All traffic goes here
+      - "8080:8080"  # Dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - micro_net
 
+  # 🔹 Redis
+  redis:
+    image: redis:7
+    container_name: redis
+    networks:
+      - micro_net
+
+  # 🔹 Auth Service
   auth-service:
-    container_name: auth-service
     build:
       context: .
       dockerfile: services/auth-service/Dockerfile
-    ports:
-      - "8001:8001"
-      - "8006:8006"
+    container_name: auth-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.auth.rule=PathPrefix(`/auth`)"
+      - "traefik.http.services.auth.loadbalancer.server.port=8001"
     env_file:
       - ./services/auth-service/.env
     volumes:
@@ -41,13 +60,16 @@ services:
       - otp-service
       - u-access-service
 
+  # 🔹 Session Service
   session-service:
-    container_name: session-service
     build:
       context: .
       dockerfile: services/session-mngt/Dockerfile
-    ports:
-      - "8002:8002"
+    container_name: session-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.session.rule=PathPrefix(`/session`)"
+      - "traefik.http.services.session.loadbalancer.server.port=8002"
     env_file:
       - ./services/session-mngt/.env
     volumes:
@@ -67,13 +89,16 @@ services:
       - redis
       - u-access-service
 
+  # 🔹 Email Service
   email-service:
-    container_name: email-service
     build:
       context: .
       dockerfile: services/email-service/Dockerfile
-    ports:
-      - "8011:8011"
+    container_name: email-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.email.rule=PathPrefix(`/email`)"
+      - "traefik.http.services.email.loadbalancer.server.port=8011"
     env_file:
       - ./services/email-service/.env
     environment:
@@ -93,34 +118,42 @@ services:
     depends_on:
       - redis
 
+  # 🔹 OTP Service
   otp-service:
-    container_name: otp-service
     build:
       context: .
       dockerfile: services/otp-service/Dockerfile
-    ports:
-      - "8003:8003"
+    container_name: otp-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.otp.rule=PathPrefix(`/otp`)"
+      - "traefik.http.services.otp.loadbalancer.server.port=8003"
     env_file:
       - ./services/otp-service/.env
     environment:
       DB_CONN: postgres://postgres:2000@host.docker.internal:5432/pxyz
       REDIS_ADDR: redis:6379
       EMAIL_SVC_ADDR: email-service:8011
+    networks:
+      - micro_net
     depends_on:
       - redis
       - email-service
-    networks:
-      - micro_net
 
+  # 🔹 Account Service
   account-service:
-    container_name: account-service
     build:
       context: .
       dockerfile: services/account-service/Dockerfile
-    ports:
-      - "8004:8004"
+    container_name: account-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.account.rule=PathPrefix(`/account`)"
+      - "traefik.http.services.account.loadbalancer.server.port=8004"
     env_file:
       - ./services/account-service/.env
+    networks:
+      - micro_net
     environment:
       DB_CONN: postgres://postgres:2000@host.docker.internal:5432/pxyz
       REDIS_ADDR: redis:6379
@@ -130,18 +163,24 @@ services:
     depends_on:
       - redis
       - email-service
-    networks:
-      - micro_net
 
+  # 🔹 KYC Service
   kyc-service:
-    container_name: kyc-service
     build:
       context: .
       dockerfile: services/kyc-service/Dockerfile
-    ports:
-      - "8005:8005"
+    container_name: kyc-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.kyc.rule=PathPrefix(`/kyc`)"
+      - "traefik.http.services.kyc.loadbalancer.server.port=8005"
     env_file:
       - ./services/kyc-service/.env
+    volumes:
+      - ./services/kyc-service/secrets:/app/secrets:ro
+      - ./uploads:/app/uploads
+    networks:
+      - micro_net
     environment:
       HTTP_ADDR: :8005
       DB_CONN: postgres://postgres:2000@host.docker.internal:5432/pxyz
@@ -152,21 +191,23 @@ services:
     depends_on:
       - redis
       - email-service
-    volumes:
-      - ./services/kyc-service/secrets:/app/secrets:ro
-      - ./uploads:/app/uploads
-    networks:
-      - micro_net
 
+  # 🔹 Cashier Service
   cashier-service:
-    container_name: cashier-service
     build:
       context: .
       dockerfile: services/cashier-service/Dockerfile
-    ports:
-      - "8021:8021"
+    container_name: cashier-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.cashier.rule=PathPrefix(`/cashier`)"
+      - "traefik.http.services.cashier.loadbalancer.server.port=8021"
     env_file:
       - ./services/cashier-service/.env
+    volumes:
+      - ./services/cashier-service/secrets:/app/secrets:ro
+    networks:
+      - micro_net
     environment:
       HTTP_ADDR: :8021
       DB_HOST: host.docker.internal
@@ -188,21 +229,24 @@ services:
       MPESA_TILL_NUMBER: 174379
     depends_on:
       - redis
-      #- postgres
       - auth-service
-    volumes:
-      - ./services/cashier-service/secrets:/app/secrets:ro
-    networks:
-      - micro_net
+
+  # 🔹 SMS Service
   sms-service:
-    container_name: sms-service
     build:
       context: .
       dockerfile: services/sms-service/Dockerfile
-    ports:
-      - "8012:8012"
+    container_name: sms-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.sms.rule=PathPrefix(`/sms`)"
+      - "traefik.http.services.sms.loadbalancer.server.port=8012"
     env_file:
       - ./services/sms-service/.env
+    volumes:
+      - ./services/sms-service/secrets:/app/secrets:ro
+    networks:
+      - micro_net
     environment:
       GRPC_ADDR: :8012
       REDIS_PASS:
@@ -219,17 +263,23 @@ services:
     depends_on:
       - redis
       - email-service
-    networks:
-      - micro_net
+
+  # 🔹 Partner Service
   partner-service:
-    container_name: partner-service
     build:
       context: .
       dockerfile: services/partner-service/Dockerfile
-    ports:
-      - "8041:8041" # HTTP
+    container_name: partner-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.partner.rule=PathPrefix(`/partner`)"
+      - "traefik.http.services.partner.loadbalancer.server.port=8041"
     env_file:
       - ./services/partner-service/.env
+    volumes:
+      - ./services/partner-service/secrets:/app/secrets:ro
+    networks:
+      - micro_net
     environment:
       DB_HOST: host.docker.internal
       DB_PORT: 5432
@@ -241,27 +291,27 @@ services:
       REDIS_ADDR: redis:6379
       REDIS_PASS: ""
       JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
-    volumes:
-      - ./services/partner-service/secrets:/app/secrets:ro
     depends_on:
       - redis
       - auth-service
-    networks:
-      - micro_net
 
+  # 🔹 Core Service
   core-service:
-    container_name: core-service
     build:
       context: .
       dockerfile: services/core-service/Dockerfile
-    ports:
-      - "8051:8051"   # REST
-      - "8052:8052"   # gRPC
+    container_name: core-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.core.rule=PathPrefix(`/core`)"
+      - "traefik.http.services.core.loadbalancer.server.port=8051"
     env_file:
       - ./services/core-service/.env
     volumes:
       - ./services/core-service/secrets:/app/secrets:ro
       - ./uploads:/app/uploads
+    networks:
+      - micro_net
     environment:
       DB_HOST: host.docker.internal
       DB_PORT: 5432
@@ -273,23 +323,26 @@ services:
       GRPC_ADDR: :8052
       REDIS_PASS:
       JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
-    networks:
-      - micro_net
     depends_on:
       - redis
+
+  # 🔹 User Access Service
   u-access-service:
-    container_name: u-access-service
     build:
       context: .
       dockerfile: services/u-access-service/Dockerfile
-    ports:
-      - "8031:8031"   # REST
-      - "8032:8032"   # gRPC
+    container_name: u-access-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.uaccess.rule=PathPrefix(`/urbac`)"
+      - "traefik.http.services.uaccess.loadbalancer.server.port=8031"
     env_file:
       - ./services/u-access-service/.env
     volumes:
       - ./services/u-access-service/secrets:/app/secrets:ro
       - ./uploads:/app/uploads
+    networks:
+      - micro_net
     environment:
       DB_HOST: host.docker.internal
       DB_PORT: 5432
@@ -301,8 +354,6 @@ services:
       GRPC_ADDR: :8032
       REDIS_PASS:
       JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
-    networks:
-      - micro_net
     depends_on:
       - redis
 

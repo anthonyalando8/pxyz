@@ -37,7 +37,7 @@ func SetupRoutes(
 	}
 
 	r.Group(func(r chi.Router) {
-		r.Get("/countries", h.HandleGetCountries)          // List all countries
+		r.Get("/core/countries", h.HandleGetCountries)          // List all countries
 	})
 
 	// ============================================================
@@ -46,7 +46,7 @@ func SetupRoutes(
 	r.Group(func(pr chi.Router) {
 		pr.Use(auth.Middleware)
 		// Country management (admin/internal use cases)
-		pr.Post("/countries/refresh", h.HandleRefreshCountries) // refresh from external source
+		pr.Post("/core/countries/refresh", h.HandleRefreshCountries) // refresh from external source
 	})
 
 	return r

@@ -56,7 +56,7 @@ func SetupRoutes(
             pr.Use(auth.RequireRole([]string{"system_admin", "partner_admin"}))
 
             // Serve static files
-            pr.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(http.Dir(uploadDir))))
+            pr.Handle("/partner/uploads/*", http.StripPrefix("/partner/uploads/", http.FileServer(http.Dir(uploadDir))))
 
             // Partner management
             pr.Post("/partners/create", h.CreatePartner)

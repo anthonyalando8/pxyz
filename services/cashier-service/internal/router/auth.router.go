@@ -51,7 +51,7 @@ func SetupRoutes(
 		pr.Use(auth.Require([]string{"main"}, nil))
 
 		// Uploads (proof of payment, receipts, etc.)
-		pr.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(http.Dir(uploadDir))))
+		pr.Handle("/cashier/uploads/*", http.StripPrefix("/cashier/uploads/", http.FileServer(http.Dir(uploadDir))))
 
 		// Deposit & Withdraw (generic, provider decided in request body)
 		pr.Post("/cashier/deposit", h.Deposit)

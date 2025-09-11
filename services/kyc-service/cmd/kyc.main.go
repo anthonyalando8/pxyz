@@ -74,7 +74,7 @@ func main() {
 		r.Use(auth.RateLimit(rdb, 15, 5*time.Minute, 5*time.Minute, "kyc"))
 		// Protected routes	
 		// Serve /uploads/... -> files from ./uploads/
-		r.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(http.Dir(uploadDir))))
+		r.Handle("/kyc/uploads/*", http.StripPrefix("/kyc/uploads/", http.FileServer(http.Dir(uploadDir))))
 		r.Post("/kyc/upload", kycHandler.UploadKYC)
 		r.Get("/kyc/status", kycHandler.GetKYCStatus)
 		r.Post("/kyc/review/{kycID}", kycHandler.ReviewKYC)

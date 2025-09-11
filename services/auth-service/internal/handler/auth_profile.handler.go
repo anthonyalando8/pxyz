@@ -244,7 +244,7 @@ func (h *AuthHandler) UploadProfilePicture(w http.ResponseWriter, r *http.Reques
 	log.Printf("[INFO] Successfully saved compressed profile picture for userID=%s", userID)
 
 	// Construct image URL
-	imageURL := fmt.Sprintf("http://localhost:8001/uploads/profile_pictures/%s", filename)
+	imageURL := fmt.Sprintf("http://localhost/auth/uploads/profile_pictures/%s", filename)
 
 	// Call Account service to update DB
 	_, err = h.accountClient.Client.UpdateProfilePicture(

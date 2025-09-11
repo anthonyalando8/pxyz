@@ -99,7 +99,7 @@ func SetupRoutes(
 		pr.Use(auth.Require([]string{"main"}, nil))
 
 		// Serve uploads
-		pr.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(http.Dir(uploadDir))))
+		pr.Handle("/auth/uploads/*", http.StripPrefix("/auth/uploads/", http.FileServer(http.Dir(uploadDir))))
 		// WebSocket
 		pr.Get("/auth/ws", wsHandler.HandleWS)
 

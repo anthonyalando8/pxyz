@@ -135,7 +135,7 @@ func (h *KYCHandler) UploadKYC(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[INFO] Saved face photo -> %s", facePath)
 
 	// Generate URLs (example: adjust base URL to match your static file server)
-	baseURL := "http://localhost:8005/uploads/kyc_docs"
+	baseURL := "http://localhost:8005/kyc/uploads/kyc_docs"
 	frontURL := fmt.Sprintf("%s/%s/%s", baseURL, userID, frontFilename)
 	backURL := fmt.Sprintf("%s/%s/%s", baseURL, userID, backFilename)
 	faceURL := fmt.Sprintf("%s/%s/%s", baseURL, userID, faceFilename)

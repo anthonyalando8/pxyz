@@ -6,7 +6,7 @@ replace x/shared => ../../shared
 
 require (
 	github.com/go-chi/chi/v5 v5.2.2
-	github.com/jackc/pgx/v5 v5.7.5
+	github.com/jackc/pgx/v5 v5.7.6
 	github.com/joho/godotenv v1.5.1
 	github.com/redis/go-redis/v9 v9.12.1
 	x/shared v0.0.0-00010101000000-000000000000

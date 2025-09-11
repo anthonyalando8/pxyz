@@ -5,7 +5,7 @@ go 1.24.5
 replace x/shared => ../../shared
 
 require (
-	github.com/jackc/pgx/v5 v5.7.5
+	github.com/jackc/pgx/v5 v5.7.6
 	github.com/joho/godotenv v1.5.1
 	github.com/pquerna/otp v1.5.0
 	github.com/redis/go-redis/v9 v9.12.1
