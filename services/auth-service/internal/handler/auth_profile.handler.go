@@ -369,7 +369,11 @@ func (h *AuthHandler) HandleUpdateNationality(w http.ResponseWriter, r *http.Req
 			resp["token"] = session.AuthToken
 			resp["device"] = session.DeviceID
 		}
+
+		// Delete old token in background
+		h.logoutSessionBg(ctx)
 	}
+
 
 	// --- Final response ---
 	response.JSON(w, http.StatusOK, resp)

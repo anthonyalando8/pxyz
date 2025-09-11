@@ -384,6 +384,33 @@ message GetEffectiveUserPermissionsRequest {
   string submodule_code = 3;  // optional
 }
 
+message PermissionInfo {
+  int64 id = 1;
+  string code = 2;
+  string name = 3;
+  bool allowed = 4;
+  int64 role_id = 5; // optional
+  string user_id = 6;
+}
+
+message SubmoduleWithPermissions {
+  int64 id = 1;
+  string code = 2;
+  string name = 3;
+  bool is_active = 4;
+  repeated PermissionInfo permissions = 5;
+}
+
+message ModuleWithPermissions {
+  int64 id = 1;
+  string code = 2;
+  string name = 3;
+  bool is_active = 4;
+  repeated PermissionInfo permissions = 5; // module-level perms
+  repeated SubmoduleWithPermissions submodules = 6;
+}
+
 message GetEffectiveUserPermissionsResponse {
-  repeated RolePermission permissions = 1;
+  string user_id = 1;
+  repeated ModuleWithPermissions modules = 2;
 }

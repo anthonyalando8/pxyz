@@ -37,6 +37,8 @@ func (h *AuthHandler) HandleChangePassword(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	h.sendPasswordChangeNotification(userID, nil)
+	// Delete old token in background
+	h.logoutSessionBg(r.Context())
 
 	response.JSON(w, http.StatusOK, map[string]string{"message": "Password updated"})
 }
@@ -61,6 +63,8 @@ func (h *AuthHandler) HandleResetPassword(w http.ResponseWriter, r *http.Request
 	}
 
 	h.sendPasswordChangeNotification(userID, nil)
+	// Delete old token in background
+	h.logoutSessionBg(r.Context())
 
 	response.JSON(w, http.StatusOK, map[string]string{"message": "Password reset successful"})
 }
@@ -84,13 +88,25 @@ func (h *AuthHandler) HandleSetPassword(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// --- Password + Session ---
-	session, err := h.updatePasswordAndCreateSession(r.Context(), userID, deviceID, req.NewPassword, r)
+	user, err := h.uc.FindUserById(r.Context(), userID)
 	if err != nil {
-		response.Error(w, http.StatusBadRequest, err.Error())
+		response.Error(w, http.StatusNotFound, "User not found")
 		return
 	}
 
+	// Check if password already exists
+	if user.PasswordHash != nil && *user.PasswordHash != "" {
+		response.JSON(w, http.StatusConflict, map[string]interface{}{
+			"message": "User has already set a password",
+		})
+		return
+	}
+
+	// --- Password
+	if err := h.uc.UpdatePassword(r.Context(), userID, req.NewPassword, false, "", true); err != nil {
+		response.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
 	// --- Ensure profile exists in background ---
 	go h.ensureNationality(context.Background(), userID) // logs errors only
@@ -101,37 +117,13 @@ func (h *AuthHandler) HandleSetPassword(w http.ResponseWriter, r *http.Request) 
 	// --- Response: always include next as set_nationality ---
 	resp := map[string]interface{}{
 		"message": "Password set successfully",
-		"token":   session.AuthToken,
 		"next":    "set_nationality",
 	}
 
 	response.JSON(w, http.StatusOK, resp)
 }
 
-func (h *AuthHandler) updatePasswordAndCreateSession(
-    ctx context.Context,
-    userID, deviceID, newPassword string,
-    r *http.Request,
-) (*domain.Session, error) {
 
-    // Update password
-    if err := h.uc.UpdatePassword(ctx, userID, newPassword, false, "", true); err != nil {
-        return nil, err
-    }
-
-    // Create session
-    session, err := h.createSessionHelper(
-        ctx,
-        userID, false, false, "general",
-        nil, &deviceID, nil, nil, r,
-    )
-    if err != nil {
-        log.Printf("Failed to create session for user %s: %v", userID, err)
-        return nil, fmt.Errorf("session creation failed")
-    }
-
-    return session, nil
-}
 func (h *AuthHandler) sendWelcomeEmailAsync(userID string) {
     if h.emailClient == nil {
         return
@@ -272,8 +264,10 @@ func (h *AuthHandler) HandleRequestEmailChange(w http.ResponseWriter, r *http.Re
 		response.Error(w, http.StatusInternalServerError, "User lookup failed")
 		return
 	}
+	masked := maskEmail(*user.Email)
 
-	h.handleRequestChange(r.Context(), w, userID, *user.Email, "email", "request_email_change")
+
+	h.handleRequestChange(r.Context(), w, userID, *user.Email, "email", "request_email_change", masked)
 }
 
 func (h *AuthHandler) HandleRequestPhoneChange(w http.ResponseWriter, r *http.Request) {
@@ -293,10 +287,10 @@ func (h *AuthHandler) HandleRequestPhoneChange(w http.ResponseWriter, r *http.Re
 	}
 	ctx := r.Context()
 
+	// --- Ensure nationality first ---
 	userNatKey := fmt.Sprintf("user_nationality:%s", userID)
 	nationality, err := h.redisClient.Get(ctx, userNatKey).Result()
 	if err != nil || nationality == "" {
-		// not cached → call ensureNationality
 		nextAction, nat := h.ensureNationality(ctx, userID)
 		if nextAction != "" {
 			response.JSON(w, http.StatusOK, map[string]string{
@@ -306,30 +300,29 @@ func (h *AuthHandler) HandleRequestPhoneChange(w http.ResponseWriter, r *http.Re
 			return
 		}
 		nationality = nat
-		// cache nationality for 5 min
-		if err := h.redisClient.Set(ctx, userNatKey, nationality, 5*time.Minute).Err(); err != nil {
-			log.Printf("Failed to cache user nationality %s: %v", userID, err)
-		}
+		_ = h.redisClient.Set(ctx, userNatKey, nationality, 5*time.Minute).Err()
 	}
-	// --- Check if phone already exists ---
-	// if user.Phone != nil && *user.Phone != "" {
-	// 	log.Printf("[INFO] user %s already has a phone set", userID)
-	// 	response.JSON(w, http.StatusBadRequest, map[string]string{
-	// 		"message": "Phone number already updated. Contact support if you want to change your phone.",
-	// 	})
-	// 	return
-	// }
 
-	// --- Check if email exists for OTP sending ---
-	if user.Email == nil || *user.Email == "" {
-		log.Printf("[WARN] user %s has no email set, cannot send OTP", userID)
-		response.Error(w, http.StatusBadRequest, "User email not set")
+	// --- Determine OTP target ---
+	var channel, recipient, masked string
+
+	if user.Phone != nil && *user.Phone != "" && user.IsPhoneVerified {
+		channel = "sms"
+		recipient = *user.Phone
+		masked = maskPhone(recipient)
+	} else if user.Email != nil && *user.Email != "" {
+		channel = "email"
+		recipient = *user.Email
+		masked = maskEmail(recipient)
+	} else {
+		response.Error(w, http.StatusBadRequest, "No valid contact (phone/email) found for OTP")
 		return
 	}
 
-	// --- Call OTP helper with email channel ---
-	h.handleRequestChange(r.Context(), w, userID, *user.Email, "email", "request_phone_change")
+	// --- Call OTP helper ---
+	h.handleRequestChange(ctx, w, userID, recipient, channel, "request_phone_change", masked)
 }
+
 
 
 func (h *AuthHandler) HandleRequestPasswordChange(w http.ResponseWriter, r *http.Request) {
@@ -352,9 +345,10 @@ func (h *AuthHandler) HandleRequestPasswordChange(w http.ResponseWriter, r *http
 		response.Error(w, http.StatusBadRequest, "User email not set")
 		return
 	}
+	masked := maskEmail(*user.Email)
 
 	// --- Call helper with email channel ---
-	h.handleRequestChange(r.Context(), w, userID, *user.Email, "email", "request_password_change")
+	h.handleRequestChange(r.Context(), w, userID, *user.Email, "email", "request_password_change", masked)
 }
 
 
@@ -363,19 +357,22 @@ func (h *AuthHandler) handleRequestChange(
 	w http.ResponseWriter,
 	userID string,
 	recipient string,
-	channel string,      // "email" or "phone"
-	otpPurpose string,   // e.g., "request_email_change" or "request_phone_change" or "request_password_change"
+	channel string,    // "email" or "sms"
+	otpPurpose string,
+	maskedTarget string,
 ) {
 	if recipient == "" {
 		response.Error(w, http.StatusBadRequest, fmt.Sprintf("User %s has no %s set", userID, channel))
 		return
 	}
 
-	// Respond immediately
+	// Respond immediately (with masked target)
 	response.JSON(w, http.StatusOK, map[string]interface{}{
-		"message":     fmt.Sprintf("Request processed successfully. Verify OTP sent to %s to confirm action.", channel),
+		"message":     fmt.Sprintf("OTP sent to %s. Verify to continue.", maskedTarget),
 		"next":        "verify-otp",
 		"otp_purpose": otpPurpose,
+		"target":      maskedTarget,
+		"channel":     channel,
 	})
 
 	// Send OTP asynchronously
@@ -394,9 +391,10 @@ func (h *AuthHandler) handleRequestChange(
 				userID, otpErr, otpResp.GetError())
 			return
 		}
-		log.Printf("[handleRequestChange] OTP sent successfully to %s for userID=%v", recipient, userID)
+		log.Printf("[handleRequestChange] ✅ OTP sent successfully to %s for userID=%v", recipient, userID)
 	}()
 }
+
 
 
 func (h *AuthHandler) HandlePhoneChange(w http.ResponseWriter, r *http.Request) {

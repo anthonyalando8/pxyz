@@ -12,6 +12,8 @@ import (
 	telegramclient "auth-service/internal/service/telegram"
 	urbacservice "x/shared/urbac/utils"
 	"github.com/redis/go-redis/v9"
+	sessionpb "x/shared/genproto/sessionpb"
+
 	//"x/shared/genproto/emailpb"
 
 )
@@ -31,6 +33,7 @@ type AuthHandler struct {
 	redisClient    *redis.Client      // <- added
 	coreClient		*coreclient.CoreService
 	urbacservice  *urbacservice.Service
+	sessionClient sessionpb.AuthServiceClient
 	config         *Config
 	telegramClient *telegramclient.TelegramClient
 	
@@ -47,6 +50,7 @@ func NewAuthHandler(
 	redisClient *redis.Client,           // <- added
 	coreClient		*coreclient.CoreService,
 	urbacservice  *urbacservice.Service,
+	sessionClient sessionpb.AuthServiceClient,
 
 	config *Config,
 	telegramClient *telegramclient.TelegramClient,
@@ -61,6 +65,7 @@ func NewAuthHandler(
 		redisClient:    redisClient,      // <- assigned
 		coreClient:		coreClient,
 		urbacservice: urbacservice,
+		sessionClient: sessionClient,
 		config:         config,
 		telegramClient: telegramClient,
 	}

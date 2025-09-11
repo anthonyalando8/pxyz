@@ -8,8 +8,10 @@ import (
 	"net"
 	"net/http"
 	"time"
+    "log"
 
 	"auth-service/internal/domain"
+	"x/shared/auth/middleware"
 	sessionpb "x/shared/genproto/sessionpb"
 )
 
@@ -95,6 +97,23 @@ func (h *AuthHandler) createSessionHelper(
     }, nil
 }
 
+func (h *AuthHandler) logoutSessionBg(ctx context.Context){
+    currentTokenVal := ctx.Value(middleware.ContextToken)
+    currentToken, _ := currentTokenVal.(string)
+
+    if currentToken != "" {
+        go func(token string) {
+            delResp, delErr := h.sessionClient.DeleteSession(context.Background(), &sessionpb.DeleteSessionRequest{
+                Token: token,
+            })
+            if delErr != nil {
+                log.Printf("[LogoutSession] Failed to delete old session (token=%s): %v", token, delErr)
+            } else {
+                log.Printf("[LogoutSession] Old session deleted successfully (token=%s): %+v", token, delResp)
+            }
+        }(currentToken)
+    }
+}
 
 func getStringOrDefault(ptr *string) string {
 	if ptr != nil {

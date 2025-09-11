@@ -31,25 +31,45 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Step 3: Reject social-only accounts
+	// Step 3: Check RBAC permission
+	isAllowed, err := h.urbacservice.CheckUserPermission(
+		r.Context(),
+		user.ID,
+		"auth",      // module
+		"can_access", // permission
+		"login",     // submodule
+	)
+	if err != nil {
+		// system error while checking permissions
+		log.Printf("❌ RBAC check failed for user %s: %v", user.ID, err)
+		response.Error(w, http.StatusInternalServerError, "permission check failed")
+		return
+	}
+	if !isAllowed {
+		// user doesn’t have required permission
+		response.Error(w, http.StatusForbidden, "you are not authorized to login")
+		return
+	}
+
+	// Step 4: Reject social-only accounts
 	if err := h.ensureNotSocial(user, w); err != nil {
 		return
 	}
 
-	// Step 4: Handle incomplete signup flows
+	// Step 5: Handle incomplete signup flows
 	if user.SignupStage != "complete" && user.SignupStage != "password_set" {
 		h.handleIncompleteProfile(w, r, user, req)
 		return
 	}
 
-	// Step 5: Ensure password accounts have a password
+	// Step 6: Ensure password accounts have a password
 	if user.AccountType == "password" || user.AccountType == "hybrid" {
 		if err := h.ensurePasswordSet(w, r, user, req); err != nil {
 			return
 		}
 	}
 
-	// Step 6: Normal login flow
+	// Step 7: Normal login flow
 	h.handleSuccessfulLogin(w, r, user, req)
 }
 

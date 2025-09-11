@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strconv"
 	"time"
 
@@ -71,15 +72,157 @@ func (s *Service) AssignRoleByName(ctx context.Context, userID string, roleName 
 	}
 
 	// Step 4: Assign role
-	_, err := s.Client.AssignUserRole(ctx, &rbacpb.AssignUserRoleRequest{
+	// _, err := s.Client.AssignUserRole(ctx, &rbacpb.AssignUserRoleRequest{
+	// 	UserId:     userID,
+	// 	RoleId:     roleID,
+	// 	AssignedBy: assignedBy,
+	// })
+	// if err == nil {
+	// 	s.invalidateUserRolesCache(ctx, userID)
+	// }
+	resp, err := s.Client.UpgradeUserRole(ctx, &rbacpb.UpgradeUserRoleRequest{
 		UserId:     userID,
-		RoleId:     roleID,
+		NewRoleId:  roleID,
 		AssignedBy: assignedBy,
 	})
-	if err == nil {
-		s.invalidateUserRolesCache(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("failed to upgrade user role: %w", err)
 	}
+
+	// ✅ If successful, clear user roles cache
+	s.invalidateUserRolesCache(ctx, userID)
+
+	// You can also use resp.Role if needed
+	log.Printf("✅ User %s upgraded to role %d", resp.Role.UserId, resp.Role.RoleId)
+
 	return err
+}
+
+func (s *Service) GetEffectiveUserPermissions(
+	ctx context.Context,
+	userID string,
+	moduleCode, submoduleCode *string,
+) ([]*rbacpb.ModuleWithPermissions, error) {
+	// Build cache key
+	cacheKey := "urbac:user:effective_perms:" + userID
+	if moduleCode != nil {
+		cacheKey += ":mod=" + *moduleCode
+	}
+	if submoduleCode != nil {
+		cacheKey += ":subm=" + *submoduleCode
+	}
+	const ttl = 5 * time.Minute
+
+	// Try cache first
+	cached, err := s.RedisClient.Get(ctx, cacheKey).Result()
+	if err == nil {
+		var modules []*rbacpb.ModuleWithPermissions
+		if err := json.Unmarshal([]byte(cached), &modules); err == nil {
+			return modules, nil
+		}
+		// If bad cache, ignore and fetch fresh
+	}
+	if err != nil && err != redis.Nil {
+		return nil, fmt.Errorf("redis error: %w", err)
+	}
+
+	// Fetch fresh from gRPC
+	resp, err := s.Client.GetEffectiveUserPermissions(ctx, &rbacpb.GetEffectiveUserPermissionsRequest{
+		UserId:        userID,
+		ModuleCode:    stringPtrOrEmpty(moduleCode),
+		SubmoduleCode: stringPtrOrEmpty(submoduleCode),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch effective permissions for user %s: %w", userID, err)
+	}
+
+	modules := resp.GetModules()
+
+	// Cache the result (non-blocking, safe failure)
+	if data, err := json.Marshal(modules); err == nil {
+		_ = s.RedisClient.Set(ctx, cacheKey, data, ttl).Err()
+	}
+
+	return modules, nil
+}
+
+func stringPtrOrEmpty(v *string) string {
+	if v == nil {
+		return ""
+	}
+	return *v
+}
+func (s *Service) CheckUserPermission(
+	ctx context.Context,
+	userID, moduleCode, permissionCode, submoduleCode string,
+) (bool, error) {
+	var subPtr *string
+	if submoduleCode != "" {
+		subPtr = &submoduleCode
+	}
+	return s.checkUserPermissionInternal(ctx, userID, moduleCode, permissionCode, subPtr)
+}
+
+
+func (s *Service) checkUserPermissionInternal(
+	ctx context.Context,
+	userID, moduleCode, permissionCode string,
+	submoduleCode *string,
+) (bool, error) {
+	// Fetch effective permissions (cached gRPC call)
+	modules, err := s.GetEffectiveUserPermissions(ctx, userID, &moduleCode, submoduleCode)
+	if err != nil {
+		return false, fmt.Errorf("failed to get effective permissions: %w", err)
+	}
+
+	// Find the module
+	var targetModule *rbacpb.ModuleWithPermissions
+	for _, m := range modules {
+		if m.Code == moduleCode {
+			targetModule = m
+			break
+		}
+	}
+	if targetModule == nil {
+		return false, nil // module not found
+	}
+
+	// ---- Case 1: No submodule provided → check permission at module-level
+	if submoduleCode == nil {
+		for _, perm := range targetModule.Permissions {
+			if perm.Code == permissionCode {
+				return perm.Allowed, nil
+			}
+		}
+		return false, nil
+	}
+
+	// ---- Case 2: Submodule provided
+	// First, check module-level "can_access"
+	moduleAllowed := false
+	for _, perm := range targetModule.Permissions {
+		if perm.Code == "can_access" && perm.Allowed {
+			moduleAllowed = true
+			break
+		}
+	}
+	if !moduleAllowed {
+		return false, nil // deny if module has no can_access
+	}
+
+	// Then check submodule for the requested permissionCode
+	for _, sm := range targetModule.Submodules {
+		if sm.Code == *submoduleCode {
+			for _, perm := range sm.Permissions {
+				if perm.Code == permissionCode {
+					return perm.Allowed, nil
+				}
+			}
+		}
+	}
+
+	// Default: not found
+	return false, nil
 }
 
 
@@ -196,8 +339,6 @@ func (s *Service) GetUserRoles(ctx context.Context, userID string) ([]*rbacpb.Us
 
 	return roles, nil
 }
-
-
 
 // AssignPermissionByCode assigns a user permission override using module, submodule, and permission type codes.
 func (s *Service) getOrSetInt64Cache(ctx context.Context, key string, ttl time.Duration, fetch func() (int64, error)) (int64, error) {

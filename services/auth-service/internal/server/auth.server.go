@@ -75,7 +75,7 @@ func NewServer(cfg config.AppConfig) *http.Server {
 
 
 	authHandler := handler.NewAuthHandler(
-		userUC, auth, otpSvc, accountClient, emailCli, smsCli, rdb, coreClient,urbacSvc, config, telegramClient,
+		userUC, auth, otpSvc, accountClient, emailCli, smsCli, rdb, coreClient,urbacSvc,auth.Client, config, telegramClient,
 	)
 
 	// gRPC handler

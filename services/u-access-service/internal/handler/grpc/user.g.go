@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"u-rbac-service/internal/domain"
+	"u-rbac-service/internal/repository"
 	rbacpb "x/shared/genproto/urbacpb"
 
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -98,8 +99,6 @@ func (h *RBACGRPCHandler) UpgradeUserRole(ctx context.Context, req *rbacpb.Upgra
 
 // ---------------------- USER PERMISSION OVERRIDES ----------------------
 
-// ---------------------- USER PERMISSION OVERRIDES ----------------------
-
 // AssignUserPermissionOverride assigns a permission override to a user
 func (h *RBACGRPCHandler) AssignUserPermissionOverride(ctx context.Context, req *rbacpb.AssignUserPermissionOverrideRequest) (*emptypb.Empty, error) {
 	log.Printf("[gRPC] AssignUserPermissionOverride request: %+v", req)
@@ -184,43 +183,71 @@ func (h *RBACGRPCHandler) GetEffectiveUserPermissions(
 ) (*rbacpb.GetEffectiveUserPermissionsResponse, error) {
 	log.Printf("[gRPC] GetEffectiveUserPermissions request: %+v", req)
 
+	// Fetch
 	perms, err := h.rbacUC.GetEffectivePermissions(ctx, req.GetUserId(), nil, nil)
 	if err != nil {
 		log.Printf("❌ GetEffectiveUserPermissions failed: %v", err)
 		return nil, err
 	}
 
-	var pbPerms []*rbacpb.RolePermission
-	for _, p := range perms {
-		pbPerms = append(pbPerms, &rbacpb.RolePermission{
-			RoleId:           int64PtrToProto(p.RoleID),
+	// Group
+	grouped := repository.GroupEffectivePermissions(perms)
 
-			// ✅ Module info
-			ModuleId:   p.ModuleID,
-			ModuleCode: p.ModuleCode,
-			ModuleName: p.ModuleName,
+	// Map grouped → proto
+	var pbModules []*rbacpb.ModuleWithPermissions
+	for _, m := range grouped {
+		pbMod := &rbacpb.ModuleWithPermissions{
+			Id:         m.ID,
+			Code:       m.Code,
+			Name:       m.Name,
+			IsActive:   m.IsActive,
+			Permissions: make([]*rbacpb.PermissionInfo, 0, len(m.Permissions)),
+			Submodules:  make([]*rbacpb.SubmoduleWithPermissions, 0, len(m.Submodules)),
+		}
 
-			// ✅ Submodule info
-			SubmoduleId:   int64PtrToProto(p.SubmoduleID),
-			SubmoduleCode: stringPtrToProto(p.SubmoduleCode),
-			SubmoduleName: stringPtrToProto(p.SubmoduleName),
+		for _, p := range m.Permissions {
+			pbMod.Permissions = append(pbMod.Permissions, &rbacpb.PermissionInfo{
+				Id:      p.ID,
+				Code:    p.Code,
+				Name:    p.Name,
+				Allowed: p.Allowed,
+				RoleId:  int64OrDefault(p.RoleID),
+				UserId:  p.UserID,
+			})
+		}
 
-			// ✅ Permission type info
-			PermissionTypeId: p.PermissionTypeID,
-			PermissionCode:   p.PermissionCode,
-			PermissionName:   p.PermissionName,
+		for _, sm := range m.Submodules {
+			pbSm := &rbacpb.SubmoduleWithPermissions{
+				Id:         int64OrDefault(sm.ID),
+				Code:       stringOrDefault(sm.Code),
+				Name:       stringOrDefault(sm.Name),
+				IsActive:   boolOrDefault(sm.IsActive),
+				Permissions: make([]*rbacpb.PermissionInfo, 0, len(sm.Permissions)),
+			}
 
-			// ✅ Status
-			Allow:     p.Allow,
-			CreatedAt: timestamppb.New(p.CreatedAt),
-			UpdatedAt: ptrToTimestamp(p.UpdatedAt),
-		})
+			for _, p := range sm.Permissions {
+				pbSm.Permissions = append(pbSm.Permissions, &rbacpb.PermissionInfo{
+					Id:      p.ID,
+					Code:    p.Code,
+					Name:    p.Name,
+					Allowed: p.Allowed,
+					RoleId:  int64OrDefault(p.RoleID),
+					UserId:  p.UserID,
+				})
+			}
+
+			pbMod.Submodules = append(pbMod.Submodules, pbSm)
+		}
+
+		pbModules = append(pbModules, pbMod)
 	}
 
 	return &rbacpb.GetEffectiveUserPermissionsResponse{
-		Permissions: pbPerms,
+		UserId: req.GetUserId(),
+		Modules: pbModules,
 	}, nil
 }
+
 
 
 // CheckUserPermission checks if a user has a specific permission

@@ -200,6 +200,9 @@ func (h *AuthHandler) handleNextAction(
 			response.Error(w, http.StatusInternalServerError, "Session creation failed")
 			return err
 		}
+		// Delete old token in background
+		h.logoutSessionBg(ctx)
+
 		resp["action"] = "incomplete_profile_verified"
 		resp["stage"] = extra["stage"]
 		resp["next"] = extra["next_stage"]
@@ -240,6 +243,8 @@ func (h *AuthHandler) handleNextAction(
 		resp["new_email"] = pendingEmail
 		resp["message"] = "Email changed successfully"
 		h.sendEmailChangeNotifications(ctx, userId, oldEmail, pendingEmail)
+		// Delete old token in background
+		h.logoutSessionBg(ctx)
 
 	case "password_reset","request_password_change":
 		session, err := createSession("password_reset", true)
@@ -251,6 +256,12 @@ func (h *AuthHandler) handleNextAction(
 		resp["next"] = "reset_password"
 		resp["token"] = session.AuthToken
 		resp["device"] = session.DeviceID
+
+		if next == "password_reset"{
+			// Delete old token in background
+			h.logoutSessionBg(ctx)
+		}
+			
 
 	case "request_phone_change":
 		// --- Ensure nationality exists ---
@@ -343,6 +354,8 @@ func (h *AuthHandler) handleNextAction(
 		}
 
 		h.sendPhoneChangeNotification(userId, cachedPhone)
+		// Delete old token in background
+		h.logoutSessionBg(ctx)
 		// --- Delete cached phone ---
 		if err := h.redisClient.Del(ctx, redisKey).Err(); err != nil {
 			log.Printf("[handleNextAction] ⚠️ Failed to delete cached phone for user=%s: %v", userId, err)

@@ -47,3 +47,24 @@ func stringPtrToProto(v *string) string {
 	}
 	return *v
 }
+
+func int64OrDefault(v *int64) int64 {
+	if v == nil {
+		return 0
+	}
+	return *v
+}
+
+func stringOrDefault(v *string) string {
+	if v == nil {
+		return ""
+	}
+	return *v
+}
+
+func boolOrDefault(v *bool) bool {
+	if v == nil {
+		return false
+	}
+	return *v
+}
