@@ -83,7 +83,7 @@ WHERE submodule_id IS NOT NULL;
 -- rbac user roles (assigning roles to users)
 CREATE TABLE rbac_user_roles (
   id BIGSERIAL PRIMARY KEY,
-  user_id BIGINT NOT NULL REFERENCES users(id),
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   role_id BIGINT NOT NULL REFERENCES rbac_roles(id) ON DELETE CASCADE,
   assigned_by BIGINT,
   created_at TIMESTAMPTZ DEFAULT now(),
@@ -96,16 +96,16 @@ CREATE TABLE rbac_user_roles (
 -- rbac user-specific overrides
 CREATE TABLE rbac_user_permissions_override (
   id BIGSERIAL PRIMARY KEY,
-  user_id BIGINT NOT NULL REFERENCES users(id),
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   module_id BIGINT NOT NULL REFERENCES rbac_modules(id),
   submodule_id BIGINT REFERENCES rbac_submodules(id),
   permission_type_id BIGINT NOT NULL REFERENCES rbac_permission_types(id),
   allow BOOLEAN NOT NULL,
   UNIQUE(user_id, module_id, submodule_id, permission_type_id),
   created_at TIMESTAMPTZ DEFAULT now(),
-  created_by BIGINT REFERENCES users(id),
+  created_by BIGINT,
   updated_at TIMESTAMPTZ,
-  updated_by BIGINT REFERENCES users(id)
+  updated_by BIGINT
 );
 
 -- rbac audit log (records who did what and when)

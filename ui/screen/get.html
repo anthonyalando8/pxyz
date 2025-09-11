@@ -17,14 +17,13 @@
   <h1>ngrok GET test → /auth/profile</h1>
 
   <label>Base URL</label>
-  <input id="baseUrl" value="https://d72aa2d6048c.ngrok-free.app" />
+  <input id="baseUrl" value="https://c8a250490b48.ngrok-free.app" />
 
   <label>Bearer Token <small>(without the word "Bearer")</small></label>
   <input id="token" value="YOUR_JWT_TOKEN_HERE" />
 
   <div style="margin:16px 0;">
-    <button id="btnWith">GET profile (with XHR headers)</button>
-    <button id="btnWithout">GET profile (no extra headers)</button>
+    <button id="btnFetch">GET profile</button>
   </div>
 
   <h3>Raw response</h3>
@@ -36,48 +35,44 @@
       const t = document.getElementById('token').value.trim();
       return t ? `Bearer ${t}` : '';
     };
+
     const url = () => {
       let base = document.getElementById('baseUrl').value.trim().replace(/\/+$/, '');
       return `${base}/auth/profile`;
     };
 
-    async function run(kind) {
+    async function run() {
       out.textContent = 'Loading...';
 
-      const headers = { 'Authorization': getAuthHeader() };
-
-      if (kind === 'with') {
-        headers['Accept'] = 'application/json';
-        headers['X-Requested-With'] = 'XMLHttpRequest';
-      }
+      const headers = {
+        'Authorization': getAuthHeader(),
+        'ngrok-skip-browser-warning': 'true'
+      };
 
       try {
         const res = await fetch(url(), {
           method: 'GET',
           headers,
-          // credentials: 'include', // uncomment if your API uses cookies
         });
 
-        const text = await res.text(); // show RAW, don't parse
-        // Build a raw-looking dump
+        const text = await res.text(); // raw response
         const headerDump = [...res.headers.entries()]
           .map(([k, v]) => `${k}: ${v}`)
           .join('\n');
 
         out.textContent =
-        `STATUS: ${res.status} ${res.statusText}
-        URL: ${res.url}
-        ---- HEADERS ----
-        ${headerDump}
-        ---- BODY (raw) ----
-        ${text}`;
+`STATUS: ${res.status} ${res.statusText}
+URL: ${res.url}
+---- HEADERS ----
+${headerDump}
+---- BODY (raw) ----
+${text}`;
       } catch (err) {
         out.textContent = `FETCH ERROR:\n${err?.stack || err}`;
       }
     }
 
-    document.getElementById('btnWith').addEventListener('click', () => run('with'));
-    document.getElementById('btnWithout').addEventListener('click', () => run('without'));
+    document.getElementById('btnFetch').addEventListener('click', run);
   </script>
 </body>
 </html>
