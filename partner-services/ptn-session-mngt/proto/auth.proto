@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package session;
+
+option go_package = "genproto/sessionpb;sessionpb";
+
+service AuthService {
+  rpc ValidateSession(ValidateSessionRequest) returns (ValidateSessionResponse);
+  rpc CreateSession(CreateSessionRequest) returns (CreateSessionResponse);
+  rpc DeleteSession(DeleteSessionRequest) returns (Empty);
+  rpc DeleteAllSessions(DeleteAllSessionsRequest) returns (Empty);
+}
+
+message CreateSessionRequest {
+  string user_id = 1;
+  string auth_token = 2; // JWT or other token
+
+  // Device & connection info
+  string device_id = 3;  
+  string ip_address = 4;
+  string user_agent = 5;
+  string geo_location = 6;
+  string device_metadata = 7; // serialize as JSON if needed
+
+  bool is_active = 8; // usually true on creation
+}
+
+message CreateSessionResponse {
+  string session_id = 1;
+}
+
+message DeleteSessionRequest {
+  string token = 1;
+}
+
+message DeleteAllSessionsRequest {
+  string user_id = 1;
+}
+
+message ValidateSessionRequest {
+  string token = 1;
+}
+
+message ValidateSessionResponse {
+  bool valid = 1;
+  string user_id = 2;
+  string error = 3;
+}
+
+message Empty {}

@@ -23,7 +23,7 @@ func SetupRoutes(
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"http://127.0.0.1:5500", "http://localhost:5500", "https://c5b6edca35b5.ngrok-free.app"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "PATCH"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "ngrok-skip-browser-warning",},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "ngrok-skip-browser-warning"},
 		ExposedHeaders:   []string{"Link"},
 		AllowCredentials: true,
 		MaxAge:           300,
@@ -41,14 +41,14 @@ func SetupRoutes(
 	// Public Endpoints (Mpesa webhook/callbacks)
 	// ============================================================
 	r.Group(func(pr chi.Router) {
-		pr.Post("/cashier/mpesa/callback", h.MpesaCallback) // <-- You’ll need to add this method in PaymentHandler
+		pr.Post("/cashier/mpesa/callback", h.MpesaCallback)
 	})
 
 	// ============================================================
 	// Authenticated Endpoints (User actions)
 	// ============================================================
 	r.Group(func(pr chi.Router) {
-		pr.Use(auth.Require([]string{"main"}, nil))
+		pr.Use(auth.Require([]string{"main"}, nil, nil)) // <--- Updated to include roles (nil for now)
 
 		// Uploads (proof of payment, receipts, etc.)
 		pr.Handle("/cashier/uploads/*", http.StripPrefix("/cashier/uploads/", http.FileServer(http.Dir(uploadDir))))
@@ -60,3 +60,4 @@ func SetupRoutes(
 
 	return r
 }
+

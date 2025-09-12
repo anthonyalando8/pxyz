@@ -27,7 +27,7 @@ func NewServer(cfg config.AppConfig) *http.Server {
 	}
 
 	// --- Init ID generator ---
-	sf, err := id.NewSnowflake(8)
+	sf, err := id.NewSnowflake(9)
 	_ = sf
 	if err != nil {
 		log.Fatalf("failed to init snowflake: %v", err)

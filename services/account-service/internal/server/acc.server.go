@@ -49,7 +49,7 @@ func NewServer() *Server {
 	}
 
 	// Snowflake
-	sf, err := id.NewSnowflake(4)
+	sf, err := id.NewSnowflake(7)
 	if err != nil {
 		log.Fatalf("[FATAL] snowflake init failed: %v", err)
 	}

@@ -26,28 +26,19 @@ func NewAuthHandler(uc *usecase.SessionUsecase) *AuthHandler {
 func (h *AuthHandler) ValidateSession(ctx context.Context, req *pb.ValidateSessionRequest) (*pb.ValidateSessionResponse, error) {
 	session, err := h.uc.SessionRepo.GetSessionByToken(ctx, req.Token)
 	if err != nil {
-		return &pb.ValidateSessionResponse{
-			Valid: false,
-			Error: "session not found",
-		}, xerrors.ErrNotFound
+		return nil, xerrors.ErrNotFound
 	}
 
 	if session.IsTemp {
 		if session.IsSingleUse {
 			if session.IsUsed {
-				return &pb.ValidateSessionResponse{
-					Valid: false,
-					Error: "session expired",
-				}, xerrors.ErrSessionUsed
+				return nil, xerrors.ErrSessionUsed
 			}
 
 			// Mark single-use session as used immediately
 			session.IsUsed = true
 			if err := h.uc.SessionRepo.UpdateSessionUsed(ctx, session.ID, true); err != nil {
-				return &pb.ValidateSessionResponse{
-					Valid: false,
-					Error: "failed to update session status",
-				}, err
+				return nil, err
 			}
 		}
 	}

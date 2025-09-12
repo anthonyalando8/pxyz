@@ -40,7 +40,7 @@ func main() {
 	defer rdb.Close()
 
 	// snowflake
-	sf, err := id.NewSnowflake(5)
+	sf, err := id.NewSnowflake(10)
 	if err != nil {
 		log.Fatalf("sf: %v", err)
 	}
@@ -70,7 +70,7 @@ func main() {
 	r.Use(auth.RateLimit(rdb, 100, time.Minute, 10*time.Minute, "global"))
 
 	r.Group(func(r chi.Router) {
-		r.Use(auth.Require([]string{"main"}, []string{"general", "kyc_review"}))
+		r.Use(auth.Require([]string{"main"}, []string{"general", "kyc_review"}, nil))
 		r.Use(auth.RateLimit(rdb, 15, 5*time.Minute, 5*time.Minute, "kyc"))
 		// Protected routes	
 		// Serve /uploads/... -> files from ./uploads/

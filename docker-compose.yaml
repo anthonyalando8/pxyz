@@ -34,8 +34,8 @@ services:
     container_name: auth-service
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.auth.rule=PathPrefix(`/auth`)"
-      - "traefik.http.services.auth.loadbalancer.server.port=8001"
+      - "traefik.http.routers.user-auth.rule=PathPrefix(`/auth`)"
+      - "traefik.http.services.user-auth.loadbalancer.server.port=8001"
     env_file:
       - ./services/auth-service/.env
     volumes:
@@ -68,8 +68,8 @@ services:
     container_name: session-service
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.session.rule=PathPrefix(`/session`)"
-      - "traefik.http.services.session.loadbalancer.server.port=8002"
+      - "traefik.http.routers.user-session.rule=PathPrefix(`/session`)"
+      - "traefik.http.services.user-session.loadbalancer.server.port=8002"
     env_file:
       - ./services/session-mngt/.env
     volumes:
@@ -89,57 +89,6 @@ services:
       - redis
       - u-access-service
 
-  # 🔹 Email Service
-  email-service:
-    build:
-      context: .
-      dockerfile: services/email-service/Dockerfile
-    container_name: email-service
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.email.rule=PathPrefix(`/email`)"
-      - "traefik.http.services.email.loadbalancer.server.port=8011"
-    env_file:
-      - ./services/email-service/.env
-    environment:
-      DB_HOST: host.docker.internal
-      DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: 2000
-      DB_NAME: pxyz
-      REDIS_ADDR: redis:6379
-      GRPCPort: :8011
-      SMTPHost: smtp.gmail.com
-      SMTPUser: anthonyalando8@gmail.com
-      SMTPPort: 587
-      SMTPPass: dqiadasrccjulcuh
-    networks:
-      - micro_net
-    depends_on:
-      - redis
-
-  # 🔹 OTP Service
-  otp-service:
-    build:
-      context: .
-      dockerfile: services/otp-service/Dockerfile
-    container_name: otp-service
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.otp.rule=PathPrefix(`/otp`)"
-      - "traefik.http.services.otp.loadbalancer.server.port=8003"
-    env_file:
-      - ./services/otp-service/.env
-    environment:
-      DB_CONN: postgres://postgres:2000@host.docker.internal:5432/pxyz
-      REDIS_ADDR: redis:6379
-      EMAIL_SVC_ADDR: email-service:8011
-    networks:
-      - micro_net
-    depends_on:
-      - redis
-      - email-service
-
   # 🔹 Account Service
   account-service:
     build:
@@ -148,8 +97,8 @@ services:
     container_name: account-service
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.account.rule=PathPrefix(`/account`)"
-      - "traefik.http.services.account.loadbalancer.server.port=8004"
+      - "traefik.http.routers.user-account.rule=PathPrefix(`/account`)"
+      - "traefik.http.services.user-account.loadbalancer.server.port=8004"
     env_file:
       - ./services/account-service/.env
     networks:
@@ -235,16 +184,16 @@ services:
   sms-service:
     build:
       context: .
-      dockerfile: services/sms-service/Dockerfile
+      dockerfile: common-services/sms-service/Dockerfile
     container_name: sms-service
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.sms.rule=PathPrefix(`/sms`)"
       - "traefik.http.services.sms.loadbalancer.server.port=8012"
     env_file:
-      - ./services/sms-service/.env
+      - ./common-services/sms-service/.env
     volumes:
-      - ./services/sms-service/secrets:/app/secrets:ro
+      - ./common-services/sms-service/secrets:/app/secrets:ro
     networks:
       - micro_net
     environment:
@@ -263,52 +212,71 @@ services:
     depends_on:
       - redis
       - email-service
-
-  # 🔹 Partner Service
-  partner-service:
+  # 🔹 Email Service
+  email-service:
     build:
       context: .
-      dockerfile: services/partner-service/Dockerfile
-    container_name: partner-service
+      dockerfile: common-services/email-service/Dockerfile
+    container_name: email-service
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.partner.rule=PathPrefix(`/partner`)"
-      - "traefik.http.services.partner.loadbalancer.server.port=8041"
+      - "traefik.http.routers.email.rule=PathPrefix(`/email`)"
+      - "traefik.http.services.email.loadbalancer.server.port=8011"
     env_file:
-      - ./services/partner-service/.env
-    volumes:
-      - ./services/partner-service/secrets:/app/secrets:ro
-    networks:
-      - micro_net
+      - ./common-services/email-service/.env
     environment:
       DB_HOST: host.docker.internal
       DB_PORT: 5432
       DB_USER: postgres
       DB_PASSWORD: 2000
       DB_NAME: pxyz
-      HTTP_ADDR: :8041
-      GRPC_ADDR: :8042
       REDIS_ADDR: redis:6379
-      REDIS_PASS: ""
-      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+      GRPCPort: :8011
+      SMTPHost: smtp.gmail.com
+      SMTPUser: anthonyalando8@gmail.com
+      SMTPPort: 587
+      SMTPPass: dqiadasrccjulcuh
+    networks:
+      - micro_net
     depends_on:
       - redis
-      - auth-service
+
+  # 🔹 OTP Service
+  otp-service:
+    build:
+      context: .
+      dockerfile: common-services/otp-service/Dockerfile
+    container_name: otp-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.otp.rule=PathPrefix(`/otp`)"
+      - "traefik.http.services.otp.loadbalancer.server.port=8003"
+    env_file:
+      - ./common-services/otp-service/.env
+    environment:
+      DB_CONN: postgres://postgres:2000@host.docker.internal:5432/pxyz
+      REDIS_ADDR: redis:6379
+      EMAIL_SVC_ADDR: email-service:8011
+    networks:
+      - micro_net
+    depends_on:
+      - redis
+      - email-service
 
   # 🔹 Core Service
   core-service:
     build:
       context: .
-      dockerfile: services/core-service/Dockerfile
+      dockerfile: common-services/core-service/Dockerfile
     container_name: core-service
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.core.rule=PathPrefix(`/core`)"
       - "traefik.http.services.core.loadbalancer.server.port=8051"
     env_file:
-      - ./services/core-service/.env
+      - ./common-services/core-service/.env
     volumes:
-      - ./services/core-service/secrets:/app/secrets:ro
+      - ./common-services/core-service/secrets:/app/secrets:ro
       - ./uploads:/app/uploads
     networks:
       - micro_net
@@ -354,6 +322,155 @@ services:
       GRPC_ADDR: :8032
       REDIS_PASS:
       JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    depends_on:
+      - redis
+      
+  # 🔹 Partner Service
+  partner-service:
+    build:
+      context: .
+      dockerfile: partner-services/partner-service/Dockerfile
+    container_name: partner-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.partner-svc.rule=PathPrefix(`/partner/svc`)"
+      - "traefik.http.services.partner-svc.loadbalancer.server.port=7510"
+    env_file:
+      - ./partner-services/partner-service/.env
+    volumes:
+      - ./partner-services/partner-service/secrets:/app/secrets:ro
+    networks:
+      - micro_net
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: 2000
+      DB_NAME: pxyz_partner
+      HTTP_ADDR: :7510
+      GRPC_ADDR: :7511
+      REDIS_ADDR: redis:6379
+      REDIS_PASS: ""
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    depends_on:
+      - redis
+  ptn-auth-service:
+    build:
+      context: .
+      dockerfile: partner-services/ptn-auth-service/Dockerfile
+    container_name: ptn-auth-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.partner-auth.rule=PathPrefix(`/partner/auth`)"
+      - "traefik.http.services.partner-auth.loadbalancer.server.port=7500"
+    env_file:
+      - ./partner-services/ptn-auth-service/.env
+    volumes:
+      - ./partner-services/ptn-auth-service/secrets:/app/secrets:ro
+      - ./uploads:/app/uploads
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: 2000
+      DB_NAME: pxyz_partner
+      REDIS_ADDR: redis:6379
+      SYSTEM_ADMIN_PASSWORD: 96211581#Aa
+      SYSTEM_ADMIN_EMAIL: anthonyalando8@gmail.com
+    networks:
+      - micro_net
+    depends_on:
+      - redis
+      - core-service
+      - ptn-session-service
+      - email-service
+      - otp-service
+
+  # 🔹 Session Service
+  ptn-session-service:
+    build:
+      context: .
+      dockerfile: partner-services/ptn-session-mngt/Dockerfile
+    container_name: ptn-session-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.partner-session.rule=PathPrefix(`/partner/session`)"
+      - "traefik.http.services.partner-session.loadbalancer.server.port=7503"
+    env_file:
+      - ./partner-services/ptn-session-mngt/.env
+    volumes:
+      - ./partner-services/ptn-session-mngt/secrets:/app/secrets:ro
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: 2000
+      DB_NAME: pxyz_partner
+      REDIS_ADDR: redis:6379
+      JWT_PRIVATE_KEY_PATH: /app/secrets/jwt_private.pem
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    networks:
+      - micro_net
+    depends_on:
+      - redis
+
+  admin-auth-service:
+    build:
+      context: .
+      dockerfile: admin-services/admin-auth-service/Dockerfile
+    container_name: admin-auth-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.admin-auth.rule=PathPrefix(`/admin/auth`)"
+      - "traefik.http.services.admin-auth.loadbalancer.server.port=7000"
+    env_file:
+      - ./admin-services/admin-auth-service/.env
+    volumes:
+      - ./admin-services/admin-auth-service/secrets:/app/secrets:ro
+      - ./uploads:/app/uploads
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: 2000
+      DB_NAME: pxyz_admin
+      REDIS_ADDR: redis:6379
+      SYSTEM_ADMIN_PASSWORD: 96211581#Aa
+      SYSTEM_ADMIN_EMAIL: anthonyalando8@gmail.com
+    networks:
+      - micro_net
+    depends_on:
+      - redis
+      - core-service
+      - admin-session-service
+      - email-service
+      - otp-service
+
+  # 🔹 Session Service
+  admin-session-service:
+    build:
+      context: .
+      dockerfile: admin-services/admin-session-mngt/Dockerfile
+    container_name: admin-session-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.admin-session.rule=PathPrefix(`/admin/session`)"
+      - "traefik.http.services.admin-session.loadbalancer.server.port=7003"
+    env_file:
+      - ./admin-services/admin-session-mngt/.env
+    volumes:
+      - ./admin-services/admin-session-mngt/secrets:/app/secrets:ro
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: 2000
+      DB_NAME: pxyz_admin
+      REDIS_ADDR: redis:6379
+      JWT_PRIVATE_KEY_PATH: /app/secrets/jwt_private.pem
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    networks:
+      - micro_net
     depends_on:
       - redis
 

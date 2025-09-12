@@ -20,18 +20,40 @@ func extractToken(r *http.Request) string {
 	return ""
 }
 
-func (am *AuthMiddleware) extractAndVerifyToken(r *http.Request, w http.ResponseWriter) (string, *jwtutil.Claims, bool) {
+func (am *AuthMiddleware) extractAndVerifyToken(r *http.Request, w http.ResponseWriter) (string, *jwtutil.Claims, string, bool) {
 	token := extractToken(r)
 	if token == "" {
 		response.Error(w, http.StatusUnauthorized, "No token provided")
-		return "", nil, false
+		return "", nil, "", false
 	}
 
-	claims, err := am.verifier.ParseAndValidate(token)
-	if err != nil {
-		response.Error(w, http.StatusUnauthorized, "Invalid or expired token")
-		return "", nil, false
+	var claims *jwtutil.Claims
+	var err error
+	var tokenType string
+
+	// Try User verifier
+	claims, err = am.UserVerifier.ParseAndValidate(token)
+	if err == nil {
+		tokenType = "user"
+		return token, claims, tokenType, true
 	}
 
-	return token, claims, true
+	// Try Partner verifier
+	claims, err = am.PartnerVerifier.ParseAndValidate(token)
+	if err == nil {
+		tokenType = "partner"
+		return token, claims, tokenType, true
+	}
+
+	// Try Admin verifier
+	claims, err = am.AdminVerifier.ParseAndValidate(token)
+	if err == nil {
+		tokenType = "admin"
+		return token, claims, tokenType, true
+	}
+
+	// If all fail
+	response.Error(w, http.StatusUnauthorized, "Invalid or expired token")
+	return "", nil, "", false
 }
+

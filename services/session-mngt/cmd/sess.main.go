@@ -37,14 +37,17 @@ func main() {
 		DB:       0,
 	})
 	// Initialize Snowflake ID generator
-	sf, err := id.NewSnowflake(1)
+	sf, err := id.NewSnowflake(12)
 	if err != nil {
 		log.Fatalf("failed to init snowflake: %v", err)
 	}
 	
 	jwtGen := jwtutil.LoadAndBuild(cfg.JWT)
 
-	authClient := authclient.NewAuthService()
+	authClient, err := authclient.DialAuthService(authclient.UserAuthService)
+	if err != nil {
+        log.Fatalf("failed to dial auth service: %v", err)
+    }
 	urbacCli := urbac.NewRBACService()
 	urbacSvc :=	urbacservice.NewService(urbacCli.Client, rdb)
 

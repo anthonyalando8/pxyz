@@ -223,25 +223,21 @@ func (r *UserRepository) UpdatePhone(ctx context.Context, userID, newPhone strin
 		UPDATE users
 		SET 
 			phone = $1::VARCHAR,
-			is_phone_verified = CASE
-				WHEN phone <> $1::VARCHAR THEN $3
-				ELSE is_phone_verified
-			END,
-			changed_phones = COALESCE(
-				changed_phones,
-				'[]'::jsonb
-			) || 
-			CASE 
-				WHEN phone IS NOT NULL AND phone <> '' AND phone <> $1::VARCHAR THEN
-					jsonb_build_object(
-						'phone', phone,
-						'changed_at', NOW()
-					)
-				ELSE
-					'[]'::jsonb
-			END,
+			is_phone_verified = 
+				CASE WHEN phone IS DISTINCT FROM $1::VARCHAR 
+					THEN $3 
+					ELSE is_phone_verified 
+				END,
+			changed_phones = COALESCE(changed_phones, '[]'::jsonb) || 
+				CASE 
+					WHEN phone IS NOT NULL 
+					AND phone <> '' 
+					AND phone <> $1::VARCHAR 
+					THEN jsonb_build_object('phone', phone, 'changed_at', NOW())
+					ELSE '[]'::jsonb
+				END,
 			updated_at = NOW()
-		WHERE id = $2
+		WHERE id = $2;
 	`
 
 	_, err := r.db.Exec(ctx, query, newPhone, userID, isPhoneVerified)

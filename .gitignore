@@ -13,14 +13,14 @@
 /services/session-mngt/secrets/
 /services/session-mngt/secrets/*
 
-/services/otp-service/.env
+/common-services/otp-service/.env
 
 /services/kyc-service/.env
 /services/kyc-service/secrets/
 /services/kyc-service/secrets/*
 
 
-/services/email-service/.env
+/common-services/email-service/.env
 
 /services/cashier-service/.env
 /services/cashier-service/secrets/
@@ -28,13 +28,9 @@
 
 /services/account-service/.env
 
-/services/sms-service/.env
-/services/sms-service/secrets/
-/services/sms-service/secrets/*
-
-/services/partner-service/.env
-/services/partner-service/secrets/
-/services/partner-service/secrets/*
+/common-services/sms-service/.env
+/common-services/sms-service/secrets/
+/common-services/sms-service/secrets/*
 
 /ui/screen/auth_test.html
 
@@ -46,3 +42,24 @@
 /services/u-access-service/.env
 /services/u-access-service/secrets/
 /services/u-access-service/secrets/*
+
+
+/partner-services/partner-service/.env
+/partner-services/partner-service/secrets/
+/partner-services/partner-service/secrets/*
+
+/partner-services/ptn-auth-service/.env
+/partner-services/ptn-auth-service/secrets/
+/partner-services/ptn-auth-service/secrets/*
+
+/partner-services/ptn-session-mngt/.env
+/partner-services/ptn-session-mngt/secrets/
+/partner-services/ptn-session-mngt/secrets/*
+
+/admin-services/admin-auth-service/.env
+/admin-services/admin-auth-service/secrets/
+/admin-services/admin-auth-service/secrets/*
+
+/admin-services/ptn-session-mngt/.env
+/admin-services/ptn-session-mngt/secrets/
+/admin-services/ptn-session-mngt/secrets/*

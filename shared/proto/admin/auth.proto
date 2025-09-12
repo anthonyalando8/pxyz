@@ -1,0 +1,78 @@
+syntax = "proto3";
+
+package admin.auth;
+
+option go_package = "genproto/admin/authpb;adminauthpb";
+
+service AdminAuthService {
+  // Register a new user (basic fields only)
+  rpc RegisterUser(RegisterUserRequest) returns (RegisterUserResponse);
+
+  // Get full user profile by ID
+  rpc GetUserProfile(GetUserProfileRequest) returns (GetUserProfileResponse);
+
+  // Delete a user and all associated auth records
+  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
+}
+
+// -------------------- Messages --------------------
+
+// Delete User
+message DeleteUserRequest {
+  string user_id = 1; // User ID to delete
+}
+
+message DeleteUserResponse {
+  bool ok = 1;       // true if delete was successful
+  string error = 2;  // empty if ok=true, otherwise error message
+}
+
+// -------------------- Existing Messages --------------------
+
+// Register User
+message RegisterUserRequest {
+  string email = 1;
+  string password = 2;
+  string first_name = 3;
+  string last_name = 4;
+  string role = 5; // e.g., "trader", "admin", etc. (optional)
+}
+
+message RegisterUserResponse {
+  bool ok = 1;
+  string error = 2;
+  string user_id = 3;
+}
+
+// Get Profile
+message GetUserProfileRequest {
+  string user_id = 1;
+}
+
+message GetUserProfileResponse {
+  bool ok = 1;
+  string error = 2;
+  User user = 3;
+}
+
+// -------------------- Shared --------------------
+message User {
+  string id = 1;
+  string email = 2;
+  string phone = 3;
+
+  string password_hash = 4; // Optional, will be omitted in JSON responses
+  string first_name = 5;
+  string last_name = 6;
+
+  bool is_email_verified = 7;
+  bool is_phone_verified = 8;
+  bool is_temp_pass = 9;
+
+  string account_status = 10; // 'active', 'deleted', 'suspended'
+  string account_type = 11;   // 'password', 'social', 'hybrid'
+
+  string created_at = 12; // ISO timestamp
+  string updated_at = 13; // ISO timestamp
+}
+

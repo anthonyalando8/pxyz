@@ -22,12 +22,10 @@ func SetupRoutes(
 ) chi.Router {
 	// ---- Global Middleware ----
 	r.Use(cors.Handler(cors.Options{
-		//AllowedOrigins:   []string{"http://127.0.0.1:5500", "http://localhost:5500", "https://38d9f221ec3b.ngrok-free.app"},
-		AllowedOrigins: []string{"*"}, // allow all origins
+		AllowedOrigins:   []string{"*"}, // allow all origins
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "ngrok-skip-browser-warning",},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "ngrok-skip-browser-warning"},
 		ExposedHeaders:   []string{"Link"},
-		//AllowCredentials: true,
 		AllowCredentials: false, // must be false when using "*"
 		MaxAge:           300,
 	}))
@@ -52,43 +50,37 @@ func SetupRoutes(
 		r.Post("/auth/password/forgot", h.HandleForgotPassword)
 	})
 
-	// OTP request with temporary session
-	r.Group(func(r chi.Router) {
-		r.Use(auth.Middleware)
-		r.Post("/auth/register/otp/request", h.HandleRequestOTP)
-	})
-
 	// ============================================================
 	// Registration & Password Flows (require specific session/purpose)
 	// ============================================================
 	r.Group(func(r chi.Router) {
-		r.Use(auth.Require([]string{"main", "temp"}, []string{"register"}))
+		r.Use(auth.Require([]string{"main", "temp"}, []string{"register"}, nil))
 		r.Post("/auth/password/set", h.HandleSetPassword)
 	})
 
 	r.Group(func(r chi.Router) {
-		r.Use(auth.Require([]string{"temp"}, []string{"password_reset"}))
+		r.Use(auth.Require([]string{"temp"}, []string{"password_reset"}, nil))
 		r.Post("/auth/password/reset", h.HandleResetPassword)
 	})
 
 	r.Group(func(r chi.Router) {
-		r.Use(auth.Require([]string{"main", "temp"}, []string{"register", "email_change", "incomplete_profile", "general", "verify-otp", "phone_change"}))
+		r.Use(auth.Require([]string{"main", "temp"}, []string{"register", "email_change", "incomplete_profile", "general", "verify-otp", "phone_change"}, nil))
 		r.Post("/auth/register/otp/request", h.HandleRequestOTP)
 		r.Post("/auth/register/otp/verify", h.HandleVerifyOTP)
 	})
 
 	// Email & Phone Change (OTP-protected)
 	r.Group(func(r chi.Router) {
-		r.Use(auth.Require([]string{"main", "temp"}, []string{"email_change"}))
+		r.Use(auth.Require([]string{"main", "temp"}, []string{"email_change"}, nil))
 		r.Patch("/auth/email", h.HandleChangeEmail)
 	})
 	r.Group(func(r chi.Router) {
-		r.Use(auth.Require([]string{"main", "temp"}, []string{"phone_change"}))
+		r.Use(auth.Require([]string{"main", "temp"}, []string{"phone_change"}, nil))
 		r.Patch("/auth/phone/update", h.HandlePhoneChange)
 	})
 
 	r.Group(func(r chi.Router) {
-		r.Use(auth.Require([]string{"main", "temp"}, []string{"general", "register","incomplete_profile"}))
+		r.Use(auth.Require([]string{"main", "temp"}, []string{"general", "register","incomplete_profile"}, nil))
 		r.Post("/auth/profile/nationality", h.HandleUpdateNationality)
 	})
 
@@ -96,7 +88,7 @@ func SetupRoutes(
 	// Authenticated User Endpoints (main session required)
 	// ============================================================
 	r.Group(func(pr chi.Router) {
-		pr.Use(auth.Require([]string{"main"}, nil))
+		pr.Use(auth.Require([]string{"main"}, nil, nil))
 
 		// Serve uploads
 		pr.Handle("/auth/uploads/*", http.StripPrefix("/auth/uploads/", http.FileServer(http.Dir(uploadDir))))
@@ -136,3 +128,4 @@ func SetupRoutes(
 
 	return r
 }
+

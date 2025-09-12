@@ -1,50 +1,84 @@
 // pkg/authclient/auth_client.go
 package authclient
-
 import (
 	"context"
+	"fmt"
 	"log"
-	"os"
 	"time"
+	"os"
 
 	authpb "x/shared/genproto/authpb"
+	ptnauthpb "x/shared/genproto/partner/authpb"
+	adminauthpb "x/shared/genproto/admin/authpb"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+type ServiceType string
+
+const (
+	UserAuthService    ServiceType = "user"
+	PartnerAuthService ServiceType = "partner"
+	AdminAuthService   ServiceType = "admin"
+)
+
 type AuthService struct {
-	Client authpb.AuthServiceClient
+	UserClient    authpb.AuthServiceClient
+	PartnerClient ptnauthpb.PartnerAuthServiceClient
+	AdminClient   adminauthpb.AdminAuthServiceClient
+	conn          *grpc.ClientConn
 }
 
-// NewAuthService connects to the Auth microservice and returns a ready-to-use client wrapper.
-func NewAuthService() *AuthService {
-	authAddr := getEnv("AUTH_SERVICE_ADDR", "auth-service:8006")
+// DialAuthService connects to the requested service and returns a wrapper with the appropriate client set
+func DialAuthService(service ServiceType) (*AuthService, error) {
+	var (
+		addr string
+		as   = &AuthService{}
+	)
 
-	// Log the working directory
-	if wd, err := os.Getwd(); err == nil {
-		log.Printf("[INFO] Current working directory: %s", wd)
-	} else {
-		log.Printf("[WARN] Could not get working directory: %v", err)
+	switch service {
+	case UserAuthService:
+		addr = "auth-service:8006"
+	case PartnerAuthService:
+		addr = "ptn-auth-service:7501"
+	case AdminAuthService:
+		addr = "admin-auth-service:7001"
+	default:
+		return nil, fmt.Errorf("unknown service type: %s", service)
 	}
 
-	// Context with timeout for connection
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	log.Printf("[INFO] Attempting to connect to Auth service at %s...", authAddr)
-	conn, err := grpc.DialContext(ctx, authAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	log.Printf("[INFO] Connecting to %s at %s...", service, addr)
+	conn, err := grpc.DialContext(ctx, addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Fatalf("[ERROR] Failed to connect to Auth service at %s: %v", authAddr, err)
+		return nil, fmt.Errorf("failed to connect to %s: %w", service, err)
+	}
+	as.conn = conn
+
+	// Set the correct client
+	switch service {
+	case UserAuthService:
+		as.UserClient = authpb.NewAuthServiceClient(conn)
+	case PartnerAuthService:
+		as.PartnerClient = ptnauthpb.NewPartnerAuthServiceClient(conn)
+	case AdminAuthService:
+		as.AdminClient = adminauthpb.NewAdminAuthServiceClient(conn)
 	}
 
-	log.Printf("[INFO] Successfully connected to Auth service at %s", authAddr)
-	client := authpb.NewAuthServiceClient(conn)
-
-	return &AuthService{
-		Client: client,
-	}
+	return as, nil
 }
+
+// Close the connection
+func (s *AuthService) Close() error {
+	if s.conn != nil {
+		return s.conn.Close()
+	}
+	return nil
+}
+
 
 
 // Helper to read env vars with fallback
@@ -53,21 +87,4 @@ func getEnv(key, fallback string) string {
 		return v
 	}
 	return fallback
-}
-
-// Convenience methods for commonly used RPCs
-func (a *AuthService) RegisterUser(ctx context.Context, req *authpb.RegisterUserRequest) (*authpb.RegisterUserResponse, error) {
-	return a.Client.RegisterUser(ctx, req)
-}
-
-func (a *AuthService) GetUserProfile(ctx context.Context, req *authpb.GetUserProfileRequest) (*authpb.GetUserProfileResponse, error) {
-	return a.Client.GetUserProfile(ctx, req)
-}
-
-// -------------------- DeleteUser --------------------
-func (a *AuthService) DeleteUser(ctx context.Context, userID string) (*authpb.DeleteUserResponse, error) {
-	req := &authpb.DeleteUserRequest{
-		UserId: userID,
-	}
-	return a.Client.DeleteUser(ctx, req)
 }

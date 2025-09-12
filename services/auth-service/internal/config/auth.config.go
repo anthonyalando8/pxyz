@@ -21,8 +21,6 @@ type AppConfig struct {
 	Apple            AppleConfig
 	TelegramBotToken string
 	TelegramChatID   string
-	SystemAdminEmail string
-	SystemAdminPassword  string
 }
 
 func Load() AppConfig {
@@ -32,8 +30,6 @@ func Load() AppConfig {
 		RedisAddr:      getEnv("REDIS_ADDR", "redis:6379"),
 		RedisPass:      getEnv("REDIS_PASS", ""),
 		GoogleClientID: getEnv("GOOGLE_CLIENT_ID", ""),
-		SystemAdminEmail: getEnv("SYSTEM_ADMIN_EMAIL", ""),
-		SystemAdminPassword: getEnv("SYSTEM_ADMIN_PASSWORD", ""),
 
 		Apple: AppleConfig{
 			TeamID:        getEnv("APPLE_TEAM_ID", ""),
