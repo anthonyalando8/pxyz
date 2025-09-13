@@ -32,7 +32,7 @@ func Load() AppConfig {
 			PrivPath: getEnv("JWT_PRIVATE_KEY_PATH", "/app/secrets/jwt_private.pem"),
 			PubPath:  getEnv("JWT_PUBLIC_KEY_PATH", "/app/secrets/jwt_public.pem"),
 			Issuer:   getEnv("JWT_ISSUER", "admin-auth-service"),
-			Audience: getEnv("JWT_AUDIENCE", "pxyz-clients"),
+			Audience: getEnv("JWT_AUDIENCE", "pxyz-admin-clients"),
 			TTL:      ttl,
 			KID:      "kid-v1",
 		},
