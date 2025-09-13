@@ -11,7 +11,7 @@ import (
 	"os"
 	"os/signal"
 	authclient "x/shared/auth"
-	pb "x/shared/genproto/sessionpb"
+	pb "x/shared/genproto/admin/sessionpb"
 
 	"syscall"
 	"x/shared/utils/id"
@@ -57,7 +57,7 @@ func main() {
 	grpcServer := grpc.NewServer()
 
 	// Register the gRPC service
-	pb.RegisterAuthServiceServer(grpcServer, authHandler)
+	pb.RegisterAdminSessionServiceServer(grpcServer, authHandler)
 
 	// Start listening on configured address
 	listener, err := net.Listen("tcp", cfg.GRPCAddr)

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"ptn-session-service/internal/usecase"
-	pb "x/shared/genproto/sessionpb"
+	pb "x/shared/genproto/partner/sessionpb"
 	xerrors "x/shared/utils/errors"
 
 	"google.golang.org/grpc/codes"
@@ -15,7 +15,7 @@ import (
 )
 
 type AuthHandler struct {
-	pb.UnimplementedAuthServiceServer
+	pb.UnimplementedPartnerSessionServiceServer
 	uc *usecase.SessionUsecase
 }
 

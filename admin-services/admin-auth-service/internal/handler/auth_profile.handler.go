@@ -181,12 +181,7 @@ func (h *AuthHandler) UploadProfilePicture(w http.ResponseWriter, r *http.Reques
 		"profile_image_url": imageURL,
 	})
 }
-//currentRole, ok2 = r.Context().Value(middleware.ContextRole).(string)
 
-
-func (h *AuthHandler) handleRoleUpgrade(ctx context.Context, userID,newRole string)error{
-	return h.urbacservice.AssignRoleByName(ctx, userID, newRole, 0)
-}
 
 
 func (h *AuthHandler) HandleGetPreferences(w http.ResponseWriter, r *http.Request) {

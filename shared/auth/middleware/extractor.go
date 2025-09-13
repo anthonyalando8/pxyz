@@ -20,40 +20,61 @@ func extractToken(r *http.Request) string {
 	return ""
 }
 
-func (am *AuthMiddleware) extractAndVerifyToken(r *http.Request, w http.ResponseWriter) (string, *jwtutil.Claims, string, bool) {
-	token := extractToken(r)
-	if token == "" {
-		response.Error(w, http.StatusUnauthorized, "No token provided")
-		return "", nil, "", false
-	}
+// expectedTypes can be nil → allow any type
+func (am *AuthMiddleware) extractAndVerifyToken(
+    r *http.Request,
+    w http.ResponseWriter,
+    expectedTypes []string,
+) (string, *jwtutil.Claims, string, bool) {
 
-	var claims *jwtutil.Claims
-	var err error
-	var tokenType string
+    token := extractToken(r)
+    if token == "" {
+        response.Error(w, http.StatusUnauthorized, "No token provided")
+        return "", nil, "", false
+    }
 
-	// Try User verifier
-	claims, err = am.UserVerifier.ParseAndValidate(token)
-	if err == nil {
-		tokenType = "user"
-		return token, claims, tokenType, true
-	}
+    var claims *jwtutil.Claims
+    var err error
+    var tokenType string
 
-	// Try Partner verifier
-	claims, err = am.PartnerVerifier.ParseAndValidate(token)
-	if err == nil {
-		tokenType = "partner"
-		return token, claims, tokenType, true
-	}
+    // Try User verifier
+    claims, err = am.UserVerifier.ParseAndValidate(token)
+    if err == nil {
+        tokenType = "user"
+        return am.validateAllowedType(token, claims, tokenType, expectedTypes, w)
+    }
 
-	// Try Admin verifier
-	claims, err = am.AdminVerifier.ParseAndValidate(token)
-	if err == nil {
-		tokenType = "admin"
-		return token, claims, tokenType, true
-	}
+    // Try Partner verifier
+    claims, err = am.PartnerVerifier.ParseAndValidate(token)
+    if err == nil {
+        tokenType = "partner"
+        return am.validateAllowedType(token, claims, tokenType, expectedTypes, w)
+    }
 
-	// If all fail
-	response.Error(w, http.StatusUnauthorized, "Invalid or expired token")
-	return "", nil, "", false
+    // Try Admin verifier
+    claims, err = am.AdminVerifier.ParseAndValidate(token)
+    if err == nil {
+        tokenType = "admin"
+        return am.validateAllowedType(token, claims, tokenType, expectedTypes, w)
+    }
+
+    // If all fail
+    response.Error(w, http.StatusUnauthorized, "Invalid or expired token")
+    return "", nil, "", false
 }
+
+func (am *AuthMiddleware) validateAllowedType(
+    token string,
+    claims *jwtutil.Claims,
+    tokenType string,
+    expectedTypes []string,
+    w http.ResponseWriter,
+) (string, *jwtutil.Claims, string, bool) {
+    if len(expectedTypes) > 0 && !contains(expectedTypes, tokenType) {
+        response.Error(w, http.StatusForbidden, "Token type not allowed")
+        return "", nil, "", false
+    }
+    return token, claims, tokenType, true
+}
+
 

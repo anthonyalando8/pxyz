@@ -6,7 +6,7 @@ import (
 	//authclient "x/shared/auth"
 	otpclient "x/shared/auth/otp"
 	emailclient "x/shared/email"
-	authpb "x/shared/genproto/authpb"
+	authpb "x/shared/genproto/admin/authpb"
 	smsclient "x/shared/sms"
 
 	"context"
@@ -15,7 +15,7 @@ import (
 )
 
 type GRPCAuthHandler struct {
-	authpb.UnimplementedAuthServiceServer // embed for forward compat
+	authpb.UnimplementedAdminAuthServiceServer // embed for forward compat
 
 	uc             *usecase.UserUsecase
 	otp            *otpclient.OTPService

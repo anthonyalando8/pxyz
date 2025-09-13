@@ -12,7 +12,7 @@ import (
 
 	"ptn-auth-service/internal/domain"
 	"x/shared/auth/middleware"
-	sessionpb "x/shared/genproto/sessionpb"
+	sessionpb "x/shared/genproto/partner/sessionpb"
 )
 
 func (h *AuthHandler) createSessionHelper(
@@ -60,7 +60,7 @@ func (h *AuthHandler) createSessionHelper(
 	}
 
 	// gRPC call
-	grpcResp, err := h.auth.Client.CreateSession(ctx, &sessionpb.CreateSessionRequest{
+	grpcResp, err := h.auth.PartnerClient.CreateSession(ctx, &sessionpb.CreateSessionRequest{
 		UserId:         userID,
 		DeviceId:       device,
 		IpAddress:      ip,

@@ -12,7 +12,7 @@ import (
 	authclient "x/shared/auth"
 
 	//"x/shared/genproto/authpb"
-	sessionpb "x/shared/genproto/sessionpb"
+	sessionpb "x/shared/genproto/admin/sessionpb"
 
 	"x/shared/utils/id"
 )

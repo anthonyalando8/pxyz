@@ -6,7 +6,7 @@ import (
 	otpclient "x/shared/auth/otp"
 	coreclient "x/shared/core"
 	emailclient "x/shared/email"
-	sessionpb "x/shared/genproto/sessionpb"
+	sessionpb "x/shared/genproto/partner/sessionpb"
 	smsclient "x/shared/sms"
 	"github.com/redis/go-redis/v9"
 	//"x/shared/genproto/emailpb"
@@ -20,7 +20,7 @@ type AuthHandler struct {
 	smsClient     *smsclient.SMSClient
 	redisClient   *redis.Client // <- added
 	coreClient    *coreclient.CoreService
-	sessionClient sessionpb.AuthServiceClient
+	sessionClient sessionpb.PartnerSessionServiceClient
 }
 
 func NewAuthHandler(
@@ -31,7 +31,7 @@ func NewAuthHandler(
 	smsClient *smsclient.SMSClient,
 	redisClient *redis.Client, // <- added
 	coreClient *coreclient.CoreService,
-	sessionClient sessionpb.AuthServiceClient,
+	sessionClient sessionpb.PartnerSessionServiceClient,
 ) *AuthHandler {
 	return &AuthHandler{
 		uc:            uc,

@@ -22,7 +22,7 @@ import (
 
 	"x/shared/utils/id"
 
-	authpb "x/shared/genproto/authpb"
+	authpb "x/shared/genproto/partner/authpb"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/redis/go-redis/v9"
@@ -57,7 +57,7 @@ func NewServer(cfg config.AppConfig) *http.Server {
 	coreClient := coreclient.NewCoreService()
 
 	authHandler := handler.NewAuthHandler(
-		userUC, auth, otpSvc, emailCli, smsCli, rdb, coreClient, auth.Client,
+		userUC, auth, otpSvc, emailCli, smsCli, rdb, coreClient, auth.PartnerClient,
 	)
 
 	// gRPC handler
@@ -73,7 +73,7 @@ func NewServer(cfg config.AppConfig) *http.Server {
 		}
 
 		grpcServer := grpc.NewServer()
-		authpb.RegisterAuthServiceServer(grpcServer, grpcAuthHandler)
+		authpb.RegisterPartnerAuthServiceServer(grpcServer, grpcAuthHandler)
 
 		// enable reflection in dev
 		reflection.Register(grpcServer)

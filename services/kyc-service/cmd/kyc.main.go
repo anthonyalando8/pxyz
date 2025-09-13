@@ -13,12 +13,12 @@ import (
 	"kyc-service/internal/handler"
 	"kyc-service/internal/repository"
 	"kyc-service/internal/service"
-	"x/shared/utils/id"
 	"x/shared/auth/middleware"
 	emailclient "x/shared/email"
-
+	"x/shared/utils/id"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/cors"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 )
@@ -68,8 +68,17 @@ func main() {
 
 	auth := middleware.RequireAuth()
 	r.Use(auth.RateLimit(rdb, 100, time.Minute, 10*time.Minute, "global"))
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{"*"}, // allow all origins
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "ngrok-skip-browser-warning"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: false, // must be false when using "*"
+		MaxAge:           300,
+	}))
 
 	r.Group(func(r chi.Router) {
+		
 		r.Use(auth.Require([]string{"main"}, []string{"general", "kyc_review"}, nil))
 		r.Use(auth.RateLimit(rdb, 15, 5*time.Minute, 5*time.Minute, "kyc"))
 		// Protected routes	

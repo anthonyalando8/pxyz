@@ -3,18 +3,18 @@ package middleware
 import (
 	"context"
 	"errors"
+	"log"
 	"net/http"
-
+	"strings"
 
 	"x/shared/auth/pkg/jwtutil"
 	"x/shared/response"
 	xerrors "x/shared/utils/errors"
 
-	authpb "x/shared/genproto/sessionpb"
-	ptnsessionpb "x/shared/genproto/partner/sessionpb"
 	adminsessionpb "x/shared/genproto/admin/sessionpb"
+	ptnsessionpb "x/shared/genproto/partner/sessionpb"
+	authpb "x/shared/genproto/sessionpb"
 	"x/shared/genproto/urbacpb"
-
 )
 
 
@@ -113,55 +113,81 @@ func (am *AuthMiddleware) validateSession(ctx context.Context, token, tokenType 
 
 // handleAuth validates token, session, optional type/purpose, and optional roles
 func (am *AuthMiddleware) handleAuth(
-	w http.ResponseWriter,
-	r *http.Request,
-	allowedTypes, allowedPurposes, allowedRoles []string,
+    w http.ResponseWriter,
+    r *http.Request,
+    allowedTypes, allowedPurposes, allowedRoles []string,
 ) (string, *jwtutil.Claims, *authpb.ValidateSessionResponse, bool) {
 
-	// Extract token and determine token type
-	token, claims, tokenType, ok := am.extractAndVerifyToken(r, w)
-	if !ok {
-		return "", nil, nil, false
+    // --- 1. Derive expected token type from URL prefix ---
+    path := r.URL.Path
+    var expectedType string
+
+    switch {
+	case strings.HasPrefix(path, "/admin/"):
+		expectedType = "admin"
+	case strings.HasPrefix(path, "/user/"):
+		expectedType = "user"
+	case strings.HasPrefix(path, "/partner/"):
+		expectedType = "partner"
+	default:
+		// Instead of blocking, just log for now
+		log.Printf("⚠️ Unauthorized: invalid API prefix for path %s", path)
+		expectedType = "user"
+		// response.Error(w, http.StatusUnauthorized, "Unauthorized: invalid API prefix")
+		// return "", nil, nil, false
 	}
 
-	// Validate session with the appropriate client
-	resp, ok := am.validateSession(r.Context(), token, tokenType, w)
-	if !ok {
-		return "", nil, nil, false
-	}
+    // --- 2. Extract token and validate against expected type ---
+    token, claims, tokenType, ok := am.extractAndVerifyToken(r, w, []string{expectedType})
+    if !ok {
+        return "", nil, nil, false
+    }
 
-	// Check optional session type restrictions
-	if len(allowedTypes) > 0 && !contains(allowedTypes, resp.SessionType) {
-		response.Error(w, http.StatusForbidden, "Not allowed for this session type")
-		return "", nil, nil, false
-	}
+    // --- 3. Ensure token type matches API prefix ---
+    if tokenType != expectedType {
+        response.Error(w, http.StatusForbidden, "Token type not allowed for this API")
+        return "", nil, nil, false
+    }
 
-	// Check optional session purpose restrictions
-	if len(allowedPurposes) > 0 && !contains(allowedPurposes, resp.Purpose) {
-		response.Error(w, http.StatusForbidden, "Session not allowed for this purpose")
-		return "", nil, nil, false
-	}
+    // --- 4. Validate session with the appropriate service ---
+    resp, ok := am.validateSession(r.Context(), token, tokenType, w)
+    if !ok {
+        return "", nil, nil, false
+    }
 
-	// Check optional role restrictions
-	if len(allowedRoles) > 0 {
-		roleVal := r.Context().Value(ContextRole)
-		if roleVal == nil {
-			response.Error(w, http.StatusForbidden, "role not found in context")
-			return "", nil, nil, false
-		}
-		role, ok := roleVal.(string)
-		if !ok || role == "" {
-			response.Error(w, http.StatusForbidden, "invalid role in context")
-			return "", nil, nil, false
-		}
-		if !contains(allowedRoles, role) {
-			response.Error(w, http.StatusForbidden, "insufficient role")
-			return "", nil, nil, false
-		}
-	}
+    // --- 5. Check optional session type restrictions ---
+    if len(allowedTypes) > 0 && !contains(allowedTypes, resp.SessionType) {
+        response.Error(w, http.StatusForbidden, "Not allowed for this session type")
+        return "", nil, nil, false
+    }
 
-	return token, claims, resp, true
+    // --- 6. Check optional session purpose restrictions ---
+    if len(allowedPurposes) > 0 && !contains(allowedPurposes, resp.Purpose) {
+        response.Error(w, http.StatusForbidden, "Session not allowed for this purpose")
+        return "", nil, nil, false
+    }
+
+    // --- 7. Check optional role restrictions ---
+    if len(allowedRoles) > 0 {
+        roleVal := r.Context().Value(ContextRole)
+        if roleVal == nil {
+            response.Error(w, http.StatusForbidden, "role not found in context")
+            return "", nil, nil, false
+        }
+        role, ok := roleVal.(string)
+        if !ok || role == "" {
+            response.Error(w, http.StatusForbidden, "invalid role in context")
+            return "", nil, nil, false
+        }
+        if !contains(allowedRoles, role) {
+            response.Error(w, http.StatusForbidden, "insufficient role")
+            return "", nil, nil, false
+        }
+    }
+
+    return token, claims, resp, true
 }
+
 
 // AuthMiddleware without restrictions
 func (am *AuthMiddleware) AuthMiddleware(next http.Handler) http.Handler {

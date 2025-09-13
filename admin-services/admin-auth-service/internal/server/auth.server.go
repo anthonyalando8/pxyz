@@ -20,13 +20,12 @@ import (
 	emailclient "x/shared/email"
 	smsclient "x/shared/sms"
 	coreclient "x/shared/core"
-	urbacservice "x/shared/urbac/utils"
 
 
 	"x/shared/utils/id"
 	"x/shared/utils/errors"
 
-	authpb "x/shared/genproto/authpb"
+	authpb "x/shared/genproto/admin/authpb"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/redis/go-redis/v9"
@@ -64,11 +63,10 @@ func NewServer(cfg config.AppConfig) *http.Server {
 	emailCli := emailclient.NewEmailClient()
 	smsCli := smsclient.NewSMSClient()
 	coreClient := coreclient.NewCoreService()
-	urbacSvc :=	urbacservice.NewService(auth.RBACClient, rdb)
 
 
 	authHandler := handler.NewAuthHandler(
-		userUC, auth, otpSvc, emailCli, smsCli, rdb, coreClient,urbacSvc,auth.Client,
+		userUC, auth, otpSvc, emailCli, smsCli, rdb, coreClient,auth.AdminClient,
 	)
 
 	// gRPC handler
@@ -84,7 +82,7 @@ func NewServer(cfg config.AppConfig) *http.Server {
 		}
 
 		grpcServer := grpc.NewServer()
-		authpb.RegisterAuthServiceServer(grpcServer, grpcAuthHandler)
+		authpb.RegisterAdminAuthServiceServer(grpcServer, grpcAuthHandler)
 
 		// enable reflection in dev
 		reflection.Register(grpcServer)
