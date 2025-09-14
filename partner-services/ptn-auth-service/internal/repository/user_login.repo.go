@@ -8,11 +8,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 )
-
 func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*domain.User, error) {
 	const q = `
 		SELECT 
 			id,
+			partner_id,
 			email,
 			phone,
 			password_hash,
@@ -35,6 +35,7 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*dom
 	var u domain.User
 	err := r.db.QueryRow(ctx, q, email).Scan(
 		&u.ID,
+		&u.PartnerID,
 		&u.Email,
 		&u.Phone,
 		&u.PasswordHash,
@@ -59,6 +60,7 @@ func (r *UserRepository) GetUserByIdentifier(ctx context.Context, identifier str
 	const q = `
 		SELECT 
 			id,
+			partner_id,
 			email,
 			phone,
 			password_hash,
@@ -81,6 +83,7 @@ func (r *UserRepository) GetUserByIdentifier(ctx context.Context, identifier str
 	var u domain.User
 	err := r.db.QueryRow(ctx, q, identifier).Scan(
 		&u.ID,
+		&u.PartnerID,
 		&u.Email,
 		&u.Phone,
 		&u.PasswordHash,

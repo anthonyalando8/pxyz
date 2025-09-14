@@ -47,7 +47,7 @@ func RequireAuth() *MiddlewareWithClient {
 	// Initialize separate verifiers for user, partner, admin
 	userVerifier := jwtutil.NewVerifier(pub, getEnv("JWT_USER_ISSUER", "auth-service"), getEnv("JWT_USER_AUDIENCE", "pxyz-clients"))
 	partnerVerifier := jwtutil.NewVerifier(pub, getEnv("JWT_PARTNER_ISSUER", "ptn-auth-service"), getEnv("JWT_PARTNER_AUDIENCE", "pxyz-ptn-clients"))
-	adminVerifier := jwtutil.NewVerifier(pub, getEnv("JWT_ADMIN_ISSUER", "ptn-admin-service"), getEnv("JWT_ADMIN_AUDIENCE", "pxyz-admin-clients"))
+	adminVerifier := jwtutil.NewVerifier(pub, getEnv("JWT_ADMIN_ISSUER", "admin-auth-service"), getEnv("JWT_ADMIN_AUDIENCE", "pxyz-admin-clients"))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

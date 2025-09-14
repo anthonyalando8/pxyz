@@ -63,3 +63,7 @@ func (uc *UserUsecase) FindUserByIdentifier(ctx context.Context, identifier stri
 func (uc *UserUsecase) DeleteUser(ctx context.Context, userID string) error {
 	return uc.userRepo.DeleteUser(ctx, userID)
 }
+
+func (uc *UserUsecase) GetUsersByPartnerID(ctx context.Context, partnerID string) ([]domain.User, error) {
+	return uc.userRepo.GetUsersByPartnerID(ctx, partnerID)
+}

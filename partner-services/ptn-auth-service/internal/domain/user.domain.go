@@ -14,6 +14,7 @@ type User struct {
 	IsPhoneVerified bool      `json:"is_phone_verified"`
 	IsTempPass      bool      `json:"is_temp_pass"`
 	Role            string    `json:"role"`
+	PartnerID string `json:"partner_id"`
 	AccountStatus   string    `json:"account_status"` // 'active', 'deleted', 'suspended'
 	AccountType     string    `json:"account_type"`   // 'password', 'social', 'hybrid'
 	CreatedAt       time.Time `json:"created_at"`

@@ -2,6 +2,9 @@ package domain
 
 import (
 	"time"
+
+	"x/shared/genproto/partner/svcpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type PartnerStatus string
@@ -21,3 +24,22 @@ type Partner struct {
 	CreatedAt    time.Time      `json:"created_at"`
 	UpdatedAt    time.Time      `json:"updated_at"`
 }
+
+// ToProto converts domain.Partner to gRPC Partner message
+func (p *Partner) ToProto() *partnersvcpb.Partner {
+	if p == nil {
+		return nil
+	}
+
+	return &partnersvcpb.Partner{
+		Id:           p.ID,
+		Name:         p.Name,
+		Country:      p.Country,
+		ContactEmail: p.ContactEmail,
+		ContactPhone: p.ContactPhone,
+		Status:       string(p.Status), // convert enum type to string
+		CreatedAt:    timestamppb.New(p.CreatedAt),
+		UpdatedAt:    timestamppb.New(p.UpdatedAt),
+	}
+}
+

@@ -71,6 +71,8 @@ func (am *AuthMiddleware) validateSession(ctx context.Context, token, tokenType 
 			resp = &authpb.ValidateSessionResponse{
 				Valid: partnerResp.Valid,
 				Error: partnerResp.Error,
+				SessionType: partnerResp.SessionType,
+				Purpose: partnerResp.Purpose,
 				// include other fields if needed
 			}
 		}
@@ -82,6 +84,8 @@ func (am *AuthMiddleware) validateSession(ctx context.Context, token, tokenType 
 			resp = &authpb.ValidateSessionResponse{
 				Valid: adminResp.Valid,
 				Error: adminResp.Error,
+				SessionType: adminResp.SessionType,
+				Purpose: adminResp.Purpose,
 				// include other fields if needed
 			}
 		}
@@ -156,16 +160,23 @@ func (am *AuthMiddleware) handleAuth(
     }
 
     // --- 5. Check optional session type restrictions ---
-    if len(allowedTypes) > 0 && !contains(allowedTypes, resp.SessionType) {
-        response.Error(w, http.StatusForbidden, "Not allowed for this session type")
-        return "", nil, nil, false
-    }
+	if len(allowedTypes) > 0 {
+		log.Printf("Allowed session types: %v, current session type: %s", allowedTypes, resp.SessionType)
+		if !contains(allowedTypes, resp.SessionType) {
+			response.Error(w, http.StatusForbidden, "Not allowed for this session type")
+			return "", nil, nil, false
+		}
+	}
 
-    // --- 6. Check optional session purpose restrictions ---
-    if len(allowedPurposes) > 0 && !contains(allowedPurposes, resp.Purpose) {
-        response.Error(w, http.StatusForbidden, "Session not allowed for this purpose")
-        return "", nil, nil, false
-    }
+	// --- 6. Check optional session purpose restrictions ---
+	if len(allowedPurposes) > 0 {
+		log.Printf("Allowed session purposes: %v, current session purpose: %s", allowedPurposes, resp.Purpose)
+		if !contains(allowedPurposes, resp.Purpose) {
+			response.Error(w, http.StatusForbidden, "Session not allowed for this purpose")
+			return "", nil, nil, false
+		}
+	}
+
 
     // --- 7. Check optional role restrictions ---
     if len(allowedRoles) > 0 {

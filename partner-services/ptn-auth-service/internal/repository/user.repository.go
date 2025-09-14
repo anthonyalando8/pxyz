@@ -74,6 +74,7 @@ func (r *UserRepository) GetUserByID(ctx context.Context, userID string) (*domai
 	const q = `
 		SELECT 
 			id,
+			partner_id,
 			email,
 			phone,
 			password_hash,
@@ -95,6 +96,7 @@ func (r *UserRepository) GetUserByID(ctx context.Context, userID string) (*domai
 	var user domain.User
 	err := r.db.QueryRow(ctx, q, userID).Scan(
 		&user.ID,
+		&user.PartnerID,
 		&user.Email,
 		&user.Phone,
 		&user.PasswordHash,
@@ -118,6 +120,7 @@ func (r *UserRepository) GetUserByID(ctx context.Context, userID string) (*domai
 
 	return &user, nil
 }
+
 
 
 func (r *UserRepository) UpdatePhone(ctx context.Context, userID, newPhone string, isPhoneVerified bool) error {
@@ -203,3 +206,67 @@ func (r *UserRepository) DeleteUser(ctx context.Context, userID string) error {
 
 	return nil
 }
+
+func (r *UserRepository) GetUsersByPartnerID(ctx context.Context, partnerID string) ([]domain.User, error) {
+	const q = `
+		SELECT 
+			id,
+			partner_id,
+			email,
+			phone,
+			password_hash,
+			first_name,
+			last_name,
+			is_email_verified,
+			is_phone_verified,
+			is_temp_pass,
+			role,
+			account_status,
+			account_type,
+			created_at,
+			updated_at
+		FROM users
+		WHERE partner_id = $1
+		  AND account_status != 'deleted'
+		ORDER BY created_at DESC
+	`
+
+	rows, err := r.db.Query(ctx, q, partnerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []domain.User
+	for rows.Next() {
+		var u domain.User
+		err := rows.Scan(
+			&u.ID,
+			&u.PartnerID,
+			&u.Email,
+			&u.Phone,
+			&u.PasswordHash,
+			&u.FirstName,
+			&u.LastName,
+			&u.IsEmailVerified,
+			&u.IsPhoneVerified,
+			&u.IsTempPass,
+			&u.Role,
+			&u.AccountStatus,
+			&u.AccountType,
+			&u.CreatedAt,
+			&u.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, u)
+	}
+
+	if len(users) == 0 {
+		return nil, xerrors.ErrUserNotFound
+	}
+
+	return users, nil
+}
+

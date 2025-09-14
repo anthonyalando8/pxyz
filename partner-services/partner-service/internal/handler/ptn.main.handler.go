@@ -1,11 +1,7 @@
 package handler
 
 import (
-	//"context"
-	"context"
 	"encoding/json"
-	"fmt"
-	"log"
 	"net/http"
 	"time"
 	emailclient "x/shared/email"
@@ -17,9 +13,9 @@ import (
 	authclient "x/shared/auth" // gRPC/HTTP client for auth-service
 	otpclient "x/shared/auth/otp"
 	"x/shared/response"
+	"x/shared/auth/middleware"
 
 	authpb "x/shared/genproto/partner/authpb"
-	"x/shared/genproto/emailpb"
 
 	"github.com/go-chi/chi/v5"
 
@@ -55,132 +51,46 @@ func decodeJSON(r *http.Request, v interface{}) error {
 	decoder.DisallowUnknownFields()
 	return decoder.Decode(v)
 }
-// CreatePartner
-func (h *PartnerHandler) CreatePartner(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	var req struct {
-		Name         string `json:"name"`
-		Country      string `json:"country"`
-		ContactEmail string `json:"contact_email"`
-		ContactPhone string `json:"contact_phone"`
-		Currency	 string `json:"currency"`
-	}
-	if err := decodeJSON(r, &req); err != nil {
-		response.Error(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	// var role = domain.PartnerUserRoleAdmin
-	// password, err := id.GeneratePassword()
-	// if err != nil {
-	// 	response.Error(w, http.StatusInternalServerError, "failed to generate password: "+err.Error())
-	// 	return
-	// }
-	
-
-	// // Step 1: Create user in auth service
-	// userResp, err := h.authClient.RegisterUser(ctx, &authpb.RegisterUserRequest{
-	// 	Email:     req.Email,
-	// 	Password:  req.Password,
-	// 	FirstName: req.FirstName,
-	// 	LastName:  req.LastName,
-	// 	Role:      string(role), // send plain string to auth
-	// })
-	// if err != nil {
-	// 	response.Error(w, http.StatusInternalServerError, "failed to create user in auth service: "+err.Error(),)
-	// 	return
-	// }
-
-	partner := &domain.Partner{
-		ID:           id.GenerateID("PTN"),
-		Name:         req.Name,
-		Country:      req.Country,
-		ContactEmail: req.ContactEmail,
-		ContactPhone: req.ContactPhone,
-	}
-
-	if err := h.uc.CreatePartner(ctx, partner); err != nil {
-		response.Error(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	// Send partner notification using helper
-	h.sendPartnerCreatedEmail(partner)
-
-	response.JSON(w, http.StatusCreated, partner)
-}
-
-func (h *PartnerHandler) sendPartnerCreatedEmail(p *domain.Partner) {
-	if h.emailClient == nil || p.ContactEmail == "" {
-		return
-	}
-
-	go func(partner *domain.Partner) {
-		subject := "Your Partner Account Has Been Created"
-		body := fmt.Sprintf(`
-			<!DOCTYPE html>
-			<html><head><meta charset="UTF-8"><title>Partner Created</title></head>
-			<body style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px;">
-				<div style="max-width: 600px; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0px 2px 5px rgba(0,0,0,0.1);">
-					<h2 style="color: #2E86C1;">Welcome to Pxyz</h2>
-					<p style="font-size: 16px; color: #333;">
-						Hello,<br><br>
-						Your partner account has been successfully created.<br>
-						Partner Name: <strong>%s</strong><br>
-						Partner ID: <strong>%s</strong>
-					</p>
-					<p style="margin-top: 30px; font-size: 14px; color: #999999;">
-						Thank you,<br>
-						<strong>Pxyz Team</strong>
-					</p>
-				</div>
-			</body>
-			</html>`, partner.Name, partner.ID)
-
-		_, err := h.emailClient.SendEmail(context.Background(), &emailpb.SendEmailRequest{
-			UserId:         partner.ID,
-			RecipientEmail: partner.ContactEmail,
-			Subject:        subject,
-			Body:           body,
-			Type:           "partner_created",
-		})
-		if err != nil {
-			log.Printf("[WARN] failed to send partner notification to %s: %v", partner.ContactEmail, err)
-		}
-	}(p)
-}
-
 
 // CreatePartnerUser (calls auth service to create user first)
 func (h *PartnerHandler) CreatePartnerUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	var req struct {
-		PartnerID string `json:"partner_id"`
 		Email     string `json:"email"`
 		Password  string `json:"password"`
-		Role      string `json:"role"` // incoming as plain string
 		FirstName string `json:"first_name"`
 		LastName  string `json:"last_name"`
 	}
+
 	if err := decodeJSON(r, &req); err != nil {
-		response.Error(w, http.StatusBadRequest,err.Error(),)
+		response.Error(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	// validate role
-	var role domain.PartnerUserRole
-	switch req.Role {
-	case string(domain.PartnerUserRoleAdmin):
-		role = domain.PartnerUserRoleAdmin
-	case string(domain.PartnerUserRoleUser):
-		role = domain.PartnerUserRoleUser
-	default:
-		response.Error(w,http.StatusBadRequest, "invalid role, must be 'partner_admin' or 'partner_user'", )
+	// --- Step 1: Get current authenticated user profile from Auth service ---
+	userID, ok := ctx.Value(middleware.ContextUserID).(string)
+	if !ok || userID == "" {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid user ID")
 		return
 	}
-	if req.Password == ""{
+
+	// Ask Auth service for profile (to fetch PartnerID)
+	profileResp, err := h.authClient.PartnerClient.GetUserProfile(ctx, &authpb.GetUserProfileRequest{
+		UserId: userID,
+	})
+	if err != nil || profileResp == nil || profileResp.User == nil {
+		response.Error(w, http.StatusInternalServerError, "failed to fetch user profile from auth service")
+		return
+	}
+	partnerID := profileResp.User.PartnerId
+	if partnerID == "" {
+		response.Error(w, http.StatusForbidden, "your account is not linked to a partner")
+		return
+	}
+
+	// --- Step 2: Generate password if missing ---
+	if req.Password == "" {
 		var err error
 		req.Password, err = id.GeneratePassword()
 		if err != nil {
@@ -189,325 +99,161 @@ func (h *PartnerHandler) CreatePartnerUser(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
-	// Step 1: Create user in auth service
+	// --- Step 3: Create user in Auth service ---
 	userResp, err := h.authClient.PartnerClient.RegisterUser(ctx, &authpb.RegisterUserRequest{
 		Email:     req.Email,
 		Password:  req.Password,
 		FirstName: req.FirstName,
 		LastName:  req.LastName,
-		Role:      string(role), // send plain string to auth
+		Role:      string(domain.PartnerUserRoleUser), // defaults to "user"
+		PartnerId: partnerID,                          // derived, not provided by client
 	})
-	if err != nil || userResp == nil {
-		response.Error(w, http.StatusInternalServerError, "failed to create user in auth service: "+err.Error(),)
+
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "failed to call auth service: "+err.Error())
 		return
 	}
-	if !userResp.Ok{
-		response.Error(w, http.StatusConflict, "failed to create user: "+userResp.Error,)
+	if userResp == nil || !userResp.Ok {
+		errorMsg := "unknown error"
+		if userResp != nil {
+			errorMsg = userResp.Error
+		}
+		response.Error(w, http.StatusConflict, "failed to create user: "+errorMsg)
 		return
 	}
 
-	// Step 2: Save partner_user
+	// --- Step 4: Build domain PartnerUser (mirror) ---
 	partnerUser := &domain.PartnerUser{
-		ID: id.GenerateID("PTNU"),
-		PartnerID: req.PartnerID,
-		UserID:    userResp.UserId,
-		Role:      role, // store as typed enum
+		ID:        userResp.UserId,
+		PartnerID: partnerID,
 		Email:     req.Email,
-		IsActive:  true,
+		Role:      domain.PartnerUserRoleUser,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
 
-	if err := h.uc.CreatePartnerUser(ctx, partnerUser); err != nil {
-    // Attempt to delete the user in auth service in background
-    go func(userID string) {
-        ctxBg, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-        defer cancel()
-        if _, err := h.authClient.PartnerClient.DeleteUser(ctxBg, &authpb.DeleteUserRequest{
-			UserId: userID,
-		}); err != nil {
-            log.Printf("[WARN] failed to cleanup user %s after partner_user creation failure: %v", userID, err)
-        }
-    }(userResp.UserId)
+	// --- Step 5: Send notifications ---
+	sendNewPartnerUserNotifications(ctx, h.uc, h.emailClient, partnerID, userResp.UserId, partnerUser, req.Password)
 
-    response.Error(w, http.StatusInternalServerError, err.Error())
-    return
-}
-
-	h.sendNewPartnerUserNotifications(ctx, req.PartnerID, "", partnerUser, req.Password)
-
+	// --- Step 6: Respond ---
 	response.JSON(w, http.StatusCreated, partnerUser)
 }
 
-func (h *PartnerHandler) sendNewPartnerUserNotifications(_ context.Context, partnerID string, partnerEmail string, user *domain.PartnerUser, password string) {
-	if h.emailClient == nil {
-		return
-	}
-
-	// Send notification to Partner
-	go func(pid, recipient string, user *domain.PartnerUser) {
-		// If partnerEmail is empty, fetch it
-		if recipient == "" {
-			partner, err := h.uc.GetPartnerByID(context.Background(), pid)
-			if err != nil {
-				log.Printf("[WARN] failed to fetch partner %s for notification: %v", pid, err)
-				return
-			}
-			recipient = partner.ContactEmail
-		}
-
-		if recipient == "" {
-			log.Printf("[WARN] partner %s has no contact email; skipping notification", pid)
-			return
-		}
-
-		subject := "New Partner User Created"
-		body := fmt.Sprintf(`
-			<!DOCTYPE html>
-			<html><head><meta charset="UTF-8"><title>New Partner User</title></head>
-			<body style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px;">
-				<div style="max-width: 600px; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0px 2px 5px rgba(0,0,0,0.1);">
-					<h2 style="color: #2E86C1;">New User Added</h2>
-					<p style="font-size: 16px; color: #333;">
-						Hello,<br><br>
-						A new user has been added to your partner account <strong>%s</strong>.<br>
-						User ID: <strong>%s</strong><br>
-						Email: <strong>%s</strong>
-					</p>
-					<p style="margin-top: 30px; font-size: 14px; color: #999999;">
-						Thank you,<br>
-						<strong>Pxyz Team</strong>
-					</p>
-				</div>
-			</body>
-			</html>`, pid, user.ID, user.Email)
-
-		_, err := h.emailClient.SendEmail(context.Background(), &emailpb.SendEmailRequest{
-			UserId:         user.ID,
-			RecipientEmail: recipient,
-			Subject:        subject,
-			Body:           body,
-			Type:           "partner_new_user",
-		})
-		if err != nil {
-			log.Printf("[WARN] failed to send partner notification to %s: %v", recipient, err)
-		}
-	}(partnerID, partnerEmail, user)
-
-	// Send notification to User
-	if user.Email != "" {
-		go func(user *domain.PartnerUser, pwd, pid string) {
-			subject := "Your Pxyz Partner Account Details"
-			body := fmt.Sprintf(`
-				<!DOCTYPE html>
-				<html><head><meta charset="UTF-8"><title>Welcome</title></head>
-				<body style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px;">
-					<div style="max-width: 600px; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0px 2px 5px rgba(0,0,0,0.1);">
-						<h2 style="color: #2E86C1;">Welcome to Pxyz</h2>
-						<p style="font-size: 16px; color: #333;">
-							Hello,<br><br>
-							Your partner user account has been created.<br>
-							Partner ID: <strong>%s</strong><br>
-							User ID: <strong>%s</strong><br>
-							Email: <strong>%s</strong><br>
-							Temporary Password: <strong>%s</strong>
-						</p>
-						<p style="margin-top: 30px; font-size: 14px; color: #999999;">
-							Please log in and change your password immediately.<br>
-							Thank you,<br>
-							<strong>Pxyz Team</strong>
-						</p>
-					</div>
-				</body>
-				</html>`, pid, user.ID, user.Email, pwd)
-
-			_, err := h.emailClient.SendEmail(context.Background(), &emailpb.SendEmailRequest{
-				UserId:         user.ID,
-				RecipientEmail: user.Email,
-				Subject:        subject,
-				Body:           body,
-				Type:           "user_welcome",
-			})
-			if err != nil {
-				log.Printf("[WARN] failed to send user notification to %s: %v", user.Email, err)
-			}
-		}(user, password, partnerID)
-	}
-}
-
-func (h *PartnerHandler) sendPartnerCreatedNotification(ctx context.Context, partnerUserID string) {
-	if h.emailClient == nil {
-		return
-	}
-
-	go func(uid string) {
-		// 1. Retrieve the PartnerUser
-		user, err := h.uc.GetPartnerUserByID(context.Background(), uid)
-		if err != nil {
-			log.Printf("[WARN] failed to fetch partner user %s for notification: %v", uid, err)
-			return
-		}
-
-		// 2. Retrieve the Partner
-		partner, err := h.uc.GetPartnerByID(context.Background(), user.PartnerID)
-		if err != nil {
-			log.Printf("[WARN] failed to fetch partner %s for notification: %v", user.PartnerID, err)
-			return
-		}
-
-		if partner.ContactEmail == "" {
-			log.Printf("[WARN] partner %s has no contact email; skipping notification", partner.ID)
-			return
-		}
-
-		// 3. Compose and send email
-		subject := "Your Partner Account Has Been Created"
-		body := fmt.Sprintf(`
-			<!DOCTYPE html>
-			<html><head><meta charset="UTF-8"><title>Partner Created</title></head>
-			<body style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px;">
-				<div style="max-width: 600px; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0px 2px 5px rgba(0,0,0,0.1);">
-					<h2 style="color: #2E86C1;">New Partner Created</h2>
-					<p style="font-size: 16px; color: #333;">
-						Hello,<br><br>
-						A new partner account has been successfully created.<br>
-						Partner Name: <strong>%s</strong><br>
-						Partner ID: <strong>%s</strong><br>
-						Partner User ID: <strong>%s</strong>
-					</p>
-					<p style="margin-top: 30px; font-size: 14px; color: #999999;">
-						Thank you,<br>
-						<strong>Pxyz Team</strong>
-					</p>
-				</div>
-			</body>
-			</html>`, partner.Name, partner.ID, user.ID)
-
-		_, err = h.emailClient.SendEmail(context.Background(), &emailpb.SendEmailRequest{
-			UserId:         user.ID,
-			RecipientEmail: partner.ContactEmail,
-			Subject:        subject,
-			Body:           body,
-			Type:           "partner_created",
-		})
-		if err != nil {
-			log.Printf("[WARN] failed to send partner created notification to %s: %v", partner.ContactEmail, err)
-		}
-	}(partnerUserID)
-}
 
 func (h *PartnerHandler) UpdatePartnerUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	id := chi.URLParam(r, "id")
-	if id == "" {
-		response.Error(w, http.StatusBadRequest, "missing partner_user id")
-		return
+
+	paramID := chi.URLParam(r, "id")
+	ctxID, _ := ctx.Value(middleware.ContextUserID).(string)
+	ctxRole, _ := ctx.Value(middleware.ContextRole).(string)
+
+	// --- Step 1: Resolve target user ID ---
+	var targetID string
+	if paramID == "" {
+		// no param → user is updating their own account
+		if ctxID == "" {
+			response.Error(w, http.StatusUnauthorized, "missing user ID in context")
+			return
+		}
+		targetID = ctxID
+	} else if paramID != ctxID {
+		// param exists and does not match context ID → check if admin
+		if ctxRole != string(domain.PartnerUserRoleAdmin) {
+			response.Error(w, http.StatusForbidden, "not allowed to update another user account")
+			return
+		}
+		targetID = paramID
+	} else {
+		// param exists and equals context ID
+		targetID = ctxID
 	}
 
+	// --- Step 2: Parse request body ---
 	var req struct {
-		Role      domain.PartnerUserRole `json:"role"`
-		IsActive  bool             `json:"is_active"`
+		Role     domain.PartnerUserRole `json:"role"`
+		IsActive bool                   `json:"is_active"`
 	}
-
 	if err := decodeJSON(r, &req); err != nil {
 		response.Error(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
+	// --- Step 3: Build domain object ---
 	partnerUser := &domain.PartnerUser{
-		ID: 	  id,
-		Role:      req.Role,
-		IsActive:  req.IsActive,
+		ID:       targetID,
+		Role:     req.Role,
+		IsActive: req.IsActive,
 	}
 
+	// --- Step 4: Perform update ---
 	if err := h.uc.UpdatePartnerUser(ctx, partnerUser); err != nil {
 		response.Error(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	h.sendPartnerUpdatedNotification(ctx, partnerUser.ID)
+	// --- Step 5: Notifications & Response ---
+	sendPartnerUpdatedNotification(ctx, partnerUser.ID)
 	response.JSON(w, http.StatusOK, partnerUser)
 }
+
 
 func (h *PartnerHandler) DeletePartnerUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	// Extract partner_user id from URL params
+	// --- 1. Extract target user ID ---
 	id := chi.URLParam(r, "id")
 	if id == "" {
 		response.Error(w, http.StatusBadRequest, "missing partner_user id")
 		return
 	}
 
-	// Extract role from context (assuming middleware sets it)
-	roleVal := ctx.Value("role")
-	role, _ := roleVal.(string)
-
-	// Authorisation check
-	if role != "system_admin" && role != "partner_admin" {
-		response.Error(w, http.StatusForbidden, "unauthorised")
+	// --- 2. Authorisation: caller must be partner_admin ---
+	ctxRole, _ := ctx.Value(middleware.ContextRole).(string)
+	if ctxRole != string(domain.PartnerUserRoleAdmin) {
+		response.Error(w, http.StatusForbidden, "only partner_admin can delete users")
 		return
 	}
 
-	// Fetch the partner user first
-	partnerUser, err := h.uc.GetPartnerUserByID(ctx, id)
+	// --- 3. Fetch latest user profile from PartnerAuthService ---
+	profileResp, err := h.authClient.PartnerClient.GetUserProfile(ctx, &authpb.GetUserProfileRequest{
+		UserId: id,
+	})
 	if err != nil {
-		response.Error(w, http.StatusInternalServerError, "failed to fetch partner_user: "+err.Error())
+		response.Error(w, http.StatusInternalServerError, "failed to fetch user profile: "+err.Error())
+		return
+	}
+	if profileResp == nil || !profileResp.Ok || profileResp.User == nil {
+		response.Error(w, http.StatusNotFound, "partner_user not found in auth service")
 		return
 	}
 
-	// If trying to delete a partner_admin, only system_admin can do it
-	if partnerUser.Role == domain.PartnerUserRoleAdmin && role != "system_admin" {
-		response.Error(w, http.StatusForbidden, "unauthorised")
+	user := profileResp.User
+
+	// --- 4. Ensure target is partner_user, not partner_admin ---
+	if user.Role != string(domain.PartnerUserRoleUser) {
+		response.Error(w, http.StatusForbidden, "cannot delete admin users")
 		return
 	}
 
-	// Proceed with deletion
-	if err := h.uc.DeletePartnerUser(ctx, id); err != nil {
-		response.Error(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	// Cleanup the user in auth service asynchronously
-	go func(userID string) {
-		ctxBg, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if _, err := h.authClient.PartnerClient.DeleteUser(ctxBg, &authpb.DeleteUserRequest{
-			UserId: userID,
-		}); err != nil {
-			log.Printf("[WARN] failed to cleanup user %s after partner_user deletion: %v", userID, err)
+	// --- 5. Delete user via PartnerAuthService ---
+	delResp, err := h.authClient.PartnerClient.DeleteUser(ctx, &authpb.DeleteUserRequest{
+		UserId: id,
+	})
+	if err != nil || delResp == nil || !delResp.Ok {
+		msg := "unknown error"
+		if err != nil {
+			msg = err.Error()
+		} else if delResp != nil {
+			msg = delResp.Error
 		}
-	}(partnerUser.UserID)
+		response.Error(w, http.StatusInternalServerError, "failed to delete user: "+msg)
+		return
+	}
 
-	h.sendPartnerDeletedNotification(ctx, id)
+	// --- 6. Notify & Respond ---
+	sendPartnerDeletedNotification(ctx, id)
 
 	response.JSON(w, http.StatusOK, map[string]string{
 		"deleted_id": id,
-	})
-}
-
-
-// Optional notification stubs
-func (h *PartnerHandler) sendPartnerUpdatedNotification(ctx context.Context, partnerUserID string) {
-	fmt.Printf("Partner user updated: %s\n", partnerUserID)
-}
-
-func (h *PartnerHandler) sendPartnerDeletedNotification(ctx context.Context, partnerUserID string) {
-	fmt.Printf("Partner user deleted: %s\n", partnerUserID)
-}
-
-
-
-func (h *PartnerHandler) DeletePartner(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	_  = ctx
-
-	id := chi.URLParam(r, "id")
-	if id == "" {
-		response.Error(w, http.StatusBadRequest, "missing partner id")
-		return
-	}
-
-	response.JSON(w, http.StatusNotImplemented, map[string]string{
-		"partner_id": id,
-		"message":    "DeletePartner not implemented",
 	})
 }

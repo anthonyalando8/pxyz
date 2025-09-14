@@ -48,19 +48,20 @@ func SetupRoutes(
 
 		// ---- Authenticated routes ----
 		pr.Group(func(priv chi.Router) {
-			priv.Use(auth.Require([]string{"main"}, nil, []string{"super_admin", "partner_admin"})) // main session, role check
+			// --- All routes require partner_admin by default ---
+			priv.Use(auth.Require([]string{"main"}, nil, []string{"partner_admin"}))
 
 			priv.Handle("/uploads/*", http.StripPrefix("/partner/svc/uploads/", http.FileServer(http.Dir(uploadDir))))
-
-			// Partner management
-			priv.Post("/create", h.CreatePartner)
-			priv.Delete("/delete/{id}", h.DeletePartner)
+			priv.Delete("/users/delete/{id}", h.DeletePartnerUser)
 
 			// Partner user management
 			priv.Post("/users/create", h.CreatePartnerUser)
-			priv.Put("/users/update/{id}", h.UpdatePartnerUser)
-			priv.Delete("/users/delete/{id}", h.DeletePartnerUser)
+
+			// --- Update can be accessed by both partner_admin and partner_user ---
+			priv.With(auth.Require([]string{"main"}, nil, []string{"partner_admin", "partner_user"})).
+				Put("/users/update/{id}", h.UpdatePartnerUser)
 		})
+
 	})
 
 	return r

@@ -94,7 +94,7 @@ CREATE TABLE IF NOT EXISTS public.users
     ),
     CONSTRAINT users_contact_check CHECK (email IS NOT NULL OR phone IS NOT NULL),
     CONSTRAINT fk_users_partner FOREIGN KEY (partner_id) REFERENCES partners(id)
-        ON DELETE RESTRICT
+        ON DELETE CASCADE
         ON UPDATE CASCADE
 );
 

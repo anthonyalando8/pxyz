@@ -9,20 +9,20 @@ import (
 func (r *UserRepository) CreateUser(ctx context.Context, user *domain.User) (*domain.User, error) {
 	insertQuery := `
 		INSERT INTO users (
-			id, email, phone, password_hash, first_name, last_name,
+			id, partner_id, email, phone, password_hash, first_name, last_name,
 			is_email_verified, is_phone_verified, is_temp_pass,
 			role, account_status, account_type,
 			created_at, updated_at
 		) VALUES (
-			$1,$2,$3,$4,$5,$6,
-			$7,$8,$9,
-			$10,'active',$11,
+			$1,$2,$3,$4,$5,$6,$7,
+			$8,$9,$10,
+			$11,'active',$12,
 			NOW(),NOW()
 		)
 		ON CONFLICT (email) 
 		DO UPDATE SET 
 			email = EXCLUDED.email -- no-op update just to allow RETURNING
-		RETURNING id, email, phone, password_hash, first_name, last_name,
+		RETURNING id, partner_id, email, phone, password_hash, first_name, last_name,
 		          is_email_verified, is_phone_verified, is_temp_pass,
 		          role, account_status, account_type,
 		          created_at, updated_at
@@ -32,6 +32,7 @@ func (r *UserRepository) CreateUser(ctx context.Context, user *domain.User) (*do
 	err := r.db.QueryRow(
 		ctx, insertQuery,
 		user.ID,
+		user.PartnerID,
 		nullOrNilPtr(user.Email),
 		nullOrNilPtr(user.Phone),
 		nullOrNilPtr(user.PasswordHash),
@@ -43,7 +44,7 @@ func (r *UserRepository) CreateUser(ctx context.Context, user *domain.User) (*do
 		coalesceString(user.Role, "user"),           // fallback if empty
 		coalesceString(user.AccountType, "password"),
 	).Scan(
-		&saved.ID, &saved.Email, &saved.Phone, &saved.PasswordHash,
+		&saved.ID, &saved.PartnerID, &saved.Email, &saved.Phone, &saved.PasswordHash,
 		&saved.FirstName, &saved.LastName,
 		&saved.IsEmailVerified, &saved.IsPhoneVerified, &saved.IsTempPass,
 		&saved.Role, &saved.AccountStatus, &saved.AccountType,

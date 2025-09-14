@@ -23,29 +23,45 @@ func main() {
 	// Load app config
 	cfg := config.Load()
 
-	// Initialize server
+	// Initialize servers (HTTP + gRPC)
 	srv := server.NewServer(cfg)
 
-	// Run server in background
-	errCh := make(chan error, 1)
+	// Channel to capture errors
+	errCh := make(chan error, 2)
+
+	// Run HTTP server in background
 	go func() {
-		log.Printf("Partner server starting on %s", cfg.HTTPAddr)
-		errCh <- srv.ListenAndServe()
+		log.Printf("🌍 Partner HTTP server starting on %s", cfg.HTTPAddr)
+		if err := srv.StartHTTP(); err != nil {
+			errCh <- err
+		}
 	}()
 
-	// Graceful shutdown
+	// Run gRPC server in background
+	go func() {
+		log.Printf("🔗 Partner gRPC server starting on %s", cfg.GRPCAddr)
+		if err := srv.StartGRPC(cfg.GRPCAddr); err != nil {
+			errCh <- err
+		}
+	}()
+
+	// Graceful shutdown handling
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
 	select {
 	case <-quit:
+		log.Println("Shutting down partner servers...")
+		// Gracefully stop HTTP
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		log.Println("Shutting down partner server...")
-		if err := srv.Shutdown(ctx); err != nil {
-			log.Fatalf("Failed to shutdown server: %v", err)
+		if err := srv.HTTP.Shutdown(ctx); err != nil {
+			log.Printf("Failed to shutdown HTTP server: %v", err)
 		}
+		// Gracefully stop gRPC
+		srv.GRPC.GracefulStop()
+
 	case err := <-errCh:
-		log.Fatal(err)
+		log.Fatalf("Server error: %v", err)
 	}
 }

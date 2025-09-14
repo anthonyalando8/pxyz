@@ -474,6 +474,35 @@ services:
     depends_on:
       - redis
 
+  admin-service:
+    build:
+      context: .
+      dockerfile: admin-services/admin-service/Dockerfile
+    container_name: admin-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.admin-svc.rule=PathPrefix(`/admin/svc`)"
+      - "traefik.http.services.admin-svc.loadbalancer.server.port=7010"
+    env_file:
+      - ./admin-services/admin-service/.env
+    volumes:
+      - ./admin-services/admin-service/secrets:/app/secrets:ro
+      - ./uploads:/app/uploads
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: 2000
+      DB_NAME: pxyz_admin
+      REDIS_ADDR: redis:6379
+    networks:
+      - micro_net
+    depends_on:
+      - redis
+      - core-service
+      - admin-session-service
+      - email-service
+
 networks:
   micro_net:
     driver: bridge

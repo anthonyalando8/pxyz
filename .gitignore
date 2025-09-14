@@ -60,6 +60,10 @@
 /admin-services/admin-auth-service/secrets/
 /admin-services/admin-auth-service/secrets/*
 
+/admin-services/admin-service/.env
+/admin-services/admin-service/secrets/
+/admin-services/admin-service/secrets/*
+
 /admin-services/ptn-session-mngt/.env
 /admin-services/ptn-session-mngt/secrets/
 /admin-services/ptn-session-mngt/secrets/*
