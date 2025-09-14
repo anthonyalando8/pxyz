@@ -224,25 +224,40 @@ func (h *AuthHandler) handleNextAction(
 		if err == nil && user != nil && user.Email != nil {
 			oldEmail = *user.Email
 		}
-		// pendingEmail, err := h.uc.GetPendingEmail(ctx, userId)
-		// if err != nil {
-		// 	response.Error(w, http.StatusInternalServerError, "Failed to retrieve pending email")
-		// 	return err
-		// }
-		pendingEmail := ""
-		if pendingEmail == "" {
+
+		// --- Get pending email from Redis ---
+		key := fmt.Sprintf("pending_email_change:%s", userId)
+		pendingEmail, err := h.redisClient.Get(ctx, key).Result()
+		if err == redis.Nil {
 			response.Error(w, http.StatusBadRequest, "No pending email change found")
 			return errors.New("no pending email change")
+		} else if err != nil {
+			response.Error(w, http.StatusInternalServerError, "Failed to retrieve pending email")
+			return err
 		}
+
+		// --- Update user’s email ---
 		if err := h.uc.ChangeEmail(ctx, userId, pendingEmail); err != nil {
 			response.Error(w, http.StatusInternalServerError, "Email change failed")
 			return err
 		}
+
+		// --- Success response ---
 		resp["action"] = "new_email_verified"
 		resp["new_email"] = pendingEmail
 		resp["message"] = "Email changed successfully"
+
+		// --- Send notifications ---
 		h.sendEmailChangeNotifications(ctx, userId, oldEmail, pendingEmail)
-		// Delete old token in background
+
+		// --- Clean up: delete Redis key ---
+		go func() {
+			if delErr := h.redisClient.Del(context.Background(), key).Err(); delErr != nil {
+				log.Printf("[HandleChangeEmail][Redis] Failed to delete pending email key=%s: %v", key, delErr)
+			}
+		}()
+
+		// --- Logout old sessions in background ---
 		h.logoutSessionBg(ctx)
 
 	case "password_reset", "request_password_change":
@@ -336,9 +351,14 @@ func (h *AuthHandler) handleNextAction(
 		}
 
 		// --- Update phone in database ---
-		if err := h.uc.UpdatePhone(ctx, userId, cachedPhone, true); err != nil {
+		phone := cachedPhone
+		if after, ok :=strings.CutPrefix(phone, "+"); ok  {
+			phone = after
+		}
+
+		if err := h.uc.UpdatePhone(ctx, userId, phone, true); err != nil {
 			log.Printf("[handleNextAction] ❌ Failed to update phone for user=%s, newPhone=%s, err=%v",
-				userId, cachedPhone, err,
+				userId, phone, err,
 			)
 			response.Error(w, http.StatusInternalServerError, "Phone update processing failed")
 			return err

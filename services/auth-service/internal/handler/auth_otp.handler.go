@@ -345,9 +345,14 @@ func (h *AuthHandler) handleNextAction(
 		}
 
 		// --- Update phone in database ---
-		if err := h.uc.UpdatePhone(ctx, userId, cachedPhone, true); err != nil {
+		phone := cachedPhone
+		if after, ok :=strings.CutPrefix(phone, "+"); ok  {
+			phone = after
+		}
+
+		if err := h.uc.UpdatePhone(ctx, userId, phone, true); err != nil {
 			log.Printf("[handleNextAction] ❌ Failed to update phone for user=%s, newPhone=%s, err=%v",
-				userId, cachedPhone, err,
+				userId, phone, err,
 			)
 			response.Error(w, http.StatusInternalServerError, "Phone update processing failed")
 			return err

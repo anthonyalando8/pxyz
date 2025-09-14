@@ -162,12 +162,6 @@ func (r *UserRepository) DeleteUser(ctx context.Context, userID string) error {
 		}
 	}()
 
-	// Remove email logs
-	if _, err = tx.Exec(ctx, `
-		DELETE FROM email_logs WHERE user_id = $1
-	`, userID); err != nil {
-		return fmt.Errorf("failed to delete email_logs: %w", err)
-	}
 
 	// Remove sessions
 	if _, err = tx.Exec(ctx, `
@@ -175,28 +169,6 @@ func (r *UserRepository) DeleteUser(ctx context.Context, userID string) error {
 	`, userID); err != nil {
 		return fmt.Errorf("failed to delete sessions: %w", err)
 	}
-
-	// Remove OTPs
-	if _, err = tx.Exec(ctx, `
-		DELETE FROM user_otps WHERE user_id = $1
-	`, userID); err != nil {
-		return fmt.Errorf("failed to delete user_otps: %w", err)
-	}
-
-	// Remove OAuth accounts
-	if _, err = tx.Exec(ctx, `
-		DELETE FROM oauth_accounts WHERE user_id = $1
-	`, userID); err != nil {
-		return fmt.Errorf("failed to delete oauth_accounts: %w", err)
-	}
-
-	// Remove account deletion requests
-	if _, err = tx.Exec(ctx, `
-		DELETE FROM account_deletion_requests WHERE user_id = $1
-	`, userID); err != nil {
-		return fmt.Errorf("failed to delete account_deletion_requests: %w", err)
-	}
-
 	// Finally, remove the user itself
 	if _, err = tx.Exec(ctx, `
 		DELETE FROM users WHERE id = $1

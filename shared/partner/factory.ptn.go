@@ -16,7 +16,7 @@ type PartnerService struct {
 
 func NewPartnerService() *PartnerService {
 	// Default to partner-service:7510 unless overridden by env
-	partnerAddr := getEnv("PARTNER_SERVICE_ADDR", "partner-service:7510")
+	partnerAddr := getEnv("PARTNER_SERVICE_ADDR", "partner-service:7511")
 
 	conn, err := grpc.Dial(partnerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {

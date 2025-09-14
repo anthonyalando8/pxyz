@@ -129,7 +129,6 @@ func (h *AuthHandler) sendWelcomeEmailAsync(userID string) {
 }
 
 
-
 func (h *AuthHandler) HandleChangeEmail(w http.ResponseWriter, r *http.Request) {
 	requestedUserID, ok := r.Context().Value(middleware.ContextUserID).(string)
 	if !ok || requestedUserID == "" {
@@ -154,16 +153,21 @@ func (h *AuthHandler) HandleChangeEmail(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Step 1: Save pending email with expiry
-	// if err := h.uc.SetPendingEmail(r.Context(), req.UserID, req.NewEmail); err != nil {
-	// 	log.Printf("[HandleChangeEmail]  Failed to set pending email userID=%s, newEmail=%s, err=%v",
-	// 		req.UserID, req.NewEmail, err,
-	// 	)
-	// 	response.Error(w, http.StatusInternalServerError, "Email change processing failed")
-	// 	return
-	// }
+	// --- Step 1: Save pending email with expiry (15 min) ---
+	key := fmt.Sprintf("pending_email_change:%s", req.UserID)
+	err := h.redisClient.Set(
+		r.Context(),
+		key,
+		req.NewEmail,
+		15*time.Minute,
+	).Err()
+	if err != nil {
+		log.Printf("[HandleChangeEmail][Redis] Failed to save pending email for user=%s: %v", req.UserID, err)
+		response.Error(w, http.StatusInternalServerError, "Failed to process request")
+		return
+	}
 
-	// Step 2: Generate OTP asynchronously
+	// --- Step 2: Generate OTP asynchronously ---
 	go func(userID, newEmail string) {
 		otpResp, otpErr := h.otp.Client.GenerateOTP(
 			context.Background(), // decoupled from request context
@@ -175,7 +179,7 @@ func (h *AuthHandler) HandleChangeEmail(w http.ResponseWriter, r *http.Request) 
 			},
 		)
 		if otpErr != nil || otpResp == nil || !otpResp.Ok {
-			log.Printf("[HandleChangeEmail][OTP]  Failed to generate/send OTP userID=%s, email=%s, otpErr=%v, serviceErr=%v",
+			log.Printf("[HandleChangeEmail][OTP] Failed to generate/send OTP userID=%s, email=%s, otpErr=%v, serviceErr=%v",
 				userID, newEmail, otpErr, otpResp.GetError(),
 			)
 			return
@@ -183,13 +187,14 @@ func (h *AuthHandler) HandleChangeEmail(w http.ResponseWriter, r *http.Request) 
 		log.Printf("[HandleChangeEmail][OTP] OTP generated and sent successfully userID=%s, email=%s", userID, newEmail)
 	}(req.UserID, req.NewEmail)
 
-	// Step 3: Respond immediately
+	// --- Step 3: Respond immediately ---
 	response.JSON(w, http.StatusOK, map[string]string{
 		"message":     "OTP sent to new email. Verify to confirm change.",
-		"next":  "verify-otp",
+		"next":        "verify-otp",
 		"otp_purpose": "email_change",
 	})
 }
+
 
 
 
