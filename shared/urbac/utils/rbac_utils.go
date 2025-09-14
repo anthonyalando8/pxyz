@@ -111,7 +111,8 @@ func (s *Service) GetEffectiveUserPermissions(
 	if submoduleCode != nil {
 		cacheKey += ":subm=" + *submoduleCode
 	}
-	const ttl = 5 * time.Minute
+	//const ttl = 5 * time.Minute
+	const ttl = 15 * time.Second
 
 	// Try cache first
 	cached, err := s.RedisClient.Get(ctx, cacheKey).Result()

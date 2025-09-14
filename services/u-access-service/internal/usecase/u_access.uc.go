@@ -232,7 +232,7 @@ func (uc *RBACUsecase) GetEffectivePermissions(ctx context.Context, userID strin
 		key += fmt.Sprintf(":submodule:%s", *submoduleCode)
 	}
 
-	return getOrSetCache(ctx, uc.redisClient, key, 5*time.Minute, func() ([]*domain.EffectivePermission, error) {
+	return getOrSetCache(ctx, uc.redisClient, key, 15*time.Second, func() ([]*domain.EffectivePermission, error) {
 		return uc.rbacRepo.GetEffectivePermissions(ctx, userID, moduleCode, submoduleCode)
 	})
 }
