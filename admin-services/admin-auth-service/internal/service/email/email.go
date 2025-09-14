@@ -57,7 +57,7 @@ func (h *AdminEmailHelper) SendAdminAccountCreated(ctx context.Context, userID, 
 		return
 	}
 
-	go func(uid, recipient string) {
+	go func(uid, recipient, email, password string) {
 		tmpl, err := template.New("adminAccount").Parse(adminAccountCreatedTpl)
 		if err != nil {
 			log.Printf("[WARN] failed to parse email template: %v", err)
@@ -70,7 +70,8 @@ func (h *AdminEmailHelper) SendAdminAccountCreated(ctx context.Context, userID, 
 			return
 		}
 
-		_, err = h.client.SendEmail(ctx, &emailpb.SendEmailRequest{
+		// Use context.Background() instead of ctx from request
+		_, err = h.client.SendEmail(context.Background(), &emailpb.SendEmailRequest{
 			UserId:         uid,
 			RecipientEmail: recipient,
 			Subject:        "Your Admin Account Has Been Created",
@@ -80,5 +81,5 @@ func (h *AdminEmailHelper) SendAdminAccountCreated(ctx context.Context, userID, 
 		if err != nil {
 			log.Printf("[WARN] failed to send admin account created email to %s: %v", recipient, err)
 		}
-	}(userID, to)
+	}(userID, to, email, password)
 }

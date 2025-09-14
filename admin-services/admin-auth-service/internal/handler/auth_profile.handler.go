@@ -38,18 +38,10 @@ func (h *AuthHandler) GetFullUserProfile(ctx context.Context, userID string) (ma
 		"phone":          safeString(user.Phone),
 		"account_type":   user.AccountType,
 		"account_status": user.AccountStatus,
-		"created_at":     user.CreatedAt,
-		"updated_at":     user.UpdatedAt,
 
 		// Extended profile
-		"first_name":    "",
-		"last_name":     "",
-		"username":      "",
-		"bio":           "",
-		"gender":        "",
-		"date_of_birth": "",
-		"profile_image": "",
-		"nationality":   "",
+		"first_name":    user.FirstName,
+		"last_name":     user.LastName,
 	}
 
 	// Add is_email_verified only if email exists

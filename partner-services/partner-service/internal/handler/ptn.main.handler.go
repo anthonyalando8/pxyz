@@ -157,7 +157,7 @@ func (h *PartnerHandler) UpdatePartnerUser(w http.ResponseWriter, r *http.Reques
 		}
 		targetID = ctxID
 	} else if paramID != ctxID {
-		// param exists and does not match context ID → check if admin
+		// param exists and does not match context ID → check if caller is admin
 		if ctxRole != string(domain.PartnerUserRoleAdmin) {
 			response.Error(w, http.StatusForbidden, "not allowed to update another user account")
 			return
@@ -170,18 +170,32 @@ func (h *PartnerHandler) UpdatePartnerUser(w http.ResponseWriter, r *http.Reques
 
 	// --- Step 2: Parse request body ---
 	var req struct {
-		Role     domain.PartnerUserRole `json:"role"`
-		IsActive bool                   `json:"is_active"`
+		Role     string `json:"role"`      // expecting "partner_admin" | "partner_user"
+		IsActive bool   `json:"is_active"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		response.Error(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	// --- Step 3: Build domain object ---
+	// --- Step 2a: Protect role changes (server-side) ---
+	if req.Role != "" {
+		// Only partner_admin may change roles
+		if ctxRole != string(domain.PartnerUserRoleAdmin) {
+			response.Error(w, http.StatusForbidden, "only partner_admin can change roles")
+			return
+		}
+		// Validate the role value
+		if req.Role != string(domain.PartnerUserRoleAdmin) && req.Role != string(domain.PartnerUserRoleUser) {
+			response.Error(w, http.StatusBadRequest, "invalid role value")
+			return
+		}
+	}
+
+	// --- Step 3: Build domain object (partial update semantics expected in usecase) ---
 	partnerUser := &domain.PartnerUser{
 		ID:       targetID,
-		Role:     req.Role,
+		Role:     domain.PartnerUserRole(req.Role), // empty string means "no change" (usecase should handle)
 		IsActive: req.IsActive,
 	}
 
@@ -195,7 +209,6 @@ func (h *PartnerHandler) UpdatePartnerUser(w http.ResponseWriter, r *http.Reques
 	sendPartnerUpdatedNotification(ctx, partnerUser.ID)
 	response.JSON(w, http.StatusOK, partnerUser)
 }
-
 
 func (h *PartnerHandler) DeletePartnerUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

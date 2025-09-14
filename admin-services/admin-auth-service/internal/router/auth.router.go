@@ -36,9 +36,6 @@ func SetupRoutes(
 		os.MkdirAll(uploadDir, 0755)
 	}
 
-	// ============================================================
-	// Group everything under /admin/auth
-	// ============================================================
 	r.Route("/admin/auth", func(r chi.Router) {
 
 		// ---------------- Public ----------------
@@ -81,12 +78,14 @@ func SetupRoutes(
 
 		// ---------------- Authenticated User Endpoints ----------------
 		r.Group(func(pr chi.Router) {
-			pr.Use(auth.Require([]string{"main"}, nil, nil)) // main session required, no role enforced
+			pr.Use(auth.Require([]string{"main"}, nil, []string{"super_admin"})) // main session required, no role enforced
 
 			// Serve uploads
 			pr.Handle("/uploads/*", http.StripPrefix("/admin/auth/uploads/", http.FileServer(http.Dir(uploadDir))))
 			// WebSocket
 			pr.Get("/ws", wsHandler.HandleWS)
+
+			pr.Post("/register", h.HandleRegister)
 
 			// 2FA
 			pr.Get("/2fa/init", h.HandleInitiate2FA)

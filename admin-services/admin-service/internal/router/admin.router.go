@@ -39,14 +39,14 @@ func SetupRoutes(
 		pr.Use(auth.Require([]string{"main"}, nil, []string{"super_admin"}))
 
 		// ---------------- Partner Management ----------------
-		pr.Post("/partners", h.CreatePartner)
-		pr.Put("/partners", h.UpdatePartner)
-		pr.Delete("/partners", h.DeletePartner)
+		pr.Post("/partners/create", h.CreatePartner)
+		pr.Put("/partners/update", h.UpdatePartner)
+		pr.Delete("/partners/delete", h.DeletePartner)
 
 		// ---------------- Partner User Management ----------------
-		pr.Post("/partners/users", h.CreatePartnerUser)
-		pr.Put("/partners/users", h.UpdatePartnerUser)
-		pr.Delete("/partners/users", h.DeletePartnerUsers)
+		pr.Post("/partner/users/create", h.CreatePartnerUser)
+		pr.Put("/partner/users/update", h.UpdatePartnerUser)
+		pr.Delete("/partner/users/delete", h.DeletePartnerUsers)
 	})
 
 	return r

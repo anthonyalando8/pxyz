@@ -179,22 +179,33 @@ func (am *AuthMiddleware) handleAuth(
 
 
     // --- 7. Check optional role restrictions ---
-    if len(allowedRoles) > 0 {
-        roleVal := r.Context().Value(ContextRole)
-        if roleVal == nil {
-            response.Error(w, http.StatusForbidden, "role not found in context")
-            return "", nil, nil, false
-        }
-        role, ok := roleVal.(string)
-        if !ok || role == "" {
-            response.Error(w, http.StatusForbidden, "invalid role in context")
-            return "", nil, nil, false
-        }
-        if !contains(allowedRoles, role) {
-            response.Error(w, http.StatusForbidden, "insufficient role")
-            return "", nil, nil, false
-        }
-    }
+	if len(allowedRoles) > 0 {
+		var role string
+
+		// Try context role first
+		if roleVal := r.Context().Value(ContextRole); roleVal != nil {
+			if rStr, ok := roleVal.(string); ok && rStr != "" {
+				role = rStr
+			}
+		}
+
+		// Fallback to claims role if context role is empty
+		if role == "" && claims != nil && claims.Role != "" {
+			role = claims.Role
+		}
+
+		// Final check
+		if role == "" {
+			response.Error(w, http.StatusForbidden, "role not found in context or claims")
+			return "", nil, nil, false
+		}
+
+		if !contains(allowedRoles, role) {
+			response.Error(w, http.StatusForbidden, "insufficient role")
+			return "", nil, nil, false
+		}
+	}
+
 
     return token, claims, resp, true
 }
