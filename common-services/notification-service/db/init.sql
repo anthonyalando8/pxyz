@@ -13,6 +13,13 @@ CREATE TABLE notifications (
       CHECK (priority IN ('low','normal','high','critical')),
   status VARCHAR(20) DEFAULT 'pending' 
       CHECK (status IN ('pending','delivered','failed','cancelled')),
+
+  -- NEW: visibility flag
+  visible_in_app BOOLEAN DEFAULT true,   -- whether it shows in the bell/notifications list
+
+  -- NEW: read/unread tracking
+  read_at TIMESTAMPTZ,                   -- NULL = unread, timestamp = when marked read
+
   created_at TIMESTAMPTZ DEFAULT now(),
   delivered_at TIMESTAMPTZ,
   metadata JSONB
@@ -52,6 +59,9 @@ CREATE INDEX idx_notifications_owner
 
 CREATE INDEX idx_notifications_status 
     ON notifications (status);
+
+CREATE INDEX idx_notifications_visible 
+    ON notifications (owner_type, owner_id, visible_in_app, read_at);
 
 CREATE INDEX idx_deliveries_status 
     ON notification_deliveries (status);
