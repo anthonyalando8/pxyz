@@ -34,7 +34,7 @@ func SetupRoutes(
 	// Authenticated Endpoints (Admin actions)
 	// ============================================================
 	r.Route("/admin/svc", func(pr chi.Router) {
-		// Require role "admin" (adjust if multiple roles allowed)
+		// Require role "super_admin"
 		pr.Use(auth.Require([]string{"main"}, nil, []string{"super_admin"}))
 
 		// ---------------- Partner Management ----------------
@@ -46,65 +46,63 @@ func SetupRoutes(
 		pr.Post("/partner/users/create", h.CreatePartnerUser)
 		pr.Put("/partner/users/update", h.UpdatePartnerUser)
 		pr.Delete("/partner/users/delete", h.DeletePartnerUsers)
-	})
 
-	// ============================================================
-	// URBAC Endpoints
-	// ============================================================
-	r.Route("/urbac", func(pr chi.Router) {
-		// Require role "super_admin"
-		pr.Use(auth.Require([]string{"main"}, nil, []string{"super_admin"}))
+		// ============================================================
+		// URBAC Endpoints (under /admin/svc/urbac)
+		// ============================================================
+		pr.Route("/urbac", func(up chi.Router) {
+			// ---------------- USER PERMISSION OVERRIDES ----------------
+			up.Post("/permissions/assign", h.HandleAssignUserPermission)
+			up.Post("/permissions/revoke", h.HandleRevokeUserPermission)
+			up.Get("/permissions/list", h.HandleListUserPermissions)
 
-		// ---------------- USER PERMISSION OVERRIDES ----------------
-		pr.Post("/permissions/assign", h.HandleAssignUserPermission)
-		pr.Post("/permissions/revoke", h.HandleRevokeUserPermission)
-		pr.Get("/permissions/list", h.HandleListUserPermissions)
+			// ---------------- MODULES ----------------
+			up.Post("/modules/create", h.HandleCreateModule)
+			up.Put("/modules/update", h.HandleUpdateModule)
+			up.Post("/modules/deactivate", h.HandleDeactivateModule)
+			up.Delete("/modules/delete", h.HandleDeleteModule)
+			up.Get("/modules/list", h.HandleListModules)
 
-		// ---------------- MODULES ----------------
-		pr.Post("/modules/create", h.HandleCreateModule)
-		pr.Put("/modules/update", h.HandleUpdateModule)
-		pr.Post("/modules/deactivate", h.HandleDeactivateModule)
-		pr.Delete("/modules/delete", h.HandleDeleteModule)
-		pr.Get("/modules/list", h.HandleListModules)
+			// ---------------- SUBMODULES ----------------
+			up.Post("/submodules/create", h.HandleCreateSubmodule)
+			up.Put("/submodules/update", h.HandleUpdateSubmodule)
+			up.Post("/submodules/deactivate", h.HandleDeactivateSubmodule)
+			up.Delete("/submodules/delete", h.HandleDeleteSubmodule)
+			up.Get("/submodules/list", h.HandleListSubmodules)
 
-		// ---------------- SUBMODULES ----------------
-		pr.Post("/submodules/create", h.HandleCreateSubmodule)
-		pr.Put("/submodules/update", h.HandleUpdateSubmodule)
-		pr.Post("/submodules/deactivate", h.HandleDeactivateSubmodule)
-		pr.Delete("/submodules/delete", h.HandleDeleteSubmodule)
-		pr.Get("/submodules/list", h.HandleListSubmodules)
+			// ---------------- PERMISSION TYPES ----------------
+			up.Post("/permission-types/create", h.HandleCreatePermissionType)
+			up.Put("/permission-types/update", h.HandleUpdatePermissionType)
+			up.Post("/permission-types/deactivate", h.HandleDeactivatePermissionType)
+			up.Get("/permission-types/list", h.HandleListPermissionTypes)
 
-		// ---------------- PERMISSION TYPES ----------------
-		pr.Post("/permission-types/create", h.HandleCreatePermissionType)
-		pr.Put("/permission-types/update", h.HandleUpdatePermissionType)
-		pr.Post("/permission-types/deactivate", h.HandleDeactivatePermissionType)
-		pr.Get("/permission-types/list", h.HandleListPermissionTypes)
+			// ---------------- ROLES ----------------
+			up.Post("/roles/create", h.HandleCreateRole)
+			up.Put("/roles/update", h.HandleUpdateRole)
+			up.Post("/roles/deactivate", h.HandleDeactivateRole)
+			up.Delete("/roles/delete", h.HandleDeleteRole)
+			up.Get("/roles/list", h.HandleListRoles)
 
-		// ---------------- ROLES ----------------
-		pr.Post("/roles/create", h.HandleCreateRole)
-		pr.Put("/roles/update", h.HandleUpdateRole)
-		pr.Post("/roles/deactivate", h.HandleDeactivateRole)
-		pr.Delete("/roles/delete", h.HandleDeleteRole)
-		pr.Get("/roles/list", h.HandleListRoles)
+			// ---------------- ROLE PERMISSIONS ----------------
+			up.Post("/roles/permissions/assign", h.HandleAssignRolePermission)
+			up.Post("/roles/permissions/revoke", h.HandleRevokeRolePermission)
+			up.Get("/roles/permissions/list", h.HandleListRolePermissions)
 
-		// ---------------- ROLE PERMISSIONS ----------------
-		pr.Post("/roles/permissions/assign", h.HandleAssignRolePermission)
-		pr.Post("/roles/permissions/revoke", h.HandleRevokeRolePermission)
-		pr.Get("/roles/permissions/list", h.HandleListRolePermissions)
+			// ---------------- USER ROLES ----------------
+			up.Post("/users/roles/assign", h.HandleAssignUserRole)
+			up.Post("/users/roles/remove", h.HandleRemoveUserRole)
+			up.Get("/users/roles/list", h.HandleListUserRoles)
+			up.Post("/users/roles/upgrade", h.HandleUpgradeUserRole)
 
-		// ---------------- USER ROLES ----------------
-		pr.Post("/users/roles/assign", h.HandleAssignUserRole)
-		pr.Post("/users/roles/remove", h.HandleRemoveUserRole)
-		pr.Get("/users/roles/list", h.HandleListUserRoles)
-		pr.Post("/users/roles/upgrade", h.HandleUpgradeUserRole)
+			// ---------------- PERMISSION QUERIES ----------------
+			up.Get("/permissions/effective", h.HandleGetEffectiveUserPermissions)
+			up.Post("/permissions/check", h.HandleCheckUserPermission)
 
-		// ---------------- PERMISSION QUERIES ----------------
-		pr.Get("/permissions/effective", h.HandleGetEffectiveUserPermissions)
-		pr.Post("/permissions/check", h.HandleCheckUserPermission)
-
-		// ---------------- AUDIT LOGS ----------------
-		pr.Get("/audit/events", h.HandleListPermissionAuditEvents)
+			// ---------------- AUDIT LOGS ----------------
+			up.Get("/audit/events", h.HandleListPermissionAuditEvents)
+		})
 	})
 
 	return r
 }
+

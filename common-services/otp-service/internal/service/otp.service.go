@@ -54,7 +54,7 @@ func NewOTPService(
 
 func (s *OTPService) GenerateOTP(ctx context.Context, userID string, purpose, channel, recipient string) error {
 	// 1. Rate-limit
-	if err := s.limiter.CanRequest(ctx, userID); err != nil {
+	if err := s.limiter.CanRequest(ctx, userID, purpose); err != nil {
 		return err
 	}
 

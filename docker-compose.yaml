@@ -232,10 +232,11 @@ services:
       DB_NAME: pxyz
       REDIS_ADDR: redis:6379
       GRPCPort: :8011
-      SMTPHost: smtp.gmail.com
-      SMTPUser: anthonyalando8@gmail.com
-      SMTPPort: 587
-      SMTPPass: dqiadasrccjulcuh
+      SMTPHost: mail.derinance.com
+      SMTPUser: no_reply@derinance.com
+      SMTPPort: 465
+      SMTPPass: B-e02G#D-T7O*8Qe
+
     networks:
       - micro_net
     depends_on:

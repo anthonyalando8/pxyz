@@ -9,10 +9,7 @@ import (
 
 type AppConfig struct {
 	GRPCPort string
-	SMTPHost string
-	SMTPUser string
-	SMTPPort string
-	SMTPPass string
+	HTTPPort string
 }
 
 func Load() AppConfig {
@@ -20,11 +17,8 @@ func Load() AppConfig {
 		log.Println("Auth: No .env file found, relying on system env vars")
 	}
 	return AppConfig{
-		GRPCPort: getEnv("GRPCPort", ":8011"),
-		SMTPHost: getEnv("SMTPHost", ""),
-		SMTPUser: getEnv("SMTPUser", ""),
-		SMTPPort: getEnv("SMTPPort", ""),
-		SMTPPass: getEnv("SMTPPass", ""),
+		GRPCPort: getEnv("GRPCPort", ":8014"),
+		HTTPPort: getEnv("HTTPPort", ":8013"),
 	}
 }
 

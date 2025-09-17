@@ -301,32 +301,45 @@ func (r *rbacRepo) AssignUserPermissionOverrides(
 	ctx context.Context,
 	overrides []*domain.UserPermissionOverride,
 ) ([]*domain.UserPermissionOverride, []*xerrors.RepoError, error) {
-	const q = `
-		INSERT INTO rbac_user_permissions_override
-			(user_id, module_id, submodule_id, permission_type_id, allow, created_by)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		ON CONFLICT (user_id, module_id, submodule_id, permission_type_id)
-		DO UPDATE SET
-			allow = EXCLUDED.allow,
-			updated_at = now(),
-			updated_by = EXCLUDED.created_by
-		RETURNING id, user_id, module_id, submodule_id, permission_type_id,
-		          allow, created_at, created_by, updated_at, updated_by
-	`
 
 	var saved []*domain.UserPermissionOverride
 	var errs []*xerrors.RepoError
 
 	for _, o := range overrides {
-		row := r.db.QueryRow(
-			ctx, q,
-			o.UserID,
-			o.ModuleID,
-			o.SubmoduleID,
-			o.PermissionTypeID,
-			o.Allow,
-			o.CreatedBy,
-		)
+		var q string
+		var args []interface{}
+
+		if o.SubmoduleID != nil { // Submodule-level permission
+			q = `
+				INSERT INTO rbac_user_permissions_override
+					(user_id, module_id, submodule_id, permission_type_id, allow, created_by)
+				VALUES ($1, $2, $3, $4, $5, $6)
+				ON CONFLICT (user_id, module_id, submodule_id, permission_type_id)
+				DO UPDATE SET
+					allow = EXCLUDED.allow,
+					updated_at = now(),
+					updated_by = EXCLUDED.created_by
+				RETURNING id, user_id, module_id, submodule_id, permission_type_id,
+						allow, created_at, created_by, updated_at, updated_by
+			`
+			args = []interface{}{o.UserID, o.ModuleID, o.SubmoduleID, o.PermissionTypeID, o.Allow, o.CreatedBy}
+		} else { // Module-level permission
+			q = `
+				INSERT INTO rbac_user_permissions_override
+					(user_id, module_id, permission_type_id, allow, created_by)
+				VALUES ($1, $2, $3, $4, $5)
+				ON CONFLICT (user_id, module_id, submodule_id, permission_type_id)
+				DO UPDATE SET
+					allow = EXCLUDED.allow,
+					updated_at = now(),
+					updated_by = EXCLUDED.created_by
+				RETURNING id, user_id, module_id, submodule_id, permission_type_id,
+						allow, created_at, created_by, updated_at, updated_by
+			`
+			args = []interface{}{o.UserID, o.ModuleID, o.PermissionTypeID, o.Allow, o.CreatedBy}
+		}
+
+		row := r.db.QueryRow(ctx, q, args...)
 
 		var savedO domain.UserPermissionOverride
 		err := row.Scan(
@@ -346,21 +359,23 @@ func (r *rbacRepo) AssignUserPermissionOverrides(
 				Entity: "UserPermissionOverride",
 				Code:   "DB_ERROR",
 				Msg:    err.Error(),
-				Ref:    fmt.Sprintf("user_id=%s,module_id=%d,perm_type_id=%d",
-					o.UserID, o.ModuleID, o.PermissionTypeID),
+				Ref: fmt.Sprintf("user_id=%s,module_id=%d,submodule_id=%v,perm_type_id=%d",
+					o.UserID, o.ModuleID, o.SubmoduleID, o.PermissionTypeID),
 			})
 			continue
 		}
+
 		saved = append(saved, &savedO)
 	}
 
+
 	if len(errs) > 0 && len(saved) == 0 {
-		// complete failure
 		return nil, errs, fmt.Errorf("failed to assign any user permission overrides")
 	}
 
 	return saved, errs, nil
 }
+
 
 func (r *rbacRepo) ListUserPermissionOverrides(
 	ctx context.Context,

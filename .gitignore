@@ -35,9 +35,12 @@
 /ui/screen/auth_test.html
 
 
-/services/core-service/.env
-/services/core-service/secrets/
-/services/core-service/secrets/*
+/common-services/core-service/.env
+/common-services/core-service/secrets/
+/common-services/core-service/secrets/*
+/common-services/notification-service/.env
+/common-services/notification-service/secrets/
+/common-services/notification-service/secrets/*
 
 /services/u-access-service/.env
 /services/u-access-service/secrets/
