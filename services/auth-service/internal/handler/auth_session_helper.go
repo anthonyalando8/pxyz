@@ -107,9 +107,9 @@ func (h *AuthHandler) logoutSessionBg(ctx context.Context){
                 Token: token,
             })
             if delErr != nil {
-                log.Printf("[LogoutSession] Failed to delete old session (token=%s): %v", token, delErr)
+                log.Printf("[LogoutSession] Failed to delete old session: %v", delErr)
             } else {
-                log.Printf("[LogoutSession] Old session deleted successfully (token=%s): %+v", token, delResp)
+                log.Printf("[LogoutSession] Old session deleted successfully: %+v", delResp)
             }
         }(currentToken)
     }

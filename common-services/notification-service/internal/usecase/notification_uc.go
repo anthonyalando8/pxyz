@@ -43,11 +43,29 @@ func (uc *NotificationUsecase) CreateNotification(ctx context.Context, n *domain
 		return nil, err
 	}
 
-	// 2. Lookup user profile for recipient + personalization
-	var recipient string
-	var templateData map[string]any
+	templateData := make(map[string]any)
+	for k, v := range created.Payload {
+		templateData[k] = v
+	}
 
-	if created.OwnerType == "user" && uc.authClient != nil {
+	msgRecipients := map[string]string{}
+
+	// ✅ Start with provided recipient info
+	if created.RecipientEmail != "" {
+		msgRecipients["email"] = created.RecipientEmail
+	}
+	if created.RecipientPhone != "" {
+		msgRecipients["phone"] = created.RecipientPhone
+	}
+	if created.RecipientName != "" {
+		templateData["UserName"] = created.RecipientName
+	}
+
+	// ✅ Fallback to profile service if needed
+	needEmail := contains(created.ChannelHint, "email") && created.RecipientEmail == ""
+	needPhone := (contains(created.ChannelHint, "sms") || contains(created.ChannelHint, "whatsapp")) && created.RecipientPhone == ""
+
+	if (needEmail || needPhone) && created.OwnerType == "user" && uc.authClient != nil {
 		profileResp, err := uc.authClient.UserClient.GetUserProfile(ctx, &authpb.GetUserProfileRequest{
 			UserId: created.OwnerID,
 		})
@@ -55,35 +73,44 @@ func (uc *NotificationUsecase) CreateNotification(ctx context.Context, n *domain
 			log.Printf("⚠️ Failed to fetch user profile for notification (userID=%s): %v", created.OwnerID, err)
 		} else if profileResp != nil && profileResp.Ok {
 			user := profileResp.User
-
-			// pick recipient (prefer email > phone)
-			if user.Email != "" {
-				recipient = user.Email
-			} else if user.Phone != "" {
-				recipient = user.Phone
+			if needEmail && user.Email != "" {
+				msgRecipients["email"] = user.Email
+			}
+			if needPhone && user.Phone != "" {
+				msgRecipients["phone"] = user.Phone
 			}
 
-			// build template data for rendering
-			templateData = map[string]any{
-				"UserName": fmt.Sprintf("%s %s", user.FirstName, user.LastName),
-				"LoginURL": "https://app.pxyz.com/login", // 🔹 replace with actual frontend URL
-				"Year":     time.Now().Year(),
+			if templateData["UserName"] == nil || templateData["UserName"] == "" {
+				templateData["UserName"] = fmt.Sprintf("%s %s", user.FirstName, user.LastName)
 			}
+			templateData["UserEmail"] = user.Email
+			templateData["UserPhone"] = user.Phone
 		}
+	}
+
+	templateData["Year"] = time.Now().Year()
+
+	// Pick a primary recipient (optional, for backward compatibility)
+	var recipient string
+	if e, ok := msgRecipients["email"]; ok {
+		recipient = e
+	} else if p, ok := msgRecipients["phone"]; ok {
+		recipient = p
 	}
 
 	// 3. Build notifier.Message
 	msg := &notifier.Message{
-		OwnerID:   created.OwnerID,
-		OwnerType: created.OwnerType,
-		Recipient: recipient,
-		Title:     created.Title,
-		Body:      created.Body,
-		Metadata:  created.Metadata,
-		Channels:  created.ChannelHint,
-		Type:      notifier.NotificationType(created.EventType),
-		Data:      templateData, // 🔹 passed into template
-		Ctx:       ctx,
+		OwnerID:    created.OwnerID,
+		OwnerType:  created.OwnerType,
+		Recipient:  recipient,
+		Recipients: msgRecipients,
+		Title:      created.Title,
+		Body:       created.Body,
+		Metadata:   created.Metadata,
+		Channels:   created.ChannelHint,
+		Type:       notifier.NotificationType(created.EventType),
+		Data:       templateData,
+		Ctx:        ctx,
 	}
 
 	// 4. Dispatch asynchronously
@@ -98,6 +125,17 @@ func (uc *NotificationUsecase) CreateNotification(ctx context.Context, n *domain
 
 	return created, nil
 }
+
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
+}
+
+
 
 
 

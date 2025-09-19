@@ -1,0 +1,9 @@
+{{- if .HeaderTitle -}}
+🌍 {{.HeaderTitle}} 🌍
+{{end}}
+
+{{block "body" .}}{{end}}
+
+--
+Pxyz Inc.
+Support: support@derinance.com | +254 700 000 000

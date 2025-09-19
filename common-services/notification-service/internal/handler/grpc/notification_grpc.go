@@ -134,24 +134,28 @@ func pbToDomain(pb *notificationpb.Notification) *domain.Notification {
 	}
 
 	return &domain.Notification{
-		ID:           pb.Id,
-		RequestID:    pb.RequestId,
-		OwnerType:    pb.OwnerType,
-		OwnerID:      pb.OwnerId,
-		EventType:    pb.EventType,
-		ChannelHint:  pb.ChannelHint,
-		Title:        pb.Title,
-		Body:         pb.Body,
-		Payload:      pb.Payload.AsMap(),
-		Priority:     pb.Priority,
-		Status:       pb.Status,
-		VisibleInApp: pb.VisibleInApp,
-		ReadAt:       readAt,
-		CreatedAt:    pb.CreatedAt.AsTime(),
-		DeliveredAt:  deliveredAt,
-		Metadata:     pb.Metadata.AsMap(),
+		ID:             pb.Id,
+		RequestID:      pb.RequestId,
+		OwnerType:      pb.OwnerType,
+		OwnerID:        pb.OwnerId,
+		EventType:      pb.EventType,
+		ChannelHint:    pb.ChannelHint,
+		Title:          pb.Title,
+		Body:           pb.Body,
+		Payload:        pb.Payload.AsMap(),
+		Priority:       pb.Priority,
+		Status:         pb.Status,
+		VisibleInApp:   pb.VisibleInApp,
+		ReadAt:         readAt,
+		CreatedAt:      pb.CreatedAt.AsTime(),
+		DeliveredAt:    deliveredAt,
+		Metadata:       pb.Metadata.AsMap(),
+		RecipientEmail: pb.RecipientEmail,
+		RecipientPhone: pb.RecipientPhone,
+		RecipientName:  pb.RecipientName,
 	}
 }
+
 
 func domainToPB(n *domain.Notification) *notificationpb.Notification {
 	if n == nil {

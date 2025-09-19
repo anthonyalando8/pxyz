@@ -14,12 +14,18 @@ type Notification struct {
 	Payload       map[string]interface{}
 	Priority      string
 	Status        string
-	VisibleInApp  bool        // NEW: should show up in app bell
-	ReadAt        *time.Time  // NEW: null = unread, ts = when marked read
+	VisibleInApp  bool
+	ReadAt        *time.Time
 	CreatedAt     time.Time
 	DeliveredAt   *time.Time
 	Metadata      map[string]interface{}
+
+	// ✅ New fields
+	RecipientEmail string
+	RecipientPhone string
+	RecipientName  string
 }
+
 
 type NotificationDelivery struct {
 	ID             int64

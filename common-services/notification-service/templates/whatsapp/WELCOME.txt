@@ -1,0 +1,12 @@
+{{define "welcome"}}
+{{template "base.txt" .}}
+{{end}}
+
+{{define "body"}}
+Hi {{.UserName}} 👋,
+
+We’re excited to have you at Pxyz! 🎉
+Log in now 👉 {{.LoginURL}}
+
+If this wasn’t you, please reach out to support.
+{{end}}

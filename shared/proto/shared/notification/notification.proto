@@ -49,6 +49,9 @@ message Notification {
   google.protobuf.Timestamp created_at = 14;
   google.protobuf.Timestamp delivered_at = 15;
   google.protobuf.Struct metadata = 16;
+  string recipient_email = 17;
+  string recipient_phone = 18;
+  string recipient_name = 19;
 }
 
 // === Requests & Responses ===

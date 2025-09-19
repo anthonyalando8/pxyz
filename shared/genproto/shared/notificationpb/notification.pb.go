@@ -24,25 +24,28 @@ const (
 )
 
 type Notification struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	RequestId     string                 `protobuf:"bytes,2,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
-	OwnerType     string                 `protobuf:"bytes,3,opt,name=owner_type,json=ownerType,proto3" json:"owner_type,omitempty"` // user, partner, admin
-	OwnerId       string                 `protobuf:"bytes,4,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
-	EventType     string                 `protobuf:"bytes,5,opt,name=event_type,json=eventType,proto3" json:"event_type,omitempty"`
-	ChannelHint   []string               `protobuf:"bytes,6,rep,name=channel_hint,json=channelHint,proto3" json:"channel_hint,omitempty"`
-	Title         string                 `protobuf:"bytes,7,opt,name=title,proto3" json:"title,omitempty"`
-	Body          string                 `protobuf:"bytes,8,opt,name=body,proto3" json:"body,omitempty"`
-	Payload       *structpb.Struct       `protobuf:"bytes,9,opt,name=payload,proto3" json:"payload,omitempty"`
-	Priority      string                 `protobuf:"bytes,10,opt,name=priority,proto3" json:"priority,omitempty"`
-	Status        string                 `protobuf:"bytes,11,opt,name=status,proto3" json:"status,omitempty"`
-	VisibleInApp  bool                   `protobuf:"varint,12,opt,name=visible_in_app,json=visibleInApp,proto3" json:"visible_in_app,omitempty"`
-	ReadAt        *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=read_at,json=readAt,proto3" json:"read_at,omitempty"`
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,14,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	DeliveredAt   *timestamppb.Timestamp `protobuf:"bytes,15,opt,name=delivered_at,json=deliveredAt,proto3" json:"delivered_at,omitempty"`
-	Metadata      *structpb.Struct       `protobuf:"bytes,16,opt,name=metadata,proto3" json:"metadata,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Id             int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	RequestId      string                 `protobuf:"bytes,2,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	OwnerType      string                 `protobuf:"bytes,3,opt,name=owner_type,json=ownerType,proto3" json:"owner_type,omitempty"` // user, partner, admin
+	OwnerId        string                 `protobuf:"bytes,4,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
+	EventType      string                 `protobuf:"bytes,5,opt,name=event_type,json=eventType,proto3" json:"event_type,omitempty"`
+	ChannelHint    []string               `protobuf:"bytes,6,rep,name=channel_hint,json=channelHint,proto3" json:"channel_hint,omitempty"`
+	Title          string                 `protobuf:"bytes,7,opt,name=title,proto3" json:"title,omitempty"`
+	Body           string                 `protobuf:"bytes,8,opt,name=body,proto3" json:"body,omitempty"`
+	Payload        *structpb.Struct       `protobuf:"bytes,9,opt,name=payload,proto3" json:"payload,omitempty"`
+	Priority       string                 `protobuf:"bytes,10,opt,name=priority,proto3" json:"priority,omitempty"`
+	Status         string                 `protobuf:"bytes,11,opt,name=status,proto3" json:"status,omitempty"`
+	VisibleInApp   bool                   `protobuf:"varint,12,opt,name=visible_in_app,json=visibleInApp,proto3" json:"visible_in_app,omitempty"`
+	ReadAt         *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=read_at,json=readAt,proto3" json:"read_at,omitempty"`
+	CreatedAt      *timestamppb.Timestamp `protobuf:"bytes,14,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	DeliveredAt    *timestamppb.Timestamp `protobuf:"bytes,15,opt,name=delivered_at,json=deliveredAt,proto3" json:"delivered_at,omitempty"`
+	Metadata       *structpb.Struct       `protobuf:"bytes,16,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	RecipientEmail string                 `protobuf:"bytes,17,opt,name=recipient_email,json=recipientEmail,proto3" json:"recipient_email,omitempty"`
+	RecipientPhone string                 `protobuf:"bytes,18,opt,name=recipient_phone,json=recipientPhone,proto3" json:"recipient_phone,omitempty"`
+	RecipientName  string                 `protobuf:"bytes,19,opt,name=recipient_name,json=recipientName,proto3" json:"recipient_name,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *Notification) Reset() {
@@ -185,6 +188,27 @@ func (x *Notification) GetMetadata() *structpb.Struct {
 		return x.Metadata
 	}
 	return nil
+}
+
+func (x *Notification) GetRecipientEmail() string {
+	if x != nil {
+		return x.RecipientEmail
+	}
+	return ""
+}
+
+func (x *Notification) GetRecipientPhone() string {
+	if x != nil {
+		return x.RecipientPhone
+	}
+	return ""
+}
+
+func (x *Notification) GetRecipientName() string {
+	if x != nil {
+		return x.RecipientName
+	}
+	return ""
 }
 
 type CreateNotificationRequest struct {
@@ -1023,7 +1047,7 @@ var File_proto_shared_notification_notification_proto protoreflect.FileDescripto
 
 const file_proto_shared_notification_notification_proto_rawDesc = "" +
 	"\n" +
-	",proto/shared/notification/notification.proto\x12\fnotification\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1cgoogle/protobuf/struct.proto\"\xd4\x04\n" +
+	",proto/shared/notification/notification.proto\x12\fnotification\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1cgoogle/protobuf/struct.proto\"\xcd\x05\n" +
 	"\fNotification\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1d\n" +
 	"\n" +
@@ -1045,7 +1069,10 @@ const file_proto_shared_notification_notification_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12=\n" +
 	"\fdelivered_at\x18\x0f \x01(\v2\x1a.google.protobuf.TimestampR\vdeliveredAt\x123\n" +
-	"\bmetadata\x18\x10 \x01(\v2\x17.google.protobuf.StructR\bmetadata\"[\n" +
+	"\bmetadata\x18\x10 \x01(\v2\x17.google.protobuf.StructR\bmetadata\x12'\n" +
+	"\x0frecipient_email\x18\x11 \x01(\tR\x0erecipientEmail\x12'\n" +
+	"\x0frecipient_phone\x18\x12 \x01(\tR\x0erecipientPhone\x12%\n" +
+	"\x0erecipient_name\x18\x13 \x01(\tR\rrecipientName\"[\n" +
 	"\x19CreateNotificationRequest\x12>\n" +
 	"\fnotification\x18\x01 \x01(\v2\x1a.notification.NotificationR\fnotification\"V\n" +
 	"\x14NotificationResponse\x12>\n" +

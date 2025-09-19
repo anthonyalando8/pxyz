@@ -1,1 +1,10 @@
-Hi, your OTP is {{.OTP}}. It will expire in {{.TTL}} minutes.
+{{define "otp"}}
+{{template "base.txt" .}}
+{{end}}
+
+{{define "body"}}
+{{.Purpose}} OTP: *{{.OTP}}*
+
+This code will expire in {{.ExpiryMinutes}} minutes.  
+⚠️ Do not share this code with anyone. Our team will never ask for it.
+{{end}}

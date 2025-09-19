@@ -21,7 +21,7 @@
         box-shadow: 0 2px 8px rgba(0,0,0,0.1);
       }
       .header {
-        background-color: #1a73e8; /* Brand color */
+        background-color: #199D69;
         color: white;
         padding: 20px;
         text-align: center;
@@ -34,6 +34,16 @@
         padding: 30px;
         line-height: 1.5;
       }
+      .cta-button {
+        display: inline-block;
+        margin-top: 20px;
+        padding: 12px 25px;
+        background-color: #199D69;
+        color: white !important;
+        text-decoration: none;
+        border-radius: 5px;
+        font-weight: bold;
+      }
       .footer {
         background-color: #f0f0f0;
         color: #666666;
@@ -42,20 +52,28 @@
         text-align: center;
       }
       a {
-        color: #1a73e8;
+        color: #199D69;
         text-decoration: none;
       }
     </style>
   </head>
   <body>
     <div class="container">
+      <!-- Header -->
       <div class="header">
         <img src="https://ik.imagekit.io/anthonyalando/Global%20Connect/Black%20and%20White%20Monochrome%20Tech%20Logo%20(1).png?updatedAt=1693823047638" alt="Company Logo" />
-        <h2>{{.HeaderTitle}}</h2>
+        {{if .HeaderTitle}}
+            <h2>{{.HeaderTitle}}</h2>
+        {{end}}
       </div>
-      <div class="body">
-        {{.BodyHTML}}
-      </div>
+
+      <!-- Body -->
+    <div class="body">
+        {{block "body" .}}{{end}}
+    </div>
+
+
+      <!-- Footer -->
       <div class="footer">
         <p>Pxyz Inc.</p>
         <p>123 Business St, Nairobi, Kenya</p>

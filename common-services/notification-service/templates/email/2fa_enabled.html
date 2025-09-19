@@ -1,0 +1,29 @@
+{{define "body"}}
+  <h2 style="color: #2E86C1;">Two-Factor Authentication Enabled</h2>
+
+  <p>
+    Hello,<br><br>
+    You have successfully enabled <strong>Two-Factor Authentication (2FA)</strong> on your account.
+  </p>
+
+  <p>
+    Below are your <strong>backup recovery codes</strong>.  
+    Each code can be used once if you lose access to your authenticator app:
+  </p>
+
+  <ul style="font-size: 16px; color: #2E86C1; list-style-type: none; padding: 0;">
+    {{range .RecoveryCodes}}
+      <li>{{.}}</li>
+    {{end}}
+  </ul>
+
+  <p style="font-size: 14px; color: #b22222; font-weight: bold;">
+    ⚠️ Please keep these codes safe and do not share them with anyone.  
+    We will never ask for them.
+  </p>
+
+  <p style="margin-top: 30px; font-size: 14px; color: #999999;">
+    Thank you,<br>
+    <strong>Pxyz Security Team</strong>
+  </p>
+{{end}}
