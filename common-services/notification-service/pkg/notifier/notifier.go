@@ -87,9 +87,8 @@ func (n *Notifier) Notify(msg *Message) {
 			if n.Email != nil {
 				recipient := msg.Recipients["email"]
 				if recipient == "" {
-					recipient = msg.Recipient // fallback for backward compatibility
+					recipient = msg.Recipient
 				}
-
 				if recipient == "" {
 					log.Printf("⚠️ Skipping email notify (no recipient for %s_%s)", msg.OwnerType, msg.OwnerID)
 					continue
@@ -117,37 +116,45 @@ func (n *Notifier) Notify(msg *Message) {
 				}
 			}
 
-		case "sms":
-			if n.SMS != nil {
+		case "sms", "whatsapp":
+			var client = n.SMS
+			var channel smswhatsapppb.Channel
+
+			if ch == "sms" {
+				channel = smswhatsapppb.Channel_SMS
+			} else {
+				channel = smswhatsapppb.Channel_WHATSAPP
+			}
+
+			if client != nil {
 				recipient := msg.Recipients["phone"]
 				if recipient == "" {
-					recipient = msg.Recipient // fallback
+					recipient = msg.Recipient
 				}
-
 				if recipient == "" {
-					log.Printf("⚠️ Skipping SMS notify (no recipient for %s_%s)", msg.OwnerType, msg.OwnerID)
+					log.Printf("⚠️ Skipping %s notify (no recipient for %s_%s)", ch, msg.OwnerType, msg.OwnerID)
 					continue
 				}
 
 				body := msg.Body
 				if n.Templates != nil {
-					if rendered, err := n.Templates.Render("sms", string(msg.Type), msg.Data); err == nil {
+					if rendered, err := n.Templates.Render(ch, string(msg.Type), msg.Data); err == nil {
 						body = rendered
 					} else {
-						log.Printf("⚠️ SMS template render failed: %v", err)
+						log.Printf("⚠️ %s template render failed: %v", ch, err)
 					}
 				}
 
-				_, err := n.SMS.SendMessage(ctx, &smswhatsapppb.SendMessageRequest{
+				_, err := client.SendMessage(ctx, &smswhatsapppb.SendMessageRequest{
 					UserId:    msg.OwnerID,
 					Recipient: recipient,
 					Body:      body,
-					Channel:   smswhatsapppb.Channel_SMS,
+					Channel:   channel,
 					Type:      string(msg.Type),
 				})
 				if err != nil {
-					log.Printf("⚠️ SMS notify failed for %s_%s (type=%s): %v",
-						msg.OwnerType, msg.OwnerID, msg.Type, err)
+					log.Printf("⚠️ %s notify failed for %s_%s (type=%s): %v",
+						ch, msg.OwnerType, msg.OwnerID, msg.Type, err)
 				}
 			}
 
@@ -158,3 +165,4 @@ func (n *Notifier) Notify(msg *Message) {
 		}
 	}
 }
+

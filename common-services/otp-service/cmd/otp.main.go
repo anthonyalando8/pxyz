@@ -16,6 +16,8 @@ import (
 	pb "x/shared/genproto/otppb"
 	"x/shared/email"
 	smsclient "x/shared/sms"
+	notificationclient "x/shared/notification" // ✅ added
+
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
@@ -40,6 +42,9 @@ func main() {
 	})
 	defer rdb.Close()
 
+	notificationCli := notificationclient.NewNotificationService() // ✅ create notification client
+
+
 	// snowflake
 	sf, err := id.NewSnowflake(5)
 	if err != nil { log.Fatalf("sf: %v", err) }
@@ -49,7 +54,7 @@ func main() {
 	emailCli := emailclient.NewEmailClient()
 	smsCli := smsclient.NewSMSClient()
 	lim := rate.NewLimiter(rdb, cfg.OTP_Window, cfg.OTP_MaxPerWindow, cfg.OTP_Cooldown)
-	otpSvc:= service.NewOTPService(otpRepo, lim, sf, emailCli, smsCli,rdb, cfg.OTP_TTL)
+	otpSvc:= service.NewOTPService(otpRepo, lim, sf, emailCli, smsCli,rdb, cfg.OTP_TTL, notificationCli)
 	// grpc server
 	grpcServer := grpc.NewServer()
 	otpHandler := handler.NewOTPHandler(otpSvc)

@@ -17,6 +17,10 @@ import (
 	emailclient "x/shared/email"
 	"x/shared/genproto/emailpb"
 	"x/shared/response"
+	notificationclient "x/shared/notification" // ✅ added
+	notificationpb "x/shared/genproto/shared/notificationpb"
+	"github.com/google/uuid"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/go-chi/chi"
 )
@@ -24,10 +28,12 @@ import (
 type KYCHandler struct {
 	service     *service.KYCService
 	emailClient *emailclient.EmailClient
+	notificationClient *notificationclient.NotificationService // ✅ added
+
 }
 
-func NewKYCHandler(s *service.KYCService, emailClient *emailclient.EmailClient) *KYCHandler {
-	return &KYCHandler{service: s, emailClient: emailClient}
+func NewKYCHandler(s *service.KYCService, emailClient *emailclient.EmailClient, notificationClient *notificationclient.NotificationService) *KYCHandler {
+	return &KYCHandler{service: s, emailClient: emailClient, notificationClient: notificationClient,}
 }
 
 // UploadKYC handles uploading front and back ID images + face photo + KYC submission.
@@ -179,46 +185,40 @@ func saveFile(src io.Reader, path string) error {
 }
 
 func (h *KYCHandler) sendKYCSubmissionNotification(userID, recipientEmail string) {
-	if h.emailClient == nil {
-		return
-	}
-	if recipientEmail == "" {
+	if h.notificationClient == nil{
 		return
 	}
 
 	go func(uid, email string) {
-		subject := "Your KYC submission has been received"
-		body := `
-			<!DOCTYPE html>
-			<html><head><meta charset="UTF-8"><title>KYC Submitted</title></head>
-			<body style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px;">
-				<div style="max-width: 600px; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0px 2px 5px rgba(0,0,0,0.1);">
-					<h2 style="color: #2E86C1;">KYC Submission Received</h2>
-					<p style="font-size: 16px; color: #333;">
-						Hello,<br><br>
-						We have successfully received your KYC documents. 
-						Our compliance team is reviewing your submission, and you’ll be notified once the review is complete.
-					</p>
-					<p style="margin-top: 20px; font-size: 14px; color: #999999;">
-						Thank you for verifying your account,<br>
-						<strong>Pxyz Team</strong>
-					</p>
-				</div>
-			</body>
-			</html>`
+		ctx := context.Background() // background context for async processing
 
-		_, err := h.emailClient.SendEmail(context.Background(), &emailpb.SendEmailRequest{
-			UserId:         uid,
-			RecipientEmail: email,
-			Subject:        subject,
-			Body:           body,
-			Type:           "kyc_submitted_pending",
+		_, err := h.notificationClient.Client.CreateNotification(ctx, &notificationpb.CreateNotificationRequest{
+			Notification: &notificationpb.Notification{
+				RequestId:      uuid.New().String(),
+				OwnerType:      "user",
+				OwnerId:        uid,
+				EventType:      "KYC_SUBMITTED",
+				Title: "KYC Documents Submitted",
+				Body: "Your KYC documents have been submitted awaiting review.",
+				ChannelHint:    []string{"email"},
+				Payload: func() *structpb.Struct {
+					s, _ := structpb.NewStruct(map[string]interface{}{})
+					return s
+				}(),
+				VisibleInApp:   false,
+				RecipientEmail: email,
+				Priority:       "high",
+				Status:         "pending",
+			},
 		})
 		if err != nil {
 			log.Printf("[WARN] failed to send KYC submission email to %s: %v", email, err)
+		} else {
+			log.Printf("Successfully queued KYC submission notification | Recipient=%s", email)
 		}
 	}(userID, recipientEmail)
 }
+
 
 func (h *KYCHandler) sendKYCReviewResult(userID, recipientEmail, status string) {
 	subject := "Your KYC review is complete"

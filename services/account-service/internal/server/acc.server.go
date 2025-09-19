@@ -9,6 +9,7 @@ import (
 	"account-service/internal/service/2fa"
 	acservice "account-service/internal/service/acc"
 	prefservice "account-service/internal/service/prefs"
+	notificationclient "x/shared/notification" // ✅ added
 	"log"
 	"context"
 
@@ -55,11 +56,13 @@ func NewServer() *Server {
 	}
 
 	emailCli := emailclient.NewEmailClient()
+	notificationCli := notificationclient.NewNotificationService() // ✅ create notification client
+
 
 	// 2FA wiring
 	_2faRepo := repository.NewTwoFARepository(dbpool)
 	_2faUc := _2faservice.NewTwoFAService(_2faRepo, sf)
-	twofaHandler := _2fahandler.NewTwoFAHandler(_2faUc, emailCli)
+	twofaHandler := _2fahandler.NewTwoFAHandler(_2faUc, emailCli, notificationCli)
 
 	// Account wiring
 	accRepo := repository.NewUserProfileRepository(dbpool)

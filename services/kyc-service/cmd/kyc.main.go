@@ -15,6 +15,8 @@ import (
 	"kyc-service/internal/service"
 	"x/shared/auth/middleware"
 	emailclient "x/shared/email"
+	notificationclient "x/shared/notification" // ✅ added
+
 	"x/shared/utils/id"
 
 	"github.com/go-chi/chi/v5"
@@ -44,12 +46,13 @@ func main() {
 	if err != nil {
 		log.Fatalf("sf: %v", err)
 	}
+	notificationCli := notificationclient.NewNotificationService() // ✅ create notification client
 
 	// repos & service
 	emailCli := emailclient.NewEmailClient()
 	kycRepo := repository.NewKYCRepo(dbpool)
 	kycSvc := service.NewKYCService(kycRepo, sf)
-	kycHandler := handler.NewKYCHandler(kycSvc, emailCli)
+	kycHandler := handler.NewKYCHandler(kycSvc, emailCli, notificationCli)
 
 	// chi router
 	r := chi.NewRouter()

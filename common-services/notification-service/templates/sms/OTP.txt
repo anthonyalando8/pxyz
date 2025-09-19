@@ -1,9 +1,5 @@
-{{define "otp"}}
-{{template "base.txt" .}}
-{{end}}
-
 {{define "body"}}
-{{.Purpose}} OTP: {{.OTP}}
+Your OTP code for {{.Purpose}} is {{.OTP}}.
 
 Do not share this code with anyone.
 It will expire in {{.ExpiryMinutes}} minutes.

@@ -51,19 +51,19 @@ func (uc *NotificationUsecase) CreateNotification(ctx context.Context, n *domain
 	msgRecipients := map[string]string{}
 
 	// ✅ Start with provided recipient info
-	if created.RecipientEmail != "" {
-		msgRecipients["email"] = created.RecipientEmail
+	if n.RecipientEmail != "" {
+		msgRecipients["email"] = n.RecipientEmail
 	}
-	if created.RecipientPhone != "" {
-		msgRecipients["phone"] = created.RecipientPhone
+	if n.RecipientPhone != "" {
+		msgRecipients["phone"] = n.RecipientPhone
 	}
-	if created.RecipientName != "" {
-		templateData["UserName"] = created.RecipientName
+	if n.RecipientName != "" {
+		templateData["UserName"] = n.RecipientName
 	}
 
 	// ✅ Fallback to profile service if needed
-	needEmail := contains(created.ChannelHint, "email") && created.RecipientEmail == ""
-	needPhone := (contains(created.ChannelHint, "sms") || contains(created.ChannelHint, "whatsapp")) && created.RecipientPhone == ""
+	needEmail := contains(created.ChannelHint, "email") && n.RecipientEmail == ""
+	needPhone := (contains(created.ChannelHint, "sms") || contains(created.ChannelHint, "whatsapp")) && n.RecipientPhone == ""
 
 	if (needEmail || needPhone) && created.OwnerType == "user" && uc.authClient != nil {
 		profileResp, err := uc.authClient.UserClient.GetUserProfile(ctx, &authpb.GetUserProfileRequest{

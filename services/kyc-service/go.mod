@@ -12,7 +12,10 @@ require (
 	x/shared v0.0.0-00010101000000-000000000000
 )
 
-require github.com/go-chi/cors v1.2.2
+require (
+	github.com/go-chi/cors v1.2.2
+	github.com/google/uuid v1.6.0
+)
 
 require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
@@ -30,5 +33,5 @@ require (
 	golang.org/x/text v0.28.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250528174236-200df99c418a // indirect
 	google.golang.org/grpc v1.74.2 // indirect
-	google.golang.org/protobuf v1.36.6 // indirect
+	google.golang.org/protobuf v1.36.6
 )

@@ -1,7 +1,3 @@
-{{define "welcome"}}
-{{template "base.txt" .}}
-{{end}}
-
 {{define "body"}}
 Hi {{.UserName}} 👋,
 
