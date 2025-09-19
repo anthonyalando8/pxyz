@@ -8,8 +8,10 @@ import (
 )
 
 type AppConfig struct {
-	GRPCPort string
-	HTTPPort string
+	GRPCAddr string
+	HTTPAddr string
+	RedisAddr        string
+	RedisPass        string
 }
 
 func Load() AppConfig {
@@ -17,8 +19,10 @@ func Load() AppConfig {
 		log.Println("Auth: No .env file found, relying on system env vars")
 	}
 	return AppConfig{
-		GRPCPort: getEnv("GRPCPort", ":8014"),
-		HTTPPort: getEnv("HTTPPort", ":8013"),
+		GRPCAddr: getEnv("GRPC_ADDR", ":8014"),
+		HTTPAddr: getEnv("HTTP_ADDR", ":8013"),
+		RedisAddr: getEnv("REDIS_ADDR", "redis:6379"),
+		RedisPass: getEnv("REDIS_PASS", ""),
 	}
 }
 

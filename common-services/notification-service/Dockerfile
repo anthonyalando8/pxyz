@@ -1,2 +1,48 @@
-# docker code here
-FROM golang:1.20
+# -------- Stage 1: Builder --------
+FROM golang:1.24 AS builder
+
+# Set working directory
+WORKDIR /app
+
+# Copy go.mod and go.sum from notification-service
+COPY common-services/notification-service/go.mod common-services/notification-service/go.sum ./
+
+# Copy shared package so deps are resolvable
+COPY shared /shared
+
+# Download dependencies (cached if go.mod/go.sum unchanged)
+RUN go mod download
+RUN go mod tidy
+
+# Copy secrets (if needed at build time)
+COPY common-services/notification-service/secrets ./secrets
+
+# Copy notification-service source
+COPY common-services/notification-service/ ./
+
+# Build the binary
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -o notification-service ./cmd/main.go
+
+# -------- Stage 2: Runtime --------
+FROM debian:bookworm-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /app/notification-service /app/notification-service
+
+# Copy templates for runtime usage
+COPY common-services/notification-service/templates ./templates
+
+RUN mkdir -p /app/uploads
+
+RUN useradd -u 10001 nonroot && chown -R nonroot:nonroot /app
+USER nonroot
+
+EXPOSE 8013 8014
+
+ENTRYPOINT ["/app/notification-service"]
+

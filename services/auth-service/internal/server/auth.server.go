@@ -13,16 +13,16 @@ import (
 	telegramclient "auth-service/internal/service/telegram"
 	"auth-service/internal/usecase"
 	"auth-service/internal/ws"
-	"x/shared/account"
 
+	accountclient "x/shared/account"
 	//authclient "x/shared/auth"
 	"x/shared/auth/middleware"
-	"x/shared/auth/otp"
+	otpclient "x/shared/auth/otp"
 	emailclient "x/shared/email"
 	smsclient "x/shared/sms"
 	coreclient "x/shared/core"
+	notificationclient "x/shared/notification" // ✅ added
 	urbacservice "x/shared/urbac/utils"
-
 
 	"x/shared/utils/id"
 
@@ -57,18 +57,39 @@ func NewServer(cfg config.AppConfig) *http.Server {
 	emailCli := emailclient.NewEmailClient()
 	smsCli := smsclient.NewSMSClient()
 	coreClient := coreclient.NewCoreService()
-	config := &handler.Config{ GoogleClientID: cfg.GoogleClientID, Apple: cfg.Apple, }
+	notificationCli := notificationclient.NewNotificationService() // ✅ create notification client
+
+	config := &handler.Config{GoogleClientID: cfg.GoogleClientID, Apple: cfg.Apple}
 	telegramClient := telegramclient.NewTelegramClient(cfg.TelegramBotToken)
-	urbacSvc :=	urbacservice.NewService(auth.RBACClient, rdb)
+	urbacSvc := urbacservice.NewService(auth.RBACClient, rdb)
 
-
+	// HTTP handler
 	authHandler := handler.NewAuthHandler(
-		userUC, auth, otpSvc, accountClient, emailCli, smsCli, rdb, coreClient,urbacSvc,auth.Client, config, telegramClient,
+		userUC,
+		auth,
+		otpSvc,
+		accountClient,
+		emailCli,
+		smsCli,
+		rdb,
+		coreClient,
+		notificationCli, 
+		urbacSvc,
+		auth.Client,
+		config,
+		telegramClient,
 	)
 
 	// gRPC handler
 	grpcAuthHandler := handler.NewGRPCAuthHandler(
-		userUC, otpSvc, accountClient, emailCli, smsCli, config, telegramClient,
+		userUC,
+		otpSvc,
+		accountClient,
+		emailCli,
+		smsCli,
+		notificationCli,
+		config,
+		telegramClient,
 	)
 
 	// start gRPC server in background

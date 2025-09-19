@@ -14,6 +14,7 @@ type Claims struct {
 	UserID    string            `json:"uid"`
 	Device    string            `json:"device,omitempty"`
 	IsTemp    bool              `json:"is_temp"`
+	UserType  string 			`json:"type"`
 	Role      string			`json:"role,omitempty"`
 	ExtraData map[string]string `json:"data,omitempty"`
 	jwt.RegisteredClaims
@@ -48,6 +49,7 @@ func (g *Generator) Generate(userID, role, device string, isTemp bool, extraData
 		Device:    device,
 		IsTemp:    isTemp,
 		Role:      role,
+		UserType: "user",
 		ExtraData: extraData,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    g.issuer,

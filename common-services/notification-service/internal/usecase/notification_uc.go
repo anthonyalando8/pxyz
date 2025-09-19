@@ -2,32 +2,104 @@ package usecase
 
 import (
 	"context"
+	"log"
 	"time"
+	"fmt"
 
 	"notification-service/internal/domain"
 	"notification-service/internal/repository"
+	"notification-service/pkg/notifier"
+	"x/shared/utils/errors"
+
+	authclient "x/shared/auth"
+	authpb "x/shared/genproto/authpb"
+
 )
 
 type NotificationUsecase struct {
-	repo repository.Repository
+	repo     repository.Repository
+	notifier *notifier.Notifier
+	authClient *authclient.AuthService
+
 }
 
-func NewNotificationUsecase(r repository.Repository) *NotificationUsecase {
-	return &NotificationUsecase{repo: r}
+// NewNotificationUsecase creates a new NotificationUsecase with repo + notifier
+func NewNotificationUsecase(r repository.Repository, n *notifier.Notifier, authClient *authclient.AuthService) *NotificationUsecase {
+	return &NotificationUsecase{
+		repo:     r,
+		notifier: n,
+		authClient: authClient,
+	}
 }
+
 
 // -----------------------------
 // Notifications
 // -----------------------------
-
 func (uc *NotificationUsecase) CreateNotification(ctx context.Context, n *domain.Notification) (*domain.Notification, error) {
+	// 1. Save to DB
 	created, err := uc.repo.CreateNotification(ctx, n)
 	if err != nil {
 		return nil, err
 	}
-	// TODO: push event to broker for async delivery worker
+
+	// 2. Lookup user profile for recipient + personalization
+	var recipient string
+	var templateData map[string]any
+
+	if created.OwnerType == "user" && uc.authClient != nil {
+		profileResp, err := uc.authClient.UserClient.GetUserProfile(ctx, &authpb.GetUserProfileRequest{
+			UserId: created.OwnerID,
+		})
+		if err != nil {
+			log.Printf("⚠️ Failed to fetch user profile for notification (userID=%s): %v", created.OwnerID, err)
+		} else if profileResp != nil && profileResp.Ok {
+			user := profileResp.User
+
+			// pick recipient (prefer email > phone)
+			if user.Email != "" {
+				recipient = user.Email
+			} else if user.Phone != "" {
+				recipient = user.Phone
+			}
+
+			// build template data for rendering
+			templateData = map[string]any{
+				"UserName": fmt.Sprintf("%s %s", user.FirstName, user.LastName),
+				"LoginURL": "https://app.pxyz.com/login", // 🔹 replace with actual frontend URL
+				"Year":     time.Now().Year(),
+			}
+		}
+	}
+
+	// 3. Build notifier.Message
+	msg := &notifier.Message{
+		OwnerID:   created.OwnerID,
+		OwnerType: created.OwnerType,
+		Recipient: recipient,
+		Title:     created.Title,
+		Body:      created.Body,
+		Metadata:  created.Metadata,
+		Channels:  created.ChannelHint,
+		Type:      notifier.NotificationType(created.EventType),
+		Data:      templateData, // 🔹 passed into template
+		Ctx:       ctx,
+	}
+
+	// 4. Dispatch asynchronously
+	go func(m *notifier.Message) {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("⚠️ Panic recovered in notifier.Notify: %v", r)
+			}
+		}()
+		uc.notifier.Notify(m)
+	}(msg)
+
 	return created, nil
 }
+
+
 
 func (uc *NotificationUsecase) GetNotificationByID(ctx context.Context, id int64) (*domain.Notification, error) {
 	return uc.repo.GetNotificationByID(ctx, id)
@@ -47,6 +119,31 @@ func (uc *NotificationUsecase) UpdateNotificationStatus(ctx context.Context, id 
 
 func (uc *NotificationUsecase) DeleteNotificationsByOwner(ctx context.Context, ownerType, ownerID string) error {
 	return uc.repo.DeleteNotificationsByOwner(ctx, ownerType, ownerID)
+}
+
+func (uc *NotificationUsecase) MarkAsRead(ctx context.Context, id int64, ownerType, ownerID string) error {
+	if id <= 0 {
+		return xerrors.ErrInvalidInput
+	}
+	return uc.repo.MarkNotificationAsRead(ctx, id, ownerType, ownerID)
+}
+
+func (uc *NotificationUsecase) ListUnread(ctx context.Context, ownerType, ownerID string, limit, offset int) ([]*domain.Notification, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	return uc.repo.ListUnreadNotifications(ctx, ownerType, ownerID, limit, offset)
+}
+
+func (uc *NotificationUsecase) CountUnread(ctx context.Context, ownerType, ownerID string) (int, error) {
+	return uc.repo.CountUnreadNotifications(ctx, ownerType, ownerID)
+}
+
+func (uc *NotificationUsecase) HideFromApp(ctx context.Context, id int64, ownerType, ownerID string) error {
+	if id <= 0 {
+		return xerrors.ErrInvalidInput
+	}
+	return uc.repo.HideNotification(ctx, id, ownerType, ownerID)
 }
 
 // -----------------------------

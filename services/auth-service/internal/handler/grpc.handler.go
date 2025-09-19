@@ -5,13 +5,16 @@ import (
 	telegramclient "auth-service/internal/service/telegram"
 	"auth-service/internal/usecase"
 	"time"
+
 	accountclient "x/shared/account"
 	//authclient "x/shared/auth"
 	otpclient "x/shared/auth/otp"
 	emailclient "x/shared/email"
+	smsclient "x/shared/sms"
+	notificationclient "x/shared/notification" // ✅ added
+
 	accountpb "x/shared/genproto/accountpb"
 	authpb "x/shared/genproto/authpb"
-	smsclient "x/shared/sms"
 
 	"context"
 	"fmt"
@@ -21,12 +24,13 @@ import (
 type GRPCAuthHandler struct {
 	authpb.UnimplementedAuthServiceServer // embed for forward compat
 
-	uc             *usecase.UserUsecase
-	otp            *otpclient.OTPService
-	accountClient  *accountclient.AccountClient
-	emailClient    *emailclient.EmailClient
-	smsClient      *smsclient.SMSClient
-	//authClient     *authclient.AuthService
+	uc                 *usecase.UserUsecase
+	otp                *otpclient.OTPService
+	accountClient      *accountclient.AccountClient
+	emailClient        *emailclient.EmailClient
+	smsClient          *smsclient.SMSClient
+	notificationClient *notificationclient.NotificationService // ✅ added
+	//authClient       *authclient.AuthService
 	config         *Config
 	telegramClient *telegramclient.TelegramClient
 }
@@ -37,21 +41,24 @@ func NewGRPCAuthHandler(
 	accountClient *accountclient.AccountClient,
 	emailClient *emailclient.EmailClient,
 	smsClient *smsclient.SMSClient,
+	notificationClient *notificationclient.NotificationService, // ✅ added
 	//authClient *authclient.AuthService,
 	config *Config,
 	telegramClient *telegramclient.TelegramClient,
 ) *GRPCAuthHandler {
 	return &GRPCAuthHandler{
-		uc:             uc,
-		otp:            otp,
-		accountClient:  accountClient,
-		emailClient:    emailClient,
-		smsClient:      smsClient,
-		//authClient:     authClient,
+		uc:                 uc,
+		otp:                otp,
+		accountClient:      accountClient,
+		emailClient:        emailClient,
+		smsClient:          smsClient,
+		notificationClient: notificationClient, // ✅ assigned
+		//authClient:       authClient,
 		config:         config,
 		telegramClient: telegramClient,
 	}
 }
+
 
 //
 // ---- gRPC methods ----

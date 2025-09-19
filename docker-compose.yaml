@@ -294,6 +294,36 @@ services:
       JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
     depends_on:
       - redis
+  notification-service:
+    build:
+      context: .
+      dockerfile: common-services/notification-service/Dockerfile
+    container_name: notification-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.core.rule=PathPrefix(`/user/notifications`)"
+      - "traefik.http.services.core.loadbalancer.server.port=8013"
+    env_file:
+      - ./common-services/notification-service/.env
+    volumes:
+      - ./common-services/notification-service/secrets:/app/secrets:ro
+      - ./common-services/notification-service/templates:/app/templates:ro
+      - ./uploads:/app/uploads
+    networks:
+      - micro_net
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: 2000
+      DB_NAME: pxyz
+      REDIS_ADDR: redis:6379
+      HTTP_ADDR: :8013
+      GRPC_ADDR: :8014
+      REDIS_PASS:
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    depends_on:
+      - redis
 
   # 🔹 User Access Service
   u-access-service:

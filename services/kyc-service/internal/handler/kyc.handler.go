@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"errors"
+	"x/shared/utils/errors"
 
 	"kyc-service/internal/service"
 	"x/shared/auth/middleware"
@@ -251,8 +253,17 @@ func (h *KYCHandler) GetKYCStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Printf("[INFO] Retrieving KYC status for userID=%s", userID)
 
-	status, err := h.service.GetStatus(r.Context(), userID)
+	kycSubmission, err := h.service.GetStatus(r.Context(), userID)
 	if err != nil {
+		if errors.Is(err, xerrors.ErrNotFound) {
+			log.Printf("[INFO] No KYC submission found for userID=%s", userID)
+			response.JSON(w, http.StatusOK, map[string]interface{}{
+				"kyc_status": "not_submitted",
+				"message":    "User has not submitted any KYC documents yet",
+			})
+			return
+		}
+
 		log.Printf("[ERROR] Failed to get KYC status for userID=%s: %v", userID, err)
 		response.Error(w, http.StatusInternalServerError, "failed to retrieve KYC status")
 		return
@@ -261,10 +272,12 @@ func (h *KYCHandler) GetKYCStatus(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[INFO] Successfully retrieved KYC status for userID=%s", userID)
 
 	response.JSON(w, http.StatusOK, map[string]interface{}{
-		"kyc_status": status,
+		"kyc_status": kycSubmission.Status,
 		"message":    "KYC status retrieved successfully",
+		"data":       kycSubmission, // optional: return full submission details if needed
 	})
 }
+
 
 // --- NEW: Review submission (approve/reject) ---
 func (h *KYCHandler) ReviewKYC(w http.ResponseWriter, r *http.Request) {

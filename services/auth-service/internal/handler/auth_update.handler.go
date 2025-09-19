@@ -16,6 +16,7 @@ import (
 	"x/shared/genproto/emailpb"
 	"x/shared/genproto/otppb"
 	"x/shared/response"
+	"x/shared/genproto/shared/notificationpb"
 )
 
 // Change password (requires old + new)
@@ -111,8 +112,30 @@ func (h *AuthHandler) HandleSetPassword(w http.ResponseWriter, r *http.Request) 
 	// --- Ensure profile exists in background ---
 	go h.ensureNationality(context.Background(), userID) // logs errors only
 
-	// --- Welcome Email ---
-	h.sendWelcomeEmailAsync(userID)
+	// --- Send welcome notification asynchronously ---
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		_, err := h.notificationClient.Client.CreateNotification(ctx, &notificationpb.CreateNotificationRequest{
+			Notification: &notificationpb.Notification{
+				OwnerType:   "user",
+				OwnerId:     userID,
+				EventType:   "WELCOME",
+				ChannelHint: []string{"email", "ws"}, // can push via email & WS
+				Title:       "Welcome to Pxyz!",
+				Body:        "Your account has been created successfully. Let's get started 🚀",
+				Priority:    "high",
+				Status:      "new",
+				VisibleInApp: true,
+			},
+		})
+		if err != nil {
+			log.Printf("⚠️ Failed to create welcome notification for user=%s: %v", userID, err)
+		} else {
+			log.Printf("✅ Welcome notification created for user=%s", userID)
+		}
+	}()
 
 	// --- Response: always include next as set_nationality ---
 	resp := map[string]interface{}{
@@ -122,6 +145,7 @@ func (h *AuthHandler) HandleSetPassword(w http.ResponseWriter, r *http.Request) 
 
 	response.JSON(w, http.StatusOK, resp)
 }
+
 
 
 func (h *AuthHandler) sendWelcomeEmailAsync(userID string) {

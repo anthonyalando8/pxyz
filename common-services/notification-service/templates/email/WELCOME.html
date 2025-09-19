@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Welcome to Pxyz</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f4f4f7;
+        color: #333333;
+        margin: 0;
+        padding: 0;
+      }
+      .container {
+        max-width: 600px;
+        margin: 20px auto;
+        background-color: #ffffff;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      }
+      .header {
+        background-color: #1a73e8; /* Brand color */
+        color: white;
+        padding: 20px;
+        text-align: center;
+      }
+      .header img {
+        max-height: 50px;
+        margin-bottom: 10px;
+      }
+      .body {
+        padding: 30px;
+        line-height: 1.5;
+      }
+      .cta-button {
+        display: inline-block;
+        margin-top: 20px;
+        padding: 12px 25px;
+        background-color: #1a73e8; /* Brand color */
+        color: white !important;
+        text-decoration: none;
+        border-radius: 5px;
+        font-weight: bold;
+      }
+      .footer {
+        background-color: #f0f0f0;
+        color: #666666;
+        font-size: 12px;
+        padding: 20px;
+        text-align: center;
+      }
+      a {
+        color: #1a73e8;
+        text-decoration: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <img src="https://ik.imagekit.io/anthonyalando/Global%20Connect/Black%20and%20White%20Monochrome%20Tech%20Logo%20(1).png?updatedAt=1693823047638" alt="Company Logo" />
+        <h2>Welcome to Pxyz!</h2>
+      </div>
+      <div class="body">
+        <p>Hello {{.UserName}},</p>
+        <p>We’re excited to have you on board! Your account has been successfully created.</p>
+        <p>To get started, click the button below to log in and explore our services:</p>
+        <a href="{{.LoginURL}}" class="cta-button">Get Started</a>
+        <p>If you did not create this account, please contact our support immediately.</p>
+      </div>
+      <div class="footer">
+        <p>Pxyz Inc.</p>
+        <p>123 Business St, Nairobi, Kenya</p>
+        <p>Email: <a href="mailto:support@derinance.com">support@derinance.com</a> | Phone: +254 700 000 000</p>
+        <p>&copy; {{.Year}} Pxyz. All rights reserved.</p>
+      </div>
+    </div>
+  </body>
+</html>

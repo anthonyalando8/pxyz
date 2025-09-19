@@ -17,6 +17,7 @@ const (
 	ContextSessionPurpose contextKey = "purpose"
 	ContextDeviceID contextKey = "deviceID"
 	ContextRole contextKey = "role"
+	ContextUserType contextKey = "userType"
 )
 
 func GetUserID(ctx context.Context) (string, bool) {
@@ -34,6 +35,7 @@ func setContextValues(r *http.Request, claims *jwtutil.Claims, token string, res
 	ctx = context.WithValue(ctx, ContextToken, token)
 	ctx = context.WithValue(ctx, ContextDeviceID, claims.Device)
 	ctx = context.WithValue(ctx, ContextRole, claims.Role)
+	ctx = context.WithValue(ctx, ContextUserType, claims.UserType)
 
 	if resp != nil {
 		ctx = context.WithValue(ctx, ContextSessionType, resp.SessionType)

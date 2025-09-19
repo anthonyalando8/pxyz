@@ -2,10 +2,14 @@ package repository
 
 import (
 	"context"
+	"errors"
 
 	"kyc-service/internal/domain"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"x/shared/utils/errors"
 )
 
 type KYCRepo struct {
@@ -41,11 +45,17 @@ func (r *KYCRepo) GetByID(ctx context.Context, id string) (*domain.KYCSubmission
 		&k.ID, &k.UserID, &k.IDNumber, &k.FacePhotoURL, &k.DateOfBirth, &k.DocumentType, &k.DocumentFrontURL, &k.DocumentBackURL,
 		&k.Status, &k.RejectionReason, &k.SubmittedAt, &k.ReviewedAt, &k.UpdatedAt,
 	)
+
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, xerrors.ErrNotFound
+		}
 		return nil, err
 	}
+
 	return &k, nil
 }
+
 
 // GetByUserID fetches the latest KYC submission for a user.
 func (r *KYCRepo) GetByUserID(ctx context.Context, userID string) (*domain.KYCSubmission, error) {

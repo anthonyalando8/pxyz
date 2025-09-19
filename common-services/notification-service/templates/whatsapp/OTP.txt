@@ -1,0 +1,1 @@
+Hi, your OTP is {{.OTP}}. It will expire in {{.TTL}} minutes.
