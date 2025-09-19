@@ -3,6 +3,7 @@ package notifier
 import (
 	"context"
 	"log"
+	"time"
 	"notification-service/pkg/notifier/ws"
 	"notification-service/pkg/template"
 
@@ -60,10 +61,8 @@ func NewNotifier(email *emailclient.EmailClient, sms *smsclient.SMSClient, ws *w
 
 // Notify sends a message to the requested channels
 func (n *Notifier) Notify(msg *Message) {
-	ctx := msg.Ctx
-	if ctx == nil {
-		ctx = context.Background()
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+    defer cancel()
 
 	targets := msg.Channels
 	if len(targets) == 0 {

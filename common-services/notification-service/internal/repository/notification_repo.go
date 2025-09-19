@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/google/uuid"
 
 	"x/shared/utils/errors"
 )
@@ -180,6 +181,11 @@ func (p *pgRepo) CreateDelivery(ctx context.Context, d *domain.NotificationDeliv
 
 // CreateNotification implements Repository.
 func (p *pgRepo) CreateNotification(ctx context.Context, n *domain.Notification) (*domain.Notification, error) {
+	// Ensure RequestID is set
+	if n.RequestID == "" {
+		n.RequestID = uuid.New().String()
+	}
+
 	query := `
 		INSERT INTO notifications (
 			request_id, owner_type, owner_id, event_type,

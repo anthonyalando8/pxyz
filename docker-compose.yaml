@@ -301,8 +301,8 @@ services:
     container_name: notification-service
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.core.rule=PathPrefix(`/user/notifications`)"
-      - "traefik.http.services.core.loadbalancer.server.port=8013"
+      - "traefik.http.routers.user-notification.rule=PathPrefix(`/user/notifications`)"
+      - "traefik.http.services.user-notification.loadbalancer.server.port=8013"
     env_file:
       - ./common-services/notification-service/.env
     volumes:

@@ -236,6 +236,6 @@ func (h *AuthHandler) Handle2FAStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	response.JSON(w, http.StatusOK, map[string]interface{}{
 		"message": "Success",
-		"valid":   resp.IsEnabled,
+		"enabled":   resp.IsEnabled,
 	})
 }

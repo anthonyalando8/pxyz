@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"time"
+	"fmt"
 
 	"kyc-service/internal/domain"
 	"kyc-service/internal/repository"
 	"x/shared/utils/id"
+	"x/shared/utils/errors"
 )
 
 type KYCService struct {
@@ -146,7 +148,8 @@ func (s *KYCService) GetStatus(ctx context.Context, userID string) (*domain.KYCS
 		return nil, err
 	}
 	if kyc == nil {
-		return nil, errors.New("no KYC submission found for user")
+		return nil, fmt.Errorf("no KYC submission found for user: %w", xerrors.ErrNotFound)
 	}
+
 	return kyc, nil
 }

@@ -75,13 +75,19 @@ func (s *TwoFAService) EnableTwoFA(ctx context.Context, userID string, email, se
 	return createdTwoFA, plainCodes, nil
 }
 
-func (s *TwoFAService) GetTwoFAStatus(ctx context.Context, userId string) (bool, string, error){
-    twofa, err := s.repo.GetTwoFA(ctx, userId, "totp")
-    if err != nil{
-        return false, "totp", err
-    }
-    return twofa.IsEnabled, "totp", nil
+func (s *TwoFAService) GetTwoFAStatus(ctx context.Context, userId string) (bool, string, error) {
+	twofa, err := s.repo.GetTwoFA(ctx, userId, "totp")
+	if err != nil {
+		if errors.Is(err, xerrors.ErrNotFound) {
+			// Not found → treat as "disabled"
+			return false, "totp", nil
+		}
+		// Other errors → propagate
+		return false, "totp", err
+	}
+	return twofa.IsEnabled, "totp", nil
 }
+
 
 
 func (s *TwoFAService) VerifyTwoFA(

@@ -84,6 +84,9 @@ func (r *KYCRepo) GetByUserID(ctx context.Context, userID string) (*domain.KYCSu
 		&k.UpdatedAt,
 	)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, xerrors.ErrNotFound
+		}
 		return nil, err
 	}
 	return &k, nil

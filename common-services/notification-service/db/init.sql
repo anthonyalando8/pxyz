@@ -1,3 +1,4 @@
+\c pxyz;
 -- Main notifications table
 CREATE TABLE notifications (
   id BIGSERIAL PRIMARY KEY,

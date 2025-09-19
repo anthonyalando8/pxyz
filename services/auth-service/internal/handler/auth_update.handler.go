@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"time"
 	"x/shared/auth/middleware"
+	"github.com/google/uuid"
+
 
 	//"x/shared/genproto/accountpb"
 	"x/shared/genproto/corepb"
@@ -114,11 +116,11 @@ func (h *AuthHandler) HandleSetPassword(w http.ResponseWriter, r *http.Request) 
 
 	// --- Send welcome notification asynchronously ---
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
+		ctx := context.Background()
 
 		_, err := h.notificationClient.Client.CreateNotification(ctx, &notificationpb.CreateNotificationRequest{
 			Notification: &notificationpb.Notification{
+				RequestId:   uuid.New().String(),
 				OwnerType:   "user",
 				OwnerId:     userID,
 				EventType:   "WELCOME",
@@ -126,7 +128,7 @@ func (h *AuthHandler) HandleSetPassword(w http.ResponseWriter, r *http.Request) 
 				Title:       "Welcome to Pxyz!",
 				Body:        "Your account has been created successfully. Let's get started 🚀",
 				Priority:    "high",
-				Status:      "new",
+				Status:      "pending",
 				VisibleInApp: true,
 			},
 		})
