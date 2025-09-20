@@ -11,6 +11,8 @@ import (
 	"partner-service/internal/usecase"
 	partnerauthpb "x/shared/genproto/partner/authpb"
 	partnersvcpb "x/shared/genproto/partner/svcpb"
+	accountingclient "x/shared/common/accounting" // 👈 added
+	accountingpb "x/shared/genproto/shared/accounting/accountingpb"
 
 	authclient "x/shared/auth"
 	otpclient "x/shared/auth/otp"
@@ -32,6 +34,7 @@ type GRPCPartnerHandler struct {
 	otp         *otpclient.OTPService
 	emailClient *emailclient.EmailClient
 	smsClient   *smsclient.SMSClient
+	accountingClient *accountingclient.AccountingClient // 👈 added
 }
 
 // constructor
@@ -41,6 +44,7 @@ func NewGRPCPartnerHandler(
 	otp *otpclient.OTPService,
 	emailClient *emailclient.EmailClient,
 	smsClient *smsclient.SMSClient,
+	accountingClient *accountingclient.AccountingClient,
 ) *GRPCPartnerHandler {
 	return &GRPCPartnerHandler{
 		uc:          uc,
@@ -48,6 +52,7 @@ func NewGRPCPartnerHandler(
 		otp:         otp,
 		emailClient: emailClient,
 		smsClient:   smsClient,
+		accountingClient: accountingClient,
 	}
 }
 func (h *GRPCPartnerHandler) CreatePartner(
@@ -80,34 +85,70 @@ func (h *GRPCPartnerHandler) CreatePartner(
 	}
 
 	// --- 4. Create default admin user in Auth service ---
-	userResp, err := h.authClient.PartnerClient.RegisterUser(ctx, &partnerauthpb.RegisterUserRequest{
-		Email:     partner.ContactEmail, // default admin uses partner contact email
-		Password:  password,
-		FirstName: partner.Name,
-		LastName:  "Admin",
-		Role:      "partner_admin",
-		PartnerId: partner.ID,
-	})
-	if err != nil || userResp == nil {
-		log.Printf("[ERROR] Failed to create default partner admin for partner=%s: %v", partner.ID, err)
-		return nil, status.Errorf(codes.Internal, "failed to create default admin account")
-	}
-	if !userResp.Ok {
-		log.Printf("[ERROR] Auth service rejected default admin creation: %s", userResp.Error)
-		return nil, status.Errorf(codes.AlreadyExists, "failed to create default admin: %s", userResp.Error)
-	}
+	go func(p *domain.Partner, pwd string) {
+		ctxBg, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
 
-	sendPartnerCreatedEmail(
-		h.uc,
-		h.emailClient,
-		partner,
-		password,
-	)
+		userResp, err := h.authClient.PartnerClient.RegisterUser(ctxBg, &partnerauthpb.RegisterUserRequest{
+			Email:     p.ContactEmail, // default admin uses partner contact email
+			Password:  pwd,
+			FirstName: p.Name,
+			LastName:  "Admin",
+			Role:      "partner_admin",
+			PartnerId: p.ID,
+		})
+		if err != nil || userResp == nil {
+			log.Printf("[ERROR] Failed to create default partner admin for partner=%s: %v", p.ID, err)
+			return
+		}
+		if !userResp.Ok {
+			log.Printf("[ERROR] Auth service rejected default admin creation for partner=%s: %s", p.ID, userResp.Error)
+			return
+		}
+
+		// --- Send notification email ---
+		sendPartnerCreatedEmail(h.uc, h.emailClient, p, pwd)
+
+		log.Printf("[INFO] Default partner admin created + email sent for partner=%s", p.ID)
+	}(partner, password)
+
+
+	// --- 6. Create default account in Accounting service (async) ---
+	go func() {
+		ctxBg, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+
+		reqAcc := &accountingpb.CreateAccountRequest{
+			Accounts: []*accountingpb.Account{
+				{
+					OwnerType:   accountingpb.OwnerType_PARTNER,
+					OwnerId:     partner.ID,
+					Currency:    "USD",
+					Purpose:     "wallet",     // you can adjust purpose if needed
+					AccountType: "real",     // or "demo" if applicable
+					IsActive:    true,
+				},
+			},
+		}
+
+		resp, err := h.accountingClient.Client.CreateAccounts(ctxBg, reqAcc)
+		if err != nil {
+			log.Printf("[ERROR] Failed to create default account for partner=%s: %v", partner.ID, err)
+			return
+		}
+
+		if len(resp.Errors) > 0 {
+			log.Printf("[WARN] Errors creating account(s) for partner=%s: %+v", partner.ID, resp.Errors)
+		} else {
+			log.Printf("[INFO] Created default account for partner=%s accountId=%d", partner.ID, resp.Accounts[0].Id)
+		}
+	}()
 
 	return &partnersvcpb.PartnerResponse{
 		Partner: partner.ToProto(),
 	}, nil
 }
+
 
 
 

@@ -16,6 +16,8 @@ import (
 	sms "x/shared/sms"
 	"x/shared/utils/id"
 	authclient "x/shared/auth"
+	accountingclient "x/shared/common/accounting" //
+
 
 	"github.com/go-chi/chi/v5"
 	"github.com/redis/go-redis/v9"
@@ -69,6 +71,9 @@ func NewServer(cfg config.AppConfig) *Server {
 		log.Fatalf("failed to dial auth service: %v", err)
 	}
 
+	accountingClient := accountingclient.NewAccountingClient()
+
+
 	// --- Handlers ---
 	partnerHandler := handler.NewPartnerHandler(
 		partnerUC,
@@ -76,6 +81,7 @@ func NewServer(cfg config.AppConfig) *Server {
 		otpSvc,
 		emailCli,
 		smsCli,
+		accountingClient,
 	)
 
 	grpcPartnerHandler := handler.NewGRPCPartnerHandler(partnerUC,
@@ -83,6 +89,7 @@ func NewServer(cfg config.AppConfig) *Server {
 		otpSvc,
 		emailCli,
 		smsCli,
+		accountingClient,
 	)
 		
 

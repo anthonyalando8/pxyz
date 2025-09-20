@@ -30,13 +30,13 @@ func SetupRoutes(
 	}))
 	r.Use(auth.RateLimit(rdb, 100, time.Minute, 10*time.Minute, "global"))
 
-	uploadDir := "/app/uploads"
-	if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
-		os.MkdirAll(uploadDir, 0755)
-	}
+		uploadDir := "/app/uploads"
+		if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
+			os.MkdirAll(uploadDir, 0755)
+		}
 
-	// ---- Mount all routes under /partner/svc ----
-	r.Route("/partner/svc", func(pr chi.Router) {
+		// ---- Mount all routes under /partner/svc ----
+		r.Route("/partner/svc", func(pr chi.Router) {
 
 		// ---- Public routes ----
 		pr.Group(func(pub chi.Router) {
@@ -62,7 +62,18 @@ func SetupRoutes(
 				Put("/users/update/{id}", h.UpdatePartnerUser)
 		})
 
+		// ---- Accounting routes (admin or user) ----
+		pr.Group(func(acc chi.Router) {
+			acc.Use(auth.Require([]string{"main"}, nil, []string{"partner_admin", "partner_user"}))
+
+			acc.Route("/accounting", func(a chi.Router) {
+				a.Get("/accounts/get", h.GetUserAccounts)
+				a.Post("/account/statement", h.GetAccountStatement)
+				a.Post("/owner/statement", h.GetOwnerStatement)
+			})
+		})
 	})
+
 
 	return r
 }
