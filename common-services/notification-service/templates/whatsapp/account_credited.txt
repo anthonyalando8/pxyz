@@ -1,0 +1,8 @@
+{{define "body"}}
+Hi 👋,
+
+Good news! Your account has been credited with {{.Amount}} {{.Currency}} on {{.Date}} at {{.Time}}.  
+Ref: {{.ReferenceNumber}} | External Ref: {{.ExternalRef}} ✅
+
+If this wasn’t you, please contact support immediately.
+{{end}}

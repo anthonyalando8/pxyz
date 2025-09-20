@@ -35,6 +35,13 @@ const (
 	TWOFA_BACKUP_CODE_REGN NotificationType = "2FA_BACKUP_CODE_REGN"
 	KYC_SUBMITTED NotificationType = "KYC_SUBMITTED"
 	KYC_REVIEWED NotificationType = "KYC_REVIEWED"
+	WELCOME_ADMIN NotificationType = "WELCOME_ADMIN"
+	PARTNER_USER_ADDED NotificationType = "PARTNER_USER_ADDED"
+	WELCOME_NEW_PARTNER_USER NotificationType = "WELCOME_NEW_PARTNER_USER"
+	PARTNER_CREATED NotificationType  = "PARTNER_CREATED"
+	ACCOUNT_CREDITED NotificationType = "ACCOUNT_CREDITED"
+	ACCOUNT_DEBITED NotificationType = "ACCOUNT_DEBITED"
+	TRANSACTION_FAILED NotificationType = "TRANSACTION_FAILED"
 )
 
 // Message represents a generic notification payload

@@ -1,0 +1,7 @@
+{{define "body"}}
+Hi 👋,
+
+Your recent {{.TransactionType}} of {{.Amount}} {{.Currency}} was {{.Status}} ❌
+
+Please reach out to support if you need assistance.
+{{end}}
