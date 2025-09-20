@@ -38,14 +38,19 @@ func SetupRoutes(
 		pr.Use(auth.Require([]string{"main"}, nil, []string{"super_admin"}))
 
 		// ---------------- Partner Management ----------------
-		pr.Post("/partners/create", h.CreatePartner)
-		pr.Put("/partners/update", h.UpdatePartner)
-		pr.Delete("/partners/delete", h.DeletePartner)
+		// ---------------- Partner Management ----------------
+		pr.Route("/partners", func(p chi.Router) {
+			p.Post("/create", h.CreatePartner)
+			p.Put("/update", h.UpdatePartner)
+			p.Delete("/delete", h.DeletePartner)
 
-		// ---------------- Partner User Management ----------------
-		pr.Post("/partner/users/create", h.CreatePartnerUser)
-		pr.Put("/partner/users/update", h.UpdatePartnerUser)
-		pr.Delete("/partner/users/delete", h.DeletePartnerUsers)
+			// ---------------- Partner User Management ----------------
+			p.Route("/users", func(u chi.Router) {
+				u.Post("/create", h.CreatePartnerUser)
+				u.Put("/update", h.UpdatePartnerUser)
+				u.Delete("/delete", h.DeletePartnerUsers)
+			})
+		})
 
 		// ============================================================
 		// URBAC Endpoints (under /admin/svc/urbac)
@@ -100,6 +105,19 @@ func SetupRoutes(
 
 			// ---------------- AUDIT LOGS ----------------
 			up.Get("/audit/events", h.HandleListPermissionAuditEvents)
+		})
+		pr.Route("/accounting", func(acc chi.Router) {
+			acc.Post("/accounts", h.CreateAccounts)
+			acc.Post("/accounts/get", h.GetUserAccounts)
+
+			acc.Post("/transactions", h.PostTransaction)
+
+			acc.Post("/statements/account", h.GetAccountStatement)
+			acc.Post("/statements/owner", h.GetOwnerStatement)
+
+			acc.Post("/journal/postings", h.GetJournalPostings)
+
+			acc.Post("/reports/daily", h.GenerateDailyReport)
 		})
 	})
 

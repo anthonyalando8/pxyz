@@ -14,6 +14,7 @@ enum OwnerType {
     USER = 1;
     PARTNER = 2;
     SYSTEM = 3;
+    ADMIN = 4;
 }
 
 enum DrCr {

@@ -32,6 +32,7 @@ const (
 	OwnerType_USER                   OwnerType = 1
 	OwnerType_PARTNER                OwnerType = 2
 	OwnerType_SYSTEM                 OwnerType = 3
+	OwnerType_ADMIN                  OwnerType = 4
 )
 
 // Enum value maps for OwnerType.
@@ -41,12 +42,14 @@ var (
 		1: "USER",
 		2: "PARTNER",
 		3: "SYSTEM",
+		4: "ADMIN",
 	}
 	OwnerType_value = map[string]int32{
 		"OWNER_TYPE_UNSPECIFIED": 0,
 		"USER":                   1,
 		"PARTNER":                2,
 		"SYSTEM":                 3,
+		"ADMIN":                  4,
 	}
 )
 
@@ -1196,13 +1199,14 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\abalance\x18\a \x01(\x01R\abalance\x12\x1d\n" +
 	"\n" +
 	"net_change\x18\b \x01(\x01R\tnetChange\x12.\n" +
-	"\x04date\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\x04date*J\n" +
+	"\x04date\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\x04date*U\n" +
 	"\tOwnerType\x12\x1a\n" +
 	"\x16OWNER_TYPE_UNSPECIFIED\x10\x00\x12\b\n" +
 	"\x04USER\x10\x01\x12\v\n" +
 	"\aPARTNER\x10\x02\x12\n" +
 	"\n" +
-	"\x06SYSTEM\x10\x03*-\n" +
+	"\x06SYSTEM\x10\x03\x12\t\n" +
+	"\x05ADMIN\x10\x04*-\n" +
 	"\x04DrCr\x12\x15\n" +
 	"\x11DR_CR_UNSPECIFIED\x10\x00\x12\x06\n" +
 	"\x02DR\x10\x01\x12\x06\n" +

@@ -12,6 +12,8 @@ import (
 	coreclient "x/shared/core"
 	emailclient "x/shared/email"
 	smsclient "x/shared/sms"
+	accountingclient "x/shared/common/accounting" //
+
 	"x/shared/auth/middleware"
 
 	"github.com/go-chi/chi/v5"
@@ -38,6 +40,7 @@ func NewServer(cfg config.AppConfig) *http.Server {
 	emailSvc := emailclient.NewEmailClient()
 	smsSvc := smsclient.NewSMSClient()
 	partnerSvc := partnerclient.NewPartnerService()
+	accountingClient := accountingclient.NewAccountingClient()
 
 	// --- Init Middleware ---
 	auth := middleware.RequireAuth()
@@ -51,6 +54,7 @@ func NewServer(cfg config.AppConfig) *http.Server {
 		rdb,
 		coreSvc,
 		partnerSvc,
+		accountingClient,
 	)
 
 	// --- Router ---

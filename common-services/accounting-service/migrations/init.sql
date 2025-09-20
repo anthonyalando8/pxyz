@@ -88,9 +88,6 @@ CREATE INDEX idx_receipts_account ON receipts (account_id);
 CREATE INDEX idx_receipts_created_at ON receipts (created_at DESC);
 
 -- ===============================
--- Postings (Partitioned by month)
--- ===============================
--- ===============================
 -- Postings (regular table, partition-ready later)
 -- ===============================
 CREATE TABLE postings (

@@ -3,7 +3,7 @@ package hgrpc
 import (
 	"context"
 	"time"
-
+	"strings"
 	"github.com/redis/go-redis/v9"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -51,7 +51,7 @@ func (h *AccountingGRPCHandler) CreateAccounts(ctx context.Context, req *account
 	domainAccounts := make([]*domain.Account, len(req.Accounts))
 	for i, acc := range req.Accounts {
 		domainAccounts[i] = &domain.Account{
-			OwnerType:   acc.OwnerType.String(),
+			OwnerType:   strings.ToLower(acc.OwnerType.String()),
 			OwnerID:     acc.OwnerId,
 			Currency:    acc.Currency,
 			Purpose:     acc.Purpose,
@@ -100,7 +100,7 @@ func (h *AccountingGRPCHandler) GetUserAccounts(ctx context.Context, req *accoun
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
-	accounts, err := h.accountUC.GetByOwner(ctx, req.OwnerType.String(), req.OwnerId, tx)
+	accounts, err := h.accountUC.GetByOwner(ctx, strings.ToLower(req.OwnerType.String()), req.OwnerId, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +156,7 @@ func (h *AccountingGRPCHandler) PostTransaction(
         ExternalRef:   req.ExternalRef,
         Description:   req.Description,
         CreatedBy:     req.CreatedByUser,
-        CreatedByType: req.CreatedByType.String(),
+        CreatedByType: strings.ToLower(req.CreatedByType.String()),
         CreatedAt:     time.Now(),
     }
 
@@ -225,7 +225,7 @@ func (h *AccountingGRPCHandler) GetOwnerStatement(req *accountingpb.OwnerStateme
 		return err
 	}
 	defer tx.Rollback(ctx)
-	stmts, err := h.statementUC.GetOwnerStatement(ctx, req.OwnerType.String(), req.OwnerId, req.From.AsTime(), req.To.AsTime(), h.accountUC, tx)
+	stmts, err := h.statementUC.GetOwnerStatement(ctx, strings.ToLower(req.OwnerType.String()), req.OwnerId, req.From.AsTime(), req.To.AsTime(), h.accountUC, tx)
 	if err != nil {
 		return err
 	}
