@@ -533,6 +533,34 @@ services:
       - core-service
       - admin-session-service
       - email-service
+  accounting-service:
+    build:
+      context: .
+      dockerfile: common-services/accounting-service/Dockerfile
+    container_name: accounting-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.accounting.rule=PathPrefix(`/accounting`)"
+      - "traefik.http.services.accounting.loadbalancer.server.port=8024"
+    env_file:
+      - ./common-services/accounting-service/.env
+    volumes:
+      - ./common-services/accounting-service/secrets:/app/secrets:ro
+      - ./uploads:/app/uploads
+    networks:
+      - micro_net
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: 2000
+      DB_NAME: pxyz_fx
+      REDIS_ADDR: redis:6379
+      GRPC_ADDR: :8024
+      REDIS_PASS:
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    depends_on:
+      - redis
 
 networks:
   micro_net:

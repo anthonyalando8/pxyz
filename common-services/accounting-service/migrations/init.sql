@@ -1,4 +1,4 @@
-\c pxyz;
+\c pxyz_fx;
 
 BEGIN;
 
@@ -38,16 +38,20 @@ CREATE INDEX idx_fx_rates_pair ON fx_rates (base_currency, quote_currency, as_of
 -- ===============================
 -- Accounts
 -- ===============================
+
+CREATE TYPE account_type_enum AS ENUM ('real', 'demo');
+
 CREATE TABLE accounts (
   id          BIGSERIAL PRIMARY KEY,
   owner_type  owner_type_enum NOT NULL,
   owner_id    TEXT, -- support user/partner IDs
   currency    VARCHAR(8) NOT NULL REFERENCES currencies(code) ON UPDATE CASCADE,
   purpose     account_purpose_enum NOT NULL,
+  account_type account_type_enum NOT NULL DEFAULT 'real', -- new field
   is_active   BOOLEAN NOT NULL DEFAULT true,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT uq_account_owner_currency_purpose UNIQUE (owner_type, owner_id, currency, purpose)
+  CONSTRAINT uq_account_owner_currency_purpose UNIQUE (owner_type, owner_id, currency, purpose, account_type)
 );
 CREATE INDEX idx_accounts_owner ON accounts (owner_type, owner_id);
 
@@ -86,22 +90,21 @@ CREATE INDEX idx_receipts_created_at ON receipts (created_at DESC);
 -- ===============================
 -- Postings (Partitioned by month)
 -- ===============================
+-- ===============================
+-- Postings (regular table, partition-ready later)
+-- ===============================
 CREATE TABLE postings (
-  id          BIGSERIAL NOT NULL,
+  id          BIGSERIAL PRIMARY KEY,
   journal_id  BIGINT NOT NULL REFERENCES journals(id) ON DELETE CASCADE,
   account_id  BIGINT NOT NULL REFERENCES accounts(id),
   amount      NUMERIC(24,8) NOT NULL CHECK (amount > 0),
   dr_cr       dr_cr_enum NOT NULL,
   currency    VARCHAR(8) NOT NULL REFERENCES currencies(code),
   receipt_id  BIGINT REFERENCES receipts(id),
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-  PRIMARY KEY (id)
-) PARTITION BY RANGE (created_at);
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
--- Example partition
-CREATE TABLE postings_202509 PARTITION OF postings
-  FOR VALUES FROM ('2025-09-01 00:00:00+00') TO ('2025-10-01 00:00:00+00');
-
+-- indexes for lookups
 CREATE INDEX idx_postings_account_created_at ON postings (account_id, created_at DESC);
 CREATE INDEX idx_postings_journal_id ON postings (journal_id);
 

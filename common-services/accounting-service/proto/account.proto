@@ -1,0 +1,148 @@
+syntax = "proto3";
+
+package accounting;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "genproto/shared/accounting/accountingpb;accountingpb";
+
+// ===============================
+// ENUMS
+// ===============================
+enum OwnerType {
+    OWNER_TYPE_UNSPECIFIED = 0;
+    USER = 1;
+    PARTNER = 2;
+    SYSTEM = 3;
+}
+
+enum DrCr {
+    DR_CR_UNSPECIFIED = 0;
+    DR = 1;
+    CR = 2;
+}
+
+// ===============================
+// MESSAGES
+// ===============================
+message Account {
+    int64 id = 1;
+    OwnerType owner_type = 2;
+    string owner_id = 3;
+    string currency = 4;
+    string purpose = 5;
+    string account_type = 6; // real / demo
+    bool is_active = 7;
+    google.protobuf.Timestamp created_at = 8;
+    google.protobuf.Timestamp updated_at = 9;
+}
+
+message CreateAccountRequest {
+    repeated Account accounts = 1; // supports batch creation
+}
+
+message CreateAccountResponse {
+    repeated Account accounts = 1;
+    map<int32, string> errors = 2; // key: index in request, value: error message
+}
+
+message GetAccountsRequest {
+    OwnerType owner_type = 1;
+    string owner_id = 2;
+}
+
+message GetAccountsResponse {
+    repeated Account accounts = 1;
+}
+
+message TransactionEntry {
+    int64 account_id = 1;
+    DrCr dr_cr = 2;
+    double amount = 3;
+    string currency = 4;
+}
+
+message CreateTransactionRequest {
+    string external_ref = 1;
+    string description = 2;
+    OwnerType created_by_type = 3;
+    int64 created_by_user = 4;
+    repeated TransactionEntry entries = 5;
+}
+
+message CreateTransactionResponse {
+    int64 journal_id = 1;
+}
+
+message AccountStatementRequest {
+    int64 account_id = 1;
+    google.protobuf.Timestamp from = 2;
+    google.protobuf.Timestamp to = 3;
+}
+
+message OwnerStatementRequest {
+    OwnerType owner_type = 1;
+    string owner_id = 2;
+    google.protobuf.Timestamp from = 3;
+    google.protobuf.Timestamp to = 4;
+}
+
+message Posting {
+    int64 id = 1;
+    int64 journal_id = 2;
+    int64 account_id = 3;
+    double amount = 4;
+    DrCr dr_cr = 5;
+    string currency = 6;
+    int64 receipt_id = 7;
+    google.protobuf.Timestamp created_at = 8;
+}
+
+message AccountStatement {
+    int64 account_id = 1;
+    repeated Posting postings = 2;
+    double balance = 3;
+}
+
+message JournalPostingsRequest {
+    int64 journal_id = 1;
+}
+
+message DailyReportRequest {
+    google.protobuf.Timestamp date = 1;
+}
+
+message DailyReport {
+    OwnerType owner_type = 1;
+    string owner_id = 2;
+    int64 account_id = 3;
+    string currency = 4;
+    double total_debit = 5;
+    double total_credit = 6;
+    double balance = 7;
+    double net_change = 8;
+    google.protobuf.Timestamp date = 9;
+}
+
+// ===============================
+// SERVICE
+// ===============================
+service AccountingService {
+
+    // Accounts
+    rpc CreateAccounts(CreateAccountRequest) returns (CreateAccountResponse);
+    rpc GetUserAccounts(GetAccountsRequest) returns (GetAccountsResponse);
+
+    // Transactions
+    rpc PostTransaction(CreateTransactionRequest) returns (CreateTransactionResponse);
+
+    // Statements
+    rpc GetAccountStatement(AccountStatementRequest) returns (AccountStatement);
+    rpc GetOwnerStatement(OwnerStatementRequest) returns (stream AccountStatement);
+
+    // Journal
+    rpc GetJournalPostings(JournalPostingsRequest) returns (stream Posting);
+
+    // Reports
+    rpc GenerateDailyReport(DailyReportRequest) returns (stream DailyReport);
+}

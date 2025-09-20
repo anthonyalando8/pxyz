@@ -70,3 +70,8 @@
 /admin-services/ptn-session-mngt/.env
 /admin-services/ptn-session-mngt/secrets/
 /admin-services/ptn-session-mngt/secrets/*
+
+
+/common-services/accounting-service/.env
+/common-services/accounting-service/secrets/
+/common-services/accounting-service/secrets/*
