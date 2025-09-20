@@ -55,7 +55,7 @@ func NewServer(cfg config.AppConfig) *http.Server {
 		DB:       0,
 	})
 
-	authClient, err := authclient.DialAuthService(authclient.UserAuthService)
+	authClient, err := authclient.DialAuthService(authclient.AllAuthServices)
 	if err != nil {
         log.Fatalf("failed to dial auth service: %v", err)
     }

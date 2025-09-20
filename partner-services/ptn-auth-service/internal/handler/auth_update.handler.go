@@ -13,9 +13,11 @@ import (
 
 	//"x/shared/genproto/accountpb"
 	"x/shared/genproto/corepb"
-	"x/shared/genproto/emailpb"
 	"x/shared/genproto/otppb"
 	"x/shared/response"
+	"google.golang.org/protobuf/types/known/structpb"
+	"x/shared/genproto/shared/notificationpb"
+	"github.com/google/uuid"
 )
 
 // Reset password (via OTP/email link)
@@ -83,8 +85,6 @@ func (h *AuthHandler) HandleSetPassword(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// --- Welcome Email ---
-	h.sendWelcomeEmailAsync(userID)
 
 	// --- Response: always include next as set_nationality ---
 	resp := map[string]interface{}{
@@ -95,37 +95,6 @@ func (h *AuthHandler) HandleSetPassword(w http.ResponseWriter, r *http.Request) 
 	response.JSON(w, http.StatusOK, resp)
 }
 
-func (h *AuthHandler) sendWelcomeEmailAsync(userID string) {
-	if h.emailClient == nil {
-		return
-	}
-
-	go func() {
-		subject := "Welcome to Pxyz 🎉"
-		body := `... HTML email template ...`
-
-		user, err := h.uc.FindUserById(context.Background(), userID)
-		if err != nil {
-			log.Printf("[WARN] failed to fetch user %s for welcome email: %v", userID, err)
-			return
-		}
-		if user == nil || user.Email == nil || *user.Email == "" {
-			log.Printf("[WARN] user %s has no email set, cannot send welcome email", userID)
-			return
-		}
-
-		_, emailErr := h.emailClient.SendEmail(context.Background(), &emailpb.SendEmailRequest{
-			UserId:         userID,
-			RecipientEmail: *user.Email,
-			Subject:        subject,
-			Body:           body,
-			Type:           "welcome",
-		})
-		if emailErr != nil {
-			log.Printf("[WARN] failed to send welcome email to user %s: %v", userID, emailErr)
-		}
-	}()
-}
 
 
 func (h *AuthHandler) HandleChangeEmail(w http.ResponseWriter, r *http.Request) {
@@ -593,26 +562,16 @@ func (h *AuthHandler) HandleForgotPassword(w http.ResponseWriter, r *http.Reques
 	}(user)
 }
 
+
 func (h *AuthHandler) sendPasswordChangeNotification(userID string, deviceInfo map[string]string) {
-	if h.emailClient == nil {
+	if h.notificationClient == nil {
 		return
 	}
 
-	// Run in background
 	go func(uid string, device map[string]string) {
-		// Fetch user info
-		user, err := h.uc.FindUserById(context.Background(), uid)
-		if err != nil {
-			log.Printf("[WARN] failed to fetch user %s for password change notification: %v", uid, err)
-			return
-		}
+		ctx := context.Background() // background context for async processing
 
-		if user.Email != nil || *user.Email == "" {
-			log.Printf("[WARN] user %s has no email, skipping password change notification", uid)
-			return
-		}
-
-		// Build device info string if available
+		// Build device details string if available
 		deviceDetails := ""
 		if len(device) > 0 {
 			for k, v := range device {
@@ -621,44 +580,30 @@ func (h *AuthHandler) sendPasswordChangeNotification(userID string, deviceInfo m
 			deviceDetails = fmt.Sprintf("<ul>%s</ul>", deviceDetails)
 		}
 
-		subject := "Your Pxyz account password has been changed"
-		body := fmt.Sprintf(`
-			<!DOCTYPE html>
-			<html><head><meta charset="UTF-8"><title>Password Changed</title></head>
-			<body style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px;">
-				<div style="max-width: 600px; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0px 2px 5px rgba(0,0,0,0.1);">
-					<h2 style="color: #C0392B;">Password Changed</h2>
-					<p style="font-size: 16px; color: #333;">
-						Hello,<br><br>
-						Your Pxyz account password was recently changed.
-					</p>
-					%s
-					<p style="font-size: 16px; color: #333;">
-						If you did not perform this action, we recommend securing your account immediately.
-					</p>
-					<p style="margin-top: 30px; font-size: 14px; color: #999999;">
-						Thank you,<br>
-						<strong>Pxyz Team</strong>
-					</p>
-				</div>
-			</body>
-			</html>
-		`, func() string {
-			if deviceDetails != "" {
-				return fmt.Sprintf("<p><strong>Device information:</strong></p>%s", deviceDetails)
-			}
-			return ""
-		}())
+		payload := map[string]interface{}{
+			"DeviceDetails": deviceDetails,
+		}
 
-		_, err = h.emailClient.SendEmail(context.Background(), &emailpb.SendEmailRequest{
-			UserId:         uid,
-			RecipientEmail: *user.Email,
-			Subject:        subject,
-			Body:           body,
-			Type:           "password_change",
+		_, err := h.notificationClient.Client.CreateNotification(ctx, &notificationpb.CreateNotificationRequest{
+			Notification: &notificationpb.Notification{
+				RequestId:      uuid.New().String(),
+				OwnerType:      "partner",
+				OwnerId:        uid,
+				EventType:      "PASSWORD_UPDATE",
+				Title: "Password Changed",
+				Body: "Your password was recently changed! If it was you take no action else consider securing your account.",
+				ChannelHint:    []string{"email"},
+				Payload: func() *structpb.Struct {
+					s, _ := structpb.NewStruct(payload)
+					return s
+				}(),
+				VisibleInApp:   false,
+				Priority:       "high",
+				Status:         "pending",
+			},
 		})
 		if err != nil {
-			log.Printf("[WARN] failed to send password change notification to %s: %v", *user.Email, err)
+			log.Printf("[WARN] failed to send password change notification to %s: %v", uid, err)
 		}
 	}(userID, deviceInfo)
 }

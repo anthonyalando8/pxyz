@@ -173,7 +173,7 @@ func (s *OTPService) sendEmailOTP(_ context.Context, userID, recipient, purpose,
 		_, err := s.notificationClient.Client.CreateNotification(bgCtx, &notificationpb.CreateNotificationRequest{
 			Notification: &notificationpb.Notification{
 				RequestId:      uuid.New().String(),
-				OwnerType:      "user",
+				OwnerType:      "",
 				OwnerId:        userID,
 				EventType:      "OTP",
 				Title: "OTP Code",

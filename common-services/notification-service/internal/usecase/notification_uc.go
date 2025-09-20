@@ -13,14 +13,14 @@ import (
 
 	authclient "x/shared/auth"
 	authpb "x/shared/genproto/authpb"
-
+	adminauthpb "x/shared/genproto/admin/authpb"
+	patnerauthpb "x/shared/genproto/partner/authpb"
 )
 
 type NotificationUsecase struct {
 	repo     repository.Repository
 	notifier *notifier.Notifier
 	authClient *authclient.AuthService
-
 }
 
 // NewNotificationUsecase creates a new NotificationUsecase with repo + notifier
@@ -61,30 +61,33 @@ func (uc *NotificationUsecase) CreateNotification(ctx context.Context, n *domain
 		templateData["UserName"] = n.RecipientName
 	}
 
-	// ✅ Fallback to profile service if needed
+	// Fallback to profile service if needed
 	needEmail := contains(created.ChannelHint, "email") && n.RecipientEmail == ""
 	needPhone := (contains(created.ChannelHint, "sms") || contains(created.ChannelHint, "whatsapp")) && n.RecipientPhone == ""
 
-	if (needEmail || needPhone) && created.OwnerType == "user" && uc.authClient != nil {
-		profileResp, err := uc.authClient.UserClient.GetUserProfile(ctx, &authpb.GetUserProfileRequest{
-			UserId: created.OwnerID,
-		})
+	if needEmail || needPhone {
+		email, phone, firstName, lastName, resolvedOwnerType, err := uc.fetchProfile(ctx, created.OwnerType, created.OwnerID)
 		if err != nil {
-			log.Printf("⚠️ Failed to fetch user profile for notification (userID=%s): %v", created.OwnerID, err)
-		} else if profileResp != nil && profileResp.Ok {
-			user := profileResp.User
-			if needEmail && user.Email != "" {
-				msgRecipients["email"] = user.Email
+			log.Printf("⚠️ Could not fetch profile for notification: %v", err)
+		} else {
+			// Update recipients
+			if needEmail && email != "" {
+				msgRecipients["email"] = email
 			}
-			if needPhone && user.Phone != "" {
-				msgRecipients["phone"] = user.Phone
+			if needPhone && phone != "" {
+				msgRecipients["phone"] = phone
 			}
-
+			// Update template data
 			if templateData["UserName"] == nil || templateData["UserName"] == "" {
-				templateData["UserName"] = fmt.Sprintf("%s %s", user.FirstName, user.LastName)
+				templateData["UserName"] = fmt.Sprintf("%s %s", firstName, lastName)
 			}
-			templateData["UserEmail"] = user.Email
-			templateData["UserPhone"] = user.Phone
+			templateData["UserEmail"] = email
+			templateData["UserPhone"] = phone
+
+			// Update OwnerType in case it was empty before
+			if created.OwnerType == "" && resolvedOwnerType != "" {
+				created.OwnerType = resolvedOwnerType
+			}
 		}
 	}
 
@@ -135,6 +138,82 @@ func contains(slice []string, item string) bool {
 	return false
 }
 
+
+
+// fetchProfile attempts to retrieve a profile from the appropriate auth service based on ownerType
+func (uc *NotificationUsecase) fetchProfile(ctx context.Context, ownerType, ownerID string) (email, phone, firstName, lastName string, resolvedOwnerType string, err error) {
+	if uc.authClient == nil {
+		return "", "", "", "", "", fmt.Errorf("auth client not initialized")
+	}
+
+	type result struct {
+		email, phone, firstName, lastName, ownerType string
+		ok                                           bool
+	}
+
+	tryFetch := func(clientType string) result {
+		switch clientType {
+		case "user":
+			if uc.authClient.UserClient == nil {
+				return result{}
+			}
+			resp, e := uc.authClient.UserClient.GetUserProfile(ctx, &authpb.GetUserProfileRequest{UserId: ownerID})
+			if e != nil || resp == nil || !resp.Ok || resp.User == nil {
+				return result{}
+			}
+			return result{resp.User.Email, resp.User.Phone, resp.User.FirstName, resp.User.LastName, "user", true}
+
+		case "partner":
+			if uc.authClient.PartnerClient == nil {
+				return result{}
+			}
+			resp, e := uc.authClient.PartnerClient.GetUserProfile(ctx, &patnerauthpb.GetUserProfileRequest{UserId: ownerID})
+			if e != nil || resp == nil || !resp.Ok || resp.User == nil {
+				return result{}
+			}
+			return result{resp.User.Email, resp.User.Phone, resp.User.FirstName, resp.User.LastName, "partner", true}
+
+		case "admin":
+			if uc.authClient.AdminClient == nil {
+				return result{}
+			}
+			resp, e := uc.authClient.AdminClient.GetUserProfile(ctx, &adminauthpb.GetUserProfileRequest{UserId: ownerID})
+			if e != nil || resp == nil || !resp.Ok || resp.User == nil {
+				return result{}
+			}
+			return result{resp.User.Email, resp.User.Phone, resp.User.FirstName, resp.User.LastName, "admin", true}
+		}
+		return result{}
+	}
+
+	// If ownerType is known, fetch directly
+	if ownerType != "" {
+		res := tryFetch(ownerType)
+		if !res.ok {
+			return "", "", "", "", "", fmt.Errorf("failed to fetch profile for type: %s", ownerType)
+		}
+		return res.email, res.phone, res.firstName, res.lastName, res.ownerType, nil
+	}
+
+	// ownerType unknown → concurrent fetch
+	types := []string{"user", "partner", "admin"}
+	ch := make(chan result, len(types))
+
+	for _, t := range types {
+		go func(t string) {
+			ch <- tryFetch(t)
+		}(t)
+	}
+
+	for i := 0; i < len(types); i++ {
+		res := <-ch
+		if res.ok {
+			return res.email, res.phone, res.firstName, res.lastName, res.ownerType, nil
+		}
+	}
+
+	return "", "", "", "", "", fmt.Errorf("profile not found for ownerID: %s", ownerID)
+}
 
 
 

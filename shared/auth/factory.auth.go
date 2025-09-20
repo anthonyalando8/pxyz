@@ -21,22 +21,61 @@ const (
 	UserAuthService    ServiceType = "user"
 	PartnerAuthService ServiceType = "partner"
 	AdminAuthService   ServiceType = "admin"
+	AllAuthServices    ServiceType = "all"
 )
 
 type AuthService struct {
 	UserClient    authpb.AuthServiceClient
 	PartnerClient ptnauthpb.PartnerAuthServiceClient
 	AdminClient   adminauthpb.AdminAuthServiceClient
-	conn          *grpc.ClientConn
+	conns         []*grpc.ClientConn // keep multiple conns if needed
 }
 
-// DialAuthService connects to the requested service and returns a wrapper with the appropriate client set
+// DialAuthService connects to one or all services based on service type
 func DialAuthService(service ServiceType) (*AuthService, error) {
-	var (
-		addr string
-		as   = &AuthService{}
-	)
+	as := &AuthService{}
 
+	switch service {
+	case UserAuthService, PartnerAuthService, AdminAuthService:
+		// existing single-service logic
+		client, conn, err := dialOne(service)
+		if err != nil {
+			return nil, err
+		}
+		as.conns = append(as.conns, conn)
+		as.UserClient = client.UserClient
+		as.PartnerClient = client.PartnerClient
+		as.AdminClient = client.AdminClient
+
+	case AllAuthServices:
+		// dial all three
+		for _, s := range []ServiceType{UserAuthService, PartnerAuthService, AdminAuthService} {
+			client, conn, err := dialOne(s)
+			if err != nil {
+				return nil, fmt.Errorf("failed to dial %s: %w", s, err)
+			}
+			as.conns = append(as.conns, conn)
+
+			if client.UserClient != nil {
+				as.UserClient = client.UserClient
+			}
+			if client.PartnerClient != nil {
+				as.PartnerClient = client.PartnerClient
+			}
+			if client.AdminClient != nil {
+				as.AdminClient = client.AdminClient
+			}
+		}
+	default:
+		return nil, fmt.Errorf("unknown service type: %s", service)
+	}
+
+	return as, nil
+}
+
+// helper to dial one service
+func dialOne(service ServiceType) (*AuthService, *grpc.ClientConn, error) {
+	var addr string
 	switch service {
 	case UserAuthService:
 		addr = "auth-service:8006"
@@ -45,7 +84,7 @@ func DialAuthService(service ServiceType) (*AuthService, error) {
 	case AdminAuthService:
 		addr = "admin-auth-service:7001"
 	default:
-		return nil, fmt.Errorf("unknown service type: %s", service)
+		return nil, nil, fmt.Errorf("unknown service type: %s", service)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -54,11 +93,10 @@ func DialAuthService(service ServiceType) (*AuthService, error) {
 	log.Printf("[INFO] Connecting to %s at %s...", service, addr)
 	conn, err := grpc.DialContext(ctx, addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to %s: %w", service, err)
+		return nil, nil, err
 	}
-	as.conn = conn
 
-	// Set the correct client
+	as := &AuthService{}
 	switch service {
 	case UserAuthService:
 		as.UserClient = authpb.NewAuthServiceClient(conn)
@@ -67,17 +105,21 @@ func DialAuthService(service ServiceType) (*AuthService, error) {
 	case AdminAuthService:
 		as.AdminClient = adminauthpb.NewAdminAuthServiceClient(conn)
 	}
-
-	return as, nil
+	return as, conn, nil
 }
+
 
 // Close the connection
 func (s *AuthService) Close() error {
-	if s.conn != nil {
-		return s.conn.Close()
+	var firstErr error
+	for _, conn := range s.conns {
+		if err := conn.Close(); err != nil && firstErr == nil {
+			firstErr = err
+		}
 	}
-	return nil
+	return firstErr
 }
+
 
 
 

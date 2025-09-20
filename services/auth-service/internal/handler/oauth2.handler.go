@@ -60,6 +60,8 @@ func (h *AuthHandler) GoogleAuthHandler(w http.ResponseWriter, r *http.Request) 
 	// Ensure nationality
 	next, _ := h.ensureNationality(ctx, user.ID)
 
+	go h.sendWelcomeNotification(user.ID)
+
 	// Determine session type and force completion flag
 	sessionType := "general"
 	forceComplete := false
@@ -179,6 +181,8 @@ func (h *AuthHandler) AppleAuthHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Ensure nationality
 	next, _ := h.ensureNationality(ctx, user.ID)
+
+	go h.sendWelcomeNotification(user.ID)
 
 	// Determine session type and force completion flag
 	sessionType := "general"
@@ -302,6 +306,8 @@ func (h *AuthHandler) TelegramLogin(w http.ResponseWriter, r *http.Request) {
 	if next != "" {
 		log.Printf("[TelegramLogin] User %s requires next step: %s", user.ID, next)
 	}
+
+	go h.sendWelcomeNotification(user.ID)
 
 	// Determine session type and force completion
 	sessionType := "general"

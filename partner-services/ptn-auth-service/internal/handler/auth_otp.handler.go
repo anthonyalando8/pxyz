@@ -13,7 +13,10 @@ import (
 	"time"
 	"x/shared/auth/middleware"
 	"x/shared/genproto/corepb"
-	"x/shared/genproto/emailpb"
+	"google.golang.org/protobuf/types/known/structpb"
+	"x/shared/genproto/shared/notificationpb"
+	"github.com/google/uuid"
+
 	"x/shared/genproto/otppb"
 	"x/shared/response"
 
@@ -381,80 +384,52 @@ func (h *AuthHandler) handleNextAction(
 }
 
 func (h *AuthHandler) sendEmailChangeNotifications(_ context.Context, userID, oldEmail, newEmail string) {
-	if h.emailClient == nil {
+	if h.notificationClient == nil {
 		return
+	}
+
+	send := func(recipientEmail string, eventType string, payload map[string]interface{}) {
+		go func() {
+			ctx := context.Background() // background context for long-running email service
+
+			_, err := h.notificationClient.Client.CreateNotification(ctx, &notificationpb.CreateNotificationRequest{
+				Notification: &notificationpb.Notification{
+					RequestId:      uuid.New().String(),
+					OwnerType:      "partner",
+					OwnerId:        userID,
+					EventType:      eventType,
+					Title: "Email Changed",
+					Body: "Your email was recently updated to a new email!",
+					ChannelHint:    []string{"email"},
+					Payload: func() *structpb.Struct {
+						s, _ := structpb.NewStruct(payload)
+						return s
+					}(),
+					VisibleInApp:   false,
+					RecipientEmail: recipientEmail,
+					RecipientName:  "",
+					Priority:       "high",
+					Status:         "pending",
+				},
+			})
+			if err != nil {
+				log.Printf("[WARN] failed to send %s notification to %s: %v", eventType, recipientEmail, err)
+			}
+		}()
 	}
 
 	// Send to new email
 	if newEmail != "" {
-		go func(uid, recipient string) {
-			subject := "Your Pxyz account email has been updated"
-			body := fmt.Sprintf(`
-				<!DOCTYPE html>
-				<html><head><meta charset="UTF-8"><title>Email Updated</title></head>
-				<body style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px;">
-					<div style="max-width: 600px; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0px 2px 5px rgba(0,0,0,0.1);">
-						<h2 style="color: #2E86C1;">Primary Email Updated</h2>
-						<p style="font-size: 16px; color: #333;">
-							Hello,<br><br>
-							Your primary email has been successfully changed to <strong>%s</strong>. 
-							This email will now be used to log in and receive communication from Pxyz.
-						</p>
-						<p style="margin-top: 30px; font-size: 14px; color: #999999;">
-							Thank you,<br>
-							<strong>Pxyz Team</strong>
-						</p>
-					</div>
-				</body>
-				</html>`, newEmail)
-
-			_, err := h.emailClient.SendEmail(context.Background(), &emailpb.SendEmailRequest{
-				UserId:         uid,
-				RecipientEmail: recipient,
-				Subject:        subject,
-				Body:           body,
-				Type:           "email_update_new",
-			})
-			if err != nil {
-				log.Printf("[WARN] failed to send new email notification to %s: %v", recipient, err)
-			}
-		}(userID, newEmail)
+		send(newEmail, "EMAIL_UPDATE_NEW", map[string]interface{}{
+			"NewEmail": newEmail,
+		})
 	}
 
 	// Send to old email
 	if oldEmail != "" {
-		go func(uid, recipient string) {
-			subject := "Your Pxyz account email has been changed"
-			body := fmt.Sprintf(`
-				<!DOCTYPE html>
-				<html><head><meta charset="UTF-8"><title>Email Changed</title></head>
-				<body style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px;">
-					<div style="max-width: 600px; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0px 2px 5px rgba(0,0,0,0.1);">
-						<h2 style="color: #C0392B;">Primary Email Changed</h2>
-						<p style="font-size: 16px; color: #333;">
-							Hello,<br><br>
-							Your account’s primary email was changed from this address to <strong>%s</strong>. 
-							That new email will now be required for login, feature access, and system communication.
-						</p>
-						<p style="margin-top: 30px; font-size: 14px; color: #999999;">
-							Thank you,<br>
-							<strong>Pxyz Team</strong>
-						</p>
-					</div>
-				</body>
-				</html>`, newEmail)
-
-			_, err := h.emailClient.SendEmail(context.Background(), &emailpb.SendEmailRequest{
-				UserId:         uid,
-				RecipientEmail: recipient,
-				Subject:        subject,
-				Body:           body,
-				Type:           "email_update_old",
-			})
-			if err != nil {
-				log.Printf("[WARN] failed to send old email notification to %s: %v", recipient, err)
-			}
-		}(userID, oldEmail)
+		send(oldEmail, "EMAIL_UPDATE_OLD", map[string]interface{}{
+			"NewEmail": newEmail,
+		})
 	}
 }
 
@@ -482,14 +457,15 @@ func (h *AuthHandler) VerifyOtpHelper(w http.ResponseWriter, ctx context.Context
 }
 
 func (h *AuthHandler) sendPhoneChangeNotification(userID, newPhone string) {
-	if h.emailClient == nil || newPhone == "" {
+	if h.notificationClient == nil || newPhone == "" {
 		return
 	}
 
-	// Run everything in background to avoid blocking main flow
 	go func(uid, phone string) {
+		ctx := context.Background() // background context for async processing
+
 		// Fetch user details
-		user, err := h.uc.FindUserById(context.Background(), uid)
+		user, err := h.uc.FindUserById(ctx, uid)
 		if err != nil {
 			log.Printf("[WARN] failed to fetch user %s for phone change notification: %v", uid, err)
 			return
@@ -500,35 +476,33 @@ func (h *AuthHandler) sendPhoneChangeNotification(userID, newPhone string) {
 			return
 		}
 
-		subject := "Your Pxyz account phone number has been updated"
-		body := fmt.Sprintf(`
-			<!DOCTYPE html>
-			<html><head><meta charset="UTF-8"><title>Phone Updated</title></head>
-			<body style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px;">
-				<div style="max-width: 600px; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0px 2px 5px rgba(0,0,0,0.1);">
-					<h2 style="color: #2E86C1;">Primary Phone Updated</h2>
-					<p style="font-size: 16px; color: #333;">
-						Hello,<br><br>
-						Your primary phone number has been successfully changed to <strong>%s</strong>.
-						This phone will now be used for login verification and communication from Pxyz.
-					</p>
-					<p style="margin-top: 30px; font-size: 14px; color: #999999;">
-						Thank you,<br>
-						<strong>Pxyz Team</strong>
-					</p>
-				</div>
-			</body>
-			</html>`, phone)
+		payload := map[string]interface{}{
+			"NewPhone": phone,
+		}
 
-		_, err = h.emailClient.SendEmail(context.Background(), &emailpb.SendEmailRequest{
-			UserId:         uid,
-			RecipientEmail: *user.Email,
-			Subject:        subject,
-			Body:           body,
-			Type:           "phone_update",
+		_, err = h.notificationClient.Client.CreateNotification(ctx, &notificationpb.CreateNotificationRequest{
+			Notification: &notificationpb.Notification{
+				RequestId:      uuid.New().String(),
+				OwnerType:      "partner",
+				OwnerId:        uid,
+				EventType:      "PHONE_UPDATE",
+				ChannelHint:    []string{"email"},
+				Title: "Phone Number Changed",
+				Body:"Your phone number was recently updated to a new number.",
+				Payload: func() *structpb.Struct {
+					s, _ := structpb.NewStruct(payload)
+					return s
+				}(),
+				VisibleInApp:   false,
+				RecipientEmail: *user.Email,
+				RecipientName:  safeString(user.FirstName),
+				Priority:       "high",
+				Status:         "pending",
+			},
 		})
 		if err != nil {
 			log.Printf("[WARN] failed to send phone change notification to %s: %v", *user.Email, err)
 		}
 	}(userID, newPhone)
 }
+

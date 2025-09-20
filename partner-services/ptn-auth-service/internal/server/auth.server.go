@@ -12,6 +12,8 @@ import (
 	"ptn-auth-service/internal/router"
 	"ptn-auth-service/internal/usecase"
 	"ptn-auth-service/internal/ws"
+	notificationclient "x/shared/notification" // ✅ added
+
 
 	//authclient "x/shared/auth"
 	"x/shared/auth/middleware"
@@ -47,7 +49,7 @@ func NewServer(cfg config.AppConfig) *http.Server {
 
 	userUC := usecase.NewUserUsecase(userRepo, sf)
 
-	ctx := context.Background()
+	//ctx := context.Background()
 	
 
 	auth := middleware.RequireAuth()
@@ -55,9 +57,10 @@ func NewServer(cfg config.AppConfig) *http.Server {
 	emailCli := emailclient.NewEmailClient()
 	smsCli := smsclient.NewSMSClient()
 	coreClient := coreclient.NewCoreService()
+	notificationCli := notificationclient.NewNotificationService() // ✅ create notification client
 
 	authHandler := handler.NewAuthHandler(
-		userUC, auth, otpSvc, emailCli, smsCli, rdb, coreClient, auth.PartnerClient,
+		userUC, auth, otpSvc, emailCli, smsCli, rdb, coreClient, auth.PartnerClient, notificationCli,
 	)
 
 	// gRPC handler

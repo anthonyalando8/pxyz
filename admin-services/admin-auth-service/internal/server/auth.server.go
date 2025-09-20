@@ -20,7 +20,7 @@ import (
 	emailclient "x/shared/email"
 	smsclient "x/shared/sms"
 	coreclient "x/shared/core"
-
+	notificationclient "x/shared/notification" // ✅ added
 
 	"x/shared/utils/id"
 	"x/shared/utils/errors"
@@ -63,10 +63,10 @@ func NewServer(cfg config.AppConfig) *http.Server {
 	emailCli := emailclient.NewEmailClient()
 	smsCli := smsclient.NewSMSClient()
 	coreClient := coreclient.NewCoreService()
-
+	notificationCli := notificationclient.NewNotificationService() // ✅ create notification client
 
 	authHandler := handler.NewAuthHandler(
-		userUC, auth, otpSvc, emailCli, smsCli, rdb, coreClient,auth.AdminClient,
+		userUC, auth, otpSvc, emailCli, smsCli, rdb, coreClient,auth.AdminClient, notificationCli,
 	)
 
 	// gRPC handler
