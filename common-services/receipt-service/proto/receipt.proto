@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package receiptpb;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+option go_package = "genproto/shared/accounting/receiptpb;receiptpb";
+
+// Nested message for creditor/debitor info
+message PartyInfo {
+  int64 id = 1;
+  string type = 2;   // user, partner, system
+  string name = 3;
+  string phone = 4;
+  string email = 5;
+}
+
+// Main receipt message
+message Receipt {
+  int64 id = 1;
+  string code = 2;             // e.g., TIJ5LW4VDT
+  int64 journal_id = 3;
+  int64 account_id = 4;
+  string account_type = 5;     // system, partner, user
+  string type = 6;             // deposit, withdrawal, admin_credit
+  double amount = 7;
+  string currency = 8;
+  string status = 9;           // pending, success, failed
+  google.protobuf.Timestamp created_at = 10;
+
+  PartyInfo creditor = 11;
+  PartyInfo debitor = 12;
+
+  string coded_type = 13;
+  string external_ref = 14;
+
+  // Optional payload for notifications (flexible key-value map)
+  google.protobuf.Struct payload = 15;
+}
+
+// Request message to create a receipt
+message CreateReceiptRequest {
+  int64 journal_id = 1;
+  int64 account_id = 2;
+  string account_type = 3;
+  string type = 4;
+  double amount = 5;
+  string currency = 6;
+  string coded_type = 7;
+  string external_ref = 8;
+  PartyInfo creditor = 9;
+  PartyInfo debitor = 10;
+}
+
+// Response message after creating a receipt
+message CreateReceiptResponse {
+  Receipt receipt = 1;
+}

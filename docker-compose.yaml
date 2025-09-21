@@ -562,6 +562,32 @@ services:
     depends_on:
       - redis
 
+  receipt-service:
+    build:
+      context: .
+      dockerfile: common-services/receipt-service/Dockerfile
+    container_name: receipt-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.receipt.rule=PathPrefix(`/receipt`)"
+      - "traefik.http.services.receipt.loadbalancer.server.port=8026"
+    env_file:
+      - ./common-services/receipt-service/.env
+    volumes:
+      - ./uploads:/app/uploads
+    networks:
+      - micro_net
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: 2000
+      DB_NAME: pxyz_fx
+      REDIS_ADDR: redis:6379
+      GRPC_ADDR: :8024
+      REDIS_PASS:
+    depends_on:
+      - redis
 networks:
   micro_net:
     driver: bridge

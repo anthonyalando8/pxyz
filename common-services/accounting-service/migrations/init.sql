@@ -73,19 +73,31 @@ CREATE INDEX idx_journals_created_at ON journals (created_at DESC);
 -- Receipts
 -- ===============================
 CREATE TABLE receipts (
-    id           BIGSERIAL PRIMARY KEY,
-    code         VARCHAR(15) NOT NULL UNIQUE, -- TIJ5LW4VDT format
-    journal_id   BIGINT NOT NULL REFERENCES journals(id) ON DELETE CASCADE,
-    account_id   BIGINT NOT NULL REFERENCES accounts(id),
-    account_type owner_type_enum NOT NULL,
-    type         TEXT NOT NULL, -- deposit, withdrawal, admin_credit
-    amount       NUMERIC(24,8) NOT NULL,
-    currency     VARCHAR(8) NOT NULL REFERENCES currencies(code),
-    status       TEXT NOT NULL DEFAULT 'pending', -- pending, success, failed
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+    id                BIGSERIAL PRIMARY KEY,
+    code              VARCHAR(15) NOT NULL UNIQUE,         -- e.g., TIJ5LW4VDT
+    journal_id        BIGINT NOT NULL REFERENCES journals(id) ON DELETE CASCADE,
+
+    -- Creditor info
+    creditor_account_id   BIGINT NOT NULL REFERENCES accounts(id),
+    creditor_account_type owner_type_enum NOT NULL,       -- system, partner, user
+
+    -- Debitor info
+    debitor_account_id    BIGINT NOT NULL REFERENCES accounts(id),
+    debitor_account_type  owner_type_enum NOT NULL,       -- system, partner, user
+
+    type             TEXT NOT NULL,                       -- deposit, withdrawal, admin_credit
+    amount           NUMERIC(24,8) NOT NULL,
+    currency         VARCHAR(8) NOT NULL REFERENCES currencies(code),
+    status           TEXT NOT NULL DEFAULT 'pending',    -- pending, success, failed
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    coded_type       TEXT,                                -- optional: type for coded logic
+    external_ref     TEXT                                 -- optional: external reference
 );
-CREATE INDEX idx_receipts_account ON receipts (account_id);
+
+CREATE INDEX idx_receipts_creditor_account ON receipts (creditor_account_id);
+CREATE INDEX idx_receipts_debitor_account ON receipts (debitor_account_id);
 CREATE INDEX idx_receipts_created_at ON receipts (created_at DESC);
+
 
 -- ===============================
 -- Postings (regular table, partition-ready later)

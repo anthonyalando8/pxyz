@@ -1,5 +1,5 @@
 {{define "body"}}
-Hello {{.UserName}},
+Hello,
 
 Your account has been credited with {{.Amount}} {{.Currency}} on {{.Date}} at {{.Time}}.
 Ref: {{.ReferenceNumber}}, External Ref: {{.ExternalRef}}.

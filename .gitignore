@@ -75,3 +75,5 @@
 /common-services/accounting-service/.env
 /common-services/accounting-service/secrets/
 /common-services/accounting-service/secrets/*
+
+/common-services/receipt-service/.env
