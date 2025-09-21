@@ -24,7 +24,7 @@ type GetAccountsJSON struct {
 }
 
 type AccountStatementJSON struct {
-	AccountID int64     `json:"account_id"`
+	AccountNumber string     `json:"account_number"`
 	From      time.Time `json:"from"`
 	To        time.Time `json:"to"`
 }
@@ -81,8 +81,8 @@ func (h *AdminHandler) CreateAccounts(w http.ResponseWriter, r *http.Request) {
 }
 
 type PostTransactionDTO struct {
-    From        int64   `json:"from"`        // debit account
-    To          int64   `json:"to"`          // credit account
+    From        string   `json:"from"`        // debit account
+    To          string   `json:"to"`          // credit account
     Amount      float64 `json:"amount"`
     Currency    string  `json:"currency"`
     Description string  `json:"description"`
@@ -129,13 +129,13 @@ func (h *AdminHandler) PostTransaction(w http.ResponseWriter, r *http.Request) {
 		CreatedByUser:  requestedUserIDInt,
 		Entries: []*accountingpb.TransactionEntry{
 			{
-				AccountId: dto.From,
+				AccountNumber: dto.From,
 				DrCr:      accountingpb.DrCr_DR,
 				Amount:    dto.Amount,
 				Currency:  dto.Currency,
 			},
 			{
-				AccountId: dto.To,
+				AccountNumber: dto.To,
 				DrCr:      accountingpb.DrCr_CR,
 				Amount:    dto.Amount,
 				Currency:  dto.Currency,
@@ -184,7 +184,7 @@ func (h *AdminHandler) GetAccountStatement(w http.ResponseWriter, r *http.Reques
 	}
 
 	req := &accountingpb.AccountStatementRequest{
-		AccountId: in.AccountID,
+		AccountNumber: in.AccountNumber,
 		From:      timestamppb.New(in.From),
 		To:        timestamppb.New(in.To),
 	}

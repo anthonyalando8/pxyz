@@ -141,8 +141,10 @@ type Account struct {
 	Purpose       string                 `protobuf:"bytes,5,opt,name=purpose,proto3" json:"purpose,omitempty"`
 	AccountType   string                 `protobuf:"bytes,6,opt,name=account_type,json=accountType,proto3" json:"account_type,omitempty"` // real / demo
 	IsActive      bool                   `protobuf:"varint,7,opt,name=is_active,json=isActive,proto3" json:"is_active,omitempty"`
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	AccountNumber string                 `protobuf:"bytes,8,opt,name=account_number,json=accountNumber,proto3" json:"account_number,omitempty"` // new field
+	Balance       float64                `protobuf:"fixed64,9,opt,name=balance,proto3" json:"balance,omitempty"`                                // new field for current balance
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`            // can be omitted in JSON
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`            // can be omitted in JSON
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -224,6 +226,20 @@ func (x *Account) GetIsActive() bool {
 		return x.IsActive
 	}
 	return false
+}
+
+func (x *Account) GetAccountNumber() string {
+	if x != nil {
+		return x.AccountNumber
+	}
+	return ""
+}
+
+func (x *Account) GetBalance() float64 {
+	if x != nil {
+		return x.Balance
+	}
+	return 0
 }
 
 func (x *Account) GetCreatedAt() *timestamppb.Timestamp {
@@ -435,9 +451,10 @@ func (x *GetAccountsResponse) GetAccounts() []*Account {
 type TransactionEntry struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	AccountId     int64                  `protobuf:"varint,1,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
-	DrCr          DrCr                   `protobuf:"varint,2,opt,name=dr_cr,json=drCr,proto3,enum=accounting.DrCr" json:"dr_cr,omitempty"`
-	Amount        float64                `protobuf:"fixed64,3,opt,name=amount,proto3" json:"amount,omitempty"`
-	Currency      string                 `protobuf:"bytes,4,opt,name=currency,proto3" json:"currency,omitempty"`
+	AccountNumber string                 `protobuf:"bytes,2,opt,name=account_number,json=accountNumber,proto3" json:"account_number,omitempty"`
+	DrCr          DrCr                   `protobuf:"varint,3,opt,name=dr_cr,json=drCr,proto3,enum=accounting.DrCr" json:"dr_cr,omitempty"`
+	Amount        float64                `protobuf:"fixed64,4,opt,name=amount,proto3" json:"amount,omitempty"`
+	Currency      string                 `protobuf:"bytes,5,opt,name=currency,proto3" json:"currency,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -477,6 +494,13 @@ func (x *TransactionEntry) GetAccountId() int64 {
 		return x.AccountId
 	}
 	return 0
+}
+
+func (x *TransactionEntry) GetAccountNumber() string {
+	if x != nil {
+		return x.AccountNumber
+	}
+	return ""
 }
 
 func (x *TransactionEntry) GetDrCr() DrCr {
@@ -578,7 +602,7 @@ func (x *CreateTransactionRequest) GetEntries() []*TransactionEntry {
 
 type CreateTransactionResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	JournalId     int64                  `protobuf:"varint,1,opt,name=journal_id,json=journalId,proto3" json:"journal_id,omitempty"`
+	ExternalRef   string                 `protobuf:"bytes,1,opt,name=externalRef,proto3" json:"externalRef,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -613,16 +637,16 @@ func (*CreateTransactionResponse) Descriptor() ([]byte, []int) {
 	return file_proto_shared_accounting_account_proto_rawDescGZIP(), []int{7}
 }
 
-func (x *CreateTransactionResponse) GetJournalId() int64 {
+func (x *CreateTransactionResponse) GetExternalRef() string {
 	if x != nil {
-		return x.JournalId
+		return x.ExternalRef
 	}
-	return 0
+	return ""
 }
 
 type AccountStatementRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	AccountId     int64                  `protobuf:"varint,1,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
+	AccountNumber string                 `protobuf:"bytes,1,opt,name=account_number,json=accountNumber,proto3" json:"account_number,omitempty"`
 	From          *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=from,proto3" json:"from,omitempty"`
 	To            *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=to,proto3" json:"to,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -659,11 +683,11 @@ func (*AccountStatementRequest) Descriptor() ([]byte, []int) {
 	return file_proto_shared_accounting_account_proto_rawDescGZIP(), []int{8}
 }
 
-func (x *AccountStatementRequest) GetAccountId() int64 {
+func (x *AccountStatementRequest) GetAccountNumber() string {
 	if x != nil {
-		return x.AccountId
+		return x.AccountNumber
 	}
-	return 0
+	return ""
 }
 
 func (x *AccountStatementRequest) GetFrom() *timestamppb.Timestamp {
@@ -758,6 +782,7 @@ type Posting struct {
 	Currency      string                 `protobuf:"bytes,6,opt,name=currency,proto3" json:"currency,omitempty"`
 	ReceiptId     int64                  `protobuf:"varint,7,opt,name=receipt_id,json=receiptId,proto3" json:"receipt_id,omitempty"`
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	AccountNumber string                 `protobuf:"bytes,9,opt,name=account_number,json=accountNumber,proto3" json:"account_number,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -848,11 +873,20 @@ func (x *Posting) GetCreatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *Posting) GetAccountNumber() string {
+	if x != nil {
+		return x.AccountNumber
+	}
+	return ""
+}
+
 type AccountStatement struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	AccountId     int64                  `protobuf:"varint,1,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
-	Postings      []*Posting             `protobuf:"bytes,2,rep,name=postings,proto3" json:"postings,omitempty"`
-	Balance       float64                `protobuf:"fixed64,3,opt,name=balance,proto3" json:"balance,omitempty"`
+	AccountNumber string                 `protobuf:"bytes,2,opt,name=account_number,json=accountNumber,proto3" json:"account_number,omitempty"`
+	AcountNumber  string                 `protobuf:"bytes,3,opt,name=acount_number,json=acountNumber,proto3" json:"acount_number,omitempty"`
+	Postings      []*Posting             `protobuf:"bytes,4,rep,name=postings,proto3" json:"postings,omitempty"`
+	Balance       float64                `protobuf:"fixed64,5,opt,name=balance,proto3" json:"balance,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -892,6 +926,20 @@ func (x *AccountStatement) GetAccountId() int64 {
 		return x.AccountId
 	}
 	return 0
+}
+
+func (x *AccountStatement) GetAccountNumber() string {
+	if x != nil {
+		return x.AccountNumber
+	}
+	return ""
+}
+
+func (x *AccountStatement) GetAcountNumber() string {
+	if x != nil {
+		return x.AcountNumber
+	}
+	return ""
 }
 
 func (x *AccountStatement) GetPostings() []*Posting {
@@ -1109,7 +1157,7 @@ var File_proto_shared_accounting_account_proto protoreflect.FileDescriptor
 const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\n" +
 	"%proto/shared/accounting/account.proto\x12\n" +
-	"accounting\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd6\x02\n" +
+	"accounting\x1a\x1fgoogle/protobuf/timestamp.proto\"\x97\x03\n" +
 	"\aAccount\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x124\n" +
 	"\n" +
@@ -1118,11 +1166,14 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\bcurrency\x18\x04 \x01(\tR\bcurrency\x12\x18\n" +
 	"\apurpose\x18\x05 \x01(\tR\apurpose\x12!\n" +
 	"\faccount_type\x18\x06 \x01(\tR\vaccountType\x12\x1b\n" +
-	"\tis_active\x18\a \x01(\bR\bisActive\x129\n" +
+	"\tis_active\x18\a \x01(\bR\bisActive\x12%\n" +
+	"\x0eaccount_number\x18\b \x01(\tR\raccountNumber\x12\x18\n" +
+	"\abalance\x18\t \x01(\x01R\abalance\x129\n" +
 	"\n" +
-	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"created_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"G\n" +
+	"updated_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"G\n" +
 	"\x14CreateAccountRequest\x12/\n" +
 	"\baccounts\x18\x01 \x03(\v2\x13.accounting.AccountR\baccounts\"\xca\x01\n" +
 	"\x15CreateAccountResponse\x12/\n" +
@@ -1136,25 +1187,24 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"owner_type\x18\x01 \x01(\x0e2\x15.accounting.OwnerTypeR\townerType\x12\x19\n" +
 	"\bowner_id\x18\x02 \x01(\tR\aownerId\"F\n" +
 	"\x13GetAccountsResponse\x12/\n" +
-	"\baccounts\x18\x01 \x03(\v2\x13.accounting.AccountR\baccounts\"\x8c\x01\n" +
+	"\baccounts\x18\x01 \x03(\v2\x13.accounting.AccountR\baccounts\"\xb3\x01\n" +
 	"\x10TransactionEntry\x12\x1d\n" +
 	"\n" +
 	"account_id\x18\x01 \x01(\x03R\taccountId\x12%\n" +
-	"\x05dr_cr\x18\x02 \x01(\x0e2\x10.accounting.DrCrR\x04drCr\x12\x16\n" +
-	"\x06amount\x18\x03 \x01(\x01R\x06amount\x12\x1a\n" +
-	"\bcurrency\x18\x04 \x01(\tR\bcurrency\"\xfe\x01\n" +
+	"\x0eaccount_number\x18\x02 \x01(\tR\raccountNumber\x12%\n" +
+	"\x05dr_cr\x18\x03 \x01(\x0e2\x10.accounting.DrCrR\x04drCr\x12\x16\n" +
+	"\x06amount\x18\x04 \x01(\x01R\x06amount\x12\x1a\n" +
+	"\bcurrency\x18\x05 \x01(\tR\bcurrency\"\xfe\x01\n" +
 	"\x18CreateTransactionRequest\x12!\n" +
 	"\fexternal_ref\x18\x01 \x01(\tR\vexternalRef\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12=\n" +
 	"\x0fcreated_by_type\x18\x03 \x01(\x0e2\x15.accounting.OwnerTypeR\rcreatedByType\x12&\n" +
 	"\x0fcreated_by_user\x18\x04 \x01(\x03R\rcreatedByUser\x126\n" +
-	"\aentries\x18\x05 \x03(\v2\x1c.accounting.TransactionEntryR\aentries\":\n" +
-	"\x19CreateTransactionResponse\x12\x1d\n" +
-	"\n" +
-	"journal_id\x18\x01 \x01(\x03R\tjournalId\"\x94\x01\n" +
-	"\x17AccountStatementRequest\x12\x1d\n" +
-	"\n" +
-	"account_id\x18\x01 \x01(\x03R\taccountId\x12.\n" +
+	"\aentries\x18\x05 \x03(\v2\x1c.accounting.TransactionEntryR\aentries\"=\n" +
+	"\x19CreateTransactionResponse\x12 \n" +
+	"\vexternalRef\x18\x01 \x01(\tR\vexternalRef\"\x9c\x01\n" +
+	"\x17AccountStatementRequest\x12%\n" +
+	"\x0eaccount_number\x18\x01 \x01(\tR\raccountNumber\x12.\n" +
 	"\x04from\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x04from\x12*\n" +
 	"\x02to\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x02to\"\xc4\x01\n" +
 	"\x15OwnerStatementRequest\x124\n" +
@@ -1162,7 +1212,7 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"owner_type\x18\x01 \x01(\x0e2\x15.accounting.OwnerTypeR\townerType\x12\x19\n" +
 	"\bowner_id\x18\x02 \x01(\tR\aownerId\x12.\n" +
 	"\x04from\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x04from\x12*\n" +
-	"\x02to\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x02to\"\x8c\x02\n" +
+	"\x02to\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x02to\"\xb3\x02\n" +
 	"\aPosting\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1d\n" +
 	"\n" +
@@ -1175,12 +1225,15 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\n" +
 	"receipt_id\x18\a \x01(\x03R\treceiptId\x129\n" +
 	"\n" +
-	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"|\n" +
+	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12%\n" +
+	"\x0eaccount_number\x18\t \x01(\tR\raccountNumber\"\xc8\x01\n" +
 	"\x10AccountStatement\x12\x1d\n" +
 	"\n" +
-	"account_id\x18\x01 \x01(\x03R\taccountId\x12/\n" +
-	"\bpostings\x18\x02 \x03(\v2\x13.accounting.PostingR\bpostings\x12\x18\n" +
-	"\abalance\x18\x03 \x01(\x01R\abalance\"7\n" +
+	"account_id\x18\x01 \x01(\x03R\taccountId\x12%\n" +
+	"\x0eaccount_number\x18\x02 \x01(\tR\raccountNumber\x12#\n" +
+	"\racount_number\x18\x03 \x01(\tR\facountNumber\x12/\n" +
+	"\bpostings\x18\x04 \x03(\v2\x13.accounting.PostingR\bpostings\x12\x18\n" +
+	"\abalance\x18\x05 \x01(\x01R\abalance\"7\n" +
 	"\x16JournalPostingsRequest\x12\x1d\n" +
 	"\n" +
 	"journal_id\x18\x01 \x01(\x03R\tjournalId\"D\n" +

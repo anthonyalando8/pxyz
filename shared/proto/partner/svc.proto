@@ -16,8 +16,17 @@ service PartnerService {
   rpc CreatePartnerUser(CreatePartnerUserRequest) returns (PartnerUserResponse);
   rpc UpdatePartnerUser(UpdatePartnerUserRequest) returns (PartnerUserResponse);
 
-  // NEW: Bulk delete partner users
+  // Bulk delete partner users
   rpc DeletePartnerUsers(DeletePartnerUsersRequest) returns (DeletePartnerUsersResponse);
+
+  // Fetch partners (optionally filtered by IDs)
+  rpc GetPartners(GetPartnersRequest) returns (GetPartnersResponse);
+
+  // Fetch users under a specific partner
+  rpc GetPartnerUsers(GetPartnerUsersRequest) returns (GetPartnerUsersResponse);
+
+  // NEW: Fetch partners who provide a specific service
+  rpc GetPartnersByService(GetPartnersByServiceRequest) returns (GetPartnersResponse);
 }
 
 // -------------------- Entities --------------------
@@ -28,8 +37,10 @@ message Partner {
   string contact_email = 4;
   string contact_phone = 5;
   string status = 6;
-  google.protobuf.Timestamp created_at = 7;
-  google.protobuf.Timestamp updated_at = 8;
+  string service = 7;       // e.g., type of service the partner offers
+  string currency = 8;      // default currency for the partner
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
 }
 
 message PartnerUser {
@@ -53,6 +64,8 @@ message CreatePartnerRequest {
   string country = 2;
   string contact_email = 3;
   string contact_phone = 4;
+  string service = 5;
+  string currency = 6; 
 }
 message UpdatePartnerRequest {
   string id = 1;
@@ -61,6 +74,8 @@ message UpdatePartnerRequest {
   string contact_email = 4;
   string contact_phone = 5;
   string status = 6;
+  string service = 7;
+  string currency = 8; 
 }
 message DeletePartnerRequest {
   string id = 1;
@@ -99,15 +114,32 @@ message DeletePartnerUsersRequest {
   string partner_id = 1;
   repeated string user_ids = 2; // multiple IDs in one call
 }
-// Bulk delete partner users
 message DeletePartnerUsersResponse {
   repeated string deleted_ids = 1; // which ones succeeded
   repeated FailedUserDeletion failed_users = 2; // failed IDs with reasons
 }
-
-// Each failed deletion
 message FailedUserDeletion {
   string user_id = 1;
-  string reason = 2; // e.g., "user not found", "cannot delete partner_admin", etc.
+  string reason = 2; // e.g., "user not found", "cannot delete partner_admin"
 }
 
+// Fetch partners
+message GetPartnersRequest {
+  repeated string partner_ids = 1; // optional filter; if empty, returns all
+}
+message GetPartnersResponse {
+  repeated Partner partners = 1;
+}
+
+// Fetch partner users
+message GetPartnerUsersRequest {
+  string partner_id = 1; // required
+}
+message GetPartnerUsersResponse {
+  repeated PartnerUser users = 1;
+}
+
+// Fetch partners by service
+message GetPartnersByServiceRequest {
+  string service = 1; // required
+}

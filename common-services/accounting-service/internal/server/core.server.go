@@ -15,6 +15,8 @@ import (
 	accountingpb "x/shared/genproto/shared/accounting/accountingpb"
 	authclient "x/shared/auth"
 	receiptclient "x/shared/common/receipt"
+	partnerclient "x/shared/partner"
+
 
 	"x/shared/utils/id"
 
@@ -47,6 +49,8 @@ func NewAccountingGRPCServer(cfg config.AppConfig) {
         log.Fatalf("failed to dial auth service: %v", err)
     }
 	receiptCli := receiptclient.NewReceiptClient()
+	partnerSvc := partnerclient.NewPartnerService()
+
 	// --- Repositories ---
 	accountRepo := repository.NewAccountRepo(dbpool)
 	journalRepo := repository.NewJournalRepo(dbpool)
@@ -58,7 +62,7 @@ func NewAccountingGRPCServer(cfg config.AppConfig) {
 
 	// --- Usecases ---
 	accountUC := usecase.NewAccountUsecase(accountRepo)
-	ledgerUC := usecase.NewLedgerUsecase(ledgerRepo, sf, authClient, receiptCli)
+	ledgerUC := usecase.NewLedgerUsecase(ledgerRepo, sf, authClient, receiptCli, partnerSvc)
 	statementUC := usecase.NewStatementUsecase(statementRepo)
 
 	// --- Services ---

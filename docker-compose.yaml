@@ -584,7 +584,7 @@ services:
       DB_PASSWORD: 2000
       DB_NAME: pxyz_fx
       REDIS_ADDR: redis:6379
-      GRPC_ADDR: :8024
+      GRPC_ADDR: :8026
       REDIS_PASS:
     depends_on:
       - redis

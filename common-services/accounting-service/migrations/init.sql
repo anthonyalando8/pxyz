@@ -42,18 +42,22 @@ CREATE INDEX idx_fx_rates_pair ON fx_rates (base_currency, quote_currency, as_of
 CREATE TYPE account_type_enum AS ENUM ('real', 'demo');
 
 CREATE TABLE accounts (
-  id          BIGSERIAL PRIMARY KEY,
-  owner_type  owner_type_enum NOT NULL,
-  owner_id    TEXT, -- support user/partner IDs
-  currency    VARCHAR(8) NOT NULL REFERENCES currencies(code) ON UPDATE CASCADE,
-  purpose     account_purpose_enum NOT NULL,
-  account_type account_type_enum NOT NULL DEFAULT 'real', -- new field
-  is_active   BOOLEAN NOT NULL DEFAULT true,
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT uq_account_owner_currency_purpose UNIQUE (owner_type, owner_id, currency, purpose, account_type)
+  id            BIGSERIAL PRIMARY KEY,
+  owner_type    owner_type_enum NOT NULL,
+  owner_id      TEXT, -- support user/partner IDs
+  currency      VARCHAR(8) NOT NULL REFERENCES currencies(code) ON UPDATE CASCADE,
+  purpose       account_purpose_enum NOT NULL,
+  account_type  account_type_enum NOT NULL DEFAULT 'real',
+  is_active     BOOLEAN NOT NULL DEFAULT true,
+  account_number TEXT NOT NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_account_owner_currency_purpose UNIQUE (owner_type, owner_id, currency, purpose, account_type),
+  CONSTRAINT uq_accounts_account_number UNIQUE (account_number)
 );
+
 CREATE INDEX idx_accounts_owner ON accounts (owner_type, owner_id);
+
 
 -- ===============================
 -- Journals

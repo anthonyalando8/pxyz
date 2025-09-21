@@ -13,10 +13,14 @@ CREATE TABLE partners (
   contact_email TEXT,
   contact_phone TEXT,
   status        partner_status_enum NOT NULL DEFAULT 'active',
+  service       TEXT,               -- new field: type of service the partner offers
+  currency      TEXT,               -- new field: default currency for the partner
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
 CREATE INDEX idx_partners_name ON partners (name);
+
 
 -- Partner users
 CREATE TABLE partner_users (

@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"time"
+	"log"
 
 	"accounting-service/internal/domain"
 	xerrors "x/shared/utils/errors"
@@ -13,8 +14,8 @@ import (
 
 type StatementRepository interface {
 	// Account-level
-	ListPostingsByAccount(ctx context.Context, accountID int64, from, to time.Time) ([]*domain.Posting, error)
-	GetCurrentBalance(ctx context.Context, accountID int64) (*domain.Balance, error)
+	ListPostingsByAccount(ctx context.Context, accountNumber string, from, to time.Time) ([]*domain.Posting, error)
+	GetCurrentBalance(ctx context.Context, accountNumber string) (*domain.Balance, error)
 	GetCachedBalance(ctx context.Context, accountID int64) (*domain.Balance, error)
 
 	// Owner-level (user / partner)
@@ -48,13 +49,15 @@ func NewStatementRepo(db *pgxpool.Pool) StatementRepository {
 }
 
 // ListPostingsByAccount returns postings for a single account
-func (r *statementRepo) ListPostingsByAccount(ctx context.Context, accountID int64, from, to time.Time) ([]*domain.Posting, error) {
+func (r *statementRepo) ListPostingsByAccount(ctx context.Context, accountNumber string, from, to time.Time) ([]*domain.Posting, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT id, journal_id, account_id, amount, dr_cr, currency, receipt_id, created_at
-		FROM postings
-		WHERE account_id=$1 AND created_at BETWEEN $2 AND $3
-		ORDER BY created_at ASC
-	`, accountID, from, to)
+		SELECT p.id, p.journal_id, p.account_id, p.amount, p.dr_cr, p.currency, p.receipt_id, p.created_at
+		FROM postings p
+		JOIN accounts a ON p.account_id = a.id
+		WHERE a.account_number = $1
+		  AND p.created_at BETWEEN $2 AND $3
+		ORDER BY p.created_at ASC
+	`, accountNumber, from, to)
 	if err != nil {
 		return nil, err
 	}
@@ -64,8 +67,14 @@ func (r *statementRepo) ListPostingsByAccount(ctx context.Context, accountID int
 	for rows.Next() {
 		var p domain.Posting
 		if err := rows.Scan(
-			&p.ID, &p.JournalID, &p.AccountID, &p.Amount, &p.DrCr,
-			&p.Currency, &p.ReceiptID, &p.CreatedAt,
+			&p.ID,
+			&p.JournalID,
+			&p.AccountID,
+			&p.Amount,
+			&p.DrCr,
+			&p.Currency,
+			&p.ReceiptID,
+			&p.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -75,16 +84,18 @@ func (r *statementRepo) ListPostingsByAccount(ctx context.Context, accountID int
 	return postings, nil
 }
 
+
 // GetDailySummary implements StatementRepository.
 func (r *statementRepo) GetDailySummary(ctx context.Context, date time.Time) ([]*domain.DailyReport, error) {
 	// Start and end of the day
 	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
 	endOfDay := startOfDay.Add(24 * time.Hour).Add(-time.Nanosecond)
 
-	// Fetch daily debit/credit totals per account
+	// Fetch daily debit/credit totals per account, include account_number
 	rows, err := r.db.Query(ctx, `
 		SELECT 
 			a.id AS account_id,
+			a.account_number,
 			a.owner_type,
 			a.owner_id,
 			a.currency,
@@ -92,7 +103,7 @@ func (r *statementRepo) GetDailySummary(ctx context.Context, date time.Time) ([]
 			COALESCE(SUM(CASE WHEN p.dr_cr='CR' THEN p.amount ELSE 0 END),0) AS total_credit
 		FROM accounts a
 		LEFT JOIN postings p ON p.account_id=a.id AND p.created_at BETWEEN $1 AND $2
-		GROUP BY a.id, a.owner_type, a.owner_id, a.currency
+		GROUP BY a.id, a.account_number, a.owner_type, a.owner_id, a.currency
 	`, startOfDay, endOfDay)
 	if err != nil {
 		return nil, err
@@ -106,6 +117,7 @@ func (r *statementRepo) GetDailySummary(ctx context.Context, date time.Time) ([]
 
 		if err := rows.Scan(
 			&rpt.AccountID,
+			&rpt.AccountNumber, // added field
 			&rpt.OwnerType,
 			&rpt.OwnerID,
 			&rpt.Currency,
@@ -116,7 +128,7 @@ func (r *statementRepo) GetDailySummary(ctx context.Context, date time.Time) ([]
 		}
 
 		// Compute balance from all postings
-		balance, err := r.GetCurrentBalance(ctx, rpt.AccountID)
+		balance, err := r.GetCurrentBalance(ctx, rpt.AccountNumber)
 		if err != nil && err != xerrors.ErrNotFound {
 			return nil, err
 		}
@@ -141,8 +153,29 @@ func (r *statementRepo) GetDailySummary(ctx context.Context, date time.Time) ([]
 }
 
 
+
 // GetCurrentBalance returns current balance for an account
-func (r *statementRepo) GetCurrentBalance(ctx context.Context, accountID int64) (*domain.Balance, error) {
+func (r *statementRepo) GetCurrentBalance(ctx context.Context, accountNumber string) (*domain.Balance, error) {
+	log.Printf("🔍 Fetching balance for accountNumber=%q", accountNumber)
+
+	// First get the account ID from the account number
+	var accountID int64
+	err := r.db.QueryRow(ctx, `
+		SELECT id
+		FROM accounts
+		WHERE account_number = $1
+	`, accountNumber).Scan(&accountID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			log.Printf("⚠️ Account not found for accountNumber=%q", accountNumber)
+			return nil, xerrors.ErrNotFound
+		}
+		log.Printf("❌ Error fetching account ID for accountNumber=%q: %v", accountNumber, err)
+		return nil, err
+	}
+	log.Printf("✅ Found accountID=%d for accountNumber=%q", accountID, accountNumber)
+
+	// Now compute balance using the account ID
 	row := r.db.QueryRow(ctx, `
 		SELECT 
 			COALESCE(SUM(CASE WHEN dr_cr='CR' THEN amount ELSE 0 END), 0) -
@@ -157,16 +190,20 @@ func (r *statementRepo) GetCurrentBalance(ctx context.Context, accountID int64) 
 	if err := row.Scan(&b.Balance); err != nil {
 		if err == pgx.ErrNoRows {
 			// No postings yet → balance is zero
+			log.Printf("ℹ️ No postings found for accountID=%d, balance set to 0", accountID)
 			b.Balance = 0
 			b.UpdatedAt = time.Now()
 			return &b, nil
 		}
+		log.Printf("❌ Error computing balance for accountID=%d: %v", accountID, err)
 		return nil, err
 	}
 
 	b.UpdatedAt = time.Now()
+	log.Printf("💰 Current balance for accountID=%d: %.2f", accountID, b.Balance)
 	return &b, nil
 }
+
 
 
 // GetCachedBalance fetches the current balance from the balances table.
@@ -193,7 +230,15 @@ func (r *statementRepo) GetCachedBalance(ctx context.Context, accountID int64) (
 // ListPostingsByOwner aggregates postings for all accounts of an owner
 func (r *statementRepo) ListPostingsByOwner(ctx context.Context, ownerType, ownerID string, from, to time.Time) ([]*domain.Posting, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT p.id, p.journal_id, p.account_id, p.amount, p.dr_cr, p.currency, p.receipt_id, p.created_at
+		SELECT 
+			p.id, 
+			p.journal_id, 
+			a.account_number,
+			p.amount, 
+			p.dr_cr, 
+			p.currency, 
+			p.receipt_id, 
+			p.created_at
 		FROM postings p
 		JOIN accounts a ON a.id = p.account_id
 		WHERE a.owner_type=$1 AND a.owner_id=$2 AND p.created_at BETWEEN $3 AND $4
@@ -208,8 +253,14 @@ func (r *statementRepo) ListPostingsByOwner(ctx context.Context, ownerType, owne
 	for rows.Next() {
 		var p domain.Posting
 		if err := rows.Scan(
-			&p.ID, &p.JournalID, &p.AccountID, &p.Amount, &p.DrCr,
-			&p.Currency, &p.ReceiptID, &p.CreatedAt,
+			&p.ID,
+			&p.JournalID,
+			&p.AccountData.AccountNumber, // populate account number
+			&p.Amount,
+			&p.DrCr,
+			&p.Currency,
+			&p.ReceiptID,
+			&p.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -219,13 +270,23 @@ func (r *statementRepo) ListPostingsByOwner(ctx context.Context, ownerType, owne
 	return postings, nil
 }
 
+
 // ListPostingsByJournal fetches postings for a specific journal
 func (r *statementRepo) ListPostingsByJournal(ctx context.Context, journalID int64) ([]*domain.Posting, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT id, journal_id, account_id, amount, dr_cr, currency, receipt_id, created_at
-		FROM postings
-		WHERE journal_id=$1
-		ORDER BY created_at ASC
+		SELECT 
+			p.id, 
+			p.journal_id, 
+			a.account_number,
+			p.amount, 
+			p.dr_cr, 
+			p.currency, 
+			p.receipt_id, 
+			p.created_at
+		FROM postings p
+		JOIN accounts a ON a.id = p.account_id
+		WHERE p.journal_id=$1
+		ORDER BY p.created_at ASC
 	`, journalID)
 	if err != nil {
 		return nil, err
@@ -236,8 +297,14 @@ func (r *statementRepo) ListPostingsByJournal(ctx context.Context, journalID int
 	for rows.Next() {
 		var p domain.Posting
 		if err := rows.Scan(
-			&p.ID, &p.JournalID, &p.AccountID, &p.Amount, &p.DrCr,
-			&p.Currency, &p.ReceiptID, &p.CreatedAt,
+			&p.ID,
+			&p.JournalID,
+			&p.AccountData.AccountNumber, // populate account number
+			&p.Amount,
+			&p.DrCr,
+			&p.Currency,
+			&p.ReceiptID,
+			&p.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -246,3 +313,4 @@ func (r *statementRepo) ListPostingsByJournal(ctx context.Context, journalID int
 
 	return postings, nil
 }
+

@@ -24,7 +24,7 @@ func (uc *StatementUsecase) BeginTx(ctx context.Context) (pgx.Tx, error) {
 	return uc.statementRepo.BeginTx(ctx)
 }
 
-func (uc *StatementUsecase) GetAccountBalance(ctx context.Context, accountID int64) (float64, error){
+func (uc *StatementUsecase) GetAccountBalance(ctx context.Context, accountID string) (float64, error){
 	balance, err := uc.statementRepo.GetCurrentBalance(ctx, accountID)
 	if err != nil {
 		return 0, err
@@ -33,7 +33,7 @@ func (uc *StatementUsecase) GetAccountBalance(ctx context.Context, accountID int
 }
 
 // GetAccountStatement fetches postings and current balance for a single account
-func (uc *StatementUsecase) GetAccountStatement(ctx context.Context, accountID int64, from, to time.Time) (*domain.AccountStatement, error) {
+func (uc *StatementUsecase) GetAccountStatement(ctx context.Context, accountID string, from, to time.Time) (*domain.AccountStatement, error) {
 	postings, err := uc.statementRepo.ListPostingsByAccount(ctx, accountID, from, to)
 	if err != nil {
 		if err == xerrors.ErrNotFound {
@@ -45,14 +45,14 @@ func (uc *StatementUsecase) GetAccountStatement(ctx context.Context, accountID i
 	balance, err := uc.statementRepo.GetCurrentBalance(ctx, accountID)
 	if err != nil {
 		if err == xerrors.ErrNotFound {
-			balance = &domain.Balance{AccountID: accountID, Balance: 0}
+			balance = &domain.Balance{AccountNumber: accountID, Balance: 0}
 		} else {
 			return nil, err
 		}
 	}
 
 	return &domain.AccountStatement{
-		AccountID: accountID,
+		AccountNumber: accountID,
 		Postings:  postings,
 		Balance:   balance.Balance,
 	}, nil
@@ -71,12 +71,12 @@ func (uc *StatementUsecase) GetOwnerStatement(ctx context.Context, ownerType, ow
 
 	var statements []*domain.AccountStatement
 	for _, acct := range accounts {
-		postings, err := uc.statementRepo.ListPostingsByAccount(ctx, acct.ID, from, to)
+		postings, err := uc.statementRepo.ListPostingsByAccount(ctx, acct.AccountNumber, from, to)
 		if err != nil && err != xerrors.ErrNotFound {
 			return nil, err
 		}
 
-		balance, err := uc.statementRepo.GetCurrentBalance(ctx, acct.ID)
+		balance, err := uc.statementRepo.GetCurrentBalance(ctx, acct.AccountNumber)
 		if err != nil && err != xerrors.ErrNotFound {
 			return nil, err
 		}

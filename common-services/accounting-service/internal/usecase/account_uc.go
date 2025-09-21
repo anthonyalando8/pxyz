@@ -28,8 +28,8 @@ func (uc *AccountUsecase) BeginTx(ctx context.Context) (pgx.Tx, error) {
 
 
 // GetByID fetches an account by its ID
-func (uc *AccountUsecase) GetByID(ctx context.Context, id int64) (*domain.Account, error) {
-	acc, err := uc.accountRepo.GetByID(ctx, id)
+func (uc *AccountUsecase) GetByAccountNumber(ctx context.Context, id string) (*domain.Account, error) {
+	acc, err := uc.accountRepo.GetByAccountNumber(ctx, id)
 	if err != nil {
 		return nil, err
 	}

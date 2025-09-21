@@ -34,9 +34,12 @@ message Account {
     string purpose = 5;
     string account_type = 6; // real / demo
     bool is_active = 7;
-    google.protobuf.Timestamp created_at = 8;
-    google.protobuf.Timestamp updated_at = 9;
+    string account_number = 8; // new field
+    double balance = 9;         // new field for current balance
+    google.protobuf.Timestamp created_at = 10; // can be omitted in JSON
+    google.protobuf.Timestamp updated_at = 11; // can be omitted in JSON
 }
+
 
 message CreateAccountRequest {
     repeated Account accounts = 1; // supports batch creation
@@ -58,9 +61,10 @@ message GetAccountsResponse {
 
 message TransactionEntry {
     int64 account_id = 1;
-    DrCr dr_cr = 2;
-    double amount = 3;
-    string currency = 4;
+    string account_number = 2;
+    DrCr dr_cr = 3;
+    double amount = 4;
+    string currency = 5;
 }
 
 message CreateTransactionRequest {
@@ -72,11 +76,11 @@ message CreateTransactionRequest {
 }
 
 message CreateTransactionResponse {
-    int64 journal_id = 1;
+    string externalRef = 1;
 }
 
 message AccountStatementRequest {
-    int64 account_id = 1;
+    string account_number = 1;
     google.protobuf.Timestamp from = 2;
     google.protobuf.Timestamp to = 3;
 }
@@ -97,12 +101,15 @@ message Posting {
     string currency = 6;
     int64 receipt_id = 7;
     google.protobuf.Timestamp created_at = 8;
+    string account_number = 9;
 }
 
 message AccountStatement {
     int64 account_id = 1;
-    repeated Posting postings = 2;
-    double balance = 3;
+    string account_number = 2;
+    string acount_number = 3;
+    repeated Posting postings = 4;
+    double balance = 5;
 }
 
 message JournalPostingsRequest {

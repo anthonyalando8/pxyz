@@ -105,7 +105,7 @@ func (h *PartnerHandler) GetUserAccounts(w http.ResponseWriter, r *http.Request)
 // GetAccountStatement fetches statement for a specific account
 func (h *PartnerHandler) GetAccountStatement(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		AccountID int64     `json:"account_id"`
+		AccountNumber string     `json:"account_number"`
 		From      time.Time `json:"from"`
 		To        time.Time `json:"to"`
 	}
@@ -115,7 +115,7 @@ func (h *PartnerHandler) GetAccountStatement(w http.ResponseWriter, r *http.Requ
 	}
 
 	req := &accountingpb.AccountStatementRequest{
-		AccountId: in.AccountID,
+		AccountNumber: in.AccountNumber,
 		From:      timestamppb.New(in.From),
 		To:        timestamppb.New(in.To),
 	}

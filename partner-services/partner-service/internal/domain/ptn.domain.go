@@ -13,14 +13,15 @@ const (
 	PartnerStatusActive    PartnerStatus = "active"
 	PartnerStatusSuspended PartnerStatus = "suspended"
 )
-
 type Partner struct {
-	ID           string          `json:"id"`
+	ID           string         `json:"id"`
 	Name         string         `json:"name"`
 	Country      string         `json:"country,omitempty"`
 	ContactEmail string         `json:"contact_email,omitempty"`
 	ContactPhone string         `json:"contact_phone,omitempty"`
 	Status       PartnerStatus  `json:"status"`
+	Service      string         `json:"service,omitempty"`   // new field
+	Currency     string         `json:"currency,omitempty"`  // new field
 	CreatedAt    time.Time      `json:"created_at"`
 	UpdatedAt    time.Time      `json:"updated_at"`
 }
@@ -38,8 +39,11 @@ func (p *Partner) ToProto() *partnersvcpb.Partner {
 		ContactEmail: p.ContactEmail,
 		ContactPhone: p.ContactPhone,
 		Status:       string(p.Status), // convert enum type to string
+		Service:      p.Service,        // new field
+		Currency:     p.Currency,       // new field
 		CreatedAt:    timestamppb.New(p.CreatedAt),
 		UpdatedAt:    timestamppb.New(p.UpdatedAt),
 	}
 }
+
 

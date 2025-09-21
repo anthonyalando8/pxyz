@@ -12,8 +12,10 @@ import (
 	receiptclient "x/shared/common/receipt"
 	receiptpb "x/shared/genproto/shared/accounting/receiptpb"
 	authpb "x/shared/genproto/authpb"
+	partnerclient "x/shared/partner"
 	adminauthpb "x/shared/genproto/admin/authpb"
-	patnerauthpb "x/shared/genproto/partner/authpb"
+	//patnerauthpb "x/shared/genproto/partner/authpb"
+	partnersvcpb "x/shared/genproto/partner/svcpb"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -23,6 +25,7 @@ type LedgerUsecase struct {
 	sf *id.Snowflake
 	authClient *authclient.AuthService
 	receiptClient *receiptclient.ReceiptClient
+	partnerClient    *partnerclient.PartnerService
 }
 
 func NewLedgerUsecase(
@@ -30,12 +33,14 @@ func NewLedgerUsecase(
 	sf *id.Snowflake,
 	authClient *authclient.AuthService,
 	receiptClient *receiptclient.ReceiptClient,
+	partnerClient *partnerclient.PartnerService,
 ) *LedgerUsecase {
 	return &LedgerUsecase{
 		ledgerRepo: ledgerRepo,
 		sf: sf,
 		authClient: authClient,
 		receiptClient: receiptClient,
+		partnerClient:    partnerClient,
 	}
 }
 
@@ -59,13 +64,13 @@ func (uc *LedgerUsecase) CreateTransactionMulti(
 	// Validate postings
 	for _, p := range postings {
 		if p.DrCr != "DR" && p.DrCr != "CR" {
-			return nil, fmt.Errorf("invalid DR/CR for account %d", p.AccountID)
+			return nil, fmt.Errorf("invalid DR/CR for account %s", p.AccountData.AccountNumber)
 		}
 		if p.Amount <= 0 {
-			return nil, fmt.Errorf("amount must be positive for account %d", p.AccountID)
+			return nil, fmt.Errorf("amount must be positive for account %s", p.AccountData.AccountNumber)
 		}
 		if p.Currency == "" {
-			return nil, fmt.Errorf("currency required for account %d", p.AccountID)
+			return nil, fmt.Errorf("currency required for account %s", p.AccountData.AccountNumber)
 		}
 	}
 
@@ -146,7 +151,7 @@ func (uc *LedgerUsecase) createReceiptBackground(_ context.Context, journalID in
 				Name:          credName,
 				Phone:         credPhone,
 				Email:         credEmail,
-				AccountNumber: "",
+				AccountNumber: creditor.AccountData.AccountNumber,
 				IsCreditor:    true,
 			},
 			Debitor: &receiptpb.PartyInfo{
@@ -155,7 +160,7 @@ func (uc *LedgerUsecase) createReceiptBackground(_ context.Context, journalID in
 				Name:          debName,
 				Phone:         debPhone,
 				Email:         debEmail,
-				AccountNumber: "",
+				AccountNumber: debitor.AccountData.AccountNumber,
 				IsCreditor:    false,
 			},
 		}
@@ -168,11 +173,9 @@ func (uc *LedgerUsecase) createReceiptBackground(_ context.Context, journalID in
 }
 
 
-
-
 func (uc *LedgerUsecase) fetchProfile(ctx context.Context, ownerType, ownerID string) (email, phone, firstName, lastName string, resolvedOwnerType string, err error) {
-	if uc.authClient == nil {
-		return "", "", "", "", "", fmt.Errorf("auth client not initialized")
+	if uc.authClient == nil && uc.partnerClient == nil {
+		return "", "", "", "", "", fmt.Errorf("clients not initialized")
 	}
 
 	type result struct {
@@ -193,14 +196,28 @@ func (uc *LedgerUsecase) fetchProfile(ctx context.Context, ownerType, ownerID st
 			return result{resp.User.Email, resp.User.Phone, resp.User.FirstName, resp.User.LastName, "user", true}
 
 		case "partner":
-			if uc.authClient.PartnerClient == nil {
+			if uc.partnerClient == nil || uc.partnerClient.Client == nil {
 				return result{}
 			}
-			resp, e := uc.authClient.PartnerClient.GetUserProfile(ctx, &patnerauthpb.GetUserProfileRequest{UserId: ownerID})
-			if e != nil || resp == nil || !resp.Ok || resp.User == nil {
+
+			// Fetch partner info by ID
+			resp, e := uc.partnerClient.Client.GetPartners(ctx, &partnersvcpb.GetPartnersRequest{
+				PartnerIds: []string{ownerID},
+			})
+			if e != nil || resp == nil || len(resp.Partners) == 0 {
 				return result{}
 			}
-			return result{resp.User.Email, resp.User.Phone, resp.User.FirstName, resp.User.LastName, "partner", true}
+
+			partner := resp.Partners[0]
+			return result{
+				email:     partner.ContactEmail,
+				phone:     partner.ContactPhone,
+				firstName: partner.Name, // using name as firstName for partner
+				lastName:  "",           // no last name for partner
+				ownerType: "partner",
+				ok:        true,
+			}
+
 
 		case "admin":
 			if uc.authClient.AdminClient == nil {
@@ -243,4 +260,5 @@ func (uc *LedgerUsecase) fetchProfile(ctx context.Context, ownerType, ownerID st
 
 	return "", "", "", "", "", fmt.Errorf("profile not found for ownerID: %s", ownerID)
 }
+
 

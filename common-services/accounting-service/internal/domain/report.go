@@ -10,6 +10,7 @@ type DailyReport struct {
 
 	// Account / currency info
 	AccountID int64  `json:"account_id,omitempty"`
+	AccountNumber string `json:"account_number"`
 	Currency  string `json:"currency"`
 
 	// Aggregated values

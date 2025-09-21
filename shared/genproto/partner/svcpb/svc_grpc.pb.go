@@ -19,12 +19,15 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	PartnerService_CreatePartner_FullMethodName      = "/partner.svc.PartnerService/CreatePartner"
-	PartnerService_UpdatePartner_FullMethodName      = "/partner.svc.PartnerService/UpdatePartner"
-	PartnerService_DeletePartner_FullMethodName      = "/partner.svc.PartnerService/DeletePartner"
-	PartnerService_CreatePartnerUser_FullMethodName  = "/partner.svc.PartnerService/CreatePartnerUser"
-	PartnerService_UpdatePartnerUser_FullMethodName  = "/partner.svc.PartnerService/UpdatePartnerUser"
-	PartnerService_DeletePartnerUsers_FullMethodName = "/partner.svc.PartnerService/DeletePartnerUsers"
+	PartnerService_CreatePartner_FullMethodName        = "/partner.svc.PartnerService/CreatePartner"
+	PartnerService_UpdatePartner_FullMethodName        = "/partner.svc.PartnerService/UpdatePartner"
+	PartnerService_DeletePartner_FullMethodName        = "/partner.svc.PartnerService/DeletePartner"
+	PartnerService_CreatePartnerUser_FullMethodName    = "/partner.svc.PartnerService/CreatePartnerUser"
+	PartnerService_UpdatePartnerUser_FullMethodName    = "/partner.svc.PartnerService/UpdatePartnerUser"
+	PartnerService_DeletePartnerUsers_FullMethodName   = "/partner.svc.PartnerService/DeletePartnerUsers"
+	PartnerService_GetPartners_FullMethodName          = "/partner.svc.PartnerService/GetPartners"
+	PartnerService_GetPartnerUsers_FullMethodName      = "/partner.svc.PartnerService/GetPartnerUsers"
+	PartnerService_GetPartnersByService_FullMethodName = "/partner.svc.PartnerService/GetPartnersByService"
 )
 
 // PartnerServiceClient is the client API for PartnerService service.
@@ -39,8 +42,14 @@ type PartnerServiceClient interface {
 	// Partner User management
 	CreatePartnerUser(ctx context.Context, in *CreatePartnerUserRequest, opts ...grpc.CallOption) (*PartnerUserResponse, error)
 	UpdatePartnerUser(ctx context.Context, in *UpdatePartnerUserRequest, opts ...grpc.CallOption) (*PartnerUserResponse, error)
-	// NEW: Bulk delete partner users
+	// Bulk delete partner users
 	DeletePartnerUsers(ctx context.Context, in *DeletePartnerUsersRequest, opts ...grpc.CallOption) (*DeletePartnerUsersResponse, error)
+	// Fetch partners (optionally filtered by IDs)
+	GetPartners(ctx context.Context, in *GetPartnersRequest, opts ...grpc.CallOption) (*GetPartnersResponse, error)
+	// Fetch users under a specific partner
+	GetPartnerUsers(ctx context.Context, in *GetPartnerUsersRequest, opts ...grpc.CallOption) (*GetPartnerUsersResponse, error)
+	// NEW: Fetch partners who provide a specific service
+	GetPartnersByService(ctx context.Context, in *GetPartnersByServiceRequest, opts ...grpc.CallOption) (*GetPartnersResponse, error)
 }
 
 type partnerServiceClient struct {
@@ -111,6 +120,36 @@ func (c *partnerServiceClient) DeletePartnerUsers(ctx context.Context, in *Delet
 	return out, nil
 }
 
+func (c *partnerServiceClient) GetPartners(ctx context.Context, in *GetPartnersRequest, opts ...grpc.CallOption) (*GetPartnersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetPartnersResponse)
+	err := c.cc.Invoke(ctx, PartnerService_GetPartners_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *partnerServiceClient) GetPartnerUsers(ctx context.Context, in *GetPartnerUsersRequest, opts ...grpc.CallOption) (*GetPartnerUsersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetPartnerUsersResponse)
+	err := c.cc.Invoke(ctx, PartnerService_GetPartnerUsers_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *partnerServiceClient) GetPartnersByService(ctx context.Context, in *GetPartnersByServiceRequest, opts ...grpc.CallOption) (*GetPartnersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetPartnersResponse)
+	err := c.cc.Invoke(ctx, PartnerService_GetPartnersByService_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // PartnerServiceServer is the server API for PartnerService service.
 // All implementations must embed UnimplementedPartnerServiceServer
 // for forward compatibility.
@@ -123,8 +162,14 @@ type PartnerServiceServer interface {
 	// Partner User management
 	CreatePartnerUser(context.Context, *CreatePartnerUserRequest) (*PartnerUserResponse, error)
 	UpdatePartnerUser(context.Context, *UpdatePartnerUserRequest) (*PartnerUserResponse, error)
-	// NEW: Bulk delete partner users
+	// Bulk delete partner users
 	DeletePartnerUsers(context.Context, *DeletePartnerUsersRequest) (*DeletePartnerUsersResponse, error)
+	// Fetch partners (optionally filtered by IDs)
+	GetPartners(context.Context, *GetPartnersRequest) (*GetPartnersResponse, error)
+	// Fetch users under a specific partner
+	GetPartnerUsers(context.Context, *GetPartnerUsersRequest) (*GetPartnerUsersResponse, error)
+	// NEW: Fetch partners who provide a specific service
+	GetPartnersByService(context.Context, *GetPartnersByServiceRequest) (*GetPartnersResponse, error)
 	mustEmbedUnimplementedPartnerServiceServer()
 }
 
@@ -152,6 +197,15 @@ func (UnimplementedPartnerServiceServer) UpdatePartnerUser(context.Context, *Upd
 }
 func (UnimplementedPartnerServiceServer) DeletePartnerUsers(context.Context, *DeletePartnerUsersRequest) (*DeletePartnerUsersResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeletePartnerUsers not implemented")
+}
+func (UnimplementedPartnerServiceServer) GetPartners(context.Context, *GetPartnersRequest) (*GetPartnersResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetPartners not implemented")
+}
+func (UnimplementedPartnerServiceServer) GetPartnerUsers(context.Context, *GetPartnerUsersRequest) (*GetPartnerUsersResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetPartnerUsers not implemented")
+}
+func (UnimplementedPartnerServiceServer) GetPartnersByService(context.Context, *GetPartnersByServiceRequest) (*GetPartnersResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetPartnersByService not implemented")
 }
 func (UnimplementedPartnerServiceServer) mustEmbedUnimplementedPartnerServiceServer() {}
 func (UnimplementedPartnerServiceServer) testEmbeddedByValue()                        {}
@@ -282,6 +336,60 @@ func _PartnerService_DeletePartnerUsers_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PartnerService_GetPartners_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetPartnersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PartnerServiceServer).GetPartners(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PartnerService_GetPartners_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PartnerServiceServer).GetPartners(ctx, req.(*GetPartnersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PartnerService_GetPartnerUsers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetPartnerUsersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PartnerServiceServer).GetPartnerUsers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PartnerService_GetPartnerUsers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PartnerServiceServer).GetPartnerUsers(ctx, req.(*GetPartnerUsersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PartnerService_GetPartnersByService_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetPartnersByServiceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PartnerServiceServer).GetPartnersByService(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PartnerService_GetPartnersByService_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PartnerServiceServer).GetPartnersByService(ctx, req.(*GetPartnersByServiceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // PartnerService_ServiceDesc is the grpc.ServiceDesc for PartnerService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -312,6 +420,18 @@ var PartnerService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeletePartnerUsers",
 			Handler:    _PartnerService_DeletePartnerUsers_Handler,
+		},
+		{
+			MethodName: "GetPartners",
+			Handler:    _PartnerService_GetPartners_Handler,
+		},
+		{
+			MethodName: "GetPartnerUsers",
+			Handler:    _PartnerService_GetPartnerUsers_Handler,
+		},
+		{
+			MethodName: "GetPartnersByService",
+			Handler:    _PartnerService_GetPartnersByService_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

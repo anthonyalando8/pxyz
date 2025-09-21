@@ -70,7 +70,7 @@ func (l *ledgerRepo) ApplyTransaction(
 		}
 
 		// Ensure account exists (use tx)
-		account, err := l.accountRepo.GetByIDTx(ctx, p.AccountID, tx)
+		account, err := l.accountRepo.GetByAccountNumberTx(ctx, p.AccountData.AccountNumber, tx)
 		if err != nil {
 			return nil, err
 		}

@@ -141,15 +141,18 @@ func (h *AccountingGRPCHandler) PostTransaction(
 	}
 	defer tx.Rollback(ctx)
     // Convert proto entries to domain postings
-    var entries []*domain.Posting
-    for _, e := range req.Entries {
-        entries = append(entries, &domain.Posting{
-            AccountID: e.AccountId,
-            DrCr:      e.DrCr.String(),
-            Amount:    e.Amount,
-            Currency:  e.Currency,
-        })
-    }
+   var entries []*domain.Posting
+	for _, e := range req.Entries {
+		entries = append(entries, &domain.Posting{
+			AccountID: e.AccountId,
+			DrCr:      e.DrCr.String(),
+			Amount:    e.Amount,
+			Currency:  e.Currency,
+			AccountData: &domain.Account{
+				AccountNumber: e.AccountNumber,
+			},
+		})
+	}
 
     // Create a domain Journal from proto request
     journal := &domain.Journal{
@@ -171,7 +174,7 @@ func (h *AccountingGRPCHandler) PostTransaction(
 	}
 
     return &accountingpb.CreateTransactionResponse{
-        JournalId: ledger.Journal.ID,
+        ExternalRef: ledger.Journal.ExternalRef,
     }, nil
 }
 
@@ -185,7 +188,7 @@ func (h *AccountingGRPCHandler) GetAccountStatement(
     req *accountingpb.AccountStatementRequest,
 ) (*accountingpb.AccountStatement, error) {
 
-    stmt, err := h.statementUC.GetAccountStatement(ctx, req.AccountId, req.From.AsTime(), req.To.AsTime())
+    stmt, err := h.statementUC.GetAccountStatement(ctx, req.AccountNumber, req.From.AsTime(), req.To.AsTime())
     if err != nil {
         return nil, err
     }
@@ -211,6 +214,7 @@ func (h *AccountingGRPCHandler) GetAccountStatement(
 
     return &accountingpb.AccountStatement{
         AccountId: stmt.AccountID,
+		AccountNumber: stmt.AccountNumber,
         Postings:  pbs,
         Balance:   stmt.Balance,
     }, nil
@@ -252,6 +256,7 @@ func (h *AccountingGRPCHandler) GetOwnerStatement(req *accountingpb.OwnerStateme
 
 		if err := stream.Send(&accountingpb.AccountStatement{
 			AccountId: stmt.AccountID,
+			AccountNumber: stmt.AccountNumber,
 			Postings:  pbs,
 			Balance:   stmt.Balance,
 		}); err != nil {

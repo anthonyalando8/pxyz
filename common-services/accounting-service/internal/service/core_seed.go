@@ -54,6 +54,8 @@ func (s *SystemSeeder) SeedSystem(ctx context.Context) error {
 		}
 	}()
 
+	now := time.Now()
+
 	// Seed common currencies
 	if errs := s.fxService.FetchCommonCurrencies(ctx, tx); len(errs) > 0 {
 		for _, e := range errs {
@@ -68,7 +70,7 @@ func (s *SystemSeeder) SeedSystem(ctx context.Context) error {
 		}
 	}
 
-	// Create system account
+	// --- Create system account ---
 	systemAccount := &domain.Account{
 		OwnerType:   "system",
 		OwnerID:     "SYSTEM",
@@ -76,16 +78,21 @@ func (s *SystemSeeder) SeedSystem(ctx context.Context) error {
 		Purpose:     "wallet",
 		AccountType: "real",
 		IsActive:    true,
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
 	}
 
 	errMap := s.accountUC.CreateAccounts(ctx, []*domain.Account{systemAccount}, tx)
 	if err, exists := errMap[0]; exists {
 		return fmt.Errorf("failed to create system account: %w", err)
 	}
+	if systemAccount.ID == 0 {
+		return fmt.Errorf("system account ID not set after creation")
+	}
+	// Assign unique account number if not already set
+	if systemAccount.AccountNumber == "" {
+		systemAccount.AccountNumber = fmt.Sprintf("WL-%d", systemAccount.ID)
+	}
 
-	// Create seed capital account
+	// --- Create seed capital account ---
 	seedCapitalAccount := &domain.Account{
 		OwnerType:   "system",
 		OwnerID:     "SEED_CAPITAL",
@@ -93,29 +100,53 @@ func (s *SystemSeeder) SeedSystem(ctx context.Context) error {
 		Purpose:     "wallet",
 		AccountType: "real",
 		IsActive:    true,
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
 	}
 
+
 	errMap = s.accountUC.CreateAccounts(ctx, []*domain.Account{seedCapitalAccount}, tx)
+	log.Printf("➡️ Before: seedCapitalAccount.AccountNumber=%q", seedCapitalAccount.AccountNumber)
+
 	if err, exists := errMap[0]; exists {
 		return fmt.Errorf("failed to create seed capital account: %w", err)
 	}
 
-	// Post initial credit transaction only if accounts have 0 balance
-	balance, err := s.statementUC.GetAccountBalance(ctx, systemAccount.ID)
+	// Ensure ID and AccountNumber are set
+	if seedCapitalAccount.ID == 0 {
+		return fmt.Errorf("seed capital account ID not set after creation")
+	}
+	if seedCapitalAccount.AccountNumber == "" {
+		seedCapitalAccount.AccountNumber = fmt.Sprintf("WL-%d", seedCapitalAccount.ID)
+	}
 
+	log.Printf("✅ After: seedCapitalAccount.ID=%d, AccountNumber=%q", seedCapitalAccount.ID, seedCapitalAccount.AccountNumber)
+
+
+	// --- Seed initial balance only if system account balance is zero ---
+	balance, err := s.statementUC.GetAccountBalance(ctx, systemAccount.AccountNumber)
 	if err != nil || balance == 0 {
 		log.Println("💰 System account has 0 balance, seeding initial capital...")
 
 		postings := []*domain.Posting{
-			{AccountID: systemAccount.ID, DrCr: "CR", Amount: 10_000_000, Currency: "USD"},
-			{AccountID: seedCapitalAccount.ID, DrCr: "DR", Amount: 10_000_000, Currency: "USD"},
+			{
+				AccountID: systemAccount.ID,
+				DrCr:      "CR",
+				Amount:    10_000_000,
+				Currency:  "USD",
+				AccountData: systemAccount,
+			},
+			{
+				AccountID: seedCapitalAccount.ID,
+				DrCr:      "DR",
+				Amount:    10_000_000,
+				Currency:  "USD",
+				AccountData: seedCapitalAccount,
+			},
 		}
 
 		journal := &domain.Journal{
 			Description:   "Initial seed funding",
 			CreatedByType: "system",
+			CreatedAt:     now,
 		}
 
 		if _, err := s.ledgerUC.CreateTransactionMulti(ctx, journal, postings, tx); err != nil {

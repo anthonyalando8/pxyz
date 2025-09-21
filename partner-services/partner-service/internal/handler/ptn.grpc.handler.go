@@ -67,6 +67,8 @@ func (h *GRPCPartnerHandler) CreatePartner(
 		ContactEmail: req.ContactEmail,
 		ContactPhone: req.ContactPhone,
 		Status:       domain.PartnerStatusActive,
+		Service:      req.Service,   // new field from proto
+		Currency:     req.Currency,  // new field from proto
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
@@ -112,7 +114,6 @@ func (h *GRPCPartnerHandler) CreatePartner(
 		log.Printf("[INFO] Default partner admin created + email sent for partner=%s", p.ID)
 	}(partner, password)
 
-
 	// --- 6. Create default account in Accounting service (async) ---
 	go func() {
 		ctxBg, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -123,9 +124,9 @@ func (h *GRPCPartnerHandler) CreatePartner(
 				{
 					OwnerType:   accountingpb.OwnerType_PARTNER,
 					OwnerId:     partner.ID,
-					Currency:    "USD",
-					Purpose:     "wallet",     // you can adjust purpose if needed
-					AccountType: "real",     // or "demo" if applicable
+					Currency:    partner.Currency, // use partner's currency
+					Purpose:     "wallet",
+					AccountType: "real", // or "demo" if applicable
 					IsActive:    true,
 				},
 			},
@@ -301,3 +302,80 @@ func (h *GRPCPartnerHandler) DeletePartnerUsers(
     }, nil
 }
 
+
+// GetPartners handles fetching partners (optionally filtered by IDs)
+func (h *GRPCPartnerHandler) GetPartners(
+	ctx context.Context,
+	req *partnersvcpb.GetPartnersRequest,
+) (*partnersvcpb.GetPartnersResponse, error) {
+	partnerIDs := req.GetPartnerIds() // slice of IDs; may be empty
+
+	partners, err := h.uc.GetPartners(ctx, partnerIDs)
+	if err != nil {
+		log.Printf("[ERROR] GetPartners failed: %v", err)
+		return nil, status.Errorf(codes.Internal, "failed to fetch partners")
+	}
+
+	// Convert domain partners to proto
+	protoPartners := make([]*partnersvcpb.Partner, 0, len(partners))
+	for _, p := range partners {
+		protoPartners = append(protoPartners, p.ToProto())
+	}
+
+	return &partnersvcpb.GetPartnersResponse{
+		Partners: protoPartners,
+	}, nil
+}
+
+// // GetPartnerUsers handles fetching all users under a specific partner
+// func (h *GRPCPartnerHandler) GetPartnerUsers(
+// 	ctx context.Context,
+// 	req *partnersvcpb.GetPartnerUsersRequest,
+// ) (*partnersvcpb.GetPartnerUsersResponse, error) {
+// 	partnerID := req.GetPartnerId()
+// 	if partnerID == "" {
+// 		return nil, status.Errorf(codes.InvalidArgument, "partner_id is required")
+// 	}
+
+// 	users, err := h.uc.GetPartnerUsers(ctx, partnerID)
+// 	if err != nil {
+// 		log.Printf("[ERROR] GetPartnerUsers failed for partner=%s: %v", partnerID, err)
+// 		return nil, status.Errorf(codes.Internal, "failed to fetch partner users")
+// 	}
+
+// 	// Convert domain users to proto
+// 	protoUsers := make([]*partnersvcpb.PartnerUser, 0, len(users))
+// 	for _, u := range users {
+// 		protoUsers = append(protoUsers, u.ToProto())
+// 	}
+
+// 	return &partnersvcpb.GetPartnerUsersResponse{
+// 		Users: protoUsers,
+// 	}, nil
+// }
+
+
+func (h *GRPCPartnerHandler) GetPartnersByService(
+	ctx context.Context,
+	req *partnersvcpb.GetPartnersByServiceRequest,
+) (*partnersvcpb.GetPartnersResponse, error) {
+	service := req.GetService()
+	if service == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "service is required")
+	}
+
+	partners, err := h.uc.GetPartnersByService(ctx, service)
+	if err != nil {
+		log.Printf("[ERROR] GetPartnersByService failed for service=%s: %v", service, err)
+		return nil, status.Errorf(codes.Internal, "failed to fetch partners by service")
+	}
+
+	protoPartners := make([]*partnersvcpb.Partner, 0, len(partners))
+	for _, p := range partners {
+		protoPartners = append(protoPartners, p.ToProto())
+	}
+
+	return &partnersvcpb.GetPartnersResponse{
+		Partners: protoPartners,
+	}, nil
+}

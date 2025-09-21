@@ -31,8 +31,10 @@ type Partner struct {
 	ContactEmail  string                 `protobuf:"bytes,4,opt,name=contact_email,json=contactEmail,proto3" json:"contact_email,omitempty"`
 	ContactPhone  string                 `protobuf:"bytes,5,opt,name=contact_phone,json=contactPhone,proto3" json:"contact_phone,omitempty"`
 	Status        string                 `protobuf:"bytes,6,opt,name=status,proto3" json:"status,omitempty"`
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	Service       string                 `protobuf:"bytes,7,opt,name=service,proto3" json:"service,omitempty"`   // e.g., type of service the partner offers
+	Currency      string                 `protobuf:"bytes,8,opt,name=currency,proto3" json:"currency,omitempty"` // default currency for the partner
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -105,6 +107,20 @@ func (x *Partner) GetContactPhone() string {
 func (x *Partner) GetStatus() string {
 	if x != nil {
 		return x.Status
+	}
+	return ""
+}
+
+func (x *Partner) GetService() string {
+	if x != nil {
+		return x.Service
+	}
+	return ""
+}
+
+func (x *Partner) GetCurrency() string {
+	if x != nil {
+		return x.Currency
 	}
 	return ""
 }
@@ -246,6 +262,8 @@ type CreatePartnerRequest struct {
 	Country       string                 `protobuf:"bytes,2,opt,name=country,proto3" json:"country,omitempty"`
 	ContactEmail  string                 `protobuf:"bytes,3,opt,name=contact_email,json=contactEmail,proto3" json:"contact_email,omitempty"`
 	ContactPhone  string                 `protobuf:"bytes,4,opt,name=contact_phone,json=contactPhone,proto3" json:"contact_phone,omitempty"`
+	Service       string                 `protobuf:"bytes,5,opt,name=service,proto3" json:"service,omitempty"`
+	Currency      string                 `protobuf:"bytes,6,opt,name=currency,proto3" json:"currency,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -308,6 +326,20 @@ func (x *CreatePartnerRequest) GetContactPhone() string {
 	return ""
 }
 
+func (x *CreatePartnerRequest) GetService() string {
+	if x != nil {
+		return x.Service
+	}
+	return ""
+}
+
+func (x *CreatePartnerRequest) GetCurrency() string {
+	if x != nil {
+		return x.Currency
+	}
+	return ""
+}
+
 type UpdatePartnerRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -316,6 +348,8 @@ type UpdatePartnerRequest struct {
 	ContactEmail  string                 `protobuf:"bytes,4,opt,name=contact_email,json=contactEmail,proto3" json:"contact_email,omitempty"`
 	ContactPhone  string                 `protobuf:"bytes,5,opt,name=contact_phone,json=contactPhone,proto3" json:"contact_phone,omitempty"`
 	Status        string                 `protobuf:"bytes,6,opt,name=status,proto3" json:"status,omitempty"`
+	Service       string                 `protobuf:"bytes,7,opt,name=service,proto3" json:"service,omitempty"`
+	Currency      string                 `protobuf:"bytes,8,opt,name=currency,proto3" json:"currency,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -388,6 +422,20 @@ func (x *UpdatePartnerRequest) GetContactPhone() string {
 func (x *UpdatePartnerRequest) GetStatus() string {
 	if x != nil {
 		return x.Status
+	}
+	return ""
+}
+
+func (x *UpdatePartnerRequest) GetService() string {
+	if x != nil {
+		return x.Service
+	}
+	return ""
+}
+
+func (x *UpdatePartnerRequest) GetCurrency() string {
+	if x != nil {
+		return x.Currency
 	}
 	return ""
 }
@@ -798,7 +846,6 @@ func (x *DeletePartnerUsersRequest) GetUserIds() []string {
 	return nil
 }
 
-// Bulk delete partner users
 type DeletePartnerUsersResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	DeletedIds    []string               `protobuf:"bytes,1,rep,name=deleted_ids,json=deletedIds,proto3" json:"deleted_ids,omitempty"`    // which ones succeeded
@@ -851,11 +898,10 @@ func (x *DeletePartnerUsersResponse) GetFailedUsers() []*FailedUserDeletion {
 	return nil
 }
 
-// Each failed deletion
 type FailedUserDeletion struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	Reason        string                 `protobuf:"bytes,2,opt,name=reason,proto3" json:"reason,omitempty"` // e.g., "user not found", "cannot delete partner_admin", etc.
+	Reason        string                 `protobuf:"bytes,2,opt,name=reason,proto3" json:"reason,omitempty"` // e.g., "user not found", "cannot delete partner_admin"
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -904,22 +950,248 @@ func (x *FailedUserDeletion) GetReason() string {
 	return ""
 }
 
+// Fetch partners
+type GetPartnersRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PartnerIds    []string               `protobuf:"bytes,1,rep,name=partner_ids,json=partnerIds,proto3" json:"partner_ids,omitempty"` // optional filter; if empty, returns all
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetPartnersRequest) Reset() {
+	*x = GetPartnersRequest{}
+	mi := &file_proto_partner_svc_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPartnersRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPartnersRequest) ProtoMessage() {}
+
+func (x *GetPartnersRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_partner_svc_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPartnersRequest.ProtoReflect.Descriptor instead.
+func (*GetPartnersRequest) Descriptor() ([]byte, []int) {
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *GetPartnersRequest) GetPartnerIds() []string {
+	if x != nil {
+		return x.PartnerIds
+	}
+	return nil
+}
+
+type GetPartnersResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Partners      []*Partner             `protobuf:"bytes,1,rep,name=partners,proto3" json:"partners,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetPartnersResponse) Reset() {
+	*x = GetPartnersResponse{}
+	mi := &file_proto_partner_svc_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPartnersResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPartnersResponse) ProtoMessage() {}
+
+func (x *GetPartnersResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_partner_svc_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPartnersResponse.ProtoReflect.Descriptor instead.
+func (*GetPartnersResponse) Descriptor() ([]byte, []int) {
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *GetPartnersResponse) GetPartners() []*Partner {
+	if x != nil {
+		return x.Partners
+	}
+	return nil
+}
+
+// Fetch partner users
+type GetPartnerUsersRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PartnerId     string                 `protobuf:"bytes,1,opt,name=partner_id,json=partnerId,proto3" json:"partner_id,omitempty"` // required
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetPartnerUsersRequest) Reset() {
+	*x = GetPartnerUsersRequest{}
+	mi := &file_proto_partner_svc_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPartnerUsersRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPartnerUsersRequest) ProtoMessage() {}
+
+func (x *GetPartnerUsersRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_partner_svc_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPartnerUsersRequest.ProtoReflect.Descriptor instead.
+func (*GetPartnerUsersRequest) Descriptor() ([]byte, []int) {
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *GetPartnerUsersRequest) GetPartnerId() string {
+	if x != nil {
+		return x.PartnerId
+	}
+	return ""
+}
+
+type GetPartnerUsersResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Users         []*PartnerUser         `protobuf:"bytes,1,rep,name=users,proto3" json:"users,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetPartnerUsersResponse) Reset() {
+	*x = GetPartnerUsersResponse{}
+	mi := &file_proto_partner_svc_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPartnerUsersResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPartnerUsersResponse) ProtoMessage() {}
+
+func (x *GetPartnerUsersResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_partner_svc_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPartnerUsersResponse.ProtoReflect.Descriptor instead.
+func (*GetPartnerUsersResponse) Descriptor() ([]byte, []int) {
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *GetPartnerUsersResponse) GetUsers() []*PartnerUser {
+	if x != nil {
+		return x.Users
+	}
+	return nil
+}
+
+// Fetch partners by service
+type GetPartnersByServiceRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Service       string                 `protobuf:"bytes,1,opt,name=service,proto3" json:"service,omitempty"` // required
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetPartnersByServiceRequest) Reset() {
+	*x = GetPartnersByServiceRequest{}
+	mi := &file_proto_partner_svc_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPartnersByServiceRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPartnersByServiceRequest) ProtoMessage() {}
+
+func (x *GetPartnersByServiceRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_partner_svc_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPartnersByServiceRequest.ProtoReflect.Descriptor instead.
+func (*GetPartnersByServiceRequest) Descriptor() ([]byte, []int) {
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *GetPartnersByServiceRequest) GetService() string {
+	if x != nil {
+		return x.Service
+	}
+	return ""
+}
+
 var File_proto_partner_svc_proto protoreflect.FileDescriptor
 
 const file_proto_partner_svc_proto_rawDesc = "" +
 	"\n" +
-	"\x17proto/partner/svc.proto\x12\vpartner.svc\x1a\x1fgoogle/protobuf/timestamp.proto\"\x9f\x02\n" +
+	"\x17proto/partner/svc.proto\x12\vpartner.svc\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd5\x02\n" +
 	"\aPartner\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
 	"\acountry\x18\x03 \x01(\tR\acountry\x12#\n" +
 	"\rcontact_email\x18\x04 \x01(\tR\fcontactEmail\x12#\n" +
 	"\rcontact_phone\x18\x05 \x01(\tR\fcontactPhone\x12\x16\n" +
-	"\x06status\x18\x06 \x01(\tR\x06status\x129\n" +
+	"\x06status\x18\x06 \x01(\tR\x06status\x12\x18\n" +
+	"\aservice\x18\a \x01(\tR\aservice\x12\x1a\n" +
+	"\bcurrency\x18\b \x01(\tR\bcurrency\x129\n" +
 	"\n" +
-	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"created_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xd5\x02\n" +
+	"updated_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xd5\x02\n" +
 	"\vPartnerUser\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
@@ -935,19 +1207,23 @@ const file_proto_partner_svc_proto_rawDesc = "" +
 	"created_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
 	"updated_at\x18\n" +
-	" \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\x8e\x01\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xc4\x01\n" +
 	"\x14CreatePartnerRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
 	"\acountry\x18\x02 \x01(\tR\acountry\x12#\n" +
 	"\rcontact_email\x18\x03 \x01(\tR\fcontactEmail\x12#\n" +
-	"\rcontact_phone\x18\x04 \x01(\tR\fcontactPhone\"\xb6\x01\n" +
+	"\rcontact_phone\x18\x04 \x01(\tR\fcontactPhone\x12\x18\n" +
+	"\aservice\x18\x05 \x01(\tR\aservice\x12\x1a\n" +
+	"\bcurrency\x18\x06 \x01(\tR\bcurrency\"\xec\x01\n" +
 	"\x14UpdatePartnerRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
 	"\acountry\x18\x03 \x01(\tR\acountry\x12#\n" +
 	"\rcontact_email\x18\x04 \x01(\tR\fcontactEmail\x12#\n" +
 	"\rcontact_phone\x18\x05 \x01(\tR\fcontactPhone\x12\x16\n" +
-	"\x06status\x18\x06 \x01(\tR\x06status\"&\n" +
+	"\x06status\x18\x06 \x01(\tR\x06status\x12\x18\n" +
+	"\aservice\x18\a \x01(\tR\aservice\x12\x1a\n" +
+	"\bcurrency\x18\b \x01(\tR\bcurrency\"&\n" +
 	"\x14DeletePartnerRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"A\n" +
 	"\x0fPartnerResponse\x12.\n" +
@@ -984,14 +1260,29 @@ const file_proto_partner_svc_proto_rawDesc = "" +
 	"\ffailed_users\x18\x02 \x03(\v2\x1f.partner.svc.FailedUserDeletionR\vfailedUsers\"E\n" +
 	"\x12FailedUserDeletion\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x16\n" +
-	"\x06reason\x18\x02 \x01(\tR\x06reason2\xaf\x04\n" +
+	"\x06reason\x18\x02 \x01(\tR\x06reason\"5\n" +
+	"\x12GetPartnersRequest\x12\x1f\n" +
+	"\vpartner_ids\x18\x01 \x03(\tR\n" +
+	"partnerIds\"G\n" +
+	"\x13GetPartnersResponse\x120\n" +
+	"\bpartners\x18\x01 \x03(\v2\x14.partner.svc.PartnerR\bpartners\"7\n" +
+	"\x16GetPartnerUsersRequest\x12\x1d\n" +
+	"\n" +
+	"partner_id\x18\x01 \x01(\tR\tpartnerId\"I\n" +
+	"\x17GetPartnerUsersResponse\x12.\n" +
+	"\x05users\x18\x01 \x03(\v2\x18.partner.svc.PartnerUserR\x05users\"7\n" +
+	"\x1bGetPartnersByServiceRequest\x12\x18\n" +
+	"\aservice\x18\x01 \x01(\tR\aservice2\xc3\x06\n" +
 	"\x0ePartnerService\x12P\n" +
 	"\rCreatePartner\x12!.partner.svc.CreatePartnerRequest\x1a\x1c.partner.svc.PartnerResponse\x12P\n" +
 	"\rUpdatePartner\x12!.partner.svc.UpdatePartnerRequest\x1a\x1c.partner.svc.PartnerResponse\x12V\n" +
 	"\rDeletePartner\x12!.partner.svc.DeletePartnerRequest\x1a\".partner.svc.DeletePartnerResponse\x12\\\n" +
 	"\x11CreatePartnerUser\x12%.partner.svc.CreatePartnerUserRequest\x1a .partner.svc.PartnerUserResponse\x12\\\n" +
 	"\x11UpdatePartnerUser\x12%.partner.svc.UpdatePartnerUserRequest\x1a .partner.svc.PartnerUserResponse\x12e\n" +
-	"\x12DeletePartnerUsers\x12&.partner.svc.DeletePartnerUsersRequest\x1a'.partner.svc.DeletePartnerUsersResponseB%Z#genproto/partner/svcpb;partnersvcpbb\x06proto3"
+	"\x12DeletePartnerUsers\x12&.partner.svc.DeletePartnerUsersRequest\x1a'.partner.svc.DeletePartnerUsersResponse\x12P\n" +
+	"\vGetPartners\x12\x1f.partner.svc.GetPartnersRequest\x1a .partner.svc.GetPartnersResponse\x12\\\n" +
+	"\x0fGetPartnerUsers\x12#.partner.svc.GetPartnerUsersRequest\x1a$.partner.svc.GetPartnerUsersResponse\x12b\n" +
+	"\x14GetPartnersByService\x12(.partner.svc.GetPartnersByServiceRequest\x1a .partner.svc.GetPartnersResponseB%Z#genproto/partner/svcpb;partnersvcpbb\x06proto3"
 
 var (
 	file_proto_partner_svc_proto_rawDescOnce sync.Once
@@ -1005,48 +1296,61 @@ func file_proto_partner_svc_proto_rawDescGZIP() []byte {
 	return file_proto_partner_svc_proto_rawDescData
 }
 
-var file_proto_partner_svc_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_proto_partner_svc_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_proto_partner_svc_proto_goTypes = []any{
-	(*Partner)(nil),                    // 0: partner.svc.Partner
-	(*PartnerUser)(nil),                // 1: partner.svc.PartnerUser
-	(*CreatePartnerRequest)(nil),       // 2: partner.svc.CreatePartnerRequest
-	(*UpdatePartnerRequest)(nil),       // 3: partner.svc.UpdatePartnerRequest
-	(*DeletePartnerRequest)(nil),       // 4: partner.svc.DeletePartnerRequest
-	(*PartnerResponse)(nil),            // 5: partner.svc.PartnerResponse
-	(*DeletePartnerResponse)(nil),      // 6: partner.svc.DeletePartnerResponse
-	(*CreatePartnerUserRequest)(nil),   // 7: partner.svc.CreatePartnerUserRequest
-	(*UpdatePartnerUserRequest)(nil),   // 8: partner.svc.UpdatePartnerUserRequest
-	(*PartnerUserResponse)(nil),        // 9: partner.svc.PartnerUserResponse
-	(*DeletePartnerUsersRequest)(nil),  // 10: partner.svc.DeletePartnerUsersRequest
-	(*DeletePartnerUsersResponse)(nil), // 11: partner.svc.DeletePartnerUsersResponse
-	(*FailedUserDeletion)(nil),         // 12: partner.svc.FailedUserDeletion
-	(*timestamppb.Timestamp)(nil),      // 13: google.protobuf.Timestamp
+	(*Partner)(nil),                     // 0: partner.svc.Partner
+	(*PartnerUser)(nil),                 // 1: partner.svc.PartnerUser
+	(*CreatePartnerRequest)(nil),        // 2: partner.svc.CreatePartnerRequest
+	(*UpdatePartnerRequest)(nil),        // 3: partner.svc.UpdatePartnerRequest
+	(*DeletePartnerRequest)(nil),        // 4: partner.svc.DeletePartnerRequest
+	(*PartnerResponse)(nil),             // 5: partner.svc.PartnerResponse
+	(*DeletePartnerResponse)(nil),       // 6: partner.svc.DeletePartnerResponse
+	(*CreatePartnerUserRequest)(nil),    // 7: partner.svc.CreatePartnerUserRequest
+	(*UpdatePartnerUserRequest)(nil),    // 8: partner.svc.UpdatePartnerUserRequest
+	(*PartnerUserResponse)(nil),         // 9: partner.svc.PartnerUserResponse
+	(*DeletePartnerUsersRequest)(nil),   // 10: partner.svc.DeletePartnerUsersRequest
+	(*DeletePartnerUsersResponse)(nil),  // 11: partner.svc.DeletePartnerUsersResponse
+	(*FailedUserDeletion)(nil),          // 12: partner.svc.FailedUserDeletion
+	(*GetPartnersRequest)(nil),          // 13: partner.svc.GetPartnersRequest
+	(*GetPartnersResponse)(nil),         // 14: partner.svc.GetPartnersResponse
+	(*GetPartnerUsersRequest)(nil),      // 15: partner.svc.GetPartnerUsersRequest
+	(*GetPartnerUsersResponse)(nil),     // 16: partner.svc.GetPartnerUsersResponse
+	(*GetPartnersByServiceRequest)(nil), // 17: partner.svc.GetPartnersByServiceRequest
+	(*timestamppb.Timestamp)(nil),       // 18: google.protobuf.Timestamp
 }
 var file_proto_partner_svc_proto_depIdxs = []int32{
-	13, // 0: partner.svc.Partner.created_at:type_name -> google.protobuf.Timestamp
-	13, // 1: partner.svc.Partner.updated_at:type_name -> google.protobuf.Timestamp
-	13, // 2: partner.svc.PartnerUser.created_at:type_name -> google.protobuf.Timestamp
-	13, // 3: partner.svc.PartnerUser.updated_at:type_name -> google.protobuf.Timestamp
+	18, // 0: partner.svc.Partner.created_at:type_name -> google.protobuf.Timestamp
+	18, // 1: partner.svc.Partner.updated_at:type_name -> google.protobuf.Timestamp
+	18, // 2: partner.svc.PartnerUser.created_at:type_name -> google.protobuf.Timestamp
+	18, // 3: partner.svc.PartnerUser.updated_at:type_name -> google.protobuf.Timestamp
 	0,  // 4: partner.svc.PartnerResponse.partner:type_name -> partner.svc.Partner
 	1,  // 5: partner.svc.PartnerUserResponse.user:type_name -> partner.svc.PartnerUser
 	12, // 6: partner.svc.DeletePartnerUsersResponse.failed_users:type_name -> partner.svc.FailedUserDeletion
-	2,  // 7: partner.svc.PartnerService.CreatePartner:input_type -> partner.svc.CreatePartnerRequest
-	3,  // 8: partner.svc.PartnerService.UpdatePartner:input_type -> partner.svc.UpdatePartnerRequest
-	4,  // 9: partner.svc.PartnerService.DeletePartner:input_type -> partner.svc.DeletePartnerRequest
-	7,  // 10: partner.svc.PartnerService.CreatePartnerUser:input_type -> partner.svc.CreatePartnerUserRequest
-	8,  // 11: partner.svc.PartnerService.UpdatePartnerUser:input_type -> partner.svc.UpdatePartnerUserRequest
-	10, // 12: partner.svc.PartnerService.DeletePartnerUsers:input_type -> partner.svc.DeletePartnerUsersRequest
-	5,  // 13: partner.svc.PartnerService.CreatePartner:output_type -> partner.svc.PartnerResponse
-	5,  // 14: partner.svc.PartnerService.UpdatePartner:output_type -> partner.svc.PartnerResponse
-	6,  // 15: partner.svc.PartnerService.DeletePartner:output_type -> partner.svc.DeletePartnerResponse
-	9,  // 16: partner.svc.PartnerService.CreatePartnerUser:output_type -> partner.svc.PartnerUserResponse
-	9,  // 17: partner.svc.PartnerService.UpdatePartnerUser:output_type -> partner.svc.PartnerUserResponse
-	11, // 18: partner.svc.PartnerService.DeletePartnerUsers:output_type -> partner.svc.DeletePartnerUsersResponse
-	13, // [13:19] is the sub-list for method output_type
-	7,  // [7:13] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
+	0,  // 7: partner.svc.GetPartnersResponse.partners:type_name -> partner.svc.Partner
+	1,  // 8: partner.svc.GetPartnerUsersResponse.users:type_name -> partner.svc.PartnerUser
+	2,  // 9: partner.svc.PartnerService.CreatePartner:input_type -> partner.svc.CreatePartnerRequest
+	3,  // 10: partner.svc.PartnerService.UpdatePartner:input_type -> partner.svc.UpdatePartnerRequest
+	4,  // 11: partner.svc.PartnerService.DeletePartner:input_type -> partner.svc.DeletePartnerRequest
+	7,  // 12: partner.svc.PartnerService.CreatePartnerUser:input_type -> partner.svc.CreatePartnerUserRequest
+	8,  // 13: partner.svc.PartnerService.UpdatePartnerUser:input_type -> partner.svc.UpdatePartnerUserRequest
+	10, // 14: partner.svc.PartnerService.DeletePartnerUsers:input_type -> partner.svc.DeletePartnerUsersRequest
+	13, // 15: partner.svc.PartnerService.GetPartners:input_type -> partner.svc.GetPartnersRequest
+	15, // 16: partner.svc.PartnerService.GetPartnerUsers:input_type -> partner.svc.GetPartnerUsersRequest
+	17, // 17: partner.svc.PartnerService.GetPartnersByService:input_type -> partner.svc.GetPartnersByServiceRequest
+	5,  // 18: partner.svc.PartnerService.CreatePartner:output_type -> partner.svc.PartnerResponse
+	5,  // 19: partner.svc.PartnerService.UpdatePartner:output_type -> partner.svc.PartnerResponse
+	6,  // 20: partner.svc.PartnerService.DeletePartner:output_type -> partner.svc.DeletePartnerResponse
+	9,  // 21: partner.svc.PartnerService.CreatePartnerUser:output_type -> partner.svc.PartnerUserResponse
+	9,  // 22: partner.svc.PartnerService.UpdatePartnerUser:output_type -> partner.svc.PartnerUserResponse
+	11, // 23: partner.svc.PartnerService.DeletePartnerUsers:output_type -> partner.svc.DeletePartnerUsersResponse
+	14, // 24: partner.svc.PartnerService.GetPartners:output_type -> partner.svc.GetPartnersResponse
+	16, // 25: partner.svc.PartnerService.GetPartnerUsers:output_type -> partner.svc.GetPartnerUsersResponse
+	14, // 26: partner.svc.PartnerService.GetPartnersByService:output_type -> partner.svc.GetPartnersResponse
+	18, // [18:27] is the sub-list for method output_type
+	9,  // [9:18] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_proto_partner_svc_proto_init() }
@@ -1060,7 +1364,7 @@ func file_proto_partner_svc_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_partner_svc_proto_rawDesc), len(file_proto_partner_svc_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   13,
+			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
