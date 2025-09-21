@@ -64,12 +64,12 @@ func (uc *ReceiptUsecase) CreateReceipt(ctx context.Context, rec *domain.Receipt
 	return rec, nil
 }
 
-func (uc *ReceiptUsecase) sendReceiptNotification(ctx context.Context, rec *domain.Receipt) {
+func (uc *ReceiptUsecase) sendReceiptNotification(_ context.Context, rec *domain.Receipt) {
 	if uc.notificationClient == nil {
 		return
 	}
 
-	send := func(ownerType, ownerID, name, email, phone string, channels []string, party domain.PartyInfo) {
+	send := func(ownerType, ownerID, name, email, phone, codedType string, channels []string, party domain.PartyInfo) {
 		if len(channels) == 0 {
 			return
 		}
@@ -102,7 +102,7 @@ func (uc *ReceiptUsecase) sendReceiptNotification(ctx context.Context, rec *doma
 					RequestId:      uuid.New().String(),
 					OwnerType:      ownerType,
 					OwnerId:        ownerID,
-					EventType:      rec.CodedType,
+					EventType:      codedType,
 					Title:          fmt.Sprintf("New Receipt %s", rec.Code),
 					Body:           fmt.Sprintf("You have a new receipt %s of %.2f %s", rec.Code, rec.Amount, rec.Currency),
 					ChannelHint:    append(channels, "ws"),
@@ -136,7 +136,12 @@ func (uc *ReceiptUsecase) sendReceiptNotification(ctx context.Context, rec *doma
 	if user.Phone != "" {
 		channels = append(channels, "sms")
 	}
-	send(user.Type, user.ID, user.Name, user.Email, user.Phone, channels, user)
+	// Determine event type for user
+	userCodedType := "ACCOUNT_DEBITED"
+	if user.ID == rec.Creditor.ID {
+		userCodedType = "ACCOUNT_CREDITED"
+	}
+	send(user.Type, user.ID, user.Name, user.Email, user.Phone, userCodedType, channels, user)
 
 	// Notify partner only if he is creditor and debitor is system
 	if rec.Creditor.Type == "partner" && rec.Debitor.Type == "system" {
@@ -147,6 +152,8 @@ func (uc *ReceiptUsecase) sendReceiptNotification(ctx context.Context, rec *doma
 		if rec.Creditor.Phone != "" {
 			channels = append(channels, "sms")
 		}
-		send("partner", rec.Creditor.ID, rec.Creditor.Name, rec.Creditor.Email, rec.Creditor.Phone, channels, rec.Creditor)
+		// Partner is creditor → codedType = ACCOUNT_CREDITED
+		send("partner", rec.Creditor.ID, rec.Creditor.Name, rec.Creditor.Email, rec.Creditor.Phone, "ACCOUNT_CREDITED", channels, rec.Creditor)
 	}
+
 }

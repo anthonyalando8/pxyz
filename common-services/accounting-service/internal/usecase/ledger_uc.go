@@ -46,121 +46,201 @@ func (uc *LedgerUsecase) BeginTx(ctx context.Context) (pgx.Tx, error) {
 // CreateTransactionMulti handles a transaction with multiple postings
 // Example: user deposit → credit user wallet + debit partner liquidity + fee
 func (uc *LedgerUsecase) CreateTransactionMulti(
-    ctx context.Context,
-    journal *domain.Journal,
-    postings []*domain.Posting,
+	ctx context.Context,
+	journal *domain.Journal,
+	postings []*domain.Posting,
 	tx pgx.Tx,
-) (journalID int64, err error) {
+) (*domain.Ledger, error) {
 
-    if len(postings) == 0 {
-        return 0, errors.New("no postings provided")
-    }
+	if len(postings) == 0 {
+		return nil, errors.New("no postings provided")
+	}
 
-    // Validate postings
-    for _, p := range postings {
-        if p.DrCr != "DR" && p.DrCr != "CR" {
-            return 0, fmt.Errorf("invalid DR/CR for account %d", p.AccountID)
-        }
-        if p.Amount <= 0 {
-            return 0, fmt.Errorf("amount must be positive for account %d", p.AccountID)
-        }
-        if p.Currency == "" {
-            return 0, fmt.Errorf("currency required for account %d", p.AccountID)
-        }
-    }
+	// Validate postings
+	for _, p := range postings {
+		if p.DrCr != "DR" && p.DrCr != "CR" {
+			return nil, fmt.Errorf("invalid DR/CR for account %d", p.AccountID)
+		}
+		if p.Amount <= 0 {
+			return nil, fmt.Errorf("amount must be positive for account %d", p.AccountID)
+		}
+		if p.Currency == "" {
+			return nil, fmt.Errorf("currency required for account %d", p.AccountID)
+		}
+	}
 
-    // Set journal defaults if needed
-    if journal.IdempotencyKey == "" {
-        journal.IdempotencyKey = uc.sf.Generate()
-    }
-    if journal.ExternalRef == "" {
-        journal.ExternalRef = fmt.Sprintf("TX-%d", time.Now().UnixNano())
-    }
-    if journal.CreatedAt.IsZero() {
-        journal.CreatedAt = time.Now()
-    }
+	// Set journal defaults if needed
+	if journal.IdempotencyKey == "" {
+		journal.IdempotencyKey = uc.sf.Generate()
+	}
+	if journal.ExternalRef == "" {
+		journal.ExternalRef = fmt.Sprintf("TX-%d", time.Now().UnixNano())
+	}
+	if journal.CreatedAt.IsZero() {
+		journal.CreatedAt = time.Now()
+	}
 
-    journalID, err = uc.ledgerRepo.ApplyTransaction(ctx, journal, postings, tx)
-    if err != nil {
-        return 0, fmt.Errorf("failed to apply multi-posting transaction: %w", err)
-    }
+	// Apply transaction and get full ledger
+	ledger, err := uc.ledgerRepo.ApplyTransaction(ctx, journal, postings, tx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to apply multi-posting transaction: %w", err)
+	}
 
-    return journalID, nil
+	// Trigger receipt creation in background
+	uc.createReceiptBackground(ctx, journal.ID, postings)
+
+	return ledger, nil
 }
 
 
-func (uc *LedgerUsecase) createReceiptBackground(ctx context.Context, journalID int64, postings []*domain.Posting) {
-	if uc.receiptClient == nil || len(postings) == 0 {
+func (uc *LedgerUsecase) createReceiptBackground(_ context.Context, journalID int64, postings []*domain.Posting) {
+	if uc.receiptClient == nil || len(postings) != 2 {
 		return
 	}
 
 	go func() {
+		bgCtx := context.Background() // detached
+		var creditor, debitor *domain.Posting
 		for _, p := range postings {
-			// Determine creditor and debitor based on DR/CR
-			var creditorID, debitorID string
-			var creditorType, debitorType string
-
-			if p.DrCr == "CR" {
-				// CR → account receives money → creditor
-				creditorID = fmt.Sprint(p.AccountID)
-				creditorType = "user" // default, can fetch actual type if needed
-				debitorID = fmt.Sprint(0)
-				debitorType = "system"
-			} else {
-				// DR → account pays money → debitor
-				debitorID = fmt.Sprint(p.AccountID)
-				debitorType = "user"
-				creditorID = fmt.Sprint(0)
-				creditorType = "system"
+			switch p.DrCr {
+			case "CR":
+				creditor = p
+			case "DR":
+				debitor = p
 			}
+		}
 
-			// Fetch profiles for creditor
-			credEmail, credPhone, credFirst, _, resolvedCredType, err := uc.fetchProfile(ctx, creditorType, creditorID)
-			if err != nil {
-				credEmail, credPhone, credFirst, resolvedCredType = "", "", "", creditorType
-			}
+		if creditor == nil || debitor == nil {
+			fmt.Println("[WARN] invalid postings: missing DR or CR")
+			return
+		}
 
-			// Fetch profiles for debitor
-			debEmail, debPhone, debFirst, _, resolvedDebType, err := uc.fetchProfile(ctx, debitorType, debitorID)
-			if err != nil {
-				debEmail, debPhone, debFirst, resolvedDebType = "", "", "", debitorType
+		resolveProfile := func(p *domain.Posting) (email, phone, name, ownerType string) {
+			if p.AccountData != nil {
+				if p.AccountData.OwnerType == "system" {
+					return "", "", p.AccountData.OwnerID, "system"
+				}
+				e, ph, nm, _, ot, err := uc.fetchProfile(bgCtx, p.AccountData.OwnerType, fmt.Sprint(p.AccountData.OwnerID))
+				if err != nil {
+					return "", "", p.AccountData.OwnerID, p.AccountData.OwnerType
+				}
+				return e, ph, nm, ot
 			}
+			return "", "", "", "user"
+		}
 
-			req := &receiptpb.CreateReceiptRequest{
-				JournalId:    journalID,
-				AccountId:    p.AccountID,
-				Type:         p.DrCr,
-				Amount:       p.Amount,
-				Currency:     p.Currency,
-				CodedType:    "transaction", // optional, default
-				ExternalRef:  "",            // optional, default
-				Creditor: &receiptpb.PartyInfo{
-					Id:            creditorID,
-					Type:          resolvedCredType,
-					Name:          credFirst,
-					Phone:         credPhone,
-					Email:         credEmail,
-					AccountNumber: "",
-					IsCreditor:    true,
-				},
-				Debitor: &receiptpb.PartyInfo{
-					Id:            debitorID,
-					Type:          resolvedDebType,
-					Name:          debFirst,
-					Phone:         debPhone,
-					Email:         debEmail,
-					AccountNumber: "",
-					IsCreditor:    false,
-				},
-			}
+		credEmail, credPhone, credName, credType := resolveProfile(creditor)
+		debEmail, debPhone, debName, debType := resolveProfile(debitor)
 
-			// Call receipt service
-			_, err = uc.receiptClient.Client.CreateReceipt(ctx, req)
-			if err != nil {
-				fmt.Printf("[WARN] failed to create receipt for posting %d: %v\n", p.ID, err)
-			}
+		req := &receiptpb.CreateReceiptRequest{
+			JournalId:   journalID,
+			AccountId:   creditor.AccountID,
+			Type:        creditor.DrCr,
+			Amount:      creditor.Amount,
+			Currency:    creditor.Currency,
+			CodedType:   "transaction",
+			ExternalRef: "",
+			Creditor: &receiptpb.PartyInfo{
+				Id:            fmt.Sprint(creditor.AccountID),
+				Type:          credType,
+				Name:          credName,
+				Phone:         credPhone,
+				Email:         credEmail,
+				AccountNumber: "",
+				IsCreditor:    true,
+			},
+			Debitor: &receiptpb.PartyInfo{
+				Id:            fmt.Sprint(debitor.AccountID),
+				Type:          debType,
+				Name:          debName,
+				Phone:         debPhone,
+				Email:         debEmail,
+				AccountNumber: "",
+				IsCreditor:    false,
+			},
+		}
+
+		_, err := uc.receiptClient.Client.CreateReceipt(bgCtx, req)
+		if err != nil {
+			fmt.Printf("[WARN] failed to create receipt for journal %d: %v\n", journalID, err)
 		}
 	}()
 }
 
+
+
+
+func (uc *LedgerUsecase) fetchProfile(ctx context.Context, ownerType, ownerID string) (email, phone, firstName, lastName string, resolvedOwnerType string, err error) {
+	if uc.authClient == nil {
+		return "", "", "", "", "", fmt.Errorf("auth client not initialized")
+	}
+
+	type result struct {
+		email, phone, firstName, lastName, ownerType string
+		ok                                           bool
+	}
+
+	tryFetch := func(clientType string) result {
+		switch clientType {
+		case "user":
+			if uc.authClient.UserClient == nil {
+				return result{}
+			}
+			resp, e := uc.authClient.UserClient.GetUserProfile(ctx, &authpb.GetUserProfileRequest{UserId: ownerID})
+			if e != nil || resp == nil || !resp.Ok || resp.User == nil {
+				return result{}
+			}
+			return result{resp.User.Email, resp.User.Phone, resp.User.FirstName, resp.User.LastName, "user", true}
+
+		case "partner":
+			if uc.authClient.PartnerClient == nil {
+				return result{}
+			}
+			resp, e := uc.authClient.PartnerClient.GetUserProfile(ctx, &patnerauthpb.GetUserProfileRequest{UserId: ownerID})
+			if e != nil || resp == nil || !resp.Ok || resp.User == nil {
+				return result{}
+			}
+			return result{resp.User.Email, resp.User.Phone, resp.User.FirstName, resp.User.LastName, "partner", true}
+
+		case "admin":
+			if uc.authClient.AdminClient == nil {
+				return result{}
+			}
+			resp, e := uc.authClient.AdminClient.GetUserProfile(ctx, &adminauthpb.GetUserProfileRequest{UserId: ownerID})
+			if e != nil || resp == nil || !resp.Ok || resp.User == nil {
+				return result{}
+			}
+			return result{resp.User.Email, resp.User.Phone, resp.User.FirstName, resp.User.LastName, "admin", true}
+		}
+		return result{}
+	}
+
+	// If ownerType is known, fetch directly
+	if ownerType != "" {
+		res := tryFetch(ownerType)
+		if !res.ok {
+			return "", "", "", "", "", fmt.Errorf("failed to fetch profile for type: %s", ownerType)
+		}
+		return res.email, res.phone, res.firstName, res.lastName, res.ownerType, nil
+	}
+
+	// ownerType unknown → concurrent fetch
+	types := []string{"user", "partner", "admin"}
+	ch := make(chan result, len(types))
+
+	for _, t := range types {
+		go func(t string) {
+			ch <- tryFetch(t)
+		}(t)
+	}
+
+	for i := 0; i < len(types); i++ {
+		res := <-ch
+		if res.ok {
+			return res.email, res.phone, res.firstName, res.lastName, res.ownerType, nil
+		}
+	}
+
+	return "", "", "", "", "", fmt.Errorf("profile not found for ownerID: %s", ownerID)
+}
 

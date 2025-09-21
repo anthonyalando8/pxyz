@@ -161,7 +161,7 @@ func (h *AccountingGRPCHandler) PostTransaction(
     }
 
     // Call usecase
-    journalID, err := h.ledgerUC.CreateTransactionMulti(ctx, journal, entries, tx)
+    ledger, err := h.ledgerUC.CreateTransactionMulti(ctx, journal, entries, tx)
     if err != nil {
         return nil, err
     }
@@ -171,7 +171,7 @@ func (h *AccountingGRPCHandler) PostTransaction(
 	}
 
     return &accountingpb.CreateTransactionResponse{
-        JournalId: journalID,
+        JournalId: ledger.Journal.ID,
     }, nil
 }
 

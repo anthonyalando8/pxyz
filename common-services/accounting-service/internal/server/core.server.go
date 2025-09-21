@@ -13,6 +13,9 @@ import (
 	"accounting-service/internal/usecase"
 	"accounting-service/internal/service"
 	accountingpb "x/shared/genproto/shared/accounting/accountingpb"
+	authclient "x/shared/auth"
+	receiptclient "x/shared/common/receipt"
+
 	"x/shared/utils/id"
 
 	"github.com/redis/go-redis/v9"
@@ -39,6 +42,11 @@ func NewAccountingGRPCServer(cfg config.AppConfig) {
 		DB:       0,
 	})
 
+	authClient, err := authclient.DialAuthService(authclient.AllAuthServices)
+	if err != nil {
+        log.Fatalf("failed to dial auth service: %v", err)
+    }
+	receiptCli := receiptclient.NewReceiptClient()
 	// --- Repositories ---
 	accountRepo := repository.NewAccountRepo(dbpool)
 	journalRepo := repository.NewJournalRepo(dbpool)
@@ -50,7 +58,7 @@ func NewAccountingGRPCServer(cfg config.AppConfig) {
 
 	// --- Usecases ---
 	accountUC := usecase.NewAccountUsecase(accountRepo)
-	ledgerUC := usecase.NewLedgerUsecase(ledgerRepo, sf)
+	ledgerUC := usecase.NewLedgerUsecase(ledgerRepo, sf, authClient, receiptCli)
 	statementUC := usecase.NewStatementUsecase(statementRepo)
 
 	// --- Services ---

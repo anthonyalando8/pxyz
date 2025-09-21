@@ -13,7 +13,7 @@ import (
 
 type LedgerRepository interface {
 	// ApplyTransaction: journal + postings + balance update in one atomic tx
-	ApplyTransaction(ctx context.Context, journal *domain.Journal, postings []*domain.Posting, tx pgx.Tx) (int64, error)
+	ApplyTransaction(ctx context.Context, journal *domain.Journal, postings []*domain.Posting, tx pgx.Tx) (*domain.Ledger, error)
 	BeginTx(ctx context.Context) (pgx.Tx, error)
 }
 
@@ -34,67 +34,81 @@ func (r *ledgerRepo) BeginTx(ctx context.Context) (pgx.Tx, error) {
 }
 // ApplyTransaction implements LedgerRepository.
 func (l *ledgerRepo) ApplyTransaction(
-    ctx context.Context,
-    journal *domain.Journal,
-    postings []*domain.Posting,
-    tx pgx.Tx,
-) (int64, error) {
-    var ownTx bool
+	ctx context.Context,
+	journal *domain.Journal,
+	postings []*domain.Posting,
+	tx pgx.Tx,
+) (*domain.Ledger, error) {
+	var ownTx bool
+	var err error
 
-    if tx == nil {
-        var err error
-        tx, err = l.db.BeginTx(ctx, pgx.TxOptions{})
-        if err != nil {
-            return 0, err
-        }
-        ownTx = true
-        defer func() {
-            if err != nil {
-                tx.Rollback(ctx)
-            }
-        }()
-    }
+	if tx == nil {
+		tx, err = l.db.BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			return nil, err
+		}
+		ownTx = true
+		defer func() {
+			if err != nil {
+				tx.Rollback(ctx)
+			}
+		}()
+	}
 
-    // Create Journal
-    if err := l.journalRepo.Create(ctx, journal, tx); err != nil {
-        return 0, err
-    }
+	// Create Journal
+	if err := l.journalRepo.Create(ctx, journal, tx); err != nil {
+		return nil, err
+	}
 
-    for _, p := range postings {
-        if p.DrCr != "DR" && p.DrCr != "CR" {
-            return 0, errors.New("invalid DR/CR value")
-        }
-        if p.Amount <= 0 {
-            return 0, errors.New("posting amount must be positive")
-        }
+	// Process postings
+	for _, p := range postings {
+		if p.DrCr != "DR" && p.DrCr != "CR" {
+			return nil, errors.New("invalid DR/CR value")
+		}
+		if p.Amount <= 0 {
+			return nil, errors.New("posting amount must be positive")
+		}
 
-        // Ensure account exists (must also use tx!)
-        account, err := l.accountRepo.GetByIDTx(ctx, p.AccountID, tx)
-        if err != nil {
-            return 0, err
-        }
+		// Ensure account exists (use tx)
+		account, err := l.accountRepo.GetByIDTx(ctx, p.AccountID, tx)
+		if err != nil {
+			return nil, err
+		}
+
 		p.JournalID = journal.ID
-		
-        if p.Currency == "" {
-            p.Currency = account.Currency
-        }
 
-        if err = l.postingRepo.Create(ctx, p, tx); err != nil {
-            return 0, err
-        }
-        if err = l.balanceRepo.UpdateBalance(ctx, p.AccountID, p.DrCr, p.Amount, tx); err != nil {
-            return 0, err
-        }
-    }
+		if p.Currency == "" {
+			p.Currency = account.Currency
+		}
 
-    if ownTx {
-        if err := tx.Commit(ctx); err != nil {
-            return 0, err
-        }
-    }
+		// Save posting
+		if err := l.postingRepo.Create(ctx, p, tx); err != nil {
+			return nil, err
+		}
 
-    return journal.ID, nil
+		// Update balances
+		if err := l.balanceRepo.UpdateBalance(ctx, p.AccountID, p.DrCr, p.Amount, tx); err != nil {
+			return nil, err
+		}
+
+		// Attach account data to posting
+		p.AccountData = account
+	}
+
+	if ownTx {
+		if err := tx.Commit(ctx); err != nil {
+			return nil, err
+		}
+	}
+
+	ledger := &domain.Ledger{
+		Journal:  journal,
+		Postings: postings,
+	}
+
+	return ledger, nil
 }
+
 
 
 func NewLedgerRepo(

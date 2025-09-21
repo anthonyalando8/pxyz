@@ -12,4 +12,6 @@ type Posting struct {
     Currency  string    `json:"currency"`
     ReceiptID *int64    `json:"receipt_id,omitempty"` // optional link to receipt
     CreatedAt time.Time `json:"created_at"`
+
+	AccountData *Account `json:"account,omitempty"`
 }
