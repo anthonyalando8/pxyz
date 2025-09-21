@@ -525,14 +525,15 @@ func (x *TransactionEntry) GetCurrency() string {
 }
 
 type CreateTransactionRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ExternalRef   string                 `protobuf:"bytes,1,opt,name=external_ref,json=externalRef,proto3" json:"external_ref,omitempty"`
-	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
-	CreatedByType OwnerType              `protobuf:"varint,3,opt,name=created_by_type,json=createdByType,proto3,enum=accounting.OwnerType" json:"created_by_type,omitempty"`
-	CreatedByUser int64                  `protobuf:"varint,4,opt,name=created_by_user,json=createdByUser,proto3" json:"created_by_user,omitempty"`
-	Entries       []*TransactionEntry    `protobuf:"bytes,5,rep,name=entries,proto3" json:"entries,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	ExternalRef     string                 `protobuf:"bytes,1,opt,name=external_ref,json=externalRef,proto3" json:"external_ref,omitempty"`
+	Description     string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	CreatedByType   OwnerType              `protobuf:"varint,3,opt,name=created_by_type,json=createdByType,proto3,enum=accounting.OwnerType" json:"created_by_type,omitempty"`
+	CreatedByUser   int64                  `protobuf:"varint,4,opt,name=created_by_user,json=createdByUser,proto3" json:"created_by_user,omitempty"`
+	Entries         []*TransactionEntry    `protobuf:"bytes,5,rep,name=entries,proto3" json:"entries,omitempty"`
+	DepositCurrency string                 `protobuf:"bytes,6,opt,name=deposit_currency,json=depositCurrency,proto3" json:"deposit_currency,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *CreateTransactionRequest) Reset() {
@@ -598,6 +599,13 @@ func (x *CreateTransactionRequest) GetEntries() []*TransactionEntry {
 		return x.Entries
 	}
 	return nil
+}
+
+func (x *CreateTransactionRequest) GetDepositCurrency() string {
+	if x != nil {
+		return x.DepositCurrency
+	}
+	return ""
 }
 
 type CreateTransactionResponse struct {
@@ -1194,13 +1202,14 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\x0eaccount_number\x18\x02 \x01(\tR\raccountNumber\x12%\n" +
 	"\x05dr_cr\x18\x03 \x01(\x0e2\x10.accounting.DrCrR\x04drCr\x12\x16\n" +
 	"\x06amount\x18\x04 \x01(\x01R\x06amount\x12\x1a\n" +
-	"\bcurrency\x18\x05 \x01(\tR\bcurrency\"\xfe\x01\n" +
+	"\bcurrency\x18\x05 \x01(\tR\bcurrency\"\xa9\x02\n" +
 	"\x18CreateTransactionRequest\x12!\n" +
 	"\fexternal_ref\x18\x01 \x01(\tR\vexternalRef\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12=\n" +
 	"\x0fcreated_by_type\x18\x03 \x01(\x0e2\x15.accounting.OwnerTypeR\rcreatedByType\x12&\n" +
 	"\x0fcreated_by_user\x18\x04 \x01(\x03R\rcreatedByUser\x126\n" +
-	"\aentries\x18\x05 \x03(\v2\x1c.accounting.TransactionEntryR\aentries\"=\n" +
+	"\aentries\x18\x05 \x03(\v2\x1c.accounting.TransactionEntryR\aentries\x12)\n" +
+	"\x10deposit_currency\x18\x06 \x01(\tR\x0fdepositCurrency\"=\n" +
 	"\x19CreateTransactionResponse\x12 \n" +
 	"\vexternalRef\x18\x01 \x01(\tR\vexternalRef\"\x9c\x01\n" +
 	"\x17AccountStatementRequest\x12%\n" +

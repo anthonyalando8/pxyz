@@ -112,6 +112,7 @@ func (h *AccountingGRPCHandler) GetUserAccounts(ctx context.Context, req *accoun
 	for _, a := range accounts {
 		resp.Accounts = append(resp.Accounts, &accountingpb.Account{
 			Id:          a.ID,
+			AccountNumber: a.AccountNumber,
 			OwnerType:   req.OwnerType,
 			OwnerId:     a.OwnerID,
 			Currency:    a.Currency,
@@ -162,9 +163,13 @@ func (h *AccountingGRPCHandler) PostTransaction(
         CreatedByType: strings.ToLower(req.CreatedByType.String()),
         CreatedAt:     time.Now(),
     }
+	fxCurrency := "USD"
 
+	if req.DepositCurrency != ""{
+		fxCurrency = req.DepositCurrency
+	}
     // Call usecase
-    ledger, err := h.ledgerUC.CreateTransactionMulti(ctx, journal, entries, tx)
+    ledger, err := h.ledgerUC.CreateTransactionMulti(ctx, fxCurrency, journal, entries, tx)
     if err != nil {
         return nil, err
     }

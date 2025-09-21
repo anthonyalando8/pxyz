@@ -76,6 +76,7 @@ func (l *ledgerRepo) ApplyTransaction(
 		}
 
 		p.JournalID = journal.ID
+		p.AccountID = account.ID
 
 		if p.Currency == "" {
 			p.Currency = account.Currency

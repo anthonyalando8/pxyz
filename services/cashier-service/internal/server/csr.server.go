@@ -10,6 +10,9 @@ import (
 	"cashier-service/internal/provider/mpesa"
 	"cashier-service/internal/router"
 	mpesausecase "cashier-service/internal/usecase/mpesa"
+	partnerclient "x/shared/partner"
+	accountingclient "x/shared/common/accounting"
+	notificationclient "x/shared/notification"
 
 	"x/shared/auth/middleware"
 	"x/shared/utils/id"
@@ -40,6 +43,10 @@ func NewServer(cfg config.AppConfig) *http.Server {
 		DB:       0,
 	})
 
+	partnerSvc := partnerclient.NewPartnerService()
+	accountingClient := accountingclient.NewAccountingClient()
+	notificationCli := notificationclient.NewNotificationService() // ✅ create notification client
+
 	// --- Init Payment Providers ---
 	mpesaClient := mpesa.NewMpesaClient(
 		cfg.MpesaBaseURL,
@@ -58,7 +65,7 @@ func NewServer(cfg config.AppConfig) *http.Server {
 	auth := middleware.RequireAuth()
 
 	// --- Handlers ---
-	paymentHandler := handler.NewPaymentHandler(paymentUC)
+	paymentHandler := handler.NewPaymentHandler(paymentUC, partnerSvc, accountingClient,notificationCli,)
 
 	// --- Router ---
 	r := chi.NewRouter()

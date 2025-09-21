@@ -7,16 +7,39 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+    partnerclient "x/shared/partner"
+	accountingclient "x/shared/common/accounting"
 
 	"x/shared/response"
+
+    notificationclient "x/shared/notification"
+
+	// notificationpb "x/shared/genproto/shared/notificationpb"
+
+	// "github.com/google/uuid"
+	// "google.golang.org/protobuf/types/known/structpb"
 )
 
 type PaymentHandler struct {
     uc *mpesausecase.PaymentUsecase
+    partnerClient    *partnerclient.PartnerService
+	accountingClient *accountingclient.AccountingClient
+    notificationClient *notificationclient.NotificationService
 }
 
-func NewPaymentHandler(uc *mpesausecase.PaymentUsecase) *PaymentHandler {
-    return &PaymentHandler{uc: uc}
+func NewPaymentHandler(
+    uc *mpesausecase.PaymentUsecase,
+    partnerClient    *partnerclient.PartnerService,
+	accountingClient *accountingclient.AccountingClient,
+    notificationClient *notificationclient.NotificationService,
+
+) *PaymentHandler {
+    return &PaymentHandler{
+        uc: uc,
+        partnerClient:    partnerClient,
+		accountingClient: accountingClient,
+        notificationClient: notificationClient,
+    }
 }
 
 func (h *PaymentHandler) Deposit(w http.ResponseWriter, r *http.Request) {

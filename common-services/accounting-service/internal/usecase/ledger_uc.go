@@ -52,6 +52,7 @@ func (uc *LedgerUsecase) BeginTx(ctx context.Context) (pgx.Tx, error) {
 // Example: user deposit → credit user wallet + debit partner liquidity + fee
 func (uc *LedgerUsecase) CreateTransactionMulti(
 	ctx context.Context,
+	fxCurrency string,
 	journal *domain.Journal,
 	postings []*domain.Posting,
 	tx pgx.Tx,
@@ -72,6 +73,7 @@ func (uc *LedgerUsecase) CreateTransactionMulti(
 		if p.Currency == "" {
 			return nil, fmt.Errorf("currency required for account %s", p.AccountData.AccountNumber)
 		}
+		p.Amount = ConvertToUSD(fxCurrency, p.Amount)
 	}
 
 	// Set journal defaults if needed

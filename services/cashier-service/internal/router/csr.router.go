@@ -54,8 +54,9 @@ func SetupRoutes(
 		pr.Handle("/cashier/uploads/*", http.StripPrefix("/cashier/uploads/", http.FileServer(http.Dir(uploadDir))))
 
 		// Deposit & Withdraw (generic, provider decided in request body)
-		pr.Post("/cashier/deposit", h.Deposit)
-		pr.Post("/cashier/withdraw", h.Withdraw)
+		pr.Post("/cashier/deposit", h.DepositHandler)
+		pr.Post("/cashier/withdraw", h.WithdrawHandler)
+		pr.Post("/cashier/accounts/get", h.GetUserAccountsHandler)
 	})
 
 	return r

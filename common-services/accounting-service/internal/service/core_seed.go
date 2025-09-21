@@ -149,7 +149,7 @@ func (s *SystemSeeder) SeedSystem(ctx context.Context) error {
 			CreatedAt:     now,
 		}
 
-		if _, err := s.ledgerUC.CreateTransactionMulti(ctx, journal, postings, tx); err != nil {
+		if _, err := s.ledgerUC.CreateTransactionMulti(ctx, "USD", journal, postings, tx); err != nil {
 			return fmt.Errorf("failed to create initial seed transaction: %w", err)
 		}
 	} else {

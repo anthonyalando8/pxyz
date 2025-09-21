@@ -127,6 +127,7 @@ func (h *AdminHandler) PostTransaction(w http.ResponseWriter, r *http.Request) {
 		Description:    dto.Description,
 		CreatedByType:  accountingpb.OwnerType_ADMIN, // Adjust based on auth context
 		CreatedByUser:  requestedUserIDInt,
+		DepositCurrency: "USD",
 		Entries: []*accountingpb.TransactionEntry{
 			{
 				AccountNumber: dto.From,

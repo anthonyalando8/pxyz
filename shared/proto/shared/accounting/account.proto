@@ -73,6 +73,7 @@ message CreateTransactionRequest {
     OwnerType created_by_type = 3;
     int64 created_by_user = 4;
     repeated TransactionEntry entries = 5;
+    string deposit_currency = 6;
 }
 
 message CreateTransactionResponse {
