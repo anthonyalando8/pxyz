@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	stdimage "image"
 	"log"
@@ -13,6 +14,7 @@ import (
 	"x/shared/auth/middleware"
 	accountclient "x/shared/genproto/accountpb"
 	"x/shared/response"
+	xerrors "x/shared/utils/errors"
 	"x/shared/utils/image"
 
 	_ "image/gif" // register gif
@@ -493,3 +495,59 @@ func (h *AuthHandler) HandleUpdatePreferences(w http.ResponseWriter, r *http.Req
 	})
 }
 
+func (h *AuthHandler) HandleGetEmailVerificationStatus(w http.ResponseWriter, r *http.Request) {
+	// --- Extract user ID from context ---
+	userID, ok := r.Context().Value(middleware.ContextUserID).(string)
+	if !ok || userID == "" {
+		response.Error(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	ctx := r.Context()
+
+	// --- Call usecase ---
+	isVerified, err := h.uc.GetEmailVerificationStatus(ctx, userID)
+	if err != nil {
+		if errors.Is(err, xerrors.ErrNotFound) {
+			response.Error(w, http.StatusNotFound, "User not found")
+			return
+		}
+		log.Printf("GetEmailVerificationStatus failed for user %s: %v", userID, err)
+		response.Error(w, http.StatusInternalServerError, "Failed to fetch email verification status")
+		return
+	}
+
+	// --- Return response ---
+	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"email_verified": isVerified,
+	})
+}
+
+
+func (h *AuthHandler) HandleGetPhoneVerificationStatus(w http.ResponseWriter, r *http.Request) {
+	// --- Extract user ID from context ---
+	userID, ok := r.Context().Value(middleware.ContextUserID).(string)
+	if !ok || userID == "" {
+		response.Error(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	ctx := r.Context()
+
+	// --- Call usecase ---
+	isVerified, err := h.uc.GetPhoneVerificationStatus(ctx, userID)
+	if err != nil {
+		if errors.Is(err, xerrors.ErrNotFound) {
+			response.Error(w, http.StatusNotFound, "User not found")
+			return
+		}
+		log.Printf("GetPhoneVerificationStatus failed for user %s: %v", userID, err)
+		response.Error(w, http.StatusInternalServerError, "Failed to fetch phone verification status")
+		return
+	}
+
+	// --- Return response ---
+	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"phone_verified": isVerified,
+	})
+}

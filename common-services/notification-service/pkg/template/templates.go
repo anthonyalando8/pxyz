@@ -95,8 +95,3 @@ func (t *TemplateService) Render(channel, messageType string, data any) (string,
 	}
 }
 
-
-
-
-
-

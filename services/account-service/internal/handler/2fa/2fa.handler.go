@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"account-service/internal/service/2fa"
+	"x/shared/utils/notification"
 )
 
 type TwoFAHandler struct {
@@ -65,6 +66,7 @@ func (h *TwoFAHandler) EnableTwoFA(ctx context.Context, req *accountpb.EnableTwo
 	}, nil
 }
 
+
 // Helper to send notification
 func (h *TwoFAHandler) sendNotification(userID, eventType, recipientEmail, recipientPhone string, payload map[string]interface{}, channels []string) {
 	go func() {
@@ -79,7 +81,13 @@ func (h *TwoFAHandler) sendNotification(userID, eventType, recipientEmail, recip
 			Body: "Dear user you have a 2FA status update",
 			ChannelHint:    channels,
 			Payload: func() *structpb.Struct {
-				s, _ := structpb.NewStruct(payload)
+				fixed := utils.NormalizePayload(payload)
+				s, err := structpb.NewStruct(fixed)
+				if err != nil {
+					log.Printf("[2FA][Payload Conversion Failed] userID=%s err=%v payload=%+v", userID, err, fixed)
+					return nil
+				}
+				log.Printf("[2FA][Payload Submitted] userID=%s payload=%+v", userID, fixed)
 				return s
 			}(),
 			VisibleInApp:   true,
@@ -104,8 +112,6 @@ func (h *TwoFAHandler) sendNotification(userID, eventType, recipientEmail, recip
 		}
 	}()
 }
-
-
 
 // ---------- Get 2FA Status ----------
 func (h *TwoFAHandler) GetTwoFAStatus(ctx context.Context, req *accountpb.GetTwoFAStatusRequest) (*accountpb.GetTwoFAStatusResponse, error) {

@@ -3,9 +3,10 @@ package notifier
 import (
 	"context"
 	"log"
-	"time"
+	"notification-service/internal/domain"
 	"notification-service/pkg/notifier/ws"
 	"notification-service/pkg/template"
+	"time"
 
 	emailpb "x/shared/genproto/emailpb"
 	smswhatsapppb "x/shared/genproto/smswhatsapppb"
@@ -13,52 +14,6 @@ import (
 	emailclient "x/shared/email"
 	smsclient "x/shared/sms"
 )
-
-// NotificationType defines category of messages
-type NotificationType string
-
-const (
-	Info          NotificationType = "INFO"
-	Alert         NotificationType = "ALERT"
-	Transactional NotificationType = "TRANSACTIONAL"
-	Security      NotificationType = "SECURITY"
-
-	OTP           NotificationType = "OTP"
-	WELCOME		NotificationType = "WELCOME"
-	GENERAL NotificationType = "GENERAL"
-	EMAIL_UPDATE_OLD NotificationType = "EMAIL_UPDATE_OLD"
-	EMAIL_UPDATE_NEW NotificationType = "EMAIL_UPDATE_NEW"
-	PHONE_UPDATE NotificationType = "PHONE_UPDATE"
-	PASSWORD_UPDATE NotificationType = "PASSWORD_UPDATE"
-	TWOFA_ENABLED NotificationType = "2FA_ENABLED"
-	TWOFA_DISABLED NotificationType = "2FA_DISABLED"
-	TWOFA_BACKUP_CODE_REGN NotificationType = "2FA_BACKUP_CODE_REGN"
-	KYC_SUBMITTED NotificationType = "KYC_SUBMITTED"
-	KYC_REVIEWED NotificationType = "KYC_REVIEWED"
-	WELCOME_ADMIN NotificationType = "WELCOME_ADMIN"
-	PARTNER_USER_ADDED NotificationType = "PARTNER_USER_ADDED"
-	WELCOME_NEW_PARTNER_USER NotificationType = "WELCOME_NEW_PARTNER_USER"
-	PARTNER_CREATED NotificationType  = "PARTNER_CREATED"
-	ACCOUNT_CREDITED NotificationType = "ACCOUNT_CREDITED"
-	ACCOUNT_DEBITED NotificationType = "ACCOUNT_DEBITED"
-	TRANSACTION_FAILED NotificationType = "TRANSACTION_FAILED"
-)
-
-// Message represents a generic notification payload
-type Message struct {
-    OwnerID     string
-    OwnerType   string
-    Recipient   string                 // kept for backward-compatibility (primary recipient)
-    Recipients  map[string]string      // {"email": "...", "phone": "..."}
-    Title       string
-    Body        string
-    Metadata    map[string]interface{}
-    Channels    []string               // ["email", "sms", "ws"], if empty = all
-    Type        NotificationType
-    Data        any                    // used for template rendering
-    Ctx         context.Context        // allow cancellation/timeouts
-}
-
 
 // Notifier holds all channel clients and template service
 type Notifier struct {
@@ -79,9 +34,13 @@ func NewNotifier(email *emailclient.EmailClient, sms *smsclient.SMSClient, ws *w
 }
 
 // Notify sends a message to the requested channels
-func (n *Notifier) Notify(msg *Message) {
+func (n *Notifier) Notify(msg *domain.Message) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
+
+	// 🔍 Log full notification message context
+	log.Printf("[Notifier] Dispatching notification | OwnerType=%s | OwnerID=%s | Type=%s | Channels=%v | Data=%+v",
+		msg.OwnerType, msg.OwnerID, msg.Type, msg.Channels, msg.Data)
 
 	targets := msg.Channels
 	if len(targets) == 0 {
@@ -172,4 +131,5 @@ func (n *Notifier) Notify(msg *Message) {
 		}
 	}
 }
+
 

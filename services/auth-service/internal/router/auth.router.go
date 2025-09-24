@@ -118,6 +118,9 @@ func SetupRoutes(
 		pr.Get("/auth/phone/request-change", h.HandleRequestPhoneChange)
 		pr.Get("/auth/phone/request-verification", h.HandleRequestPhoneVerification)
 		pr.Get("/auth/email/request-verification", h.HandleRequestEmailVerification)
+		pr.Get("/auth/email/get-verification-status",h.HandleGetEmailVerificationStatus)
+		pr.Get("/auth/phone/get-verification-status", h.HandleGetPhoneVerificationStatus)
+
 
 		// Sessions
 		pr.Get("/auth/sessions", h.ListSessionsHandler(auth.Client))

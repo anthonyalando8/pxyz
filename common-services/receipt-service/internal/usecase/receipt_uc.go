@@ -83,17 +83,6 @@ func (uc *ReceiptUsecase) sendReceiptNotification(_ context.Context, rec *domain
 			"Date":            rec.CreatedAt.Format("2006-01-02"),
 			"Time":            rec.CreatedAt.Format("15:04:05"),
 			"ExternalRef":     rec.ExternalRef,
-			"Party": map[string]interface{}{
-				"ID":            party.ID,
-				"Type":          party.Type,
-				"Name":          party.Name,
-				"Phone":         party.Phone,
-				"Email":         party.Email,
-				"AccountNumber": party.AccountNumber,
-				"IsCreditor":    party.IsCreditor,
-			},
-			"Creditor": rec.Creditor,
-			"Debitor":  rec.Debitor,
 		}
 
 		go func() {

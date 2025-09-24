@@ -67,16 +67,6 @@ func (uc *UserUsecase) FindUserByIdentifier(ctx context.Context, identifier stri
 	return uc.userRepo.GetUserByIdentifier(ctx, identifier)
 }
 
-func (uc *UserUsecase) SetPendingEmail(ctx context.Context, userID, newEmail string) error {
-	// Set pending email in repository
-	return uc.userRepo.SetPendingEmail(ctx, userID, newEmail)
-}
-
-func (uc *UserUsecase) GetPendingEmail(ctx context.Context, userID string) (string, error) {
-	// Get pending email from repository
-	return uc.userRepo.GetAndClearPendingEmail(ctx, userID)
-}
-
 // DeleteUser deletes a user and all associated auth records.
 func (uc *UserUsecase) DeleteUser(ctx context.Context, userID string) error {
 	return uc.userRepo.DeleteUser(ctx, userID)

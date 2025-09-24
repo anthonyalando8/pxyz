@@ -102,7 +102,7 @@ func (uc *NotificationUsecase) CreateNotification(ctx context.Context, n *domain
 	}
 
 	// 3. Build notifier.Message
-	msg := &notifier.Message{
+	msg := &domain.Message{
 		OwnerID:    created.OwnerID,
 		OwnerType:  created.OwnerType,
 		Recipient:  recipient,
@@ -111,13 +111,13 @@ func (uc *NotificationUsecase) CreateNotification(ctx context.Context, n *domain
 		Body:       created.Body,
 		Metadata:   created.Metadata,
 		Channels:   created.ChannelHint,
-		Type:       notifier.NotificationType(created.EventType),
+		Type:       domain.NotificationType(created.EventType),
 		Data:       templateData,
 		Ctx:        ctx,
 	}
 
 	// 4. Dispatch asynchronously
-	go func(m *notifier.Message) {
+	go func(m *domain.Message) {
 		defer func() {
 			if r := recover(); r != nil {
 				log.Printf("⚠️ Panic recovered in notifier.Notify: %v", r)

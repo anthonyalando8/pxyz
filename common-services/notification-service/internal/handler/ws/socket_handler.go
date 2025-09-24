@@ -3,6 +3,7 @@ package wshandler
 import (
 	"net/http"
 	"time"
+	"log"
 
 	"github.com/gorilla/websocket"
 	"notification-service/pkg/notifier/ws"
@@ -28,14 +29,17 @@ var upgrader = websocket.Upgrader{
 
 // HandleNotifications upgrades HTTP -> WebSocket and registers connection
 func (h *WSHandler) HandleNotifications(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value(middleware.ContextUserID).(string)
-	userType := r.Context().Value(middleware.ContextUserType).(string)
+	userID, _ := r.Context().Value(middleware.ContextUserID).(string)
+	userType, _ := r.Context().Value(middleware.ContextUserType).(string)
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		http.Error(w, "upgrade failed", http.StatusBadRequest)
 		return
 	}
+
+	log.Printf("[NOTIFICATION][WS] userID=%s userType=%s", userID, userType)
+
 
 	c := h.manager.Add(userType, userID, conn)
 

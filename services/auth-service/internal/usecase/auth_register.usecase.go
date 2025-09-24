@@ -100,3 +100,19 @@ func (uc *UserUsecase) VerifyPhone(ctx context.Context, userID string) (bool, er
 	return true, nil
 }
 
+func (uc *UserUsecase) GetEmailVerificationStatus(ctx context.Context, userID string) (bool, error) {
+	isVerified, err := uc.userRepo.GetEmailVerificationStatus(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+	return isVerified, nil
+}
+
+func (uc *UserUsecase) GetPhoneVerificationStatus(ctx context.Context, userID string) (bool, error) {
+	isVerified, err := uc.userRepo.GetPhoneVerificationStatus(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+	return isVerified, nil
+}
+

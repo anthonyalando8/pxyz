@@ -2,10 +2,11 @@ package repository
 
 import (
 	"auth-service/internal/domain"
-	"x/shared/utils/errors"
 	"context"
 	"fmt"
+	"x/shared/utils/errors"
 
+	"github.com/jackc/pgx/v5"
 )
 
 func (r *UserRepository) CreateUser(ctx context.Context, user *domain.User) (*domain.User, error) {
@@ -121,6 +122,27 @@ func (r *UserRepository) VerifyEmail(ctx context.Context, userID string) error {
 	return nil
 }
 
+func (r *UserRepository) GetEmailVerificationStatus(ctx context.Context, userID string) (bool, error) {
+	query := `
+		SELECT is_email_verified
+		FROM users
+		WHERE id = $1
+		  AND account_status != 'deleted'
+	`
+
+	var isVerified bool
+	err := r.db.QueryRow(ctx, query, userID).Scan(&isVerified)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return false, xerrors.ErrNotFound
+		}
+		return false, fmt.Errorf("failed to fetch email verification status for user %s: %w", userID, err)
+	}
+
+	return isVerified, nil
+}
+
+
 // VerifyPhone sets is_phone_verified = TRUE for a given user
 // and updates signup_stage if appropriate
 func (r *UserRepository) VerifyPhone(ctx context.Context, userID string) error {
@@ -145,3 +167,24 @@ func (r *UserRepository) VerifyPhone(ctx context.Context, userID string) error {
 	}
 	return nil
 }
+
+func (r *UserRepository) GetPhoneVerificationStatus(ctx context.Context, userID string) (bool, error) {
+	query := `
+		SELECT is_phone_verified
+		FROM users
+		WHERE id = $1
+		  AND account_status != 'deleted'
+	`
+
+	var isVerified bool
+	err := r.db.QueryRow(ctx, query, userID).Scan(&isVerified)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return false, xerrors.ErrNotFound
+		}
+		return false, fmt.Errorf("failed to fetch phone verification status for user %s: %w", userID, err)
+	}
+
+	return isVerified, nil
+}
+

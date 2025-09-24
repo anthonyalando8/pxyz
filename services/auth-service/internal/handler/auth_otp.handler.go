@@ -228,14 +228,14 @@ func (h *AuthHandler) handleNextAction(
 		if err == nil && user != nil && user.Email != nil {
 			oldEmail = *user.Email
 		}
-		pendingEmail, err := h.uc.GetPendingEmail(ctx, userId)
-		if err != nil {
-			response.Error(w, http.StatusInternalServerError, "Failed to retrieve pending email")
-			return err
-		}
-		if pendingEmail == "" {
+		key := fmt.Sprintf("pending_email_change:%s", userId)
+		pendingEmail, err := h.redisClient.Get(ctx, key).Result()
+		if err == redis.Nil {
 			response.Error(w, http.StatusBadRequest, "No pending email change found")
 			return errors.New("no pending email change")
+		} else if err != nil {
+			response.Error(w, http.StatusInternalServerError, "Failed to retrieve pending email")
+			return err
 		}
 		if err := h.uc.ChangeEmail(ctx, userId, pendingEmail); err != nil {
 			response.Error(w, http.StatusInternalServerError, "Email change failed")

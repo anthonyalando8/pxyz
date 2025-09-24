@@ -2,6 +2,7 @@ package grpchandler
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"notification-service/internal/domain"
@@ -24,7 +25,27 @@ func NewNotificationGRPCHandler(uc *usecase.NotificationUsecase,) *NotificationH
 // ===== Critical Methods =====
 
 // CreateNotification is used by other services to post notifications
-func (h *NotificationHandler) CreateNotification(ctx context.Context, req *notificationpb.CreateNotificationRequest) (*notificationpb.NotificationResponse, error) {
+func (h *NotificationHandler) CreateNotification(
+	ctx context.Context,
+	req *notificationpb.CreateNotificationRequest,
+) (*notificationpb.NotificationResponse, error) {
+
+	// 🔍 Log raw payload before conversion
+	if req.GetNotification() != nil && req.GetNotification().Payload != nil {
+		log.Printf(
+			"[NotificationHandler] Received Payload | EventType=%s | OwnerID=%s | Payload=%+v",
+			req.GetNotification().EventType,
+			req.GetNotification().OwnerId,
+			req.GetNotification().Payload.AsMap(),
+		)
+	} else {
+		log.Printf(
+			"[NotificationHandler] Received Notification with empty payload | EventType=%s | OwnerID=%s",
+			req.GetNotification().EventType,
+			req.GetNotification().OwnerId,
+		)
+	}
+
 	n := pbToDomain(req.GetNotification())
 
 	created, err := h.uc.CreateNotification(ctx, n)

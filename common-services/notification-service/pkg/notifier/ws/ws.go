@@ -2,6 +2,7 @@ package ws
 
 import (
 	"log"
+	"notification-service/internal/domain"
 	"sync"
 	"time"
 
@@ -62,22 +63,31 @@ func (m *Manager) Remove(c *Connection) {
 }
 
 // Send sends a JSON message to all connections of a user
-func (m *Manager) Send(userType, userID string, message interface{}) {
-	userKey := makeUserKey(userType, userID)
+func (m *Manager) Send(userType, userID string, msg *domain.Message) {
+    userKey := makeUserKey(userType, userID)
 
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+    wsMsg := domain.WSMessage{
+        OwnerID:   msg.OwnerID,
+        OwnerType: msg.OwnerType,
+        Title:     msg.Title,
+        Body:      msg.Body,
+        Metadata:  msg.Metadata,
+        Data:      msg.Data,
+    }
 
-	if conns, ok := m.connections[userKey]; ok {
-		for c := range conns {
-			err := c.Conn.WriteJSON(message)
-			if err != nil {
-				log.Printf("⚠️ failed WS send to %s: %v", userKey, err)
-				go m.Remove(c)
-			}
-		}
-	}
+    m.mu.RLock()
+    defer m.mu.RUnlock()
+
+    if conns, ok := m.connections[userKey]; ok {
+        for c := range conns {
+            if err := c.Conn.WriteJSON(wsMsg); err != nil {
+                log.Printf("⚠️ failed WS send to %s: %v", userKey, err)
+                go m.Remove(c)
+            }
+        }
+    }
 }
+
 
 // Broadcast sends to all users
 func (m *Manager) Broadcast(message interface{}) {

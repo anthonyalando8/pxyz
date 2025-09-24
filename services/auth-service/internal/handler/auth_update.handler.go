@@ -5,11 +5,13 @@ import (
 	"auth-service/pkg/utils"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"time"
 	"x/shared/auth/middleware"
+	xerrors "x/shared/utils/errors"
 
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -184,16 +186,36 @@ func (h *AuthHandler) HandleChangeEmail(w http.ResponseWriter, r *http.Request) 
 		response.Error(w, http.StatusBadRequest, "Invalid email format")
 		return
 	}
+	ctx := r.Context()
 
-	// Step 1: Save pending email with expiry
-	if err := h.uc.SetPendingEmail(r.Context(), req.UserID, req.NewEmail); err != nil {
-		log.Printf("[HandleChangeEmail]  Failed to set pending email userID=%s, newEmail=%s, err=%v",
-			req.UserID, req.NewEmail, err,
-		)
-		response.Error(w, http.StatusInternalServerError, "Email change processing failed")
+	// --- Check if email already exists ---
+	existingUser, err := h.uc.FindUserByIdentifier(ctx, req.NewEmail)
+	if err == nil && existingUser != nil {
+		if existingUser.ID == requestedUserID {
+			response.Error(w, http.StatusBadRequest, "This email is already linked to your account")
+			return
+		}
+		response.Error(w, http.StatusConflict, "Email already in use by another account")
+		return
+	}
+	if err != nil && !errors.Is(err, xerrors.ErrUserNotFound) {
+		log.Printf("Failed to check email uniqueness for %s: %v", req.NewEmail, err)
+		response.Error(w, http.StatusInternalServerError, "Internal server error")
 		return
 	}
 
+	key := fmt.Sprintf("pending_email_change:%s", req.UserID)
+	err = h.redisClient.Set(
+		r.Context(),
+		key,
+		req.NewEmail,
+		15*time.Minute,
+	).Err()
+	if err != nil {
+		log.Printf("[HandleChangeEmail][Redis] Failed to save pending email for user=%s: %v", req.UserID, err)
+		response.Error(w, http.StatusInternalServerError, "Failed to process request")
+		return
+	}
 	// Step 2: Generate OTP asynchronously
 	go func(userID, newEmail string) {
 		otpResp, otpErr := h.otp.Client.GenerateOTP(
@@ -309,7 +331,7 @@ func (h *AuthHandler) HandleRequestPhoneChange(w http.ResponseWriter, r *http.Re
 	// --- Determine OTP target ---
 	var channel, recipient, masked string
 
-	if user.Phone != nil && *user.Phone != "" && user.IsPhoneVerified {
+	if user.Phone != nil && *user.Phone != ""/* && user.IsPhoneVerified */{
 		channel = "sms"
 		recipient = *user.Phone
 		masked = maskPhone(recipient)
@@ -418,6 +440,23 @@ func (h *AuthHandler) HandlePhoneChange(w http.ResponseWriter, r *http.Request) 
 	}
 
 	ctx := r.Context()
+
+	// --- Check if phone already exists ---
+	existingUser, err := h.uc.FindUserByIdentifier(ctx, req.NewPhone)
+	if err == nil && existingUser != nil {
+		if existingUser.ID == requestedUserID {
+			response.Error(w, http.StatusBadRequest, "This phone number is already linked to your account")
+			return
+		}
+		response.Error(w, http.StatusConflict, "Phone number already in use by another account")
+		return
+	}
+	if err != nil && !errors.Is(err, xerrors.ErrUserNotFound) {
+		log.Printf("Failed to check phone uniqueness for %s: %v", req.NewPhone, err)
+		response.Error(w, http.StatusInternalServerError, "Internal server error")
+		return
+	}
+
 
 	// --- Fetch user nationality ---
 	userNatKey := fmt.Sprintf("user_nationality:%s", requestedUserID)
