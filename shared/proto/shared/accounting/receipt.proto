@@ -67,20 +67,9 @@ service ReceiptService {
 
   // Optionally: fetch receipt by code
   rpc GetReceiptByCode(GetReceiptByCodeRequest) returns (Receipt);
-
-  // Optionally: list receipts by account
-  rpc ListReceiptsByAccount(ListReceiptsByAccountRequest) returns (ListReceiptsByAccountResponse);
 }
 
 // Additional requests/responses for optional RPCs
 message GetReceiptByCodeRequest {
   string code = 1;
-}
-
-message ListReceiptsByAccountRequest {
-  int64 account_id = 1;
-}
-
-message ListReceiptsByAccountResponse {
-  repeated Receipt receipts = 1;
 }

@@ -2,18 +2,20 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"receipt-service/internal/domain"
+	"time"
 
+	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jackc/pgconn"
 )
 
 type ReceiptRepository interface {
-	Create(ctx context.Context, r *domain.Receipt, tx pgx.Tx) error
+	CreateBatch(ctx context.Context, receipts []*domain.Receipt, tx pgx.Tx) error
 	GetByCode(ctx context.Context, code string) (*domain.Receipt, error)
-	ListByJournal(ctx context.Context, journalID int64) ([]*domain.Receipt, error)
 	ExistsByCode(ctx context.Context, code string) (bool, error)
 }
 
@@ -25,146 +27,111 @@ func NewReceiptRepo(db *pgxpool.Pool) ReceiptRepository {
 	return &receiptRepo{db: db}
 }
 
-var ErrReceiptCodeExists = fmt.Errorf("receipt code already exists")
+var (
+	ErrReceiptCodeExists = errors.New("receipt code already exists")
+	ErrReceiptNotFound   = errors.New("receipt not found")
+)
 
-// Create inserts a new receipt. If tx is nil, it uses the pool directly.
-func (r *receiptRepo) Create(ctx context.Context, rec *domain.Receipt, tx pgx.Tx) error {
+// --- Create ---
+func (r *receiptRepo) CreateBatch(ctx context.Context, receipts []*domain.Receipt, tx pgx.Tx) error {
 	query := `
-		INSERT INTO receipts
-			(code, journal_id,
-			 creditor_account_id, creditor_account_type,
-			 debitor_account_id, debitor_account_type,
-			 type, amount, currency, status,
-			 coded_type, external_ref)
-		VALUES
-			($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+		INSERT INTO fx_receipts (
+			code, type, coded_type, amount, currency, external_ref, status,
+			creditor_account_id, creditor_ledger_id, creditor_account_type, creditor_status,
+			debitor_account_id, debitor_ledger_id, debitor_account_type, debitor_status,
+			created_at, updated_at, created_by, reversed_at, reversed_by, metadata
+		)
+		VALUES (
+			$1, $2, $3, $4, $5, $6, $7,
+			$8, $9, $10, $11,
+			$12, $13, $14, $15,
+			$16, $17, $18, $19, $20, $21
+		)
 		RETURNING id, created_at
 	`
 
-	var row pgx.Row
-	if tx != nil {
-		row = tx.QueryRow(ctx, query,
-			rec.Code, rec.JournalID,
-			rec.Creditor.ID, rec.Creditor.Type,
-			rec.Debitor.ID, rec.Debitor.Type,
-			rec.Type, rec.Amount, rec.Currency, rec.Status,
-			rec.CodedType, rec.ExternalRef,
-		)
-	} else {
-		row = r.db.QueryRow(ctx, query,
-			rec.Code, rec.JournalID,
-			rec.Creditor.ID, rec.Creditor.Type,
-			rec.Debitor.ID, rec.Debitor.Type,
-			rec.Type, rec.Amount, rec.Currency, rec.Status,
-			rec.CodedType, rec.ExternalRef,
+	batch := &pgx.Batch{}
+	for _, rc := range receipts {
+		metadataJSON, err := json.Marshal(rc.Metadata)
+		if err != nil {
+			return fmt.Errorf("marshal metadata: %w", err)
+		}
+
+		batch.Queue(query,
+			rc.Code, rc.Type, rc.CodedType, rc.Amount, rc.Currency, rc.ExternalRef, rc.Status,
+			rc.Creditor.AccountID, rc.Creditor.LedgerID, rc.Creditor.AccountType, rc.Creditor.Status,
+			rc.Debitor.AccountID, rc.Debitor.LedgerID, rc.Debitor.AccountType, rc.Debitor.Status,
+			rc.CreatedAt, rc.UpdatedAt, rc.CreatedBy, rc.ReversedAt, rc.ReversedBy, metadataJSON,
 		)
 	}
 
-	if err := row.Scan(&rec.ID, &rec.CreatedAt); err != nil {
-		if pgErr, ok := err.(*pgconn.PgError); ok && pgErr.Code == "23505" {
-			return ErrReceiptCodeExists
+	br := tx.SendBatch(ctx, batch)
+	defer br.Close()
+
+	for _, rc := range receipts {
+		var createdAt time.Time
+		if err := br.QueryRow().Scan(&rc.ID, &createdAt); err != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.ConstraintName == "fx_receipts_code_key" {
+				return ErrReceiptCodeExists
+			}
+			return fmt.Errorf("insert receipt: %w", err)
 		}
-		return fmt.Errorf("failed to insert receipt: %w", err)
+		rc.CreatedAt = createdAt
 	}
 
 	return nil
 }
 
-// ExistsByCode checks if a receipt code already exists.
-func (r *receiptRepo) ExistsByCode(ctx context.Context, code string) (bool, error) {
-	query := `SELECT 1 FROM receipts WHERE code = $1 LIMIT 1`
-	var dummy int
-	err := r.db.QueryRow(ctx, query, code).Scan(&dummy)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return false, nil
-		}
-		return false, fmt.Errorf("failed to check receipt code existence: %w", err)
-	}
-	return true, nil
-}
 
-// GetByCode retrieves a receipt by its unique code
+// --- GetByCode ---
 func (r *receiptRepo) GetByCode(ctx context.Context, code string) (*domain.Receipt, error) {
 	query := `
-		SELECT id, code, journal_id,
-		       creditor_account_id, creditor_account_type,
-		       debitor_account_id, debitor_account_type,
-		       type, amount, currency, status,
-		       created_at, coded_type, external_ref
-		FROM receipts
+		SELECT 
+			id, code, type, coded_type, amount, currency, external_ref, status,
+			creditor_account_id, creditor_ledger_id, creditor_account_type, creditor_status,
+			debitor_account_id, debitor_ledger_id, debitor_account_type, debitor_status,
+			created_at, updated_at, created_by, reversed_at, reversed_by, metadata
+		FROM fx_receipts
 		WHERE code = $1
 	`
-	rec := &domain.Receipt{}
-	err := r.db.QueryRow(ctx, query, code).Scan(
-		&rec.ID,
-		&rec.Code,
-		&rec.JournalID,
-		&rec.Creditor.ID,
-		&rec.Creditor.Type,
-		&rec.Debitor.ID,
-		&rec.Debitor.Type,
-		&rec.Type,
-		&rec.Amount,
-		&rec.Currency,
-		&rec.Status,
-		&rec.CreatedAt,
-		&rec.CodedType,
-		&rec.ExternalRef,
+
+	row := r.db.QueryRow(ctx, query, code)
+
+	var rc domain.Receipt
+	var metadataJSON []byte
+	err := row.Scan(
+		&rc.ID, &rc.Code, &rc.Type, &rc.CodedType, &rc.Amount, &rc.Currency, &rc.ExternalRef, &rc.Status,
+		&rc.Creditor.AccountID, &rc.Creditor.LedgerID, &rc.Creditor.AccountType, &rc.Creditor.Status,
+		&rc.Debitor.AccountID, &rc.Debitor.LedgerID, &rc.Debitor.AccountType, &rc.Debitor.Status,
+		&rc.CreatedAt, &rc.UpdatedAt, &rc.CreatedBy, &rc.ReversedAt, &rc.ReversedBy, &metadataJSON,
 	)
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, nil
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrReceiptNotFound
 		}
-		return nil, fmt.Errorf("failed to fetch receipt: %w", err)
+		return nil, fmt.Errorf("get receipt by code: %w", err)
 	}
-	return rec, nil
+
+	if len(metadataJSON) > 0 {
+		if err := json.Unmarshal(metadataJSON, &rc.Metadata); err != nil {
+			return nil, fmt.Errorf("unmarshal metadata: %w", err)
+		}
+	}
+
+	// mark roles
+	rc.Creditor.IsCreditor = true
+	rc.Debitor.IsCreditor = false
+
+	return &rc, nil
 }
 
-// ListByJournal returns all receipts for a given journal
-func (r *receiptRepo) ListByJournal(ctx context.Context, journalID int64) ([]*domain.Receipt, error) {
-	query := `
-		SELECT id, code, journal_id,
-		       creditor_account_id, creditor_account_type,
-		       debitor_account_id, debitor_account_type,
-		       type, amount, currency, status,
-		       created_at, coded_type, external_ref
-		FROM receipts
-		WHERE journal_id = $1
-		ORDER BY created_at DESC
-	`
-	rows, err := r.db.Query(ctx, query, journalID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query receipts: %w", err)
+// --- ExistsByCode ---
+func (r *receiptRepo) ExistsByCode(ctx context.Context, code string) (bool, error) {
+	var exists bool
+	query := `SELECT EXISTS(SELECT 1 FROM fx_receipts WHERE code = $1)`
+	if err := r.db.QueryRow(ctx, query, code).Scan(&exists); err != nil {
+		return false, fmt.Errorf("exists by code: %w", err)
 	}
-	defer rows.Close()
-
-	var receipts []*domain.Receipt
-	for rows.Next() {
-		rec := &domain.Receipt{}
-		if err := rows.Scan(
-			&rec.ID,
-			&rec.Code,
-			&rec.JournalID,
-			&rec.Creditor.ID,
-			&rec.Creditor.Type,
-			&rec.Debitor.ID,
-			&rec.Debitor.Type,
-			&rec.Type,
-			&rec.Amount,
-			&rec.Currency,
-			&rec.Status,
-			&rec.CreatedAt,
-			&rec.CodedType,
-			&rec.ExternalRef,
-		); err != nil {
-			return nil, fmt.Errorf("failed to scan receipt: %w", err)
-		}
-		receipts = append(receipts, rec)
-	}
-	if rows.Err() != nil {
-		return nil, fmt.Errorf("row iteration error: %w", rows.Err())
-	}
-
-	return receipts, nil
+	return exists, nil
 }

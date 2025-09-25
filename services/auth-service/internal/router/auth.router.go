@@ -48,6 +48,8 @@ func SetupRoutes(
 		r.Post("/auth/telegram", h.TelegramLogin)
 		r.Post("/auth/apple", h.AppleAuthHandler)
 		r.Post("/auth/password/forgot", h.HandleForgotPassword)
+		// Serve uploads
+		r.Handle("/auth/uploads/*", http.StripPrefix("/auth/uploads/", http.FileServer(http.Dir(uploadDir))))
 	})
 
 	// ============================================================
@@ -90,8 +92,7 @@ func SetupRoutes(
 	r.Group(func(pr chi.Router) {
 		pr.Use(auth.Require([]string{"main"}, nil, nil))
 
-		// Serve uploads
-		pr.Handle("/auth/uploads/*", http.StripPrefix("/auth/uploads/", http.FileServer(http.Dir(uploadDir))))
+
 		// WebSocket
 		pr.Get("/auth/ws", wsHandler.HandleWS)
 
@@ -108,6 +109,8 @@ func SetupRoutes(
 		pr.Patch("/auth/name", h.HandleUpdateName)
 		pr.Get("/auth/email/request-change", h.HandleRequestEmailChange)
 		pr.Post("/auth/profile/picture", h.UploadProfilePicture)
+		pr.Get("/auth/profile/picture/get", h.GetProfilePicture)
+		pr.Delete("/auth/profile/picture/remove",h.DeleteProfilePicture)
 
 		// Preferences
 		pr.Get("/auth/preferences", h.HandleGetPreferences)

@@ -3,22 +3,24 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
-	"errors"
 	"x/shared/utils/errors"
 
+	"kyc-service/internal/domain"
 	"kyc-service/internal/service"
 	"x/shared/auth/middleware"
 	emailclient "x/shared/email"
 	"x/shared/genproto/emailpb"
-	"x/shared/response"
-	notificationclient "x/shared/notification" // ✅ added
 	notificationpb "x/shared/genproto/shared/notificationpb"
+	notificationclient "x/shared/notification" // ✅ added
+	"x/shared/response"
+
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -143,7 +145,7 @@ func (h *KYCHandler) UploadKYC(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[INFO] Saved face photo -> %s", facePath)
 
 	// Generate URLs (example: adjust base URL to match your static file server)
-	baseURL := "http://localhost:8005/kyc/uploads/kyc_docs"
+	baseURL := "/kyc/uploads/kyc_docs"
 	frontURL := fmt.Sprintf("%s/%s/%s", baseURL, userID, frontFilename)
 	backURL := fmt.Sprintf("%s/%s/%s", baseURL, userID, backFilename)
 	faceURL := fmt.Sprintf("%s/%s/%s", baseURL, userID, faceFilename)
@@ -258,6 +260,7 @@ func (h *KYCHandler) GetKYCStatus(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, xerrors.ErrNotFound) {
 			log.Printf("[INFO] No KYC submission found for userID=%s", userID)
 			response.JSON(w, http.StatusOK, map[string]interface{}{
+				"submitted":  false,
 				"kyc_status": "not_submitted",
 				"message":    "User has not submitted any KYC documents yet",
 			})
@@ -272,12 +275,62 @@ func (h *KYCHandler) GetKYCStatus(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[INFO] Successfully retrieved KYC status for userID=%s", userID)
 
 	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"submitted":  true,
 		"kyc_status": kycSubmission.Status,
 		"message":    "KYC status retrieved successfully",
-		"data":       kycSubmission, // optional: return full submission details if needed
 	})
 }
 
+func (h *KYCHandler) GetKYCSubmission(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(middleware.ContextUserID).(string)
+	if !ok || userID == "" {
+		log.Println("[ERROR] Missing userID in KYC submission request")
+		response.Error(w, http.StatusBadRequest, "missing userID")
+		return
+	}
+
+	log.Printf("[INFO] Retrieving KYC submission for userID=%s", userID)
+
+	kycSubmission, err := h.service.GetStatus(r.Context(), userID)
+	if err != nil {
+		if errors.Is(err, xerrors.ErrNotFound) {
+			log.Printf("[INFO] No KYC submission found for userID=%s", userID)
+			response.Error(w, http.StatusNotFound, "no KYC submission found")
+			return
+		}
+
+		log.Printf("[ERROR] Failed to get KYC submission for userID=%s: %v", userID, err)
+		response.Error(w, http.StatusInternalServerError, "failed to retrieve KYC submission")
+		return
+	}
+
+	// Map DB model to response struct (exclude UpdatedAt)
+	resp := domain.KYCSubmissionResponse{
+		ID:               kycSubmission.ID,
+		UserID:           kycSubmission.UserID,
+		IDNumber:         kycSubmission.IDNumber,
+		DocumentType:     kycSubmission.DocumentType,
+		DocumentFrontURL: kycSubmission.DocumentFrontURL,
+		DocumentBackURL:  kycSubmission.DocumentBackURL,
+		FacePhotoURL:     kycSubmission.FacePhotoURL,
+		Status:           kycSubmission.Status,
+		RejectionReason:  kycSubmission.RejectionReason,
+	}
+
+	// Convert non-zero times to pointers (so omitempty works correctly)
+	if !kycSubmission.DateOfBirth.IsZero() {
+		resp.DateOfBirth = &kycSubmission.DateOfBirth
+	}
+	if !kycSubmission.SubmittedAt.IsZero() {
+		resp.SubmittedAt = &kycSubmission.SubmittedAt
+	}
+	if kycSubmission.ReviewedAt != nil && !kycSubmission.ReviewedAt.IsZero() {
+		resp.ReviewedAt = kycSubmission.ReviewedAt
+	}
+
+	log.Printf("[INFO] Successfully retrieved KYC submission for userID=%s", userID)
+	response.JSON(w, http.StatusOK, resp)
+}
 
 // --- NEW: Review submission (approve/reject) ---
 func (h *KYCHandler) ReviewKYC(w http.ResponseWriter, r *http.Request) {

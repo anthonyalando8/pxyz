@@ -1,0 +1,76 @@
+syntax = "proto3";
+
+package accounting.receipt.v2;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+option go_package = "genproto/shared/accounting/receipt/v2;receiptpb";
+
+// Party Info (creditor/debitor)
+message PartyInfo {
+  int64 account_id = 1;           // FK -> accounts.id
+  int64 ledger_id = 2;            // FK -> ledgers.id
+  string account_type = 3;        // user, partner, system
+  string status = 4;              // pending, success, failed
+  string name = 5;
+  string phone = 6;
+  string email = 7;
+  string account_number = 8;      // optional external identifier
+  bool is_creditor = 9;
+}
+
+// Receipt
+message Receipt {
+  int64 id = 1;
+  string code = 2;                                // unique receipt code
+  string type = 3;                                // deposit, withdrawal, transfer, conversion, admin_credit
+  string coded_type = 4;                          // optional subtype (fee, cashback, etc.)
+  double amount = 5;
+  string currency = 6;
+  string external_ref = 7;                        // bank txn id, blockchain tx hash, etc.
+  string status = 8;                              // pending, success, failed, reversed
+
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+  string created_by = 11;
+  google.protobuf.Timestamp reversed_at = 12;
+  string reversed_by = 13;
+
+  PartyInfo creditor = 14;
+  PartyInfo debitor = 15;
+
+  // Flexible metadata (e.g. channel, fees breakdown, device info)
+  google.protobuf.Struct metadata = 16;
+}
+
+// ===============================
+// Requests / Responses
+// ===============================
+message CreateReceiptRequest {
+  string type = 1;
+  string coded_type = 2;
+  double amount = 3;
+  string currency = 4;
+  string external_ref = 5;
+  PartyInfo creditor = 6;
+  PartyInfo debitor = 7;
+  string created_by = 8;
+  google.protobuf.Struct metadata = 9;
+}
+
+message CreateReceiptResponse {
+  Receipt receipt = 1;
+}
+
+message GetReceiptByCodeRequest {
+  string code = 1;
+}
+
+// ===============================
+// Service
+// ===============================
+service ReceiptServiceV2 {
+  rpc CreateReceipt(CreateReceiptRequest) returns (CreateReceiptResponse);
+  rpc GetReceiptByCode(GetReceiptByCodeRequest) returns (Receipt);
+}

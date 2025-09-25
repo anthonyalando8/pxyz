@@ -32,7 +32,22 @@ type KYCSubmission struct {
 	RejectionReason  *string    `json:"rejection_reason,omitempty"`
 	SubmittedAt      time.Time  `json:"submitted_at"`
 	ReviewedAt       *time.Time `json:"reviewed_at,omitempty"`
-	UpdatedAt        time.Time  `json:"updated_at"`
+	UpdatedAt        time.Time  `json:"-"`
+}
+
+type KYCSubmissionResponse struct {
+	ID               string     `json:"id,omitempty"`
+	UserID           string     `json:"user_id,omitempty"`
+	IDNumber         string     `json:"id_number,omitempty"`
+	DocumentType     string     `json:"document_type,omitempty"`
+	DocumentFrontURL string     `json:"document_front_url,omitempty"`
+	DocumentBackURL  string     `json:"document_back_url,omitempty"`
+	FacePhotoURL     string     `json:"face_photo_url,omitempty"`
+	DateOfBirth      *time.Time `json:"date_of_birth,omitempty"`
+	Status           KYCStatus  `json:"status,omitempty"`
+	RejectionReason  *string    `json:"rejection_reason,omitempty"`
+	SubmittedAt      *time.Time `json:"submitted_at,omitempty"`
+	ReviewedAt       *time.Time `json:"reviewed_at,omitempty"`
 }
 
 // KYCAuditLog captures changes in submission state or actions taken.

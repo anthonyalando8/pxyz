@@ -48,12 +48,20 @@ func (s *Snowflake) Generate() string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	now := time.Now().UnixNano() / 1e6 // milliseconds
+	now := time.Now().UnixNano() / 1e6 // ms
+
+	// Handle clock rollback
+	if now < s.timestamp {
+		// Wait until clock catches up
+		for now < s.timestamp {
+			now = time.Now().UnixNano() / 1e6
+		}
+	}
 
 	if now == s.timestamp {
 		s.sequence = (s.sequence + 1) & sequenceMask
 		if s.sequence == 0 {
-			// sequence overflow in same ms, wait for next ms
+			// sequence overflow → wait for next ms
 			for now <= s.timestamp {
 				now = time.Now().UnixNano() / 1e6
 			}
@@ -75,7 +83,6 @@ func GenerateUUID(prefix string) string {
     id := ulid.MustNew(ulid.Timestamp(time.Now()), ulid.Monotonic(rand.Reader, 0))
     return prefix + "_" + id.String()
 }
-// GeneratePartnerID generates a unique partner ID with a given prefix.
 // ID format: <prefix><random+timestamp> total length ~12 chars.
 func GenerateID(prefix string) string {
 	// 1. Timestamp in milliseconds (6 hex chars should be enough for uniqueness in high frequency)

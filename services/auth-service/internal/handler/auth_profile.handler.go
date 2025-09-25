@@ -246,7 +246,7 @@ func (h *AuthHandler) UploadProfilePicture(w http.ResponseWriter, r *http.Reques
 	log.Printf("[INFO] Successfully saved compressed profile picture for userID=%s", userID)
 
 	// Construct image URL
-	imageURL := fmt.Sprintf("http://localhost/auth/uploads/profile_pictures/%s", filename)
+	imageURL := fmt.Sprintf("/auth/uploads/profile_pictures/%s", filename)
 
 	// Call Account service to update DB
 	_, err = h.accountClient.Client.UpdateProfilePicture(
@@ -269,6 +269,100 @@ func (h *AuthHandler) UploadProfilePicture(w http.ResponseWriter, r *http.Reques
 		"profile_image_url": imageURL,
 	})
 }
+
+func (h *AuthHandler) GetProfilePicture(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(middleware.ContextUserID).(string)
+	if !ok || userID == "" {
+		log.Println("[ERROR] Missing userID in GetProfilePicture request")
+		response.Error(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	log.Printf("[INFO] Retrieving profile picture for userID=%s", userID)
+
+	// Fetch profile from account service
+	profileResp, err := h.accountClient.Client.GetUserProfile(r.Context(), &accountclient.GetUserProfileRequest{
+		UserId: userID,
+	})
+	if err != nil {
+		log.Printf("[ERROR] Failed to fetch profile from account service for userID=%s: %v", userID, err)
+		response.Error(w, http.StatusInternalServerError, "failed to fetch profile")
+		return
+	}
+	if profileResp == nil || profileResp.Profile == nil {
+		log.Printf("[WARN] No profile found for userID=%s", userID)
+		response.Error(w, http.StatusNotFound, "profile not found")
+		return
+	}
+
+	imageURL := profileResp.Profile.ProfileImageUrl
+	if imageURL == "" {
+		log.Printf("[INFO] No profile picture set for userID=%s", userID)
+		response.JSON(w, http.StatusOK, map[string]interface{}{
+			"success":        true,
+			"message":        "No profile picture set",
+			"profile_image":  "",
+		})
+		return
+	}
+
+	log.Printf("[INFO] Successfully retrieved profile picture for userID=%s", userID)
+	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"success":        true,
+		"message":        "Profile picture retrieved successfully",
+		"profile_image":  imageURL,
+	})
+}
+
+
+func (h *AuthHandler) DeleteProfilePicture(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(middleware.ContextUserID).(string)
+	if !ok || userID == "" {
+		log.Println("[ERROR] Unauthorized delete attempt, missing userID in context")
+		response.Error(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+	log.Printf("[INFO] Starting profile picture deletion for userID=%s", userID)
+
+	// Build file path (same logic as upload)
+	uploadDir := "/app/uploads/profile_pictures"
+	filename := fmt.Sprintf("%s.jpg", userID) // stored as JPEG
+	filePath := filepath.Join(uploadDir, filename)
+
+	// Remove profile picture in DB first (set to empty string)
+	_, err := h.accountClient.Client.UpdateProfilePicture(
+		context.Background(),
+		&accountclient.UpdateProfilePictureRequest{
+			UserId:   userID,
+			ImageUrl: "",
+		},
+	)
+	if err != nil {
+		log.Printf("[ERROR] Failed to clear profile picture in account service for userID=%s: %v", userID, err)
+		response.Error(w, http.StatusInternalServerError, "failed to clear profile picture in account")
+		return
+	}
+	log.Printf("[INFO] Profile picture cleared in account service for userID=%s", userID)
+
+	// Delete file from disk if exists
+	if err := os.Remove(filePath); err != nil {
+		if os.IsNotExist(err) {
+			log.Printf("[INFO] Profile picture file not found for userID=%s, nothing to delete", userID)
+		} else {
+			log.Printf("[ERROR] Failed to delete profile picture file for userID=%s: %v", userID, err)
+			response.Error(w, http.StatusInternalServerError, "failed to delete profile picture file")
+			return
+		}
+	} else {
+		log.Printf("[INFO] Successfully deleted profile picture file for userID=%s", userID)
+	}
+
+	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Profile picture deleted successfully",
+	})
+}
+
 //currentRole, ok2 = r.Context().Value(middleware.ContextRole).(string)
 
 

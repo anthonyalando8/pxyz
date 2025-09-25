@@ -63,17 +63,17 @@ func (uc *AccountService) UpdateProfile(ctx context.Context, profile *domain.Use
 
 func (uc *AccountService) UpdateProfileImage(ctx context.Context, userID, imageURL string) error {
 	// Fetch existing profile
-	profile, err := uc.repo.GetByUserID(ctx, userID)
-	if err != nil {
-		return err
-	}
+	// profile, err := uc.repo.GetByUserID(ctx, userID)
+	// if err != nil {
+	// 	return err
+	// }
 
 	// Update profile image URL
-	profile.ProfileImageURL = imageURL
-	profile.UpdatedAt = time.Now()
+	// profile.ProfileImageURL = imageURL
+	// profile.UpdatedAt = time.Now()
 
 	// Save changes
-	return uc.repo.Update(ctx, profile)
+	return uc.repo.UpdateProfilePicture(ctx, userID, imageURL)
 }
 
 func (uc *AccountService) UpdateNationality(ctx context.Context, userID string, nationality *string) error {

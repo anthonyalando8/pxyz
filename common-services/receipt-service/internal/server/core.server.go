@@ -1,7 +1,7 @@
 package server
 
 import (
-	//"context"
+	"context"
 	"log"
 	"net"
 
@@ -10,11 +10,12 @@ import (
 	"receipt-service/internal/repository"
 	"receipt-service/internal/usecase"
 	"receipt-service/pkg/generator"
-	receiptpb "x/shared/genproto/shared/accounting/receiptpb"
-	notificationclient "x/shared/notification" // ✅ added
+	receiptpb "x/shared/genproto/shared/accounting/receipt/v2"
+	notificationclient "x/shared/notification"
 
+	service "receipt-service/internal/service"
 
-	//"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/segmentio/kafka-go"
 	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -27,7 +28,6 @@ func NewReceiptGRPCServer(cfg config.AppConfig) {
 	if err != nil {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
-
 	defer dbpool.Close()
 
 	// --- Redis client ---
@@ -36,27 +36,39 @@ func NewReceiptGRPCServer(cfg config.AppConfig) {
 		Password: cfg.RedisPass,
 		DB:       0,
 	})
-	
-	_ = rdb
+	_ = rdb // keep for caching later
+
 	// --- Repositories ---
 	receiptRepo := repository.NewReceiptRepo(dbpool)
 
 	// --- Generator for receipt codes ---
-	codeGen := generator.NewGenerator() // configure length etc in constructor
+	codeGen := generator.NewGenerator()
 
 	// --- Notification client ---
-	notificationCli := notificationclient.NewNotificationService() // ✅ create notification client
+	notificationCli := notificationclient.NewNotificationService()
 
+	// --- Kafka writer ---
+	writer := &kafka.Writer{
+		Addr:     kafka.TCP(cfg.KafkaBrokers...), // slice of brokers from config
+		Topic:    "receipts",
+		Balancer: &kafka.LeastBytes{},
+	}
 
 	// --- Usecases ---
-	receiptUC := usecase.NewReceiptUsecase(receiptRepo, codeGen, notificationCli)
+	receiptUC := usecase.NewReceiptUsecase(receiptRepo, codeGen, notificationCli, writer)
 
 	// --- gRPC Handler ---
 	receiptHandler := hgrpc.NewReceiptGRPCHandler(receiptUC)
 
+	// --- Start Kafka worker in background ---
+	go func() {
+		log.Println("starting receipt worker...")
+		service.StartReceiptWorker(context.Background(), cfg.KafkaBrokers, receiptRepo)
+	}()
+
 	// --- gRPC Server ---
 	grpcServer := grpc.NewServer()
-	receiptpb.RegisterReceiptServiceServer(grpcServer, receiptHandler)
+	receiptpb.RegisterReceiptServiceV2Server(grpcServer, receiptHandler)
 	reflection.Register(grpcServer)
 
 	lis, err := net.Listen("tcp", cfg.GRPCAddr)

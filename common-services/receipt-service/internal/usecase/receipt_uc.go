@@ -3,146 +3,74 @@ package usecase
 import (
 	"context"
 	"fmt"
-	"log"
-	"strings"
-
-	//"time"
+	"time"
 
 	"receipt-service/internal/domain"
 	"receipt-service/internal/repository"
 	"receipt-service/pkg/generator"
+
+	"github.com/segmentio/kafka-go"
+	"google.golang.org/protobuf/proto"
+
 	notificationclient "x/shared/notification"
-
-	notificationpb "x/shared/genproto/shared/notificationpb"
-
-	"github.com/google/uuid"
-	"google.golang.org/protobuf/types/known/structpb"
-
-	"github.com/jackc/pgx/v5"
 )
 
-// ReceiptUsecase handles business logic for receipts
 type ReceiptUsecase struct {
-	repo repository.ReceiptRepository
-	gen  *generator.Generator
-	notificationClient *notificationclient.NotificationService
-
+    repo repository.ReceiptRepository
+    gen  *generator.Generator
+    notificationClient *notificationclient.NotificationService
+    kafkaWriter *kafka.Writer
 }
 
-// NewReceiptUsecase creates a new ReceiptUsecase
-func NewReceiptUsecase(r repository.ReceiptRepository, gen *generator.Generator, notificationClient *notificationclient.NotificationService) *ReceiptUsecase {
-	return &ReceiptUsecase{
-		repo: r,
-		gen:  gen,
-		notificationClient: notificationClient,
-	}
+func NewReceiptUsecase(
+    r repository.ReceiptRepository,
+    gen *generator.Generator,
+    notificationClient *notificationclient.NotificationService,
+    kafkaWriter *kafka.Writer,
+) *ReceiptUsecase {
+    return &ReceiptUsecase{
+        repo: r,
+        gen:  gen,
+        notificationClient: notificationClient,
+        kafkaWriter: kafkaWriter,
+    }
 }
 
-// CreateReceipt generates a unique receipt code and inserts a new receipt.
-// It retries generation if collisions occur.
-func (uc *ReceiptUsecase) CreateReceipt(ctx context.Context, rec *domain.Receipt, tx pgx.Tx) (*domain.Receipt, error) {
-	// checkFunc for GenerateUnique: returns true if code exists
-	checkFunc := func(code string) bool {
-		exists, _ := uc.repo.ExistsByCode(ctx, code)
-		return exists
-	}
+// CreateReceipt generates code and publishes to Kafka
+func (uc *ReceiptUsecase) CreateReceipt(ctx context.Context, rec *domain.Receipt) (*domain.Receipt, error) {
+    // checkFunc for uniqueness
+    checkFunc := func(code string) bool {
+        exists, _ := uc.repo.ExistsByCode(ctx, code)
+        return exists
+    }
 
-	// generate unique code
-	var err error
-	rec.Code, err = uc.gen.GenerateUnique(checkFunc)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate unique receipt code: %w", err)
-	}
+    // generate unique code
+    var err error
+    rec.Code, err = uc.gen.GenerateUnique(checkFunc)
+    if err != nil {
+        return nil, fmt.Errorf("failed to generate unique receipt code: %w", err)
+    }
 
-	// insert into DB
-	if err := uc.repo.Create(ctx, rec, tx); err != nil {
-		return nil, fmt.Errorf("failed to create receipt: %w", err)
-	}
+    rec.Status = "pending"
+    rec.CreatedAt = time.Now()
 
-	uc.sendReceiptNotification(ctx, rec)
+    // map domain → proto
+    pb := rec.ToProto()
 
-	return rec, nil
-}
+    // serialize
+    data, err := proto.Marshal(pb)
+    if err != nil {
+        return nil, err
+    }
 
-func (uc *ReceiptUsecase) sendReceiptNotification(_ context.Context, rec *domain.Receipt) {
-	if uc.notificationClient == nil {
-		return
-	}
+    // publish to Kafka
+    err = uc.kafkaWriter.WriteMessages(ctx, kafka.Message{
+        Key:   []byte(rec.Code),
+        Value: data,
+    })
+    if err != nil {
+        return nil, fmt.Errorf("failed to publish receipt to Kafka: %w", err)
+    }
 
-	send := func(ownerType, ownerID, name, email, phone, codedType string, channels []string, party domain.PartyInfo) {
-		if len(channels) == 0 {
-			return
-		}
-
-		ownerType = strings.ToLower(ownerType)
-
-		payload := map[string]interface{}{
-			"ReferenceNumber": rec.Code,
-			"Amount":          rec.Amount,
-			"Currency":        rec.Currency,
-			"Date":            rec.CreatedAt.Format("2006-01-02"),
-			"Time":            rec.CreatedAt.Format("15:04:05"),
-			"ExternalRef":     rec.ExternalRef,
-		}
-
-		go func() {
-			_, err := uc.notificationClient.Client.CreateNotification(context.Background(), &notificationpb.CreateNotificationRequest{
-				Notification: &notificationpb.Notification{
-					RequestId:      uuid.New().String(),
-					OwnerType:      ownerType,
-					OwnerId:        ownerID,
-					EventType:      codedType,
-					Title:          fmt.Sprintf("New Receipt %s", rec.Code),
-					Body:           fmt.Sprintf("You have a new receipt %s of %.2f %s", rec.Code, rec.Amount, rec.Currency),
-					ChannelHint:    append(channels, "ws"),
-					Payload: func() *structpb.Struct {
-						s, _ := structpb.NewStruct(payload)
-						return s
-					}(),
-					VisibleInApp:   true,
-					RecipientEmail: email,
-					RecipientPhone: phone,
-					Priority:       "high",
-					Status:         "pending",
-					RecipientName:  name,
-				},
-			})
-			if err != nil {
-				log.Printf("[WARN] failed to send receipt notification to %s (%s): %v", name, ownerID, err)
-			}
-		}()
-	}
-
-	// Notify the user (either creditor or debitor)
-	user := rec.Creditor
-	if rec.Creditor.Type == "system" {
-		user = rec.Debitor
-	}
-	channels := []string{}
-	if user.Email != "" {
-		channels = append(channels, "email")
-	}
-	if user.Phone != "" {
-		channels = append(channels, "sms")
-	}
-	// Determine event type for user
-	userCodedType := "ACCOUNT_DEBITED"
-	if user.ID == rec.Creditor.ID {
-		userCodedType = "ACCOUNT_CREDITED"
-	}
-	send(user.Type, user.ID, user.Name, user.Email, user.Phone, userCodedType, channels, user)
-
-	// Notify partner only if he is creditor and debitor is system
-	if rec.Creditor.Type == "partner" && rec.Debitor.Type == "system" {
-		channels := []string{}
-		if rec.Creditor.Email != "" {
-			channels = append(channels, "email")
-		}
-		if rec.Creditor.Phone != "" {
-			channels = append(channels, "sms")
-		}
-		// Partner is creditor → codedType = ACCOUNT_CREDITED
-		send("partner", rec.Creditor.ID, rec.Creditor.Name, rec.Creditor.Email, rec.Creditor.Phone, "ACCOUNT_CREDITED", channels, rec.Creditor)
-	}
-
+    return rec, nil
 }
