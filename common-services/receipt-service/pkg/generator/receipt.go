@@ -47,20 +47,20 @@ func (g *Generator) GenerateRandom() string {
 
 // GenerateUnique attempts to generate a code and ensures uniqueness
 // by checking with the provided callback function.
-// checkFunc should return true if the code is already in use.
+// If checkFunc is nil, no uniqueness check is performed here.
 func (g *Generator) GenerateUnique(checkFunc func(string) bool) (string, error) {
-	for i := 0; i < maxRetries; i++ {
-		code := g.Generate()
-		if !checkFunc(code) {
-			return code, nil
-		}
-	}
-	// fallback to random Base62 after retries
-	for i := 0; i < maxRetries; i++ {
-		code := g.GenerateRandom()
-		if !checkFunc(code) {
-			return code, nil
-		}
-	}
-	return "", fmt.Errorf("failed to generate unique receipt code after %d attempts", maxRetries*2)
+    for i := 0; i < maxRetries; i++ {
+        code := g.Generate()
+        if checkFunc == nil || !checkFunc(code) {
+            return code, nil
+        }
+    }
+    // fallback to random Base62 after retries
+    for i := 0; i < maxRetries; i++ {
+        code := g.GenerateRandom()
+        if checkFunc == nil || !checkFunc(code) {
+            return code, nil
+        }
+    }
+    return "", fmt.Errorf("failed to generate unique receipt code after %d attempts", maxRetries*2)
 }

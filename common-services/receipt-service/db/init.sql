@@ -25,6 +25,7 @@ CREATE TABLE fx_receipts (
     type                   TEXT NOT NULL,                     -- deposit, withdrawal, transfer, conversion, admin_credit
     coded_type             TEXT,                              -- optional: subtype (ex: fee, cashback, promo)
     amount                 NUMERIC(24,8) NOT NULL CHECK (amount > 0),
+    transaction_cost       NUMERIC(24,8) NOT NULL DEFAULT 0,  -- new field: transaction fee/cost
     currency               VARCHAR(8) NOT NULL REFERENCES currencies(code),
     external_ref           TEXT,                              -- optional: external reference (bank txn id, blockchain tx hash)
     status                 TEXT NOT NULL DEFAULT 'pending',   -- overall txn status: pending, success, failed, reversed
@@ -40,7 +41,6 @@ CREATE TABLE fx_receipts (
     metadata               JSONB
 );
 
--- Indexes for performance
 CREATE INDEX idx_fx_receipts_creditor_account ON fx_receipts (creditor_account_id);
 CREATE INDEX idx_fx_receipts_debitor_account ON fx_receipts (debitor_account_id);
 CREATE INDEX idx_fx_receipts_created_at ON fx_receipts (created_at DESC);

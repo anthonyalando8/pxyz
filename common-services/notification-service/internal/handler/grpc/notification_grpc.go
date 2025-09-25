@@ -18,46 +18,45 @@ type NotificationHandler struct {
 	uc *usecase.NotificationUsecase
 }
 
-func NewNotificationGRPCHandler(uc *usecase.NotificationUsecase,) *NotificationHandler {
-	return &NotificationHandler{uc: uc,}
+func NewNotificationGRPCHandler(uc *usecase.NotificationUsecase) *NotificationHandler {
+	return &NotificationHandler{uc: uc}
 }
 
 // ===== Critical Methods =====
 
-// CreateNotification is used by other services to post notifications
-func (h *NotificationHandler) CreateNotification(
+// CreateNotifications handles multiple notifications at once
+func (h *NotificationHandler) CreateNotifications(
 	ctx context.Context,
-	req *notificationpb.CreateNotificationRequest,
-) (*notificationpb.NotificationResponse, error) {
+	req *notificationpb.CreateNotificationsRequest,
+) (*notificationpb.NotificationsResponse, error) {
+	var createdNotifications []*notificationpb.Notification
 
-	// 🔍 Log raw payload before conversion
-	if req.GetNotification() != nil && req.GetNotification().Payload != nil {
-		log.Printf(
-			"[NotificationHandler] Received Payload | EventType=%s | OwnerID=%s | Payload=%+v",
-			req.GetNotification().EventType,
-			req.GetNotification().OwnerId,
-			req.GetNotification().Payload.AsMap(),
-		)
-	} else {
-		log.Printf(
-			"[NotificationHandler] Received Notification with empty payload | EventType=%s | OwnerID=%s",
-			req.GetNotification().EventType,
-			req.GetNotification().OwnerId,
-		)
+	for _, nPB := range req.GetNotifications() {
+		if nPB.Payload != nil {
+			log.Printf(
+				"[NotificationHandler] Received Payload | EventType=%s | OwnerID=%s | Payload=%+v",
+				nPB.EventType,
+				nPB.OwnerId,
+				nPB.Payload.AsMap(),
+			)
+		} else {
+			log.Printf(
+				"[NotificationHandler] Received Notification with empty payload | EventType=%s | OwnerID=%s",
+				nPB.EventType,
+				nPB.OwnerId,
+			)
+		}
+
+		nDomain := pbToDomain(nPB)
+		created, err := h.uc.CreateNotification(ctx, nDomain)
+		if err != nil {
+			return nil, err
+		}
+		createdNotifications = append(createdNotifications, domainToPB(created))
 	}
 
-	n := pbToDomain(req.GetNotification())
-
-	created, err := h.uc.CreateNotification(ctx, n)
-	if err != nil {
-		return nil, err
-	}
-
-	return &notificationpb.NotificationResponse{
-		Notification: domainToPB(created),
-	}, nil
+	return &notificationpb.NotificationsResponse{Notifications: createdNotifications}, nil
 }
-
 
 // DeleteNotificationsByOwner clears all notifications for a user/owner
 func (h *NotificationHandler) DeleteNotificationsByOwner(ctx context.Context, req *notificationpb.DeleteNotificationsByOwnerRequest) (*notificationpb.DeleteNotificationsByOwnerResponse, error) {
@@ -69,24 +68,25 @@ func (h *NotificationHandler) DeleteNotificationsByOwner(ctx context.Context, re
 	return &notificationpb.DeleteNotificationsByOwnerResponse{Success: true}, nil
 }
 
-// ===== Optional Methods (REST might cover, but available for gRPC too) =====
-
-func (h *NotificationHandler) GetNotification(ctx context.Context, req *notificationpb.GetNotificationRequest) (*notificationpb.NotificationResponse, error) {
+// GetNotification by ID
+func (h *NotificationHandler) GetNotification(ctx context.Context, req *notificationpb.GetNotificationRequest) (*notificationpb.NotificationsResponse, error) {
 	n, err := h.uc.GetNotificationByID(ctx, req.GetId())
 	if err != nil {
 		return nil, err
 	}
-	return &notificationpb.NotificationResponse{Notification: domainToPB(n)}, nil
+	return &notificationpb.NotificationsResponse{Notifications: []*notificationpb.Notification{domainToPB(n)}}, nil
 }
 
-func (h *NotificationHandler) GetNotificationByRequestID(ctx context.Context, req *notificationpb.GetNotificationByRequestIDRequest) (*notificationpb.NotificationResponse, error) {
+// GetNotification by RequestID
+func (h *NotificationHandler) GetNotificationByRequestID(ctx context.Context, req *notificationpb.GetNotificationByRequestIDRequest) (*notificationpb.NotificationsResponse, error) {
 	n, err := h.uc.GetNotificationByRequestID(ctx, req.GetRequestId())
 	if err != nil {
 		return nil, err
 	}
-	return &notificationpb.NotificationResponse{Notification: domainToPB(n)}, nil
+	return &notificationpb.NotificationsResponse{Notifications: []*notificationpb.Notification{domainToPB(n)}}, nil
 }
 
+// ListNotifications
 func (h *NotificationHandler) ListNotifications(ctx context.Context, req *notificationpb.ListNotificationsRequest) (*notificationpb.ListNotificationsResponse, error) {
 	list, err := h.uc.ListNotificationsByOwner(ctx, req.GetOwnerType(), req.GetOwnerId(), int(req.GetLimit()), int(req.GetOffset()))
 	if err != nil {
@@ -101,32 +101,33 @@ func (h *NotificationHandler) ListNotifications(ctx context.Context, req *notifi
 	return &notificationpb.ListNotificationsResponse{Notifications: res}, nil
 }
 
-func (h *NotificationHandler) MarkAsRead(ctx context.Context, req *notificationpb.MarkAsReadRequest) (*notificationpb.NotificationResponse, error) {
+// MarkAsRead
+func (h *NotificationHandler) MarkAsRead(ctx context.Context, req *notificationpb.MarkAsReadRequest) (*notificationpb.NotificationsResponse, error) {
 	err := h.uc.MarkAsRead(ctx, req.GetId(), req.GetOwnerType(), req.GetOwnerId())
 	if err != nil {
 		return nil, err
 	}
-	// fetch updated notification
 	n, err := h.uc.GetNotificationByID(ctx, req.GetId())
 	if err != nil {
 		return nil, err
 	}
-	return &notificationpb.NotificationResponse{Notification: domainToPB(n)}, nil
+	return &notificationpb.NotificationsResponse{Notifications: []*notificationpb.Notification{domainToPB(n)}}, nil
 }
 
-func (h *NotificationHandler) HideFromApp(ctx context.Context, req *notificationpb.HideFromAppRequest) (*notificationpb.NotificationResponse, error) {
+// HideFromApp
+func (h *NotificationHandler) HideFromApp(ctx context.Context, req *notificationpb.HideFromAppRequest) (*notificationpb.NotificationsResponse, error) {
 	err := h.uc.HideFromApp(ctx, req.GetId(), req.GetOwnerType(), req.GetOwnerId())
 	if err != nil {
 		return nil, err
 	}
-	// fetch updated notification
 	n, err := h.uc.GetNotificationByID(ctx, req.GetId())
 	if err != nil {
 		return nil, err
 	}
-	return &notificationpb.NotificationResponse{Notification: domainToPB(n)}, nil
+	return &notificationpb.NotificationsResponse{Notifications: []*notificationpb.Notification{domainToPB(n)}}, nil
 }
 
+// CountUnread
 func (h *NotificationHandler) CountUnread(ctx context.Context, req *notificationpb.CountUnreadRequest) (*notificationpb.CountUnreadResponse, error) {
 	count, err := h.uc.CountUnread(ctx, req.GetOwnerType(), req.GetOwnerId())
 	if err != nil {
@@ -154,6 +155,11 @@ func pbToDomain(pb *notificationpb.Notification) *domain.Notification {
 		deliveredAt = &t
 	}
 
+	createdAt := time.Now()
+	if pb.CreatedAt != nil {
+		createdAt = pb.CreatedAt.AsTime()
+	}
+
 	return &domain.Notification{
 		ID:             pb.Id,
 		RequestID:      pb.RequestId,
@@ -168,7 +174,7 @@ func pbToDomain(pb *notificationpb.Notification) *domain.Notification {
 		Status:         pb.Status,
 		VisibleInApp:   pb.VisibleInApp,
 		ReadAt:         readAt,
-		CreatedAt:      pb.CreatedAt.AsTime(),
+		CreatedAt:      createdAt,
 		DeliveredAt:    deliveredAt,
 		Metadata:       pb.Metadata.AsMap(),
 		RecipientEmail: pb.RecipientEmail,
@@ -177,20 +183,9 @@ func pbToDomain(pb *notificationpb.Notification) *domain.Notification {
 	}
 }
 
-
 func domainToPB(n *domain.Notification) *notificationpb.Notification {
 	if n == nil {
 		return nil
-	}
-
-	var readAt *time.Time
-	if n.ReadAt != nil {
-		readAt = n.ReadAt
-	}
-
-	var deliveredAt *time.Time
-	if n.DeliveredAt != nil {
-		deliveredAt = n.DeliveredAt
 	}
 
 	pb := &notificationpb.Notification{
@@ -210,17 +205,20 @@ func domainToPB(n *domain.Notification) *notificationpb.Notification {
 		Metadata:     mapToStructPB(n.Metadata),
 	}
 
-	if readAt != nil {
-		pb.ReadAt = timestamppb.New(*readAt)
+	if n.ReadAt != nil {
+		pb.ReadAt = timestamppb.New(*n.ReadAt)
 	}
-	if deliveredAt != nil {
-		pb.DeliveredAt = timestamppb.New(*deliveredAt)
+	if n.DeliveredAt != nil {
+		pb.DeliveredAt = timestamppb.New(*n.DeliveredAt)
 	}
+
+	pb.RecipientEmail = n.RecipientEmail
+	pb.RecipientPhone = n.RecipientPhone
+	pb.RecipientName = n.RecipientName
 
 	return pb
 }
 
-// mapToStructPB safely converts a map[string]interface{} to *structpb.Struct, returning nil if the map is nil or on error.
 func mapToStructPB(m map[string]interface{}) *structpb.Struct {
 	if m == nil {
 		return nil

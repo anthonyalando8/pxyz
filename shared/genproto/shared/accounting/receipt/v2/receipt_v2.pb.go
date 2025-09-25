@@ -23,6 +23,52 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type ReceiptMessageType int32
+
+const (
+	ReceiptMessageType_CREATE ReceiptMessageType = 0
+	ReceiptMessageType_UPDATE ReceiptMessageType = 1
+)
+
+// Enum value maps for ReceiptMessageType.
+var (
+	ReceiptMessageType_name = map[int32]string{
+		0: "CREATE",
+		1: "UPDATE",
+	}
+	ReceiptMessageType_value = map[string]int32{
+		"CREATE": 0,
+		"UPDATE": 1,
+	}
+)
+
+func (x ReceiptMessageType) Enum() *ReceiptMessageType {
+	p := new(ReceiptMessageType)
+	*p = x
+	return p
+}
+
+func (x ReceiptMessageType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ReceiptMessageType) Descriptor() protoreflect.EnumDescriptor {
+	return file_proto_shared_accounting_receipt_v2_proto_enumTypes[0].Descriptor()
+}
+
+func (ReceiptMessageType) Type() protoreflect.EnumType {
+	return &file_proto_shared_accounting_receipt_v2_proto_enumTypes[0]
+}
+
+func (x ReceiptMessageType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ReceiptMessageType.Descriptor instead.
+func (ReceiptMessageType) EnumDescriptor() ([]byte, []int) {
+	return file_proto_shared_accounting_receipt_v2_proto_rawDescGZIP(), []int{0}
+}
+
 // Party Info (creditor/debitor)
 type PartyInfo struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -134,24 +180,25 @@ func (x *PartyInfo) GetIsCreditor() bool {
 
 // Receipt
 type Receipt struct {
-	state       protoimpl.MessageState `protogen:"open.v1"`
-	Id          int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	Code        string                 `protobuf:"bytes,2,opt,name=code,proto3" json:"code,omitempty"`                            // unique receipt code
-	Type        string                 `protobuf:"bytes,3,opt,name=type,proto3" json:"type,omitempty"`                            // deposit, withdrawal, transfer, conversion, admin_credit
-	CodedType   string                 `protobuf:"bytes,4,opt,name=coded_type,json=codedType,proto3" json:"coded_type,omitempty"` // optional subtype (fee, cashback, etc.)
-	Amount      float64                `protobuf:"fixed64,5,opt,name=amount,proto3" json:"amount,omitempty"`
-	Currency    string                 `protobuf:"bytes,6,opt,name=currency,proto3" json:"currency,omitempty"`
-	ExternalRef string                 `protobuf:"bytes,7,opt,name=external_ref,json=externalRef,proto3" json:"external_ref,omitempty"` // bank txn id, blockchain tx hash, etc.
-	Status      string                 `protobuf:"bytes,8,opt,name=status,proto3" json:"status,omitempty"`                              // pending, success, failed, reversed
-	CreatedAt   *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt   *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	CreatedBy   string                 `protobuf:"bytes,11,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
-	ReversedAt  *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=reversed_at,json=reversedAt,proto3" json:"reversed_at,omitempty"`
-	ReversedBy  string                 `protobuf:"bytes,13,opt,name=reversed_by,json=reversedBy,proto3" json:"reversed_by,omitempty"`
-	Creditor    *PartyInfo             `protobuf:"bytes,14,opt,name=creditor,proto3" json:"creditor,omitempty"`
-	Debitor     *PartyInfo             `protobuf:"bytes,15,opt,name=debitor,proto3" json:"debitor,omitempty"`
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Id              int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Code            string                 `protobuf:"bytes,2,opt,name=code,proto3" json:"code,omitempty"`                            // unique receipt code
+	Type            string                 `protobuf:"bytes,3,opt,name=type,proto3" json:"type,omitempty"`                            // deposit, withdrawal, transfer, conversion, admin_credit
+	CodedType       string                 `protobuf:"bytes,4,opt,name=coded_type,json=codedType,proto3" json:"coded_type,omitempty"` // optional subtype (fee, cashback, etc.)
+	Amount          float64                `protobuf:"fixed64,5,opt,name=amount,proto3" json:"amount,omitempty"`
+	TransactionCost float64                `protobuf:"fixed64,6,opt,name=transaction_cost,json=transactionCost,proto3" json:"transaction_cost,omitempty"` // new field: transaction fee or cost
+	Currency        string                 `protobuf:"bytes,7,opt,name=currency,proto3" json:"currency,omitempty"`
+	ExternalRef     string                 `protobuf:"bytes,8,opt,name=external_ref,json=externalRef,proto3" json:"external_ref,omitempty"` // bank txn id, blockchain tx hash, etc.
+	Status          string                 `protobuf:"bytes,9,opt,name=status,proto3" json:"status,omitempty"`                              // pending, success, failed, reversed
+	CreatedAt       *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt       *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	CreatedBy       string                 `protobuf:"bytes,12,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
+	ReversedAt      *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=reversed_at,json=reversedAt,proto3" json:"reversed_at,omitempty"`
+	ReversedBy      string                 `protobuf:"bytes,14,opt,name=reversed_by,json=reversedBy,proto3" json:"reversed_by,omitempty"`
+	Creditor        *PartyInfo             `protobuf:"bytes,15,opt,name=creditor,proto3" json:"creditor,omitempty"`
+	Debitor         *PartyInfo             `protobuf:"bytes,16,opt,name=debitor,proto3" json:"debitor,omitempty"`
 	// Flexible metadata (e.g. channel, fees breakdown, device info)
-	Metadata      *structpb.Struct `protobuf:"bytes,16,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	Metadata      *structpb.Struct `protobuf:"bytes,17,opt,name=metadata,proto3" json:"metadata,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -217,6 +264,13 @@ func (x *Receipt) GetCodedType() string {
 func (x *Receipt) GetAmount() float64 {
 	if x != nil {
 		return x.Amount
+	}
+	return 0
+}
+
+func (x *Receipt) GetTransactionCost() float64 {
+	if x != nil {
+		return x.TransactionCost
 	}
 	return 0
 }
@@ -298,22 +352,21 @@ func (x *Receipt) GetMetadata() *structpb.Struct {
 	return nil
 }
 
-// ===============================
-// Requests / Responses
-// ===============================
+// --- Create ---
 type CreateReceiptRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Type          string                 `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
-	CodedType     string                 `protobuf:"bytes,2,opt,name=coded_type,json=codedType,proto3" json:"coded_type,omitempty"`
-	Amount        float64                `protobuf:"fixed64,3,opt,name=amount,proto3" json:"amount,omitempty"`
-	Currency      string                 `protobuf:"bytes,4,opt,name=currency,proto3" json:"currency,omitempty"`
-	ExternalRef   string                 `protobuf:"bytes,5,opt,name=external_ref,json=externalRef,proto3" json:"external_ref,omitempty"`
-	Creditor      *PartyInfo             `protobuf:"bytes,6,opt,name=creditor,proto3" json:"creditor,omitempty"`
-	Debitor       *PartyInfo             `protobuf:"bytes,7,opt,name=debitor,proto3" json:"debitor,omitempty"`
-	CreatedBy     string                 `protobuf:"bytes,8,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
-	Metadata      *structpb.Struct       `protobuf:"bytes,9,opt,name=metadata,proto3" json:"metadata,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Type            string                 `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
+	CodedType       string                 `protobuf:"bytes,2,opt,name=coded_type,json=codedType,proto3" json:"coded_type,omitempty"`
+	Amount          float64                `protobuf:"fixed64,3,opt,name=amount,proto3" json:"amount,omitempty"`
+	TransactionCost float64                `protobuf:"fixed64,10,opt,name=transaction_cost,json=transactionCost,proto3" json:"transaction_cost,omitempty"` // new field: optional, can default to 0
+	Currency        string                 `protobuf:"bytes,4,opt,name=currency,proto3" json:"currency,omitempty"`
+	ExternalRef     string                 `protobuf:"bytes,5,opt,name=external_ref,json=externalRef,proto3" json:"external_ref,omitempty"`
+	Creditor        *PartyInfo             `protobuf:"bytes,6,opt,name=creditor,proto3" json:"creditor,omitempty"`
+	Debitor         *PartyInfo             `protobuf:"bytes,7,opt,name=debitor,proto3" json:"debitor,omitempty"`
+	CreatedBy       string                 `protobuf:"bytes,8,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
+	Metadata        *structpb.Struct       `protobuf:"bytes,9,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *CreateReceiptRequest) Reset() {
@@ -363,6 +416,13 @@ func (x *CreateReceiptRequest) GetCodedType() string {
 func (x *CreateReceiptRequest) GetAmount() float64 {
 	if x != nil {
 		return x.Amount
+	}
+	return 0
+}
+
+func (x *CreateReceiptRequest) GetTransactionCost() float64 {
+	if x != nil {
+		return x.TransactionCost
 	}
 	return 0
 }
@@ -453,6 +513,96 @@ func (x *CreateReceiptResponse) GetReceipt() *Receipt {
 	return nil
 }
 
+// NEW: batch create
+type CreateReceiptsRequest struct {
+	state         protoimpl.MessageState  `protogen:"open.v1"`
+	Receipts      []*CreateReceiptRequest `protobuf:"bytes,1,rep,name=receipts,proto3" json:"receipts,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateReceiptsRequest) Reset() {
+	*x = CreateReceiptsRequest{}
+	mi := &file_proto_shared_accounting_receipt_v2_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateReceiptsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateReceiptsRequest) ProtoMessage() {}
+
+func (x *CreateReceiptsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_shared_accounting_receipt_v2_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateReceiptsRequest.ProtoReflect.Descriptor instead.
+func (*CreateReceiptsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_shared_accounting_receipt_v2_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *CreateReceiptsRequest) GetReceipts() []*CreateReceiptRequest {
+	if x != nil {
+		return x.Receipts
+	}
+	return nil
+}
+
+type CreateReceiptsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Receipts      []*Receipt             `protobuf:"bytes,1,rep,name=receipts,proto3" json:"receipts,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateReceiptsResponse) Reset() {
+	*x = CreateReceiptsResponse{}
+	mi := &file_proto_shared_accounting_receipt_v2_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateReceiptsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateReceiptsResponse) ProtoMessage() {}
+
+func (x *CreateReceiptsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_shared_accounting_receipt_v2_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateReceiptsResponse.ProtoReflect.Descriptor instead.
+func (*CreateReceiptsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_shared_accounting_receipt_v2_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *CreateReceiptsResponse) GetReceipts() []*Receipt {
+	if x != nil {
+		return x.Receipts
+	}
+	return nil
+}
+
+// --- Get ---
 type GetReceiptByCodeRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Code          string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
@@ -462,7 +612,7 @@ type GetReceiptByCodeRequest struct {
 
 func (x *GetReceiptByCodeRequest) Reset() {
 	*x = GetReceiptByCodeRequest{}
-	mi := &file_proto_shared_accounting_receipt_v2_proto_msgTypes[4]
+	mi := &file_proto_shared_accounting_receipt_v2_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -474,7 +624,7 @@ func (x *GetReceiptByCodeRequest) String() string {
 func (*GetReceiptByCodeRequest) ProtoMessage() {}
 
 func (x *GetReceiptByCodeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_shared_accounting_receipt_v2_proto_msgTypes[4]
+	mi := &file_proto_shared_accounting_receipt_v2_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -487,7 +637,7 @@ func (x *GetReceiptByCodeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetReceiptByCodeRequest.ProtoReflect.Descriptor instead.
 func (*GetReceiptByCodeRequest) Descriptor() ([]byte, []int) {
-	return file_proto_shared_accounting_receipt_v2_proto_rawDescGZIP(), []int{4}
+	return file_proto_shared_accounting_receipt_v2_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *GetReceiptByCodeRequest) GetCode() string {
@@ -495,6 +645,292 @@ func (x *GetReceiptByCodeRequest) GetCode() string {
 		return x.Code
 	}
 	return ""
+}
+
+// --- Update ---
+type UpdateReceiptRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Code           string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`                                           // which receipt to update
+	Status         string                 `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`                                       // optional new overall status
+	CreditorStatus string                 `protobuf:"bytes,3,opt,name=creditor_status,json=creditorStatus,proto3" json:"creditor_status,omitempty"` // optional update
+	DebitorStatus  string                 `protobuf:"bytes,4,opt,name=debitor_status,json=debitorStatus,proto3" json:"debitor_status,omitempty"`    // optional update
+	ReversedBy     string                 `protobuf:"bytes,5,opt,name=reversed_by,json=reversedBy,proto3" json:"reversed_by,omitempty"`             // optional
+	ReversedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=reversed_at,json=reversedAt,proto3" json:"reversed_at,omitempty"`
+	MetadataPatch  *structpb.Struct       `protobuf:"bytes,7,opt,name=metadata_patch,json=metadataPatch,proto3" json:"metadata_patch,omitempty"` // new metadata to append/merge
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *UpdateReceiptRequest) Reset() {
+	*x = UpdateReceiptRequest{}
+	mi := &file_proto_shared_accounting_receipt_v2_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateReceiptRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateReceiptRequest) ProtoMessage() {}
+
+func (x *UpdateReceiptRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_shared_accounting_receipt_v2_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateReceiptRequest.ProtoReflect.Descriptor instead.
+func (*UpdateReceiptRequest) Descriptor() ([]byte, []int) {
+	return file_proto_shared_accounting_receipt_v2_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *UpdateReceiptRequest) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
+func (x *UpdateReceiptRequest) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *UpdateReceiptRequest) GetCreditorStatus() string {
+	if x != nil {
+		return x.CreditorStatus
+	}
+	return ""
+}
+
+func (x *UpdateReceiptRequest) GetDebitorStatus() string {
+	if x != nil {
+		return x.DebitorStatus
+	}
+	return ""
+}
+
+func (x *UpdateReceiptRequest) GetReversedBy() string {
+	if x != nil {
+		return x.ReversedBy
+	}
+	return ""
+}
+
+func (x *UpdateReceiptRequest) GetReversedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ReversedAt
+	}
+	return nil
+}
+
+func (x *UpdateReceiptRequest) GetMetadataPatch() *structpb.Struct {
+	if x != nil {
+		return x.MetadataPatch
+	}
+	return nil
+}
+
+type UpdateReceiptResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Receipt       *Receipt               `protobuf:"bytes,1,opt,name=receipt,proto3" json:"receipt,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateReceiptResponse) Reset() {
+	*x = UpdateReceiptResponse{}
+	mi := &file_proto_shared_accounting_receipt_v2_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateReceiptResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateReceiptResponse) ProtoMessage() {}
+
+func (x *UpdateReceiptResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_shared_accounting_receipt_v2_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateReceiptResponse.ProtoReflect.Descriptor instead.
+func (*UpdateReceiptResponse) Descriptor() ([]byte, []int) {
+	return file_proto_shared_accounting_receipt_v2_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *UpdateReceiptResponse) GetReceipt() *Receipt {
+	if x != nil {
+		return x.Receipt
+	}
+	return nil
+}
+
+// NEW: batch update
+type UpdateReceiptsRequest struct {
+	state         protoimpl.MessageState  `protogen:"open.v1"`
+	Updates       []*UpdateReceiptRequest `protobuf:"bytes,1,rep,name=updates,proto3" json:"updates,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateReceiptsRequest) Reset() {
+	*x = UpdateReceiptsRequest{}
+	mi := &file_proto_shared_accounting_receipt_v2_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateReceiptsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateReceiptsRequest) ProtoMessage() {}
+
+func (x *UpdateReceiptsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_shared_accounting_receipt_v2_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateReceiptsRequest.ProtoReflect.Descriptor instead.
+func (*UpdateReceiptsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_shared_accounting_receipt_v2_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *UpdateReceiptsRequest) GetUpdates() []*UpdateReceiptRequest {
+	if x != nil {
+		return x.Updates
+	}
+	return nil
+}
+
+type UpdateReceiptsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Receipts      []*Receipt             `protobuf:"bytes,1,rep,name=receipts,proto3" json:"receipts,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateReceiptsResponse) Reset() {
+	*x = UpdateReceiptsResponse{}
+	mi := &file_proto_shared_accounting_receipt_v2_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateReceiptsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateReceiptsResponse) ProtoMessage() {}
+
+func (x *UpdateReceiptsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_shared_accounting_receipt_v2_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateReceiptsResponse.ProtoReflect.Descriptor instead.
+func (*UpdateReceiptsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_shared_accounting_receipt_v2_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *UpdateReceiptsResponse) GetReceipts() []*Receipt {
+	if x != nil {
+		return x.Receipts
+	}
+	return nil
+}
+
+type ReceiptMessage struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Type          ReceiptMessageType     `protobuf:"varint,1,opt,name=type,proto3,enum=accounting.receipt.v2.ReceiptMessageType" json:"type,omitempty"`
+	Receipt       *Receipt               `protobuf:"bytes,2,opt,name=receipt,proto3" json:"receipt,omitempty"` // used for creation
+	Update        *UpdateReceiptRequest  `protobuf:"bytes,3,opt,name=update,proto3" json:"update,omitempty"`   // used for updates
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReceiptMessage) Reset() {
+	*x = ReceiptMessage{}
+	mi := &file_proto_shared_accounting_receipt_v2_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReceiptMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReceiptMessage) ProtoMessage() {}
+
+func (x *ReceiptMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_shared_accounting_receipt_v2_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReceiptMessage.ProtoReflect.Descriptor instead.
+func (*ReceiptMessage) Descriptor() ([]byte, []int) {
+	return file_proto_shared_accounting_receipt_v2_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *ReceiptMessage) GetType() ReceiptMessageType {
+	if x != nil {
+		return x.Type
+	}
+	return ReceiptMessageType_CREATE
+}
+
+func (x *ReceiptMessage) GetReceipt() *Receipt {
+	if x != nil {
+		return x.Receipt
+	}
+	return nil
+}
+
+func (x *ReceiptMessage) GetUpdate() *UpdateReceiptRequest {
+	if x != nil {
+		return x.Update
+	}
+	return nil
 }
 
 var File_proto_shared_accounting_receipt_v2_proto protoreflect.FileDescriptor
@@ -513,36 +949,39 @@ const file_proto_shared_accounting_receipt_v2_proto_rawDesc = "" +
 	"\x05email\x18\a \x01(\tR\x05email\x12%\n" +
 	"\x0eaccount_number\x18\b \x01(\tR\raccountNumber\x12\x1f\n" +
 	"\vis_creditor\x18\t \x01(\bR\n" +
-	"isCreditor\"\xf1\x04\n" +
+	"isCreditor\"\x9c\x05\n" +
 	"\aReceipt\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
 	"\x04code\x18\x02 \x01(\tR\x04code\x12\x12\n" +
 	"\x04type\x18\x03 \x01(\tR\x04type\x12\x1d\n" +
 	"\n" +
 	"coded_type\x18\x04 \x01(\tR\tcodedType\x12\x16\n" +
-	"\x06amount\x18\x05 \x01(\x01R\x06amount\x12\x1a\n" +
-	"\bcurrency\x18\x06 \x01(\tR\bcurrency\x12!\n" +
-	"\fexternal_ref\x18\a \x01(\tR\vexternalRef\x12\x16\n" +
-	"\x06status\x18\b \x01(\tR\x06status\x129\n" +
+	"\x06amount\x18\x05 \x01(\x01R\x06amount\x12)\n" +
+	"\x10transaction_cost\x18\x06 \x01(\x01R\x0ftransactionCost\x12\x1a\n" +
+	"\bcurrency\x18\a \x01(\tR\bcurrency\x12!\n" +
+	"\fexternal_ref\x18\b \x01(\tR\vexternalRef\x12\x16\n" +
+	"\x06status\x18\t \x01(\tR\x06status\x129\n" +
 	"\n" +
-	"created_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"created_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\n" +
-	" \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x1d\n" +
+	"updated_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x1d\n" +
 	"\n" +
-	"created_by\x18\v \x01(\tR\tcreatedBy\x12;\n" +
-	"\vreversed_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"created_by\x18\f \x01(\tR\tcreatedBy\x12;\n" +
+	"\vreversed_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\n" +
 	"reversedAt\x12\x1f\n" +
-	"\vreversed_by\x18\r \x01(\tR\n" +
+	"\vreversed_by\x18\x0e \x01(\tR\n" +
 	"reversedBy\x12<\n" +
-	"\bcreditor\x18\x0e \x01(\v2 .accounting.receipt.v2.PartyInfoR\bcreditor\x12:\n" +
-	"\adebitor\x18\x0f \x01(\v2 .accounting.receipt.v2.PartyInfoR\adebitor\x123\n" +
-	"\bmetadata\x18\x10 \x01(\v2\x17.google.protobuf.StructR\bmetadata\"\xee\x02\n" +
+	"\bcreditor\x18\x0f \x01(\v2 .accounting.receipt.v2.PartyInfoR\bcreditor\x12:\n" +
+	"\adebitor\x18\x10 \x01(\v2 .accounting.receipt.v2.PartyInfoR\adebitor\x123\n" +
+	"\bmetadata\x18\x11 \x01(\v2\x17.google.protobuf.StructR\bmetadata\"\x99\x03\n" +
 	"\x14CreateReceiptRequest\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12\x1d\n" +
 	"\n" +
 	"coded_type\x18\x02 \x01(\tR\tcodedType\x12\x16\n" +
-	"\x06amount\x18\x03 \x01(\x01R\x06amount\x12\x1a\n" +
+	"\x06amount\x18\x03 \x01(\x01R\x06amount\x12)\n" +
+	"\x10transaction_cost\x18\n" +
+	" \x01(\x01R\x0ftransactionCost\x12\x1a\n" +
 	"\bcurrency\x18\x04 \x01(\tR\bcurrency\x12!\n" +
 	"\fexternal_ref\x18\x05 \x01(\tR\vexternalRef\x12<\n" +
 	"\bcreditor\x18\x06 \x01(\v2 .accounting.receipt.v2.PartyInfoR\bcreditor\x12:\n" +
@@ -551,12 +990,44 @@ const file_proto_shared_accounting_receipt_v2_proto_rawDesc = "" +
 	"created_by\x18\b \x01(\tR\tcreatedBy\x123\n" +
 	"\bmetadata\x18\t \x01(\v2\x17.google.protobuf.StructR\bmetadata\"Q\n" +
 	"\x15CreateReceiptResponse\x128\n" +
-	"\areceipt\x18\x01 \x01(\v2\x1e.accounting.receipt.v2.ReceiptR\areceipt\"-\n" +
+	"\areceipt\x18\x01 \x01(\v2\x1e.accounting.receipt.v2.ReceiptR\areceipt\"`\n" +
+	"\x15CreateReceiptsRequest\x12G\n" +
+	"\breceipts\x18\x01 \x03(\v2+.accounting.receipt.v2.CreateReceiptRequestR\breceipts\"T\n" +
+	"\x16CreateReceiptsResponse\x12:\n" +
+	"\breceipts\x18\x01 \x03(\v2\x1e.accounting.receipt.v2.ReceiptR\breceipts\"-\n" +
 	"\x17GetReceiptByCodeRequest\x12\x12\n" +
-	"\x04code\x18\x01 \x01(\tR\x04code2\xe2\x01\n" +
+	"\x04code\x18\x01 \x01(\tR\x04code\"\xb0\x02\n" +
+	"\x14UpdateReceiptRequest\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\tR\x04code\x12\x16\n" +
+	"\x06status\x18\x02 \x01(\tR\x06status\x12'\n" +
+	"\x0fcreditor_status\x18\x03 \x01(\tR\x0ecreditorStatus\x12%\n" +
+	"\x0edebitor_status\x18\x04 \x01(\tR\rdebitorStatus\x12\x1f\n" +
+	"\vreversed_by\x18\x05 \x01(\tR\n" +
+	"reversedBy\x12;\n" +
+	"\vreversed_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"reversedAt\x12>\n" +
+	"\x0emetadata_patch\x18\a \x01(\v2\x17.google.protobuf.StructR\rmetadataPatch\"Q\n" +
+	"\x15UpdateReceiptResponse\x128\n" +
+	"\areceipt\x18\x01 \x01(\v2\x1e.accounting.receipt.v2.ReceiptR\areceipt\"^\n" +
+	"\x15UpdateReceiptsRequest\x12E\n" +
+	"\aupdates\x18\x01 \x03(\v2+.accounting.receipt.v2.UpdateReceiptRequestR\aupdates\"T\n" +
+	"\x16UpdateReceiptsResponse\x12:\n" +
+	"\breceipts\x18\x01 \x03(\v2\x1e.accounting.receipt.v2.ReceiptR\breceipts\"\xce\x01\n" +
+	"\x0eReceiptMessage\x12=\n" +
+	"\x04type\x18\x01 \x01(\x0e2).accounting.receipt.v2.ReceiptMessageTypeR\x04type\x128\n" +
+	"\areceipt\x18\x02 \x01(\v2\x1e.accounting.receipt.v2.ReceiptR\areceipt\x12C\n" +
+	"\x06update\x18\x03 \x01(\v2+.accounting.receipt.v2.UpdateReceiptRequestR\x06update*,\n" +
+	"\x12ReceiptMessageType\x12\n" +
+	"\n" +
+	"\x06CREATE\x10\x00\x12\n" +
+	"\n" +
+	"\x06UPDATE\x10\x012\xac\x04\n" +
 	"\x10ReceiptServiceV2\x12j\n" +
-	"\rCreateReceipt\x12+.accounting.receipt.v2.CreateReceiptRequest\x1a,.accounting.receipt.v2.CreateReceiptResponse\x12b\n" +
-	"\x10GetReceiptByCode\x12..accounting.receipt.v2.GetReceiptByCodeRequest\x1a\x1e.accounting.receipt.v2.ReceiptB1Z/genproto/shared/accounting/receipt/v2;receiptpbb\x06proto3"
+	"\rCreateReceipt\x12+.accounting.receipt.v2.CreateReceiptRequest\x1a,.accounting.receipt.v2.CreateReceiptResponse\x12m\n" +
+	"\x0eCreateReceipts\x12,.accounting.receipt.v2.CreateReceiptsRequest\x1a-.accounting.receipt.v2.CreateReceiptsResponse\x12b\n" +
+	"\x10GetReceiptByCode\x12..accounting.receipt.v2.GetReceiptByCodeRequest\x1a\x1e.accounting.receipt.v2.Receipt\x12j\n" +
+	"\rUpdateReceipt\x12+.accounting.receipt.v2.UpdateReceiptRequest\x1a,.accounting.receipt.v2.UpdateReceiptResponse\x12m\n" +
+	"\x0eUpdateReceipts\x12,.accounting.receipt.v2.UpdateReceiptsRequest\x1a-.accounting.receipt.v2.UpdateReceiptsResponseB1Z/genproto/shared/accounting/receipt/v2;receiptpbb\x06proto3"
 
 var (
 	file_proto_shared_accounting_receipt_v2_proto_rawDescOnce sync.Once
@@ -570,36 +1041,61 @@ func file_proto_shared_accounting_receipt_v2_proto_rawDescGZIP() []byte {
 	return file_proto_shared_accounting_receipt_v2_proto_rawDescData
 }
 
-var file_proto_shared_accounting_receipt_v2_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_proto_shared_accounting_receipt_v2_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_proto_shared_accounting_receipt_v2_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_proto_shared_accounting_receipt_v2_proto_goTypes = []any{
-	(*PartyInfo)(nil),               // 0: accounting.receipt.v2.PartyInfo
-	(*Receipt)(nil),                 // 1: accounting.receipt.v2.Receipt
-	(*CreateReceiptRequest)(nil),    // 2: accounting.receipt.v2.CreateReceiptRequest
-	(*CreateReceiptResponse)(nil),   // 3: accounting.receipt.v2.CreateReceiptResponse
-	(*GetReceiptByCodeRequest)(nil), // 4: accounting.receipt.v2.GetReceiptByCodeRequest
-	(*timestamppb.Timestamp)(nil),   // 5: google.protobuf.Timestamp
-	(*structpb.Struct)(nil),         // 6: google.protobuf.Struct
+	(ReceiptMessageType)(0),         // 0: accounting.receipt.v2.ReceiptMessageType
+	(*PartyInfo)(nil),               // 1: accounting.receipt.v2.PartyInfo
+	(*Receipt)(nil),                 // 2: accounting.receipt.v2.Receipt
+	(*CreateReceiptRequest)(nil),    // 3: accounting.receipt.v2.CreateReceiptRequest
+	(*CreateReceiptResponse)(nil),   // 4: accounting.receipt.v2.CreateReceiptResponse
+	(*CreateReceiptsRequest)(nil),   // 5: accounting.receipt.v2.CreateReceiptsRequest
+	(*CreateReceiptsResponse)(nil),  // 6: accounting.receipt.v2.CreateReceiptsResponse
+	(*GetReceiptByCodeRequest)(nil), // 7: accounting.receipt.v2.GetReceiptByCodeRequest
+	(*UpdateReceiptRequest)(nil),    // 8: accounting.receipt.v2.UpdateReceiptRequest
+	(*UpdateReceiptResponse)(nil),   // 9: accounting.receipt.v2.UpdateReceiptResponse
+	(*UpdateReceiptsRequest)(nil),   // 10: accounting.receipt.v2.UpdateReceiptsRequest
+	(*UpdateReceiptsResponse)(nil),  // 11: accounting.receipt.v2.UpdateReceiptsResponse
+	(*ReceiptMessage)(nil),          // 12: accounting.receipt.v2.ReceiptMessage
+	(*timestamppb.Timestamp)(nil),   // 13: google.protobuf.Timestamp
+	(*structpb.Struct)(nil),         // 14: google.protobuf.Struct
 }
 var file_proto_shared_accounting_receipt_v2_proto_depIdxs = []int32{
-	5,  // 0: accounting.receipt.v2.Receipt.created_at:type_name -> google.protobuf.Timestamp
-	5,  // 1: accounting.receipt.v2.Receipt.updated_at:type_name -> google.protobuf.Timestamp
-	5,  // 2: accounting.receipt.v2.Receipt.reversed_at:type_name -> google.protobuf.Timestamp
-	0,  // 3: accounting.receipt.v2.Receipt.creditor:type_name -> accounting.receipt.v2.PartyInfo
-	0,  // 4: accounting.receipt.v2.Receipt.debitor:type_name -> accounting.receipt.v2.PartyInfo
-	6,  // 5: accounting.receipt.v2.Receipt.metadata:type_name -> google.protobuf.Struct
-	0,  // 6: accounting.receipt.v2.CreateReceiptRequest.creditor:type_name -> accounting.receipt.v2.PartyInfo
-	0,  // 7: accounting.receipt.v2.CreateReceiptRequest.debitor:type_name -> accounting.receipt.v2.PartyInfo
-	6,  // 8: accounting.receipt.v2.CreateReceiptRequest.metadata:type_name -> google.protobuf.Struct
-	1,  // 9: accounting.receipt.v2.CreateReceiptResponse.receipt:type_name -> accounting.receipt.v2.Receipt
-	2,  // 10: accounting.receipt.v2.ReceiptServiceV2.CreateReceipt:input_type -> accounting.receipt.v2.CreateReceiptRequest
-	4,  // 11: accounting.receipt.v2.ReceiptServiceV2.GetReceiptByCode:input_type -> accounting.receipt.v2.GetReceiptByCodeRequest
-	3,  // 12: accounting.receipt.v2.ReceiptServiceV2.CreateReceipt:output_type -> accounting.receipt.v2.CreateReceiptResponse
-	1,  // 13: accounting.receipt.v2.ReceiptServiceV2.GetReceiptByCode:output_type -> accounting.receipt.v2.Receipt
-	12, // [12:14] is the sub-list for method output_type
-	10, // [10:12] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	13, // 0: accounting.receipt.v2.Receipt.created_at:type_name -> google.protobuf.Timestamp
+	13, // 1: accounting.receipt.v2.Receipt.updated_at:type_name -> google.protobuf.Timestamp
+	13, // 2: accounting.receipt.v2.Receipt.reversed_at:type_name -> google.protobuf.Timestamp
+	1,  // 3: accounting.receipt.v2.Receipt.creditor:type_name -> accounting.receipt.v2.PartyInfo
+	1,  // 4: accounting.receipt.v2.Receipt.debitor:type_name -> accounting.receipt.v2.PartyInfo
+	14, // 5: accounting.receipt.v2.Receipt.metadata:type_name -> google.protobuf.Struct
+	1,  // 6: accounting.receipt.v2.CreateReceiptRequest.creditor:type_name -> accounting.receipt.v2.PartyInfo
+	1,  // 7: accounting.receipt.v2.CreateReceiptRequest.debitor:type_name -> accounting.receipt.v2.PartyInfo
+	14, // 8: accounting.receipt.v2.CreateReceiptRequest.metadata:type_name -> google.protobuf.Struct
+	2,  // 9: accounting.receipt.v2.CreateReceiptResponse.receipt:type_name -> accounting.receipt.v2.Receipt
+	3,  // 10: accounting.receipt.v2.CreateReceiptsRequest.receipts:type_name -> accounting.receipt.v2.CreateReceiptRequest
+	2,  // 11: accounting.receipt.v2.CreateReceiptsResponse.receipts:type_name -> accounting.receipt.v2.Receipt
+	13, // 12: accounting.receipt.v2.UpdateReceiptRequest.reversed_at:type_name -> google.protobuf.Timestamp
+	14, // 13: accounting.receipt.v2.UpdateReceiptRequest.metadata_patch:type_name -> google.protobuf.Struct
+	2,  // 14: accounting.receipt.v2.UpdateReceiptResponse.receipt:type_name -> accounting.receipt.v2.Receipt
+	8,  // 15: accounting.receipt.v2.UpdateReceiptsRequest.updates:type_name -> accounting.receipt.v2.UpdateReceiptRequest
+	2,  // 16: accounting.receipt.v2.UpdateReceiptsResponse.receipts:type_name -> accounting.receipt.v2.Receipt
+	0,  // 17: accounting.receipt.v2.ReceiptMessage.type:type_name -> accounting.receipt.v2.ReceiptMessageType
+	2,  // 18: accounting.receipt.v2.ReceiptMessage.receipt:type_name -> accounting.receipt.v2.Receipt
+	8,  // 19: accounting.receipt.v2.ReceiptMessage.update:type_name -> accounting.receipt.v2.UpdateReceiptRequest
+	3,  // 20: accounting.receipt.v2.ReceiptServiceV2.CreateReceipt:input_type -> accounting.receipt.v2.CreateReceiptRequest
+	5,  // 21: accounting.receipt.v2.ReceiptServiceV2.CreateReceipts:input_type -> accounting.receipt.v2.CreateReceiptsRequest
+	7,  // 22: accounting.receipt.v2.ReceiptServiceV2.GetReceiptByCode:input_type -> accounting.receipt.v2.GetReceiptByCodeRequest
+	8,  // 23: accounting.receipt.v2.ReceiptServiceV2.UpdateReceipt:input_type -> accounting.receipt.v2.UpdateReceiptRequest
+	10, // 24: accounting.receipt.v2.ReceiptServiceV2.UpdateReceipts:input_type -> accounting.receipt.v2.UpdateReceiptsRequest
+	4,  // 25: accounting.receipt.v2.ReceiptServiceV2.CreateReceipt:output_type -> accounting.receipt.v2.CreateReceiptResponse
+	6,  // 26: accounting.receipt.v2.ReceiptServiceV2.CreateReceipts:output_type -> accounting.receipt.v2.CreateReceiptsResponse
+	2,  // 27: accounting.receipt.v2.ReceiptServiceV2.GetReceiptByCode:output_type -> accounting.receipt.v2.Receipt
+	9,  // 28: accounting.receipt.v2.ReceiptServiceV2.UpdateReceipt:output_type -> accounting.receipt.v2.UpdateReceiptResponse
+	11, // 29: accounting.receipt.v2.ReceiptServiceV2.UpdateReceipts:output_type -> accounting.receipt.v2.UpdateReceiptsResponse
+	25, // [25:30] is the sub-list for method output_type
+	20, // [20:25] is the sub-list for method input_type
+	20, // [20:20] is the sub-list for extension type_name
+	20, // [20:20] is the sub-list for extension extendee
+	0,  // [0:20] is the sub-list for field type_name
 }
 
 func init() { file_proto_shared_accounting_receipt_v2_proto_init() }
@@ -612,13 +1108,14 @@ func file_proto_shared_accounting_receipt_v2_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_shared_accounting_receipt_v2_proto_rawDesc), len(file_proto_shared_accounting_receipt_v2_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   5,
+			NumEnums:      1,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_proto_shared_accounting_receipt_v2_proto_goTypes,
 		DependencyIndexes: file_proto_shared_accounting_receipt_v2_proto_depIdxs,
+		EnumInfos:         file_proto_shared_accounting_receipt_v2_proto_enumTypes,
 		MessageInfos:      file_proto_shared_accounting_receipt_v2_proto_msgTypes,
 	}.Build()
 	File_proto_shared_accounting_receipt_v2_proto = out.File

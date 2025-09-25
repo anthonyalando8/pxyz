@@ -37,15 +37,15 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type NotificationServiceClient interface {
 	// Core CRUD
-	CreateNotification(ctx context.Context, in *CreateNotificationRequest, opts ...grpc.CallOption) (*NotificationResponse, error)
-	GetNotification(ctx context.Context, in *GetNotificationRequest, opts ...grpc.CallOption) (*NotificationResponse, error)
-	GetNotificationByRequestID(ctx context.Context, in *GetNotificationByRequestIDRequest, opts ...grpc.CallOption) (*NotificationResponse, error)
+	CreateNotification(ctx context.Context, in *CreateNotificationsRequest, opts ...grpc.CallOption) (*NotificationsResponse, error)
+	GetNotification(ctx context.Context, in *GetNotificationRequest, opts ...grpc.CallOption) (*NotificationsResponse, error)
+	GetNotificationByRequestID(ctx context.Context, in *GetNotificationByRequestIDRequest, opts ...grpc.CallOption) (*NotificationsResponse, error)
 	// Listing
 	ListNotifications(ctx context.Context, in *ListNotificationsRequest, opts ...grpc.CallOption) (*ListNotificationsResponse, error)
 	// Status updates
-	MarkAsRead(ctx context.Context, in *MarkAsReadRequest, opts ...grpc.CallOption) (*NotificationResponse, error)
-	HideFromApp(ctx context.Context, in *HideFromAppRequest, opts ...grpc.CallOption) (*NotificationResponse, error)
-	UpdateStatus(ctx context.Context, in *UpdateStatusRequest, opts ...grpc.CallOption) (*NotificationResponse, error)
+	MarkAsRead(ctx context.Context, in *MarkAsReadRequest, opts ...grpc.CallOption) (*NotificationsResponse, error)
+	HideFromApp(ctx context.Context, in *HideFromAppRequest, opts ...grpc.CallOption) (*NotificationsResponse, error)
+	UpdateStatus(ctx context.Context, in *UpdateStatusRequest, opts ...grpc.CallOption) (*NotificationsResponse, error)
 	// Unread helpers
 	ListUnread(ctx context.Context, in *ListUnreadRequest, opts ...grpc.CallOption) (*ListNotificationsResponse, error)
 	CountUnread(ctx context.Context, in *CountUnreadRequest, opts ...grpc.CallOption) (*CountUnreadResponse, error)
@@ -62,9 +62,9 @@ func NewNotificationServiceClient(cc grpc.ClientConnInterface) NotificationServi
 	return &notificationServiceClient{cc}
 }
 
-func (c *notificationServiceClient) CreateNotification(ctx context.Context, in *CreateNotificationRequest, opts ...grpc.CallOption) (*NotificationResponse, error) {
+func (c *notificationServiceClient) CreateNotification(ctx context.Context, in *CreateNotificationsRequest, opts ...grpc.CallOption) (*NotificationsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(NotificationResponse)
+	out := new(NotificationsResponse)
 	err := c.cc.Invoke(ctx, NotificationService_CreateNotification_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -72,9 +72,9 @@ func (c *notificationServiceClient) CreateNotification(ctx context.Context, in *
 	return out, nil
 }
 
-func (c *notificationServiceClient) GetNotification(ctx context.Context, in *GetNotificationRequest, opts ...grpc.CallOption) (*NotificationResponse, error) {
+func (c *notificationServiceClient) GetNotification(ctx context.Context, in *GetNotificationRequest, opts ...grpc.CallOption) (*NotificationsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(NotificationResponse)
+	out := new(NotificationsResponse)
 	err := c.cc.Invoke(ctx, NotificationService_GetNotification_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -82,9 +82,9 @@ func (c *notificationServiceClient) GetNotification(ctx context.Context, in *Get
 	return out, nil
 }
 
-func (c *notificationServiceClient) GetNotificationByRequestID(ctx context.Context, in *GetNotificationByRequestIDRequest, opts ...grpc.CallOption) (*NotificationResponse, error) {
+func (c *notificationServiceClient) GetNotificationByRequestID(ctx context.Context, in *GetNotificationByRequestIDRequest, opts ...grpc.CallOption) (*NotificationsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(NotificationResponse)
+	out := new(NotificationsResponse)
 	err := c.cc.Invoke(ctx, NotificationService_GetNotificationByRequestID_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -102,9 +102,9 @@ func (c *notificationServiceClient) ListNotifications(ctx context.Context, in *L
 	return out, nil
 }
 
-func (c *notificationServiceClient) MarkAsRead(ctx context.Context, in *MarkAsReadRequest, opts ...grpc.CallOption) (*NotificationResponse, error) {
+func (c *notificationServiceClient) MarkAsRead(ctx context.Context, in *MarkAsReadRequest, opts ...grpc.CallOption) (*NotificationsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(NotificationResponse)
+	out := new(NotificationsResponse)
 	err := c.cc.Invoke(ctx, NotificationService_MarkAsRead_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -112,9 +112,9 @@ func (c *notificationServiceClient) MarkAsRead(ctx context.Context, in *MarkAsRe
 	return out, nil
 }
 
-func (c *notificationServiceClient) HideFromApp(ctx context.Context, in *HideFromAppRequest, opts ...grpc.CallOption) (*NotificationResponse, error) {
+func (c *notificationServiceClient) HideFromApp(ctx context.Context, in *HideFromAppRequest, opts ...grpc.CallOption) (*NotificationsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(NotificationResponse)
+	out := new(NotificationsResponse)
 	err := c.cc.Invoke(ctx, NotificationService_HideFromApp_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -122,9 +122,9 @@ func (c *notificationServiceClient) HideFromApp(ctx context.Context, in *HideFro
 	return out, nil
 }
 
-func (c *notificationServiceClient) UpdateStatus(ctx context.Context, in *UpdateStatusRequest, opts ...grpc.CallOption) (*NotificationResponse, error) {
+func (c *notificationServiceClient) UpdateStatus(ctx context.Context, in *UpdateStatusRequest, opts ...grpc.CallOption) (*NotificationsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(NotificationResponse)
+	out := new(NotificationsResponse)
 	err := c.cc.Invoke(ctx, NotificationService_UpdateStatus_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -177,15 +177,15 @@ func (c *notificationServiceClient) DeleteNotificationsByOwner(ctx context.Conte
 // for forward compatibility.
 type NotificationServiceServer interface {
 	// Core CRUD
-	CreateNotification(context.Context, *CreateNotificationRequest) (*NotificationResponse, error)
-	GetNotification(context.Context, *GetNotificationRequest) (*NotificationResponse, error)
-	GetNotificationByRequestID(context.Context, *GetNotificationByRequestIDRequest) (*NotificationResponse, error)
+	CreateNotification(context.Context, *CreateNotificationsRequest) (*NotificationsResponse, error)
+	GetNotification(context.Context, *GetNotificationRequest) (*NotificationsResponse, error)
+	GetNotificationByRequestID(context.Context, *GetNotificationByRequestIDRequest) (*NotificationsResponse, error)
 	// Listing
 	ListNotifications(context.Context, *ListNotificationsRequest) (*ListNotificationsResponse, error)
 	// Status updates
-	MarkAsRead(context.Context, *MarkAsReadRequest) (*NotificationResponse, error)
-	HideFromApp(context.Context, *HideFromAppRequest) (*NotificationResponse, error)
-	UpdateStatus(context.Context, *UpdateStatusRequest) (*NotificationResponse, error)
+	MarkAsRead(context.Context, *MarkAsReadRequest) (*NotificationsResponse, error)
+	HideFromApp(context.Context, *HideFromAppRequest) (*NotificationsResponse, error)
+	UpdateStatus(context.Context, *UpdateStatusRequest) (*NotificationsResponse, error)
 	// Unread helpers
 	ListUnread(context.Context, *ListUnreadRequest) (*ListNotificationsResponse, error)
 	CountUnread(context.Context, *CountUnreadRequest) (*CountUnreadResponse, error)
@@ -202,25 +202,25 @@ type NotificationServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedNotificationServiceServer struct{}
 
-func (UnimplementedNotificationServiceServer) CreateNotification(context.Context, *CreateNotificationRequest) (*NotificationResponse, error) {
+func (UnimplementedNotificationServiceServer) CreateNotification(context.Context, *CreateNotificationsRequest) (*NotificationsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateNotification not implemented")
 }
-func (UnimplementedNotificationServiceServer) GetNotification(context.Context, *GetNotificationRequest) (*NotificationResponse, error) {
+func (UnimplementedNotificationServiceServer) GetNotification(context.Context, *GetNotificationRequest) (*NotificationsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetNotification not implemented")
 }
-func (UnimplementedNotificationServiceServer) GetNotificationByRequestID(context.Context, *GetNotificationByRequestIDRequest) (*NotificationResponse, error) {
+func (UnimplementedNotificationServiceServer) GetNotificationByRequestID(context.Context, *GetNotificationByRequestIDRequest) (*NotificationsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetNotificationByRequestID not implemented")
 }
 func (UnimplementedNotificationServiceServer) ListNotifications(context.Context, *ListNotificationsRequest) (*ListNotificationsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListNotifications not implemented")
 }
-func (UnimplementedNotificationServiceServer) MarkAsRead(context.Context, *MarkAsReadRequest) (*NotificationResponse, error) {
+func (UnimplementedNotificationServiceServer) MarkAsRead(context.Context, *MarkAsReadRequest) (*NotificationsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MarkAsRead not implemented")
 }
-func (UnimplementedNotificationServiceServer) HideFromApp(context.Context, *HideFromAppRequest) (*NotificationResponse, error) {
+func (UnimplementedNotificationServiceServer) HideFromApp(context.Context, *HideFromAppRequest) (*NotificationsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method HideFromApp not implemented")
 }
-func (UnimplementedNotificationServiceServer) UpdateStatus(context.Context, *UpdateStatusRequest) (*NotificationResponse, error) {
+func (UnimplementedNotificationServiceServer) UpdateStatus(context.Context, *UpdateStatusRequest) (*NotificationsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateStatus not implemented")
 }
 func (UnimplementedNotificationServiceServer) ListUnread(context.Context, *ListUnreadRequest) (*ListNotificationsResponse, error) {
@@ -257,7 +257,7 @@ func RegisterNotificationServiceServer(s grpc.ServiceRegistrar, srv Notification
 }
 
 func _NotificationService_CreateNotification_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CreateNotificationRequest)
+	in := new(CreateNotificationsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -269,7 +269,7 @@ func _NotificationService_CreateNotification_Handler(srv interface{}, ctx contex
 		FullMethod: NotificationService_CreateNotification_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NotificationServiceServer).CreateNotification(ctx, req.(*CreateNotificationRequest))
+		return srv.(NotificationServiceServer).CreateNotification(ctx, req.(*CreateNotificationsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }

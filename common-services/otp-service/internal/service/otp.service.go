@@ -170,31 +170,35 @@ func (s *OTPService) sendEmailOTP(_ context.Context, userID, recipient, purpose,
 	go func() {
 		bgCtx := context.Background() // background context for async processing
 
-		_, err := s.notificationClient.Client.CreateNotification(bgCtx, &notificationpb.CreateNotificationRequest{
-			Notification: &notificationpb.Notification{
-				RequestId:      uuid.New().String(),
-				OwnerType:      "",
-				OwnerId:        userID,
-				EventType:      "OTP",
-				Title: "OTP Code",
-				Body: s.formatOTPMessage(purpose,code),
-				ChannelHint:    []string{"email"},
-				Payload: func() *structpb.Struct {
-					s, _ := structpb.NewStruct(payload)
-					return s
-				}(),
-				VisibleInApp:   false,
-				RecipientEmail: recipient,
-				Priority:       "high",
-				Status:         "pending",
+		_, err := s.notificationClient.Client.CreateNotification(bgCtx, &notificationpb.CreateNotificationsRequest{
+			Notifications: []*notificationpb.Notification{
+				{
+					RequestId:      uuid.New().String(),
+					OwnerType:      "",
+					OwnerId:        userID,
+					EventType:      "OTP",
+					Title:          "OTP Code",
+					Body:           s.formatOTPMessage(purpose, code),
+					ChannelHint:    []string{"email"},
+					Payload: func() *structpb.Struct {
+						s, _ := structpb.NewStruct(payload)
+						return s
+					}(),
+					VisibleInApp:   false,
+					RecipientEmail: recipient,
+					Priority:       "high",
+					Status:         "pending",
+				},
 			},
 		})
+
 		if err != nil {
 			log.Printf("[WARN] failed to send OTP email to %s: %v", recipient, err)
 		} else {
 			log.Printf("Successfully queued OTP notification | Recipient=%s | TTL=%dm", recipient, ttlMinutes)
 		}
 	}()
+
 
 	return nil
 }
@@ -226,26 +230,29 @@ func (s *OTPService) sendSMSOrWhatsAppOTP(_ context.Context, userID, recipient, 
 	go func() {
 		bgCtx := context.Background() // background context for async processing
 
-		_, err := s.notificationClient.Client.CreateNotification(bgCtx, &notificationpb.CreateNotificationRequest{
-			Notification: &notificationpb.Notification{
-				RequestId:      uuid.New().String(),
-				OwnerType:      "user",
-				OwnerId:        userID,
-				EventType:      eventType,
-				Title: "OTP Code",
-				Body: s.formatOTPMessage(purpose, code),
-				ChannelHint:    []string{channel},
-				Payload: func() *structpb.Struct {
-					s, _ := structpb.NewStruct(payload)
-					return s
-				}(),
-				VisibleInApp: false,
-				RecipientName: "", // Optional: can be filled if you have user name
-				RecipientPhone: recipient,
-				Priority: "high",
-				Status:   "pending",
+		_, err := s.notificationClient.Client.CreateNotification(bgCtx, &notificationpb.CreateNotificationsRequest{
+			Notifications: []*notificationpb.Notification{
+				{
+					RequestId:      uuid.New().String(),
+					OwnerType:      "user",
+					OwnerId:        userID,
+					EventType:      eventType,
+					Title:          "OTP Code",
+					Body:           s.formatOTPMessage(purpose, code),
+					ChannelHint:    []string{channel},
+					Payload: func() *structpb.Struct {
+						s, _ := structpb.NewStruct(payload)
+						return s
+					}(),
+					VisibleInApp:   false,
+					RecipientName:  "", // Optional: fill if you have user name
+					RecipientPhone: recipient,
+					Priority:       "high",
+					Status:         "pending",
+				},
 			},
 		})
+
 		if err != nil {
 			log.Printf("[WARN] failed to send OTP via %s to %s: %v", channel, recipient, err)
 		} else {
@@ -253,6 +260,7 @@ func (s *OTPService) sendSMSOrWhatsAppOTP(_ context.Context, userID, recipient, 
 				channel, recipient, ttlMinutes, purpose)
 		}
 	}()
+
 
 	return nil
 }

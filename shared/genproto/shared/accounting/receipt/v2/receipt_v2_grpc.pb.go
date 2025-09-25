@@ -20,7 +20,10 @@ const _ = grpc.SupportPackageIsVersion9
 
 const (
 	ReceiptServiceV2_CreateReceipt_FullMethodName    = "/accounting.receipt.v2.ReceiptServiceV2/CreateReceipt"
+	ReceiptServiceV2_CreateReceipts_FullMethodName   = "/accounting.receipt.v2.ReceiptServiceV2/CreateReceipts"
 	ReceiptServiceV2_GetReceiptByCode_FullMethodName = "/accounting.receipt.v2.ReceiptServiceV2/GetReceiptByCode"
+	ReceiptServiceV2_UpdateReceipt_FullMethodName    = "/accounting.receipt.v2.ReceiptServiceV2/UpdateReceipt"
+	ReceiptServiceV2_UpdateReceipts_FullMethodName   = "/accounting.receipt.v2.ReceiptServiceV2/UpdateReceipts"
 )
 
 // ReceiptServiceV2Client is the client API for ReceiptServiceV2 service.
@@ -31,8 +34,14 @@ const (
 // Service
 // ===============================
 type ReceiptServiceV2Client interface {
+	// Create
 	CreateReceipt(ctx context.Context, in *CreateReceiptRequest, opts ...grpc.CallOption) (*CreateReceiptResponse, error)
+	CreateReceipts(ctx context.Context, in *CreateReceiptsRequest, opts ...grpc.CallOption) (*CreateReceiptsResponse, error)
+	// Get
 	GetReceiptByCode(ctx context.Context, in *GetReceiptByCodeRequest, opts ...grpc.CallOption) (*Receipt, error)
+	// Update
+	UpdateReceipt(ctx context.Context, in *UpdateReceiptRequest, opts ...grpc.CallOption) (*UpdateReceiptResponse, error)
+	UpdateReceipts(ctx context.Context, in *UpdateReceiptsRequest, opts ...grpc.CallOption) (*UpdateReceiptsResponse, error)
 }
 
 type receiptServiceV2Client struct {
@@ -53,10 +62,40 @@ func (c *receiptServiceV2Client) CreateReceipt(ctx context.Context, in *CreateRe
 	return out, nil
 }
 
+func (c *receiptServiceV2Client) CreateReceipts(ctx context.Context, in *CreateReceiptsRequest, opts ...grpc.CallOption) (*CreateReceiptsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateReceiptsResponse)
+	err := c.cc.Invoke(ctx, ReceiptServiceV2_CreateReceipts_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *receiptServiceV2Client) GetReceiptByCode(ctx context.Context, in *GetReceiptByCodeRequest, opts ...grpc.CallOption) (*Receipt, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Receipt)
 	err := c.cc.Invoke(ctx, ReceiptServiceV2_GetReceiptByCode_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *receiptServiceV2Client) UpdateReceipt(ctx context.Context, in *UpdateReceiptRequest, opts ...grpc.CallOption) (*UpdateReceiptResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateReceiptResponse)
+	err := c.cc.Invoke(ctx, ReceiptServiceV2_UpdateReceipt_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *receiptServiceV2Client) UpdateReceipts(ctx context.Context, in *UpdateReceiptsRequest, opts ...grpc.CallOption) (*UpdateReceiptsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateReceiptsResponse)
+	err := c.cc.Invoke(ctx, ReceiptServiceV2_UpdateReceipts_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -71,8 +110,14 @@ func (c *receiptServiceV2Client) GetReceiptByCode(ctx context.Context, in *GetRe
 // Service
 // ===============================
 type ReceiptServiceV2Server interface {
+	// Create
 	CreateReceipt(context.Context, *CreateReceiptRequest) (*CreateReceiptResponse, error)
+	CreateReceipts(context.Context, *CreateReceiptsRequest) (*CreateReceiptsResponse, error)
+	// Get
 	GetReceiptByCode(context.Context, *GetReceiptByCodeRequest) (*Receipt, error)
+	// Update
+	UpdateReceipt(context.Context, *UpdateReceiptRequest) (*UpdateReceiptResponse, error)
+	UpdateReceipts(context.Context, *UpdateReceiptsRequest) (*UpdateReceiptsResponse, error)
 	mustEmbedUnimplementedReceiptServiceV2Server()
 }
 
@@ -86,8 +131,17 @@ type UnimplementedReceiptServiceV2Server struct{}
 func (UnimplementedReceiptServiceV2Server) CreateReceipt(context.Context, *CreateReceiptRequest) (*CreateReceiptResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateReceipt not implemented")
 }
+func (UnimplementedReceiptServiceV2Server) CreateReceipts(context.Context, *CreateReceiptsRequest) (*CreateReceiptsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateReceipts not implemented")
+}
 func (UnimplementedReceiptServiceV2Server) GetReceiptByCode(context.Context, *GetReceiptByCodeRequest) (*Receipt, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetReceiptByCode not implemented")
+}
+func (UnimplementedReceiptServiceV2Server) UpdateReceipt(context.Context, *UpdateReceiptRequest) (*UpdateReceiptResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateReceipt not implemented")
+}
+func (UnimplementedReceiptServiceV2Server) UpdateReceipts(context.Context, *UpdateReceiptsRequest) (*UpdateReceiptsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateReceipts not implemented")
 }
 func (UnimplementedReceiptServiceV2Server) mustEmbedUnimplementedReceiptServiceV2Server() {}
 func (UnimplementedReceiptServiceV2Server) testEmbeddedByValue()                          {}
@@ -128,6 +182,24 @@ func _ReceiptServiceV2_CreateReceipt_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ReceiptServiceV2_CreateReceipts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateReceiptsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ReceiptServiceV2Server).CreateReceipts(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ReceiptServiceV2_CreateReceipts_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ReceiptServiceV2Server).CreateReceipts(ctx, req.(*CreateReceiptsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ReceiptServiceV2_GetReceiptByCode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetReceiptByCodeRequest)
 	if err := dec(in); err != nil {
@@ -146,6 +218,42 @@ func _ReceiptServiceV2_GetReceiptByCode_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ReceiptServiceV2_UpdateReceipt_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateReceiptRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ReceiptServiceV2Server).UpdateReceipt(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ReceiptServiceV2_UpdateReceipt_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ReceiptServiceV2Server).UpdateReceipt(ctx, req.(*UpdateReceiptRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ReceiptServiceV2_UpdateReceipts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateReceiptsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ReceiptServiceV2Server).UpdateReceipts(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ReceiptServiceV2_UpdateReceipts_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ReceiptServiceV2Server).UpdateReceipts(ctx, req.(*UpdateReceiptsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ReceiptServiceV2_ServiceDesc is the grpc.ServiceDesc for ReceiptServiceV2 service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -158,8 +266,20 @@ var ReceiptServiceV2_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ReceiptServiceV2_CreateReceipt_Handler,
 		},
 		{
+			MethodName: "CreateReceipts",
+			Handler:    _ReceiptServiceV2_CreateReceipts_Handler,
+		},
+		{
 			MethodName: "GetReceiptByCode",
 			Handler:    _ReceiptServiceV2_GetReceiptByCode_Handler,
+		},
+		{
+			MethodName: "UpdateReceipt",
+			Handler:    _ReceiptServiceV2_UpdateReceipt_Handler,
+		},
+		{
+			MethodName: "UpdateReceipts",
+			Handler:    _ReceiptServiceV2_UpdateReceipts_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

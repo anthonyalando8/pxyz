@@ -584,22 +584,25 @@ func (h *AuthHandler) sendPasswordChangeNotification(userID string, deviceInfo m
 			"DeviceDetails": deviceDetails,
 		}
 
-		_, err := h.notificationClient.Client.CreateNotification(ctx, &notificationpb.CreateNotificationRequest{
-			Notification: &notificationpb.Notification{
-				RequestId:      uuid.New().String(),
-				OwnerType:      "partner",
-				OwnerId:        uid,
-				EventType:      "PASSWORD_UPDATE",
-				Title: "Password Changed",
-				Body: "Your password was recently changed! If it was you take no action else consider securing your account.",
-				ChannelHint:    []string{"email"},
-				Payload: func() *structpb.Struct {
-					s, _ := structpb.NewStruct(payload)
-					return s
-				}(),
-				VisibleInApp:   false,
-				Priority:       "high",
-				Status:         "pending",
+		_, err := h.notificationClient.Client.CreateNotification(ctx, &notificationpb.CreateNotificationsRequest{
+			Notifications: []*notificationpb.Notification{
+				{
+					RequestId:      uuid.New().String(),
+					OwnerType:      "partner",
+					OwnerId:        uid,
+					EventType:      "PASSWORD_UPDATE",
+					Title: "Password Changed",
+					Body: "Your password was recently changed! If it was you take no action else consider securing your account.",
+					ChannelHint:    []string{"email"},
+					Payload: func() *structpb.Struct {
+						s, _ := structpb.NewStruct(payload)
+						return s
+					}(),
+					VisibleInApp:   false,
+					Priority:       "high",
+					Status:         "pending",
+				},
+				
 			},
 		})
 		if err != nil {

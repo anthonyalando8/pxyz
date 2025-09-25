@@ -211,27 +211,27 @@ func (x *Notification) GetRecipientName() string {
 	return ""
 }
 
-type CreateNotificationRequest struct {
+type CreateNotificationsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Notification  *Notification          `protobuf:"bytes,1,opt,name=notification,proto3" json:"notification,omitempty"`
+	Notifications []*Notification        `protobuf:"bytes,1,rep,name=notifications,proto3" json:"notifications,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *CreateNotificationRequest) Reset() {
-	*x = CreateNotificationRequest{}
+func (x *CreateNotificationsRequest) Reset() {
+	*x = CreateNotificationsRequest{}
 	mi := &file_proto_shared_notification_notification_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *CreateNotificationRequest) String() string {
+func (x *CreateNotificationsRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*CreateNotificationRequest) ProtoMessage() {}
+func (*CreateNotificationsRequest) ProtoMessage() {}
 
-func (x *CreateNotificationRequest) ProtoReflect() protoreflect.Message {
+func (x *CreateNotificationsRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_proto_shared_notification_notification_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -243,39 +243,39 @@ func (x *CreateNotificationRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use CreateNotificationRequest.ProtoReflect.Descriptor instead.
-func (*CreateNotificationRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use CreateNotificationsRequest.ProtoReflect.Descriptor instead.
+func (*CreateNotificationsRequest) Descriptor() ([]byte, []int) {
 	return file_proto_shared_notification_notification_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *CreateNotificationRequest) GetNotification() *Notification {
+func (x *CreateNotificationsRequest) GetNotifications() []*Notification {
 	if x != nil {
-		return x.Notification
+		return x.Notifications
 	}
 	return nil
 }
 
-type NotificationResponse struct {
+type NotificationsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Notification  *Notification          `protobuf:"bytes,1,opt,name=notification,proto3" json:"notification,omitempty"`
+	Notifications []*Notification        `protobuf:"bytes,1,rep,name=notifications,proto3" json:"notifications,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *NotificationResponse) Reset() {
-	*x = NotificationResponse{}
+func (x *NotificationsResponse) Reset() {
+	*x = NotificationsResponse{}
 	mi := &file_proto_shared_notification_notification_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *NotificationResponse) String() string {
+func (x *NotificationsResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*NotificationResponse) ProtoMessage() {}
+func (*NotificationsResponse) ProtoMessage() {}
 
-func (x *NotificationResponse) ProtoReflect() protoreflect.Message {
+func (x *NotificationsResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_proto_shared_notification_notification_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -287,14 +287,14 @@ func (x *NotificationResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use NotificationResponse.ProtoReflect.Descriptor instead.
-func (*NotificationResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use NotificationsResponse.ProtoReflect.Descriptor instead.
+func (*NotificationsResponse) Descriptor() ([]byte, []int) {
 	return file_proto_shared_notification_notification_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *NotificationResponse) GetNotification() *Notification {
+func (x *NotificationsResponse) GetNotifications() []*Notification {
 	if x != nil {
-		return x.Notification
+		return x.Notifications
 	}
 	return nil
 }
@@ -1072,11 +1072,11 @@ const file_proto_shared_notification_notification_proto_rawDesc = "" +
 	"\bmetadata\x18\x10 \x01(\v2\x17.google.protobuf.StructR\bmetadata\x12'\n" +
 	"\x0frecipient_email\x18\x11 \x01(\tR\x0erecipientEmail\x12'\n" +
 	"\x0frecipient_phone\x18\x12 \x01(\tR\x0erecipientPhone\x12%\n" +
-	"\x0erecipient_name\x18\x13 \x01(\tR\rrecipientName\"[\n" +
-	"\x19CreateNotificationRequest\x12>\n" +
-	"\fnotification\x18\x01 \x01(\v2\x1a.notification.NotificationR\fnotification\"V\n" +
-	"\x14NotificationResponse\x12>\n" +
-	"\fnotification\x18\x01 \x01(\v2\x1a.notification.NotificationR\fnotification\"(\n" +
+	"\x0erecipient_name\x18\x13 \x01(\tR\rrecipientName\"^\n" +
+	"\x1aCreateNotificationsRequest\x12@\n" +
+	"\rnotifications\x18\x01 \x03(\v2\x1a.notification.NotificationR\rnotifications\"Y\n" +
+	"\x15NotificationsResponse\x12@\n" +
+	"\rnotifications\x18\x01 \x03(\v2\x1a.notification.NotificationR\rnotifications\"(\n" +
 	"\x16GetNotificationRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\"B\n" +
 	"!GetNotificationByRequestIDRequest\x12\x1d\n" +
@@ -1128,16 +1128,16 @@ const file_proto_shared_notification_notification_proto_rawDesc = "" +
 	"owner_type\x18\x01 \x01(\tR\townerType\x12\x19\n" +
 	"\bowner_id\x18\x02 \x01(\tR\aownerId\">\n" +
 	"\"DeleteNotificationsByOwnerResponse\x12\x18\n" +
-	"\asuccess\x18\x01 \x01(\bR\asuccess2\xc3\b\n" +
-	"\x13NotificationService\x12a\n" +
-	"\x12CreateNotification\x12'.notification.CreateNotificationRequest\x1a\".notification.NotificationResponse\x12[\n" +
-	"\x0fGetNotification\x12$.notification.GetNotificationRequest\x1a\".notification.NotificationResponse\x12q\n" +
-	"\x1aGetNotificationByRequestID\x12/.notification.GetNotificationByRequestIDRequest\x1a\".notification.NotificationResponse\x12d\n" +
-	"\x11ListNotifications\x12&.notification.ListNotificationsRequest\x1a'.notification.ListNotificationsResponse\x12Q\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess2\xca\b\n" +
+	"\x13NotificationService\x12c\n" +
+	"\x12CreateNotification\x12(.notification.CreateNotificationsRequest\x1a#.notification.NotificationsResponse\x12\\\n" +
+	"\x0fGetNotification\x12$.notification.GetNotificationRequest\x1a#.notification.NotificationsResponse\x12r\n" +
+	"\x1aGetNotificationByRequestID\x12/.notification.GetNotificationByRequestIDRequest\x1a#.notification.NotificationsResponse\x12d\n" +
+	"\x11ListNotifications\x12&.notification.ListNotificationsRequest\x1a'.notification.ListNotificationsResponse\x12R\n" +
 	"\n" +
-	"MarkAsRead\x12\x1f.notification.MarkAsReadRequest\x1a\".notification.NotificationResponse\x12S\n" +
-	"\vHideFromApp\x12 .notification.HideFromAppRequest\x1a\".notification.NotificationResponse\x12U\n" +
-	"\fUpdateStatus\x12!.notification.UpdateStatusRequest\x1a\".notification.NotificationResponse\x12V\n" +
+	"MarkAsRead\x12\x1f.notification.MarkAsReadRequest\x1a#.notification.NotificationsResponse\x12T\n" +
+	"\vHideFromApp\x12 .notification.HideFromAppRequest\x1a#.notification.NotificationsResponse\x12V\n" +
+	"\fUpdateStatus\x12!.notification.UpdateStatusRequest\x1a#.notification.NotificationsResponse\x12V\n" +
 	"\n" +
 	"ListUnread\x12\x1f.notification.ListUnreadRequest\x1a'.notification.ListNotificationsResponse\x12R\n" +
 	"\vCountUnread\x12 .notification.CountUnreadRequest\x1a!.notification.CountUnreadResponse\x12g\n" +
@@ -1159,8 +1159,8 @@ func file_proto_shared_notification_notification_proto_rawDescGZIP() []byte {
 var file_proto_shared_notification_notification_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_proto_shared_notification_notification_proto_goTypes = []any{
 	(*Notification)(nil),                       // 0: notification.Notification
-	(*CreateNotificationRequest)(nil),          // 1: notification.CreateNotificationRequest
-	(*NotificationResponse)(nil),               // 2: notification.NotificationResponse
+	(*CreateNotificationsRequest)(nil),         // 1: notification.CreateNotificationsRequest
+	(*NotificationsResponse)(nil),              // 2: notification.NotificationsResponse
 	(*GetNotificationRequest)(nil),             // 3: notification.GetNotificationRequest
 	(*GetNotificationByRequestIDRequest)(nil),  // 4: notification.GetNotificationByRequestIDRequest
 	(*ListNotificationsRequest)(nil),           // 5: notification.ListNotificationsRequest
@@ -1184,11 +1184,11 @@ var file_proto_shared_notification_notification_proto_depIdxs = []int32{
 	18, // 2: notification.Notification.created_at:type_name -> google.protobuf.Timestamp
 	18, // 3: notification.Notification.delivered_at:type_name -> google.protobuf.Timestamp
 	17, // 4: notification.Notification.metadata:type_name -> google.protobuf.Struct
-	0,  // 5: notification.CreateNotificationRequest.notification:type_name -> notification.Notification
-	0,  // 6: notification.NotificationResponse.notification:type_name -> notification.Notification
+	0,  // 5: notification.CreateNotificationsRequest.notifications:type_name -> notification.Notification
+	0,  // 6: notification.NotificationsResponse.notifications:type_name -> notification.Notification
 	0,  // 7: notification.ListNotificationsResponse.notifications:type_name -> notification.Notification
 	18, // 8: notification.UpdateStatusRequest.delivered_at:type_name -> google.protobuf.Timestamp
-	1,  // 9: notification.NotificationService.CreateNotification:input_type -> notification.CreateNotificationRequest
+	1,  // 9: notification.NotificationService.CreateNotification:input_type -> notification.CreateNotificationsRequest
 	3,  // 10: notification.NotificationService.GetNotification:input_type -> notification.GetNotificationRequest
 	4,  // 11: notification.NotificationService.GetNotificationByRequestID:input_type -> notification.GetNotificationByRequestIDRequest
 	5,  // 12: notification.NotificationService.ListNotifications:input_type -> notification.ListNotificationsRequest
@@ -1199,13 +1199,13 @@ var file_proto_shared_notification_notification_proto_depIdxs = []int32{
 	11, // 17: notification.NotificationService.CountUnread:input_type -> notification.CountUnreadRequest
 	13, // 18: notification.NotificationService.DeleteNotification:input_type -> notification.DeleteNotificationRequest
 	15, // 19: notification.NotificationService.DeleteNotificationsByOwner:input_type -> notification.DeleteNotificationsByOwnerRequest
-	2,  // 20: notification.NotificationService.CreateNotification:output_type -> notification.NotificationResponse
-	2,  // 21: notification.NotificationService.GetNotification:output_type -> notification.NotificationResponse
-	2,  // 22: notification.NotificationService.GetNotificationByRequestID:output_type -> notification.NotificationResponse
+	2,  // 20: notification.NotificationService.CreateNotification:output_type -> notification.NotificationsResponse
+	2,  // 21: notification.NotificationService.GetNotification:output_type -> notification.NotificationsResponse
+	2,  // 22: notification.NotificationService.GetNotificationByRequestID:output_type -> notification.NotificationsResponse
 	6,  // 23: notification.NotificationService.ListNotifications:output_type -> notification.ListNotificationsResponse
-	2,  // 24: notification.NotificationService.MarkAsRead:output_type -> notification.NotificationResponse
-	2,  // 25: notification.NotificationService.HideFromApp:output_type -> notification.NotificationResponse
-	2,  // 26: notification.NotificationService.UpdateStatus:output_type -> notification.NotificationResponse
+	2,  // 24: notification.NotificationService.MarkAsRead:output_type -> notification.NotificationsResponse
+	2,  // 25: notification.NotificationService.HideFromApp:output_type -> notification.NotificationsResponse
+	2,  // 26: notification.NotificationService.UpdateStatus:output_type -> notification.NotificationsResponse
 	6,  // 27: notification.NotificationService.ListUnread:output_type -> notification.ListNotificationsResponse
 	12, // 28: notification.NotificationService.CountUnread:output_type -> notification.CountUnreadResponse
 	14, // 29: notification.NotificationService.DeleteNotification:output_type -> notification.DeleteNotificationResponse

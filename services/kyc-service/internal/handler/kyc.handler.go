@@ -194,23 +194,25 @@ func (h *KYCHandler) sendKYCSubmissionNotification(userID, recipientEmail string
 	go func(uid, email string) {
 		ctx := context.Background() // background context for async processing
 
-		_, err := h.notificationClient.Client.CreateNotification(ctx, &notificationpb.CreateNotificationRequest{
-			Notification: &notificationpb.Notification{
-				RequestId:      uuid.New().String(),
-				OwnerType:      "user",
-				OwnerId:        uid,
-				EventType:      "KYC_SUBMITTED",
-				Title: "KYC Documents Submitted",
-				Body: "Your KYC documents have been submitted awaiting review.",
-				ChannelHint:    []string{"email"},
-				Payload: func() *structpb.Struct {
-					s, _ := structpb.NewStruct(map[string]interface{}{})
-					return s
-				}(),
-				VisibleInApp:   false,
-				RecipientEmail: email,
-				Priority:       "high",
-				Status:         "pending",
+		_, err := h.notificationClient.Client.CreateNotification(ctx, &notificationpb.CreateNotificationsRequest{
+			Notifications: []*notificationpb.Notification{
+				{
+					RequestId:      uuid.New().String(),
+					OwnerType:      "user",
+					OwnerId:        uid,
+					EventType:      "KYC_SUBMITTED",
+					Title: "KYC Documents Submitted",
+					Body: "Your KYC documents have been submitted awaiting review.",
+					ChannelHint:    []string{"email"},
+					Payload: func() *structpb.Struct {
+						s, _ := structpb.NewStruct(map[string]interface{}{})
+						return s
+					}(),
+					VisibleInApp:   false,
+					RecipientEmail: email,
+					Priority:       "high",
+					Status:         "pending",
+				},
 			},
 		})
 		if err != nil {

@@ -72,38 +72,44 @@ func (h *TwoFAHandler) sendNotification(userID, eventType, recipientEmail, recip
 	go func() {
 		ctx := context.Background() // background context for async sending
 
-		notif := &notificationpb.Notification{
-			RequestId:      uuid.New().String(),
-			OwnerType:      "user",
-			OwnerId:        userID,
-			EventType:      eventType,
-			Title: "2FA Services",
-			Body: "Dear user you have a 2FA status update",
-			ChannelHint:    channels,
-			Payload: func() *structpb.Struct {
-				fixed := utils.NormalizePayload(payload)
-				s, err := structpb.NewStruct(fixed)
-				if err != nil {
-					log.Printf("[2FA][Payload Conversion Failed] userID=%s err=%v payload=%+v", userID, err, fixed)
-					return nil
-				}
-				log.Printf("[2FA][Payload Submitted] userID=%s payload=%+v", userID, fixed)
-				return s
-			}(),
-			VisibleInApp:   true,
-			Priority:       "high",
-			Status:         "pending",
+		notif := []*notificationpb.Notification{
+			{
+				RequestId:   uuid.New().String(),
+				OwnerType:   "user",
+				OwnerId:     userID,
+				EventType:   eventType,
+				Title:       "2FA Services",
+				Body:        "Dear user you have a 2FA status update",
+				ChannelHint: channels,
+				Payload: func() *structpb.Struct {
+					fixed := utils.NormalizePayload(payload)
+					s, err := structpb.NewStruct(fixed)
+					if err != nil {
+						log.Printf("[2FA][Payload Conversion Failed] userID=%s err=%v payload=%+v", userID, err, fixed)
+						return nil
+					}
+					log.Printf("[2FA][Payload Submitted] userID=%s payload=%+v", userID, fixed)
+					return s
+				}(),
+				VisibleInApp: true,
+				Priority:     "high",
+				Status:       "pending",
+			},
 		}
 
-		if recipientEmail != "" {
-			notif.RecipientEmail = recipientEmail
-		}
-		if recipientPhone != "" {
-			notif.RecipientPhone = recipientPhone
+		// Set recipient fields on the first element of the slice
+		if len(notif) > 0 {
+			if recipientEmail != "" {
+				notif[0].RecipientEmail = recipientEmail
+			}
+			if recipientPhone != "" {
+				notif[0].RecipientPhone = recipientPhone
+			}
 		}
 
-		_, err := h.notificationClient.Client.CreateNotification(ctx, &notificationpb.CreateNotificationRequest{
-			Notification: notif,
+
+		_, err := h.notificationClient.Client.CreateNotification(ctx, &notificationpb.CreateNotificationsRequest{
+			Notifications: notif,
 		})
 		if err != nil {
 			log.Printf("[WARN] failed to send %s notification to user=%s: %v", eventType, userID, err)

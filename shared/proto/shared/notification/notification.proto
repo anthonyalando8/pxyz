@@ -9,17 +9,17 @@ import "google/protobuf/struct.proto";
 
 service NotificationService {
   // Core CRUD
-  rpc CreateNotification(CreateNotificationRequest) returns (NotificationResponse);
-  rpc GetNotification(GetNotificationRequest) returns (NotificationResponse);
-  rpc GetNotificationByRequestID(GetNotificationByRequestIDRequest) returns (NotificationResponse);
+  rpc CreateNotification(CreateNotificationsRequest) returns (NotificationsResponse);
+  rpc GetNotification(GetNotificationRequest) returns (NotificationsResponse);
+  rpc GetNotificationByRequestID(GetNotificationByRequestIDRequest) returns (NotificationsResponse);
 
   // Listing
   rpc ListNotifications(ListNotificationsRequest) returns (ListNotificationsResponse);
 
   // Status updates
-  rpc MarkAsRead(MarkAsReadRequest) returns (NotificationResponse);
-  rpc HideFromApp(HideFromAppRequest) returns (NotificationResponse);
-  rpc UpdateStatus(UpdateStatusRequest) returns (NotificationResponse);
+  rpc MarkAsRead(MarkAsReadRequest) returns (NotificationsResponse);
+  rpc HideFromApp(HideFromAppRequest) returns (NotificationsResponse);
+  rpc UpdateStatus(UpdateStatusRequest) returns (NotificationsResponse);
 
   // Unread helpers
   rpc ListUnread(ListUnreadRequest) returns (ListNotificationsResponse);
@@ -56,12 +56,12 @@ message Notification {
 
 // === Requests & Responses ===
 
-message CreateNotificationRequest {
-  Notification notification = 1;
+message CreateNotificationsRequest {
+  repeated Notification notifications = 1;
 }
 
-message NotificationResponse {
-  Notification notification = 1;
+message NotificationsResponse {
+  repeated Notification notifications = 1;
 }
 
 message GetNotificationRequest {

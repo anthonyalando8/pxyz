@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"log"
 	"net"
 
@@ -10,10 +9,11 @@ import (
 	"receipt-service/internal/repository"
 	"receipt-service/internal/usecase"
 	"receipt-service/pkg/generator"
+	"receipt-service/pkg/utils"
+	"x/shared/utils/id"
+
 	receiptpb "x/shared/genproto/shared/accounting/receipt/v2"
 	notificationclient "x/shared/notification"
-
-	service "receipt-service/internal/service"
 
 	"github.com/segmentio/kafka-go"
 	"github.com/redis/go-redis/v9"
@@ -41,11 +41,16 @@ func NewReceiptGRPCServer(cfg config.AppConfig) {
 	// --- Repositories ---
 	receiptRepo := repository.NewReceiptRepo(dbpool)
 
+	// --- Notification client ---
+	notificationCli := notificationclient.NewNotificationService()
+	sf, err := id.NewSnowflake(16) // Node ID 15 for this service
+	if err != nil {
+		log.Fatalf("failed to init snowflake: %v", err)
+	}
 	// --- Generator for receipt codes ---
 	codeGen := generator.NewGenerator()
 
-	// --- Notification client ---
-	notificationCli := notificationclient.NewNotificationService()
+	codeGenV2 := receiptutil.NewReceiptGenerator(sf, "FX")
 
 	// --- Kafka writer ---
 	writer := &kafka.Writer{
@@ -55,16 +60,10 @@ func NewReceiptGRPCServer(cfg config.AppConfig) {
 	}
 
 	// --- Usecases ---
-	receiptUC := usecase.NewReceiptUsecase(receiptRepo, codeGen, notificationCli, writer)
+	receiptUC := usecase.NewReceiptUsecase(receiptRepo, codeGen,codeGenV2, notificationCli, writer)
 
 	// --- gRPC Handler ---
 	receiptHandler := hgrpc.NewReceiptGRPCHandler(receiptUC)
-
-	// --- Start Kafka worker in background ---
-	go func() {
-		log.Println("starting receipt worker...")
-		service.StartReceiptWorker(context.Background(), cfg.KafkaBrokers, receiptRepo)
-	}()
 
 	// --- gRPC Server ---
 	grpcServer := grpc.NewServer()

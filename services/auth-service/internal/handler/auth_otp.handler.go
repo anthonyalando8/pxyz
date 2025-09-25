@@ -387,24 +387,26 @@ func (h *AuthHandler) sendEmailChangeNotifications(_ context.Context, userID, ol
 		go func() {
 			ctx := context.Background() // background context for long-running email service
 
-			_, err := h.notificationClient.Client.CreateNotification(ctx, &notificationpb.CreateNotificationRequest{
-				Notification: &notificationpb.Notification{
-					RequestId:      uuid.New().String(),
-					OwnerType:      "user",
-					OwnerId:        userID,
-					EventType:      eventType,
-					Title: "Email Changed",
-					Body: "Your email was recently updated to a new email!",
-					ChannelHint:    []string{"email"},
-					Payload: func() *structpb.Struct {
-						s, _ := structpb.NewStruct(payload)
-						return s
-					}(),
-					VisibleInApp:   false,
-					RecipientEmail: recipientEmail,
-					RecipientName:  "",
-					Priority:       "high",
-					Status:         "pending",
+			_, err := h.notificationClient.Client.CreateNotification(ctx, &notificationpb.CreateNotificationsRequest{
+				Notifications: []*notificationpb.Notification{
+					{
+						RequestId:      uuid.New().String(),
+						OwnerType:      "user",
+						OwnerId:        userID,
+						EventType:      eventType,
+						Title: "Email Changed",
+						Body: "Your email was recently updated to a new email!",
+						ChannelHint:    []string{"email"},
+						Payload: func() *structpb.Struct {
+							s, _ := structpb.NewStruct(payload)
+							return s
+						}(),
+						VisibleInApp:   false,
+						RecipientEmail: recipientEmail,
+						RecipientName:  "",
+						Priority:       "high",
+						Status:         "pending",
+					},
 				},
 			})
 			if err != nil {
@@ -478,24 +480,26 @@ func (h *AuthHandler) sendPhoneChangeNotification(userID, newPhone string) {
 			"NewPhone": phone,
 		}
 
-		_, err = h.notificationClient.Client.CreateNotification(ctx, &notificationpb.CreateNotificationRequest{
-			Notification: &notificationpb.Notification{
-				RequestId:      uuid.New().String(),
-				OwnerType:      "user",
-				OwnerId:        uid,
-				EventType:      "PHONE_UPDATE",
-				ChannelHint:    []string{"email"},
-				Title: "Phone Number Changed",
-				Body:"Your phone number was recently updated to a new number.",
-				Payload: func() *structpb.Struct {
-					s, _ := structpb.NewStruct(payload)
-					return s
-				}(),
-				VisibleInApp:   false,
-				RecipientEmail: *user.Email,
-				RecipientName:  safeString(user.FirstName),
-				Priority:       "high",
-				Status:         "pending",
+		_, err = h.notificationClient.Client.CreateNotification(ctx, &notificationpb.CreateNotificationsRequest{
+			Notifications: []*notificationpb.Notification{
+				{
+					RequestId:      uuid.New().String(),
+					OwnerType:      "user",
+					OwnerId:        uid,
+					EventType:      "PHONE_UPDATE",
+					ChannelHint:    []string{"email"},
+					Title: "Phone Number Changed",
+					Body:"Your phone number was recently updated to a new number.",
+					Payload: func() *structpb.Struct {
+						s, _ := structpb.NewStruct(payload)
+						return s
+					}(),
+					VisibleInApp:   false,
+					RecipientEmail: *user.Email,
+					RecipientName:  safeString(user.FirstName),
+					Priority:       "high",
+					Status:         "pending",
+				},
 			},
 		})
 		if err != nil {
