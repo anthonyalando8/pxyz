@@ -9,15 +9,18 @@ import (
 	xerrors "x/shared/utils/errors"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/redis/go-redis/v9"
+
 )
 
 type StatementUsecase struct {
 	statementRepo repository.StatementRepository
+	redisClient *redis.Client
 }
 
 // NewStatementUsecase initializes the usecase
-func NewStatementUsecase(statementRepo repository.StatementRepository) *StatementUsecase {
-	return &StatementUsecase{statementRepo: statementRepo}
+func NewStatementUsecase(statementRepo repository.StatementRepository, redisClient *redis.Client) *StatementUsecase {
+	return &StatementUsecase{statementRepo: statementRepo, redisClient: redisClient,}
 }
 
 func (uc *StatementUsecase) BeginTx(ctx context.Context) (pgx.Tx, error) {

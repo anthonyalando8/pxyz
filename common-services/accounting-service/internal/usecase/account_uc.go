@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"accounting-service/internal/domain"
@@ -9,16 +10,19 @@ import (
 	xerrors "x/shared/utils/errors"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/redis/go-redis/v9"
 )
 
 type AccountUsecase struct {
 	accountRepo repository.AccountRepository
+	redisClient *redis.Client
 }
 
 // NewAccountUsecase initializes a new AccountUsecase
-func NewAccountUsecase(accountRepo repository.AccountRepository) *AccountUsecase {
+func NewAccountUsecase(accountRepo repository.AccountRepository, redisClient *redis.Client) *AccountUsecase {
 	return &AccountUsecase{
 		accountRepo: accountRepo,
+		redisClient: redisClient,
 	}
 }
 
@@ -26,6 +30,53 @@ func (uc *AccountUsecase) BeginTx(ctx context.Context) (pgx.Tx, error) {
 	return uc.accountRepo.BeginTx(ctx)
 }
 
+
+func (uc *AccountUsecase) GetSystemAccounts(ctx context.Context) ([]*domain.Account, error) {
+	cacheKey := "accounts:system"
+
+	// --- Check Redis cache first ---
+	if val, err := uc.redisClient.Get(ctx, cacheKey).Result(); err == nil {
+		var accounts []*domain.Account
+		if jsonErr := json.Unmarshal([]byte(val), &accounts); jsonErr == nil {
+			return accounts, nil
+		}
+	}
+
+	// --- Query repo with filter ---
+	filter := &domain.AccountFilter{
+		OwnerType: nullableStr("system"),
+	}
+
+	accounts, err := uc.accountRepo.GetByFilter(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+
+	// --- Cache result in Redis ---
+	if data, err := json.Marshal(accounts); err == nil {
+		_ = uc.redisClient.Set(ctx, cacheKey, data, 5*time.Minute).Err()
+	}
+
+	return accounts, nil
+}
+
+
+
+// GetSystemAccount fetches a single system account by currency + purpose (cached via GetSystemAccounts)
+func (uc *AccountUsecase) GetSystemAccount(ctx context.Context, currency, purpose string) (*domain.Account, error) {
+	accounts, err := uc.GetSystemAccounts(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, acc := range accounts {
+		if acc.Currency == currency && acc.Purpose == purpose {
+			return acc, nil
+		}
+	}
+
+	return nil, xerrors.ErrNotFound
+}
 
 // GetByID fetches an account by its ID
 func (uc *AccountUsecase) GetByAccountNumber(ctx context.Context, id string) (*domain.Account, error) {

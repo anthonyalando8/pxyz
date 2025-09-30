@@ -34,33 +34,9 @@ func (s *FXService) FetchCommonCurrencies(ctx context.Context, tx pgx.Tx) map[in
 		return map[int]error{0: fmt.Errorf("transaction cannot be nil")}
 	}
 
-	url := "https://openexchangerates.org/api/currencies.json" // example public URL
-	log.Printf("➡️ Fetching common currencies from %s", url)
-
-	resp, err := s.client.Get(url)
-	if err != nil {
-		log.Printf("❌ failed HTTP request for currencies: %v", err)
-		return map[int]error{0: fmt.Errorf("failed to fetch currencies: %w", err)}
-	}
-	defer resp.Body.Close()
-	log.Printf("✅ received response for currencies, status=%s", resp.Status)
-
-	var data map[string]string
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		log.Printf("❌ failed to decode currencies JSON: %v", err)
-		return map[int]error{0: fmt.Errorf("failed to decode currencies: %w", err)}
-	}
-	log.Printf("✅ decoded %d currencies", len(data))
-
-	currencies := []*domain.Currency{}
-	for code, name := range data {
-		currencies = append(currencies, &domain.Currency{
-			Code:     code,
-			Name:     name,
-			Decimals: 2, // default, could be customized
-		})
-	}
-	log.Printf("➡️ inserting %d currencies into DB", len(currencies))
+	// Use static defaults instead of fetching online
+	currencies := domain.DefaultCurrencies()
+	log.Printf("➡️ Seeding %d default currencies (USD, BTC, USDT)", len(currencies))
 
 	errMap := s.repo.CreateCurrencies(ctx, currencies, tx)
 	if len(errMap) > 0 {
@@ -68,11 +44,12 @@ func (s *FXService) FetchCommonCurrencies(ctx context.Context, tx pgx.Tx) map[in
 			log.Printf("⚠️ currency insert error #%d: %v", i, e)
 		}
 	} else {
-		log.Println("✅ all currencies inserted successfully")
+		log.Println("✅ all default currencies inserted successfully")
 	}
 
 	return errMap
 }
+
 
 // FetchFXRates fetches conversion rates for a base currency and saves to DB
 func (s *FXService) FetchFXRates(ctx context.Context, base string, tx pgx.Tx) map[int]error {

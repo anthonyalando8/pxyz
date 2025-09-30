@@ -1,11 +1,10 @@
 package server
 
 import (
-	//"context"
 	"log"
 	"net"
+	"time"
 	"context"
-	//"time"
 
 	"accounting-service/internal/config"
 	hgrpc "accounting-service/internal/handler/grpc"
@@ -16,7 +15,6 @@ import (
 	authclient "x/shared/auth"
 	receiptclient "x/shared/common/receipt"
 	partnerclient "x/shared/partner"
-
 
 	"x/shared/utils/id"
 
@@ -44,11 +42,12 @@ func NewAccountingGRPCServer(cfg config.AppConfig) {
 		DB:       0,
 	})
 
+	// --- External service clients ---
 	authClient, err := authclient.DialAuthService(authclient.AllAuthServices)
 	if err != nil {
-        log.Fatalf("failed to dial auth service: %v", err)
-    }
-	receiptCli := receiptclient.NewReceiptClient()
+		log.Fatalf("failed to dial auth service: %v", err)
+	}
+	receiptCli := receiptclient.NewReceiptClientV2()
 	partnerSvc := partnerclient.NewPartnerService()
 
 	// --- Repositories ---
@@ -57,17 +56,28 @@ func NewAccountingGRPCServer(cfg config.AppConfig) {
 	postingRepo := repository.NewPostingRepo(dbpool)
 	balanceRepo := repository.NewBalanceRepo(dbpool)
 	ledgerRepo := repository.NewLedgerRepo(dbpool, accountRepo, journalRepo, postingRepo, balanceRepo)
-	statementRepo := repository.NewStatementRepo(dbpool)
+	statementRepo := repository.NewStatementRepo(dbpool, postingRepo)
 	currencyRepo := repository.NewCurrencyRepo(dbpool) // for FXService
+	feeRepo := repository.NewTransactionFeeRepo(dbpool)
+	ruleRepo := repository.NewTransactionFeeRuleRepo(dbpool)
 
 	// --- Usecases ---
-	accountUC := usecase.NewAccountUsecase(accountRepo)
-	ledgerUC := usecase.NewLedgerUsecase(ledgerRepo, sf, authClient, receiptCli, partnerSvc)
-	statementUC := usecase.NewStatementUsecase(statementRepo)
+	accountUC := usecase.NewAccountUsecase(accountRepo, rdb)
+	ruleUC := usecase.NewTransactionFeeRuleUsecase(ruleRepo, rdb, 30*time.Minute)
+
+	ledgerUC := usecase.NewLedgerUsecase(ledgerRepo, balanceRepo, sf, authClient, receiptCli, partnerSvc, rdb, accountUC, ruleUC,)
+	statementUC := usecase.NewStatementUsecase(statementRepo, rdb)
+	feeUC := usecase.NewTransactionFeeUsecase(feeRepo, rdb)
+	_ = feeUC
 
 	// --- Services ---
 	fxService := service.NewFXService(currencyRepo)
-	systemSeeder := service.NewSystemSeeder(fxService, accountUC, ledgerUC,statementUC, dbpool)
+	systemSeeder := service.NewSystemSeeder(
+		fxService,
+		accountUC,
+		ruleUC,
+		dbpool,
+	)
 
 	// --- Seed system in a goroutine (non-blocking) ---
 	go func() {

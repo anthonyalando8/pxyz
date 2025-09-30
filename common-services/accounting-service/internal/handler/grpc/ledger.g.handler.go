@@ -2,14 +2,17 @@ package hgrpc
 
 import (
 	"context"
-	"time"
+	"errors"
 	"strings"
+	"time"
+
 	"github.com/redis/go-redis/v9"
 
-	"google.golang.org/protobuf/types/known/timestamppb"
-	accountingpb "x/shared/genproto/shared/accounting/accountingpb"
-	"accounting-service/internal/usecase"
 	"accounting-service/internal/domain"
+	"accounting-service/internal/usecase"
+	accountingpb "x/shared/genproto/shared/accounting/accountingpb"
+
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type AccountingGRPCHandler struct {
@@ -133,18 +136,25 @@ func (h *AccountingGRPCHandler) GetUserAccounts(ctx context.Context, req *accoun
 // Transactions
 // ===============================
 func (h *AccountingGRPCHandler) PostTransaction(
-    ctx context.Context,
-    req *accountingpb.CreateTransactionRequest,
+	ctx context.Context,
+	req *accountingpb.CreateTransactionRequest,
 ) (*accountingpb.CreateTransactionResponse, error) {
-	tx, err := h.ledgerUC.BeginTx(ctx)
-	if err != nil {
-		return nil, err
+	// Map proto → domain journal
+	journal := &domain.Journal{
+		ExternalRef:   req.ExternalRef,
+		Description:   req.Description,
+		CreatedBy:     req.CreatedByUser,
+		CreatedByType: strings.ToLower(req.CreatedByType.String()),
+		CreatedAt:     time.Now(),
 	}
-	defer tx.Rollback(ctx)
-    // Convert proto entries to domain postings
-   var entries []*domain.Posting
+
+	// Convert proto entries to domain postings
+	var postings []*domain.Posting
+	var drAmount float64
+	var drCurrency string
+
 	for _, e := range req.Entries {
-		entries = append(entries, &domain.Posting{
+		posting := &domain.Posting{
 			AccountID: e.AccountId,
 			DrCr:      e.DrCr.String(),
 			Amount:    e.Amount,
@@ -152,38 +162,39 @@ func (h *AccountingGRPCHandler) PostTransaction(
 			AccountData: &domain.Account{
 				AccountNumber: e.AccountNumber,
 			},
-		})
+		}
+
+		// Capture DR posting details for transactionAmount and currency
+		if posting.DrCr == "DR" {
+			drAmount = posting.Amount
+			drCurrency = posting.Currency
+		}
+
+		postings = append(postings, posting)
 	}
 
-    // Create a domain Journal from proto request
-    journal := &domain.Journal{
-        ExternalRef:   req.ExternalRef,
-        Description:   req.Description,
-        CreatedBy:     req.CreatedByUser,
-        CreatedByType: strings.ToLower(req.CreatedByType.String()),
-        CreatedAt:     time.Now(),
-    }
-	fxCurrency := "USD"
-
-	if req.DepositCurrency != ""{
-		fxCurrency = req.DepositCurrency
+	if drAmount == 0 || drCurrency == "" {
+		return nil, errors.New("no DR posting found to determine transaction amount and currency")
 	}
-    // Call usecase
-    ledger, err := h.ledgerUC.CreateTransactionMulti(ctx, fxCurrency, journal, entries, tx)
-    if err != nil {
-        return nil, err
-    }
-	// Commit transaction
-	if err := tx.Commit(ctx); err != nil {
+
+	// Delegate transaction creation to the usecase
+	ledger, err := h.ledgerUC.CreateTransactionMulti(
+		ctx,
+		req.TransactionType,
+		drAmount,
+		drCurrency,
+		journal,
+		postings,
+		nil, // no existing DB transaction
+	)
+	if err != nil {
 		return nil, err
 	}
 
-    return &accountingpb.CreateTransactionResponse{
-        ExternalRef: ledger.Journal.ExternalRef,
-    }, nil
+	return &accountingpb.CreateTransactionResponse{
+		ExternalRef: ledger.Journal.ExternalRef,
+	}, nil
 }
-
-
 
 // ===============================
 // Statements
@@ -200,9 +211,9 @@ func (h *AccountingGRPCHandler) GetAccountStatement(
 
     pbs := make([]*accountingpb.Posting, 0, len(stmt.Postings))
     for _, p := range stmt.Postings {
-        receiptID := int64(0)
-        if p.ReceiptID != nil {
-            receiptID = *p.ReceiptID
+        receiptCode := string("")
+        if p.ReceiptCode != nil {
+            receiptCode = *p.ReceiptCode
         }
 
         pbs = append(pbs, &accountingpb.Posting{
@@ -213,7 +224,7 @@ func (h *AccountingGRPCHandler) GetAccountStatement(
             DrCr:      accountingpb.DrCr(accountingpb.DrCr_value[p.DrCr]),
             Currency:  p.Currency,
             CreatedAt: timestamppb.New(p.CreatedAt),
-            ReceiptId: receiptID,
+            ReceiptCode: receiptCode,
         })
     }
 
@@ -249,11 +260,11 @@ func (h *AccountingGRPCHandler) GetOwnerStatement(req *accountingpb.OwnerStateme
 				Amount:    p.Amount,
 				DrCr:      accountingpb.DrCr(accountingpb.DrCr_value[p.DrCr]),
 				Currency:  p.Currency,
-				ReceiptId: func() int64 {
-					if p.ReceiptID != nil {
-						return *p.ReceiptID
+				ReceiptCode: func() string {
+					if p.ReceiptCode != nil {
+						return *p.ReceiptCode
 					}
-					return 0
+					return ""
 				}(),
 				CreatedAt: timestamppb.New(p.CreatedAt),
 			})
@@ -292,11 +303,11 @@ func (h *AccountingGRPCHandler) GetJournalPostings(req *accountingpb.JournalPost
 			Amount:    p.Amount,
 			DrCr:      accountingpb.DrCr(accountingpb.DrCr_value[p.DrCr]),
 			Currency:  p.Currency,
-			ReceiptId: func() int64 {
-				if p.ReceiptID != nil {
-					return *p.ReceiptID
+			ReceiptCode: func() string {
+				if p.ReceiptCode != nil {
+					return *p.ReceiptCode
 				}
-				return 0
+				return ""
 			}(),
 			CreatedAt: timestamppb.New(p.CreatedAt),
 		}); err != nil {

@@ -73,7 +73,9 @@ message CreateTransactionRequest {
     OwnerType created_by_type = 3;
     int64 created_by_user = 4;
     repeated TransactionEntry entries = 5;
-    string deposit_currency = 6;
+    bool apply_fee = 6;
+    string transaction_type = 7;
+    bool require_approval = 8;
 }
 
 message CreateTransactionResponse {
@@ -100,7 +102,7 @@ message Posting {
     double amount = 4;
     DrCr dr_cr = 5;
     string currency = 6;
-    int64 receipt_id = 7;
+    string receipt_code = 7;
     google.protobuf.Timestamp created_at = 8;
     string account_number = 9;
 }

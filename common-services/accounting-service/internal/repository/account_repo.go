@@ -21,6 +21,7 @@ type AccountRepository interface {
 	GetOrCreateUserAccounts(ctx context.Context, ownerType string, ownerID string,tx pgx.Tx) ([]*domain.Account, error)
 	CreateMany(ctx context.Context, accounts []*domain.Account, tx pgx.Tx) map[int]error
 	Update(ctx context.Context, a *domain.Account, tx pgx.Tx) error
+	GetByFilter(ctx context.Context, f *domain.AccountFilter) ([]*domain.Account, error)
 
 	// Transaction helper
 	BeginTx(ctx context.Context) (pgx.Tx, error)
@@ -174,12 +175,12 @@ func (r *accountRepo) CreateMany(ctx context.Context, accounts []*domain.Account
 	now := time.Now()
 
 	for i, a := range accounts {
-		// Prepare account number only if not set
+		// Generate account number if not provided
 		if a.AccountNumber == "" {
 			a.AccountNumber = fmt.Sprintf("WL-%d", time.Now().UnixNano())
 		}
 
-		// Insert or update
+		// Insert or update account
 		err := tx.QueryRow(ctx, `
 			INSERT INTO accounts (
 				owner_type, owner_id, currency, purpose, account_type, is_active, account_number, created_at, updated_at
@@ -198,8 +199,19 @@ func (r *accountRepo) CreateMany(ctx context.Context, accounts []*domain.Account
 			a.AccountNumber,
 			now,
 			now,
-		).Scan(&a.ID, &a.AccountNumber) // <-- always get the actual number from DB
+		).Scan(&a.ID, &a.AccountNumber)
+		if err != nil {
+			errs[i] = err
+			continue
+		}
 
+		// Insert balance row if not exists, using a.Balance
+		_, err = tx.Exec(ctx, `
+			INSERT INTO balances (account_id, balance, updated_at)
+			VALUES ($1, $2, $3)
+			ON CONFLICT (account_id) DO UPDATE
+			SET balance = EXCLUDED.balance, updated_at = EXCLUDED.updated_at
+		`, a.ID, a.Balance.Balance, now)
 		if err != nil {
 			errs[i] = err
 			continue
@@ -208,9 +220,6 @@ func (r *accountRepo) CreateMany(ctx context.Context, accounts []*domain.Account
 
 	return errs
 }
-
-
-
 
 
 // Update modifies an existing account inside a transaction
@@ -250,3 +259,72 @@ func (r *accountRepo) Update(ctx context.Context, a *domain.Account, tx pgx.Tx) 
 	return nil
 }
 
+func (r *accountRepo) GetByFilter(ctx context.Context, f *domain.AccountFilter) ([]*domain.Account, error) {
+	query := `
+		SELECT id, owner_type, owner_id, currency, purpose, account_type, is_active, account_number, created_at, updated_at
+		FROM accounts
+		WHERE 1=1
+	`
+	args := []interface{}{}
+	i := 1
+
+	if f.OwnerType != nil {
+		query += fmt.Sprintf(" AND owner_type=$%d", i)
+		args = append(args, *f.OwnerType)
+		i++
+	}
+	if f.OwnerID != nil {
+		query += fmt.Sprintf(" AND owner_id=$%d", i)
+		args = append(args, *f.OwnerID)
+		i++
+	}
+	if f.Currency != nil {
+		query += fmt.Sprintf(" AND currency=$%d", i)
+		args = append(args, *f.Currency)
+		i++
+	}
+	if f.Purpose != nil {
+		query += fmt.Sprintf(" AND purpose=$%d", i)
+		args = append(args, *f.Purpose)
+		i++
+	}
+	if f.AccountType != nil {
+		query += fmt.Sprintf(" AND account_type=$%d", i)
+		args = append(args, *f.AccountType)
+		i++
+	}
+	if f.IsActive != nil {
+		query += fmt.Sprintf(" AND is_active=$%d", i)
+		args = append(args, *f.IsActive)
+		i++
+	}
+	if f.AccountNumber != nil {
+		query += fmt.Sprintf(" AND account_number=$%d", i)
+		args = append(args, *f.AccountNumber)
+		i++
+	}
+
+	rows, err := r.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var accounts []*domain.Account
+	for rows.Next() {
+		var a domain.Account
+		if err := rows.Scan(
+			&a.ID, &a.OwnerType, &a.OwnerID, &a.Currency, &a.Purpose, &a.AccountType,
+			&a.IsActive, &a.AccountNumber, &a.CreatedAt, &a.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		accounts = append(accounts, &a)
+	}
+
+	if len(accounts) == 0 {
+		return nil, xerrors.ErrNotFound
+	}
+
+	return accounts, nil
+}

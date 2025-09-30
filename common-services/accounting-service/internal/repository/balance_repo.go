@@ -14,6 +14,7 @@ import (
 type BalanceRepository interface {
 	GetByAccountID(ctx context.Context, accountID int64) (*domain.Balance, error)
 	UpdateBalance(ctx context.Context, accountID int64, drCr string, amount float64, tx pgx.Tx) error
+	GetCachedBalance(ctx context.Context, accountNumber string) (*domain.Balance, error)
 }
 
 type balanceRepo struct {
@@ -95,4 +96,60 @@ func (r *balanceRepo) UpdateBalance(ctx context.Context, accountID int64, drCr s
 		return xerrors.ErrNotFound
 	}
 	return nil
+}
+
+
+func (r *balanceRepo) GetCurrentBalance(ctx context.Context, accountNumber string) (*domain.Balance, error) {
+	var accountID int64
+	err := r.db.QueryRow(ctx, `SELECT id FROM accounts WHERE account_number = $1`, accountNumber).Scan(&accountID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, xerrors.ErrNotFound
+		}
+		return nil, err
+	}
+
+	row := r.db.QueryRow(ctx, `
+		SELECT 
+			COALESCE(SUM(CASE WHEN dr_cr='CR' THEN amount ELSE 0 END), 0) -
+			COALESCE(SUM(CASE WHEN dr_cr='DR' THEN amount ELSE 0 END), 0) AS balance
+		FROM ledgers
+		WHERE account_id=$1
+	`, accountID)
+
+	var b domain.Balance
+	b.AccountID = accountID
+
+	var balance int64
+	if err := row.Scan(&balance); err != nil {
+		if err == pgx.ErrNoRows {
+			b.Balance = 0
+			b.UpdatedAt = time.Now()
+			return &b, nil
+		}
+		return nil, err
+	}
+
+	b.Balance = float64(balance)
+	b.UpdatedAt = time.Now()
+	return &b, nil
+}
+
+func (r *balanceRepo) GetCachedBalance(ctx context.Context, accountNumber string) (*domain.Balance, error) {
+	row := r.db.QueryRow(ctx, `
+		SELECT b.account_id, b.balance, b.updated_at
+		FROM balances b
+		JOIN accounts a ON a.id = b.account_id
+		WHERE a.account_number = $1
+	`, accountNumber)
+
+	var b domain.Balance
+	if err := row.Scan(&b.AccountID, &b.Balance, &b.UpdatedAt); err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, xerrors.ErrNotFound
+		}
+		return nil, err
+	}
+
+	return &b, nil
 }

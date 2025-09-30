@@ -531,7 +531,9 @@ type CreateTransactionRequest struct {
 	CreatedByType   OwnerType              `protobuf:"varint,3,opt,name=created_by_type,json=createdByType,proto3,enum=accounting.OwnerType" json:"created_by_type,omitempty"`
 	CreatedByUser   int64                  `protobuf:"varint,4,opt,name=created_by_user,json=createdByUser,proto3" json:"created_by_user,omitempty"`
 	Entries         []*TransactionEntry    `protobuf:"bytes,5,rep,name=entries,proto3" json:"entries,omitempty"`
-	DepositCurrency string                 `protobuf:"bytes,6,opt,name=deposit_currency,json=depositCurrency,proto3" json:"deposit_currency,omitempty"`
+	ApplyFee        bool                   `protobuf:"varint,6,opt,name=apply_fee,json=applyFee,proto3" json:"apply_fee,omitempty"`
+	TransactionType string                 `protobuf:"bytes,7,opt,name=transaction_type,json=transactionType,proto3" json:"transaction_type,omitempty"`
+	RequireApproval bool                   `protobuf:"varint,8,opt,name=require_approval,json=requireApproval,proto3" json:"require_approval,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -601,11 +603,25 @@ func (x *CreateTransactionRequest) GetEntries() []*TransactionEntry {
 	return nil
 }
 
-func (x *CreateTransactionRequest) GetDepositCurrency() string {
+func (x *CreateTransactionRequest) GetApplyFee() bool {
 	if x != nil {
-		return x.DepositCurrency
+		return x.ApplyFee
+	}
+	return false
+}
+
+func (x *CreateTransactionRequest) GetTransactionType() string {
+	if x != nil {
+		return x.TransactionType
 	}
 	return ""
+}
+
+func (x *CreateTransactionRequest) GetRequireApproval() bool {
+	if x != nil {
+		return x.RequireApproval
+	}
+	return false
 }
 
 type CreateTransactionResponse struct {
@@ -788,7 +804,7 @@ type Posting struct {
 	Amount        float64                `protobuf:"fixed64,4,opt,name=amount,proto3" json:"amount,omitempty"`
 	DrCr          DrCr                   `protobuf:"varint,5,opt,name=dr_cr,json=drCr,proto3,enum=accounting.DrCr" json:"dr_cr,omitempty"`
 	Currency      string                 `protobuf:"bytes,6,opt,name=currency,proto3" json:"currency,omitempty"`
-	ReceiptId     int64                  `protobuf:"varint,7,opt,name=receipt_id,json=receiptId,proto3" json:"receipt_id,omitempty"`
+	ReceiptCode   string                 `protobuf:"bytes,7,opt,name=receipt_code,json=receiptCode,proto3" json:"receipt_code,omitempty"`
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	AccountNumber string                 `protobuf:"bytes,9,opt,name=account_number,json=accountNumber,proto3" json:"account_number,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -867,11 +883,11 @@ func (x *Posting) GetCurrency() string {
 	return ""
 }
 
-func (x *Posting) GetReceiptId() int64 {
+func (x *Posting) GetReceiptCode() string {
 	if x != nil {
-		return x.ReceiptId
+		return x.ReceiptCode
 	}
-	return 0
+	return ""
 }
 
 func (x *Posting) GetCreatedAt() *timestamppb.Timestamp {
@@ -1202,14 +1218,16 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\x0eaccount_number\x18\x02 \x01(\tR\raccountNumber\x12%\n" +
 	"\x05dr_cr\x18\x03 \x01(\x0e2\x10.accounting.DrCrR\x04drCr\x12\x16\n" +
 	"\x06amount\x18\x04 \x01(\x01R\x06amount\x12\x1a\n" +
-	"\bcurrency\x18\x05 \x01(\tR\bcurrency\"\xa9\x02\n" +
+	"\bcurrency\x18\x05 \x01(\tR\bcurrency\"\xf1\x02\n" +
 	"\x18CreateTransactionRequest\x12!\n" +
 	"\fexternal_ref\x18\x01 \x01(\tR\vexternalRef\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12=\n" +
 	"\x0fcreated_by_type\x18\x03 \x01(\x0e2\x15.accounting.OwnerTypeR\rcreatedByType\x12&\n" +
 	"\x0fcreated_by_user\x18\x04 \x01(\x03R\rcreatedByUser\x126\n" +
-	"\aentries\x18\x05 \x03(\v2\x1c.accounting.TransactionEntryR\aentries\x12)\n" +
-	"\x10deposit_currency\x18\x06 \x01(\tR\x0fdepositCurrency\"=\n" +
+	"\aentries\x18\x05 \x03(\v2\x1c.accounting.TransactionEntryR\aentries\x12\x1b\n" +
+	"\tapply_fee\x18\x06 \x01(\bR\bapplyFee\x12)\n" +
+	"\x10transaction_type\x18\a \x01(\tR\x0ftransactionType\x12)\n" +
+	"\x10require_approval\x18\b \x01(\bR\x0frequireApproval\"=\n" +
 	"\x19CreateTransactionResponse\x12 \n" +
 	"\vexternalRef\x18\x01 \x01(\tR\vexternalRef\"\x9c\x01\n" +
 	"\x17AccountStatementRequest\x12%\n" +
@@ -1221,7 +1239,7 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"owner_type\x18\x01 \x01(\x0e2\x15.accounting.OwnerTypeR\townerType\x12\x19\n" +
 	"\bowner_id\x18\x02 \x01(\tR\aownerId\x12.\n" +
 	"\x04from\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x04from\x12*\n" +
-	"\x02to\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x02to\"\xb3\x02\n" +
+	"\x02to\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x02to\"\xb7\x02\n" +
 	"\aPosting\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1d\n" +
 	"\n" +
@@ -1230,9 +1248,8 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"account_id\x18\x03 \x01(\x03R\taccountId\x12\x16\n" +
 	"\x06amount\x18\x04 \x01(\x01R\x06amount\x12%\n" +
 	"\x05dr_cr\x18\x05 \x01(\x0e2\x10.accounting.DrCrR\x04drCr\x12\x1a\n" +
-	"\bcurrency\x18\x06 \x01(\tR\bcurrency\x12\x1d\n" +
-	"\n" +
-	"receipt_id\x18\a \x01(\x03R\treceiptId\x129\n" +
+	"\bcurrency\x18\x06 \x01(\tR\bcurrency\x12!\n" +
+	"\freceipt_code\x18\a \x01(\tR\vreceiptCode\x129\n" +
 	"\n" +
 	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12%\n" +
 	"\x0eaccount_number\x18\t \x01(\tR\raccountNumber\"\xc8\x01\n" +

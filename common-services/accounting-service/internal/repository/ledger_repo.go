@@ -1,129 +1,95 @@
 package repository
 
 import (
-	"accounting-service/internal/domain"
 	"context"
 	"errors"
+	"time"
 
-	//xerrors "x/shared/utils/errors"
+	"accounting-service/internal/domain"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type LedgerRepository interface {
-	// ApplyTransaction: journal + postings + balance update in one atomic tx
-	ApplyTransaction(ctx context.Context, journal *domain.Journal, postings []*domain.Posting, tx pgx.Tx) (*domain.Ledger, error)
-	BeginTx(ctx context.Context) (pgx.Tx, error)
+type PostingRepository interface {
+	Create(ctx context.Context, p *domain.Posting, tx pgx.Tx) error
+	ListByJournal(ctx context.Context, journalID int64) ([]*domain.Posting, error)
+	ListByAccount(ctx context.Context, accountID int64) ([]*domain.Posting, error)
 }
 
-type ledgerRepo struct {
-	db          *pgxpool.Pool
-	accountRepo AccountRepository
-	journalRepo JournalRepository
-	postingRepo PostingRepository
-	balanceRepo BalanceRepository
+type postingRepo struct {
+	db *pgxpool.Pool
 }
 
-func (r *ledgerRepo) BeginTx(ctx context.Context) (pgx.Tx, error) {
-	tx, err := r.db.BeginTx(ctx, pgx.TxOptions{})
+func NewPostingRepo(db *pgxpool.Pool) PostingRepository {
+	return &postingRepo{db: db}
+}
+
+// Create inserts a new ledger posting inside a transaction
+func (r *postingRepo) Create(ctx context.Context, p *domain.Posting, tx pgx.Tx) error {
+	if tx == nil {
+		return errors.New("transaction cannot be nil")
+	}
+
+	err := tx.QueryRow(ctx, `
+		INSERT INTO ledgers (journal_id, account_id, amount, dr_cr, currency, receipt_code, created_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7)
+		RETURNING id
+	`, p.JournalID, p.AccountID, int64(p.Amount), p.DrCr, p.Currency, p.ReceiptCode, time.Now()).Scan(&p.ID)
+
+	return err
+}
+
+// ListByJournal fetches all postings for a given journal
+func (r *postingRepo) ListByJournal(ctx context.Context, journalID int64) ([]*domain.Posting, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT id, journal_id, account_id, amount, dr_cr, currency, receipt_code, created_at
+		FROM ledgers
+		WHERE journal_id=$1
+		ORDER BY created_at ASC
+	`, journalID)
 	if err != nil {
 		return nil, err
 	}
-	return tx, nil
-}
-// ApplyTransaction implements LedgerRepository.
-func (l *ledgerRepo) ApplyTransaction(
-	ctx context.Context,
-	journal *domain.Journal,
-	postings []*domain.Posting,
-	tx pgx.Tx,
-) (*domain.Ledger, error) {
-	var ownTx bool
-	var err error
+	defer rows.Close()
 
-	if tx == nil {
-		tx, err = l.db.BeginTx(ctx, pgx.TxOptions{})
-		if err != nil {
+	var postings []*domain.Posting
+	for rows.Next() {
+		var p domain.Posting
+		var amount int64
+		if err := rows.Scan(&p.ID, &p.JournalID, &p.AccountID, &amount, &p.DrCr, &p.Currency, &p.ReceiptCode, &p.CreatedAt); err != nil {
 			return nil, err
 		}
-		ownTx = true
-		defer func() {
-			if err != nil {
-				tx.Rollback(ctx)
-			}
-		}()
+		p.Amount = float64(amount) // convert from DB atomic units
+		postings = append(postings, &p)
 	}
 
-	// Create Journal
-	if err := l.journalRepo.Create(ctx, journal, tx); err != nil {
+	return postings, nil
+}
+
+// ListByAccount fetches all postings for a given account
+func (r *postingRepo) ListByAccount(ctx context.Context, accountID int64) ([]*domain.Posting, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT id, journal_id, account_id, amount, dr_cr, currency, receipt_code, created_at
+		FROM ledgers
+		WHERE account_id=$1
+		ORDER BY created_at ASC
+	`, accountID)
+	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
-	// Process postings
-	for _, p := range postings {
-		if p.DrCr != "DR" && p.DrCr != "CR" {
-			return nil, errors.New("invalid DR/CR value")
-		}
-		if p.Amount <= 0 {
-			return nil, errors.New("posting amount must be positive")
-		}
-
-		// Ensure account exists (use tx)
-		account, err := l.accountRepo.GetByAccountNumberTx(ctx, p.AccountData.AccountNumber, tx)
-		if err != nil {
+	var postings []*domain.Posting
+	for rows.Next() {
+		var p domain.Posting
+		var amount int64
+		if err := rows.Scan(&p.ID, &p.JournalID, &p.AccountID, &amount, &p.DrCr, &p.Currency, &p.ReceiptCode, &p.CreatedAt); err != nil {
 			return nil, err
 		}
-
-		p.JournalID = journal.ID
-		p.AccountID = account.ID
-
-		if p.Currency == "" {
-			p.Currency = account.Currency
-		}
-
-		// Save posting
-		if err := l.postingRepo.Create(ctx, p, tx); err != nil {
-			return nil, err
-		}
-
-		// Update balances
-		if err := l.balanceRepo.UpdateBalance(ctx, p.AccountID, p.DrCr, p.Amount, tx); err != nil {
-			return nil, err
-		}
-
-		// Attach account data to posting
-		p.AccountData = account
+		p.Amount = float64(amount)
+		postings = append(postings, &p)
 	}
 
-	if ownTx {
-		if err := tx.Commit(ctx); err != nil {
-			return nil, err
-		}
-	}
-
-	ledger := &domain.Ledger{
-		Journal:  journal,
-		Postings: postings,
-	}
-
-	return ledger, nil
-}
-
-
-
-func NewLedgerRepo(
-	db *pgxpool.Pool,
-	ar AccountRepository,
-	jr JournalRepository,
-	pr PostingRepository,
-	br BalanceRepository,
-) LedgerRepository {
-	return &ledgerRepo{
-		db:          db,
-		accountRepo: ar,
-		journalRepo: jr,
-		postingRepo: pr,
-		balanceRepo: br,
-	}
+	return postings, nil
 }

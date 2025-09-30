@@ -10,7 +10,7 @@ import (
 	"x/shared/utils/id"
 	authclient "x/shared/auth"
 	receiptclient "x/shared/common/receipt"
-	receiptpb "x/shared/genproto/shared/accounting/receiptpb"
+	receiptpb "x/shared/genproto/shared/accounting/receipt/v2"
 	authpb "x/shared/genproto/authpb"
 	partnerclient "x/shared/partner"
 	adminauthpb "x/shared/genproto/admin/authpb"
@@ -18,29 +18,44 @@ import (
 	partnersvcpb "x/shared/genproto/partner/svcpb"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/redis/go-redis/v9"
+
 )
 
 type LedgerUsecase struct {
 	ledgerRepo repository.LedgerRepository
+	br repository.BalanceRepository
+
 	sf *id.Snowflake
 	authClient *authclient.AuthService
-	receiptClient *receiptclient.ReceiptClient
+	receiptClient *receiptclient.ReceiptClientV2
 	partnerClient    *partnerclient.PartnerService
+	redisClient *redis.Client
+	accountUC   *AccountUsecase
+	ruleUC *TransactionFeeRuleUsecase
 }
 
 func NewLedgerUsecase(
 	ledgerRepo repository.LedgerRepository,
+	br repository.BalanceRepository,
 	sf *id.Snowflake,
 	authClient *authclient.AuthService,
-	receiptClient *receiptclient.ReceiptClient,
+	receiptClient *receiptclient.ReceiptClientV2,
 	partnerClient *partnerclient.PartnerService,
+	redisClient *redis.Client,
+	accountUC   *AccountUsecase,
+	ruleUC *TransactionFeeRuleUsecase,
 ) *LedgerUsecase {
 	return &LedgerUsecase{
 		ledgerRepo: ledgerRepo,
+		br: br,
 		sf: sf,
 		authClient: authClient,
 		receiptClient: receiptClient,
 		partnerClient:    partnerClient,
+		redisClient: redisClient,
+		accountUC: accountUC,
+		ruleUC: ruleUC,
 	}
 }
 
@@ -49,34 +64,34 @@ func (uc *LedgerUsecase) BeginTx(ctx context.Context) (pgx.Tx, error) {
 }
 
 // CreateTransactionMulti handles a transaction with multiple postings
-// Example: user deposit → credit user wallet + debit partner liquidity + fee
 func (uc *LedgerUsecase) CreateTransactionMulti(
 	ctx context.Context,
-	fxCurrency string,
+	transactionType string,
+	transactionAmount float64,
+	currency string, // currency of the amount
 	journal *domain.Journal,
 	postings []*domain.Posting,
 	tx pgx.Tx,
 ) (*domain.Ledger, error) {
-
-	if len(postings) == 0 {
-		return nil, errors.New("no postings provided")
+	if len(postings) < 2 {
+		return nil, errors.New("transaction must have at least 2 entries (DR & CR)")
 	}
 
-	// Validate postings
+	// Identify DR and CR postings
+	var drPosting, crPosting *domain.Posting
 	for _, p := range postings {
-		if p.DrCr != "DR" && p.DrCr != "CR" {
-			return nil, fmt.Errorf("invalid DR/CR for account %s", p.AccountData.AccountNumber)
+		switch p.DrCr {
+		case "DR":
+			drPosting = p
+		case "CR":
+			crPosting = p
 		}
-		if p.Amount <= 0 {
-			return nil, fmt.Errorf("amount must be positive for account %s", p.AccountData.AccountNumber)
-		}
-		if p.Currency == "" {
-			return nil, fmt.Errorf("currency required for account %s", p.AccountData.AccountNumber)
-		}
-		p.Amount = ConvertToUSD(fxCurrency, p.Amount)
+	}
+	if drPosting == nil || crPosting == nil {
+		return nil, errors.New("both DR and CR postings are required")
 	}
 
-	// Set journal defaults if needed
+	// Ensure journal defaults
 	if journal.IdempotencyKey == "" {
 		journal.IdempotencyKey = uc.sf.Generate()
 	}
@@ -87,18 +102,68 @@ func (uc *LedgerUsecase) CreateTransactionMulti(
 		journal.CreatedAt = time.Now()
 	}
 
-	// Apply transaction and get full ledger
-	ledger, err := uc.ledgerRepo.ApplyTransaction(ctx, journal, postings, tx)
+	// Calculate fee in DR currency
+	fee, err := uc.ruleUC.CalculateFee(
+		ctx,
+		transactionType,
+		drPosting.Currency,          // source
+		crPosting.Currency,          // target
+		transactionAmount,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to apply multi-posting transaction: %w", err)
+		return nil, fmt.Errorf("failed to calculate fee: %w", err)
 	}
 
-	// Trigger receipt creation in background
-	uc.createReceiptBackground(ctx, journal.ID, postings)
+	// Total amount to debit from DR
+	totalDebit := transactionAmount
+
+	// Check DR balance
+	balance, err := uc.br.GetCachedBalance(ctx, drPosting.AccountData.AccountNumber)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch DR account balance: %w", err)
+	}
+	if balance.Balance < totalDebit {
+		return nil, fmt.Errorf("insufficient funds: balance=%f, required=%f", balance.Balance, totalDebit)
+	}
+
+	// Adjust DR posting amount (already in DR currency)
+	drPosting.Amount = totalDebit
+
+	// Convert transaction amount to CR currency
+	convertedAmount, err := ConvertCurrency(transactionAmount - fee, drPosting.Currency, crPosting.Currency)
+	if err != nil {
+		return nil, fmt.Errorf("currency conversion failed: %w", err)
+	}
+	crPosting.Amount = convertedAmount
+
+	// Add profit posting if fee > 0
+	if fee > 0 {
+		profitAcc, err := uc.accountUC.GetSystemAccount(ctx, drPosting.Currency, "profits")
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch profit account: %w", err)
+		}
+
+		postings = append(postings, &domain.Posting{
+			DrCr:        "CR",
+			Amount:      fee,
+			Currency:    drPosting.Currency,
+			JournalID:   journal.ID,
+			AccountID:   profitAcc.ID,
+			AccountData: profitAcc,
+		})
+	}
+
+	// Apply transaction atomically
+	ledger, err := uc.ledgerRepo.ApplyTransaction(ctx, journal, postings, tx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to apply transaction: %w", err)
+	}
 
 	return ledger, nil
 }
 
+  // Background side-effect (like receipts)
+    //uc.createReceiptBackground(ctx, journal.ID, postings)
 
 func (uc *LedgerUsecase) createReceiptBackground(_ context.Context, journalID int64, postings []*domain.Posting) {
 	if uc.receiptClient == nil || len(postings) != 2 {
@@ -140,16 +205,13 @@ func (uc *LedgerUsecase) createReceiptBackground(_ context.Context, journalID in
 		debEmail, debPhone, debName, debType := resolveProfile(debitor)
 
 		req := &receiptpb.CreateReceiptRequest{
-			JournalId:   journalID,
-			AccountId:   creditor.AccountID,
 			Type:        creditor.DrCr,
 			Amount:      creditor.Amount,
 			Currency:    creditor.Currency,
 			CodedType:   "transaction",
 			ExternalRef: "",
 			Creditor: &receiptpb.PartyInfo{
-				Id:            fmt.Sprint(creditor.AccountID),
-				Type:          credType,
+				AccountType:          credType,
 				Name:          credName,
 				Phone:         credPhone,
 				Email:         credEmail,
@@ -157,8 +219,7 @@ func (uc *LedgerUsecase) createReceiptBackground(_ context.Context, journalID in
 				IsCreditor:    true,
 			},
 			Debitor: &receiptpb.PartyInfo{
-				Id:            fmt.Sprint(debitor.AccountID),
-				Type:          debType,
+				AccountType:          debType,
 				Name:          debName,
 				Phone:         debPhone,
 				Email:         debEmail,
