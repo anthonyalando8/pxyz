@@ -1,6 +1,8 @@
 # Ignore uploads folder
 /uploads/
 
+/pgdata/
+
 
 # Ignore secrets folder and its contents
 /services/auth-service/.env

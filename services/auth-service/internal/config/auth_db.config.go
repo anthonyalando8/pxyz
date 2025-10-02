@@ -26,10 +26,23 @@ func ConnectDB() (*pgxpool.Pool, error) {
 		os.Getenv("DB_USER"),
 	)
 
+	// parse default config
+	config, err := pgxpool.ParseConfig(dbURL)
+	if err != nil {
+		log.Printf("[DB] ❌ Failed to parse config: %v", err)
+		return nil, err
+	}
+
+	// connection pool settings
+	config.MaxConns = 50                // max simultaneous connections
+	config.MinConns = 10                // keep some idle connections
+	config.MaxConnLifetime = time.Hour  // recycle connections after 1h
+	config.MaxConnIdleTime = 5 * time.Minute
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	dbpool, err := pgxpool.New(ctx, dbURL)
+	dbpool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
 		log.Printf("[DB] ❌ Failed to create pool: %v", err)
 		return nil, err
@@ -45,4 +58,5 @@ func ConnectDB() (*pgxpool.Pool, error) {
 	log.Println("[DB] ✅ Connected successfully!")
 	return dbpool, nil
 }
+
 

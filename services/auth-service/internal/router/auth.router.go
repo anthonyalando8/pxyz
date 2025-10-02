@@ -43,6 +43,7 @@ func SetupRoutes(
 		//r.Use(auth.RateLimit(rdb, 5, 30*time.Second, 30*time.Second, "user_auth"))
 		r.Post("/auth/exists", h.HandleUserExists)
 		r.Post("/auth/register/init", h.HandleInitSignup)
+		r.Post("/auth/register", h.HandleRegister)
 		r.Post("/auth/login", h.HandleLogin)
 		r.Post("/auth/google", h.GoogleAuthHandler)
 		r.Post("/auth/telegram", h.TelegramLogin)

@@ -14,40 +14,105 @@ import (
 	"x/shared/utils/errors"
 )
 
+// Step 1: Receive email and determine whether it's login or signup
+// func (h *AuthHandler) HandleIdentify(w http.ResponseWriter, r *http.Request) {
+//     var req struct {
+//         Email string `json:"email"`
+//     }
+
+//     if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+//         response.Error(w, http.StatusBadRequest, "Invalid request body")
+//         return
+//     }
+
+//     if req.Email == "" {
+//         response.Error(w, http.StatusBadRequest, "Email is required")
+//         return
+//     }
+
+//     if !utils.ValidateEmail(req.Email) {
+//         response.Error(w, http.StatusBadRequest, "Invalid email format")
+//         return
+//     }
+
+//     // Check if user exists
+//     user, err := h.uc.FindUserByIdentifier(r.Context(), req.Email)
+//     if err != nil && err != sql.ErrNoRows {
+//         response.Error(w, http.StatusInternalServerError, "Database error")
+//         return
+//     }
+
+//     action := "signup"
+//     if user != nil {
+//         action = "login"
+//     }
+
+//     response.JSON(w, http.StatusOK, map[string]interface{}{
+//         "action": action, // "login" or "signup"
+//         "email":  req.Email,
+//     })
+// }
+
 
 func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("HandleRegister: failed to decode request body: %v", err)
 		response.Error(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
-	if (req.Email == "") || req.Password == ""/* || req.FirstName == "" || req.LastName == "" */{
+	if req.Email == "" || req.Password == "" {
+		log.Printf("HandleRegister: missing required fields, email: %q, password length: %d", req.Email, len(req.Password))
 		response.Error(w, http.StatusBadRequest, "All fields (email, password) are required")
 		return
 	}
 
-	if valid := utils.ValidateEmail(req.Email); req.Email != "" && !valid {
-		response.Error(w, http.StatusBadRequest, "invalid email format")
-		return
-	}
-	
-	if valid, err := utils.ValidatePassword(req.Password); !valid {
-		response.Error(w, http.StatusBadRequest, "weak password: " + err.Error())
+	if !utils.ValidateEmail(req.Email) {
+		log.Printf("HandleRegister: invalid email format: %s", req.Email)
+		response.Error(w, http.StatusBadRequest, "Invalid email format")
 		return
 	}
 
-	user, err := h.uc.RegisterUser(r.Context(), req.Email, req.Password, req.FirstName, req.LastName, "any")
-	_ =  user
+	if valid, err := utils.ValidatePassword(req.Password); !valid {
+		log.Printf("HandleRegister: weak password for email %s: %v", req.Email, err)
+		response.Error(w, http.StatusBadRequest, "Weak password: "+err.Error())
+		return
+	}
+
+	// Check if user already exists
+	exists, err := h.uc.UserExists(r.Context(), req.Email)
 	if err != nil {
+		log.Printf("HandleRegister: error checking user existence for email %s: %v", req.Email, err)
+		response.Error(w, http.StatusInternalServerError, "Error checking user existence")
+		return
+	}
+	if exists {
+		log.Printf("HandleRegister: user already exists: %s", req.Email)
+		response.JSON(w, http.StatusOK, map[string]interface{}{
+			"message": "User account already exists",
+			"email":   req.Email,
+		})
+		return
+	}
+
+	// Register new user
+	user, err := h.uc.RegisterUser(r.Context(), req.Email, req.Password, req.FirstName, req.LastName, "any")
+	if err != nil {
+		log.Printf("HandleRegister: failed to register user %s: %v", req.Email, err)
 		response.Error(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
+	log.Printf("HandleRegister: user registered successfully: %s (ID: %s)", req.Email, user.ID)
 	response.JSON(w, http.StatusCreated, map[string]interface{}{
-		"message":      "User registered successfully",
+		"message": "User registered successfully",
+		"user_id": user.ID,
 	})
 }
+
+
+
 
 func (h *AuthHandler) HandleInitSignup(w http.ResponseWriter, r *http.Request) {
 	var req RegisterInit
