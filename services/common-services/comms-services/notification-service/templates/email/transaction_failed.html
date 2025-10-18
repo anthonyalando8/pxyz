@@ -1,0 +1,24 @@
+{{define "body"}}
+  <!-- Body Header -->
+  {{if .HeaderTitle}}
+    <h2>{{.HeaderTitle}}</h2>
+  {{else}}
+    <h2>Transaction Failed</h2>
+  {{end}}
+
+  <!-- Body Content -->
+  <p>Hi,</p>
+
+  <p>
+    We regret to inform you that your recent request to process a <strong>{{.TransactionType}}</strong> of <strong>{{.Amount}} {{.Currency}}</strong> has been <strong>{{.Status}}</strong>.
+  </p>
+
+  <p>
+    Please contact our support team for assistance or to resolve any issues related to this transaction.
+  </p>
+
+  <p style="margin-top:30px; font-size:14px; color:#999999;">
+    Thank you,<br>
+    <strong>Pxyz Team</strong>
+  </p>
+{{end}}

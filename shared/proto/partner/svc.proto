@@ -1,0 +1,145 @@
+syntax = "proto3";
+
+package partner.svc;
+
+option go_package = "genproto/partner/svcpb;partnersvcpb";
+
+import "google/protobuf/timestamp.proto";
+
+// -------------------- Partner service --------------------
+service PartnerService {
+  rpc CreatePartner(CreatePartnerRequest) returns (PartnerResponse);
+  rpc UpdatePartner(UpdatePartnerRequest) returns (PartnerResponse);
+  rpc DeletePartner(DeletePartnerRequest) returns (DeletePartnerResponse);
+
+  // Partner User management
+  rpc CreatePartnerUser(CreatePartnerUserRequest) returns (PartnerUserResponse);
+  rpc UpdatePartnerUser(UpdatePartnerUserRequest) returns (PartnerUserResponse);
+
+  // Bulk delete partner users
+  rpc DeletePartnerUsers(DeletePartnerUsersRequest) returns (DeletePartnerUsersResponse);
+
+  // Fetch partners (optionally filtered by IDs)
+  rpc GetPartners(GetPartnersRequest) returns (GetPartnersResponse);
+
+  // Fetch users under a specific partner
+  rpc GetPartnerUsers(GetPartnerUsersRequest) returns (GetPartnerUsersResponse);
+
+  // NEW: Fetch partners who provide a specific service
+  rpc GetPartnersByService(GetPartnersByServiceRequest) returns (GetPartnersResponse);
+}
+
+// -------------------- Entities --------------------
+message Partner {
+  string id = 1;
+  string name = 2;
+  string country = 3;
+  string contact_email = 4;
+  string contact_phone = 5;
+  string status = 6;
+  string service = 7;       // e.g., type of service the partner offers
+  string currency = 8;      // default currency for the partner
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+message PartnerUser {
+  string id = 1;
+  string partner_id = 2;
+  string email = 3;
+  string phone = 4;
+  string first_name = 5;
+  string last_name = 6;
+  string role = 7;  // "partner_admin" or "partner_user"
+  string account_status = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+// -------------------- Requests / Responses --------------------
+
+// Partner management
+message CreatePartnerRequest {
+  string name = 1;
+  string country = 2;
+  string contact_email = 3;
+  string contact_phone = 4;
+  string service = 5;
+  string currency = 6; 
+}
+message UpdatePartnerRequest {
+  string id = 1;
+  string name = 2;
+  string country = 3;
+  string contact_email = 4;
+  string contact_phone = 5;
+  string status = 6;
+  string service = 7;
+  string currency = 8; 
+}
+message DeletePartnerRequest {
+  string id = 1;
+}
+message PartnerResponse {
+  Partner partner = 1;
+}
+message DeletePartnerResponse {
+  bool success = 1;
+}
+
+// Partner user management
+message CreatePartnerUserRequest {
+  string partner_id = 1;
+  string email = 2;
+  string phone = 3;
+  string first_name = 4;
+  string last_name = 5;
+  string role = 6; // "partner_admin" or "partner_user"
+}
+message UpdatePartnerUserRequest {
+  string id = 1;
+  string email = 2;
+  string phone = 3;
+  string first_name = 4;
+  string last_name = 5;
+  string role = 6;
+  string account_status = 7;
+}
+message PartnerUserResponse {
+  PartnerUser user = 1;
+}
+
+// Bulk delete partner users
+message DeletePartnerUsersRequest {
+  string partner_id = 1;
+  repeated string user_ids = 2; // multiple IDs in one call
+}
+message DeletePartnerUsersResponse {
+  repeated string deleted_ids = 1; // which ones succeeded
+  repeated FailedUserDeletion failed_users = 2; // failed IDs with reasons
+}
+message FailedUserDeletion {
+  string user_id = 1;
+  string reason = 2; // e.g., "user not found", "cannot delete partner_admin"
+}
+
+// Fetch partners
+message GetPartnersRequest {
+  repeated string partner_ids = 1; // optional filter; if empty, returns all
+}
+message GetPartnersResponse {
+  repeated Partner partners = 1;
+}
+
+// Fetch partner users
+message GetPartnerUsersRequest {
+  string partner_id = 1; // required
+}
+message GetPartnerUsersResponse {
+  repeated PartnerUser users = 1;
+}
+
+// Fetch partners by service
+message GetPartnersByServiceRequest {
+  string service = 1; // required
+}

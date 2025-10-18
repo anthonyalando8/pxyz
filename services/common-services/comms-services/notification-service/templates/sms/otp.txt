@@ -1,0 +1,6 @@
+{{define "body"}}
+Your OTP code for {{.Purpose}} is {{.OTP}}.
+
+Do not share this code with anyone.
+It will expire in {{.ExpiryMinutes}} minutes.
+{{end}}

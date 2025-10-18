@@ -1,0 +1,354 @@
+version: '3.9'
+
+services:
+  # 🔹 Traefik - the single entrypoint
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik
+    command:
+      - "--api.dashboard=true"
+      - "--api.insecure=true"   # ⚠️ remove in production
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "70:80"      # Map host:70 to container:80
+      - "7070:8080"  # Dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - micro_net
+
+  # 🔹 Redis
+  redis:
+    image: redis:7
+    container_name: redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    networks:
+      - micro_net
+    # No port exposure needed - only accessed by other containers
+
+  # 🔹 Zookeeper
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    networks:
+      - micro_net
+
+  # 🔹 Kafka
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+    ports:
+      - "9093:9093"  # External access from host if needed
+    networks:
+      - micro_net
+    depends_on:
+      - zookeeper
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server=localhost:9092", "--list"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  # 🔹 Auth Service
+  auth-service:
+    build:
+      context: .
+      dockerfile: services/common-services/authentication/auth-service/Dockerfile
+    container_name: auth-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.auth.rule=PathPrefix(`/api/v1/auth`)"
+      - "traefik.http.routers.auth.entrypoints=web"
+      - "traefik.http.services.auth.loadbalancer.server.port=8001"
+    env_file:
+      - ./services/common-services/authentication/auth-service/.env
+    volumes:
+      - ./services/common-services/authentication/auth-service/secrets:/app/secrets:ro
+      - ./uploads:/app/uploads
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: 2000
+      DB_NAME: pxyz_user
+      KAFKA_BROKERS: kafka:9092
+      REDIS_ADDR: redis:6379
+      SYSTEM_ADMIN_PASSWORD: 96211581#Aa
+      SYSTEM_ADMIN_EMAIL: anthonyalando8@gmail.com
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - micro_net
+    depends_on:
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      traefik:
+        condition: service_started
+      core-service:
+        condition: service_started
+      session-service:
+        condition: service_started
+      email-service:
+        condition: service_started
+      sms-service:
+        condition: service_started
+      otp-service:
+        condition: service_started
+      notification-service:
+        condition: service_started
+      u-access-service:
+        condition: service_started
+
+  # 🔹 Session Service
+  session-service:
+    build:
+      context: .
+      dockerfile: services/common-services/authentication/session-mngt/Dockerfile
+    container_name: session-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.session.rule=PathPrefix(`/session`)"
+      - "traefik.http.routers.session.entrypoints=web"
+      - "traefik.http.services.session.loadbalancer.server.port=8002"
+    env_file:
+      - ./services/common-services/authentication/session-mngt/.env
+    volumes:
+      - ./services/common-services/authentication/session-mngt/secrets:/app/secrets:ro
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: 2000
+      DB_NAME: pxyz_user
+      REDIS_ADDR: redis:6379
+      KAFKA_BROKERS: kafka:9092
+      JWT_PRIVATE_KEY_PATH: /app/secrets/jwt_private.pem
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - micro_net
+    depends_on:
+      - redis
+      - u-access-service
+
+  # 🔹 SMS Service
+  sms-service:
+    build:
+      context: .
+      dockerfile: services/common-services/comms-services/sms-service/Dockerfile
+    container_name: sms-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.sms.rule=PathPrefix(`/sms`)"
+      - "traefik.http.routers.sms.entrypoints=web"
+      - "traefik.http.services.sms.loadbalancer.server.port=8012"
+    env_file:
+      - ./services/common-services/comms-services/sms-service/.env
+    volumes:
+      - ./services/common-services/comms-services/sms-service/secrets:/app/secrets:ro
+    environment:
+      GRPC_ADDR: :8012
+      REDIS_PASS:
+      KAFKA_BROKERS: kafka:9092
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+      WA_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiJieXVmU1hvSnFHY2NPcWNXOW82NXRWMWI4WVdsMEd3aSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzU2NzQ3MjMzfQ.npCbVvXb2i_gAkBr3iXi_spHVbBG4l_ZXgqevm8jfjg
+      WA_URL: https://www.whatsupsender.co.ke
+      WA_SENDER: 254792207010
+      SMS_URL: https://smsportal.hostpinnacle.co.ke/SMSApi/send
+      SMS_KEY:
+      SENDER: DERINANCE
+      USER_ID: samderinance
+      PASSWORD: Fbq75Ttz
+      REDIS_ADDR: redis:6379
+    networks:
+      - micro_net
+    depends_on:
+      - redis
+      - email-service
+
+  # 🔹 Email Service
+  email-service:
+    build:
+      context: .
+      dockerfile: services/common-services/comms-services/email-service/Dockerfile
+    container_name: email-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.email.rule=PathPrefix(`/email`)"
+      - "traefik.http.routers.email.entrypoints=web"
+      - "traefik.http.services.email.loadbalancer.server.port=8011"
+    env_file:
+      - ./services/common-services/comms-services/email-service/.env
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: 2000
+      DB_NAME: pxyz_user
+      KAFKA_BROKERS: kafka:9092
+      REDIS_ADDR: redis:6379
+      GRPCPort: :8011
+      SMTPHost: mail.derinance.com
+      SMTPUser: no_reply@derinance.com
+      SMTPPort: 465
+      SMTPPass: B-e02G#D-T7O*8Qe
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - micro_net
+    depends_on:
+      - redis
+
+  # 🔹 OTP Service
+  otp-service:
+    build:
+      context: .
+      dockerfile: services/common-services/authentication/otp-service/Dockerfile
+    container_name: otp-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.otp.rule=PathPrefix(`/otp`)"
+      - "traefik.http.routers.otp.entrypoints=web"
+      - "traefik.http.services.otp.loadbalancer.server.port=8003"
+    env_file:
+      - ./services/common-services/authentication/otp-service/.env
+    environment:
+      DB_CONN: postgres://postgres:2000@host.docker.internal:5432/pxyz_user
+      REDIS_ADDR: redis:6379
+      KAFKA_BROKERS: kafka:9092
+      EMAIL_SVC_ADDR: email-service:8011
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - micro_net
+    depends_on:
+      - redis
+      - email-service
+
+  # 🔹 Core Service
+  core-service:
+    build:
+      context: .
+      dockerfile: services/common-services/core-service/Dockerfile
+    container_name: core-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.core.rule=PathPrefix(`/core`)"
+      - "traefik.http.routers.core.entrypoints=web"
+      - "traefik.http.services.core.loadbalancer.server.port=8051"
+    env_file:
+      - ./services/common-services/core-service/.env
+    volumes:
+      - ./services/common-services/core-service/secrets:/app/secrets:ro
+      - ./uploads:/app/uploads
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: 2000
+      DB_NAME: pxyz_user
+      REDIS_ADDR: redis:6379
+      KAFKA_BROKERS: kafka:9092
+      HTTP_ADDR: :8051
+      GRPC_ADDR: :8052
+      REDIS_PASS:
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - micro_net
+    depends_on:
+      - redis
+
+  # 🔹 Notification Service
+  notification-service:
+    build:
+      context: .
+      dockerfile: services/common-services/comms-services/notification-service/Dockerfile
+    container_name: notification-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.notification.rule=PathPrefix(`/user/notifications`)"
+      - "traefik.http.routers.notification.entrypoints=web"
+      - "traefik.http.services.notification.loadbalancer.server.port=8013"
+    env_file:
+      - ./services/common-services/comms-services/notification-service/.env
+    volumes:
+      - ./services/common-services/comms-services/notification-service/secrets:/app/secrets:ro
+      - ./services/common-services/comms-services/notification-service/templates:/app/templates:ro
+      - ./uploads:/app/uploads
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: 2000
+      DB_NAME: pxyz_user
+      KAFKA_BROKERS: kafka:9092
+      REDIS_ADDR: redis:6379
+      HTTP_ADDR: :8013
+      GRPC_ADDR: :8014
+      REDIS_PASS:
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - micro_net
+    depends_on:
+      - redis
+
+  # 🔹 User Access Service
+  u-access-service:
+    build:
+      context: .
+      dockerfile: services/common-services/authentication/u-access-service/Dockerfile
+    container_name: u-access-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.uaccess.rule=PathPrefix(`/urbac`)"
+      - "traefik.http.routers.uaccess.entrypoints=web"
+      - "traefik.http.services.uaccess.loadbalancer.server.port=8031"
+    env_file:
+      - ./services/common-services/authentication/u-access-service/.env
+    volumes:
+      - ./services/common-services/authentication/u-access-service/secrets:/app/secrets:ro
+      - ./uploads:/app/uploads
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: 2000
+      DB_NAME: pxyz_user
+      KAFKA_BROKERS: kafka:9092
+      REDIS_ADDR: redis:6379
+      HTTP_ADDR: :8031
+      GRPC_ADDR: :8032
+      REDIS_PASS:
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - micro_net
+    depends_on:
+      - redis
+
+networks:
+  micro_net:
+    driver: bridge

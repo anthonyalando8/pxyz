@@ -1,0 +1,83 @@
+syntax = "proto3";
+
+package auth;
+
+option go_package = "genproto/authpb;authpb";
+
+service AuthService {
+  // Register a new user (basic fields only)
+  rpc RegisterUser(RegisterUserRequest) returns (RegisterUserResponse);
+
+  // Get full user profile by ID
+  rpc GetUserProfile(GetUserProfileRequest) returns (GetUserProfileResponse);
+
+
+  // Delete a user and all associated auth records
+  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
+}
+
+// -------------------- Messages --------------------
+
+// Delete User
+message DeleteUserRequest {
+  string user_id = 1; // User ID to delete
+}
+
+message DeleteUserResponse {
+  bool ok = 1;       // true if delete was successful
+  string error = 2;  // empty if ok=true, otherwise error message
+}
+
+// -------------------- Existing Messages --------------------
+
+// Register User
+message RegisterUserRequest {
+  string email = 1;
+  string password = 2;
+  string first_name = 3;
+  string last_name = 4;
+  string role = 5; // e.g., "trader", "admin", etc. (optional)
+}
+
+message RegisterUserResponse {
+  bool ok = 1;
+  string error = 2;
+  string user_id = 3;
+}
+
+// Get Profile
+message GetUserProfileRequest {
+  string user_id = 1;
+}
+
+message GetUserProfileResponse {
+  bool ok = 1;
+  string error = 2;
+  User user = 3;
+}
+
+// -------------------- Shared --------------------
+message User {
+  string id = 1;
+  string email = 2;
+  string phone = 3;
+
+  bool is_email_verified = 4;
+  bool is_phone_verified = 5;
+
+  string account_type = 6;
+  string account_status = 7;
+
+  string created_at = 8; // ISO timestamp
+  string updated_at = 9; // ISO timestamp
+
+  string first_name = 10;
+  string last_name = 11;
+  string bio = 12;
+  string gender = 13;
+  string date_of_birth = 14; // ISO date (YYYY-MM-DD)
+  string profile_image = 15;
+
+  // Optional address field (as JSON string)
+  string address_json = 16;
+}

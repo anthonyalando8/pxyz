@@ -1,0 +1,28 @@
+{{define "body"}}
+  <h2 style="color: #2E86C1;">New 2FA Backup Codes Generated</h2>
+
+  <p style="font-size: 16px; color: #333;">
+    Hello,<br><br>
+    Your <strong>Two-Factor Authentication (2FA)</strong> backup codes have been regenerated.
+  </p>
+
+  <p style="font-size: 14px; color: #555;">
+    Here are your new backup codes:
+  </p>
+
+  <ul style="font-family: monospace; background: #f1f1f1; padding: 10px; border-radius: 5px; color: #2E86C1;">
+    {{range .BackupCodes}}
+      <li>{{.}}</li>
+    {{end}}
+  </ul>
+
+  <p style="font-size: 14px; color: #b22222; font-weight: bold;">
+    ⚠️ Please store these codes safely. The old codes are no longer valid.<br>
+    Do not share them with anyone.
+  </p>
+
+  <p style="margin-top: 30px; font-size: 14px; color: #999999;">
+    Thank you,<br>
+    <strong>Pxyz Security Team</strong>
+  </p>
+{{end}}

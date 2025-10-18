@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package otp;
+
+option go_package = "genproto/otppb;otppb";
+
+service OTPService {
+  rpc GenerateOTP(GenerateOTPRequest) returns (GenerateOTPResponse);
+  rpc VerifyOTP(VerifyOTPRequest) returns (VerifyOTPResponse);
+}
+
+message GenerateOTPRequest {
+  string user_id = 1;
+  string purpose = 2; // e.g. "login", "reset"
+  string channel = 3; // "email" or "sms"
+  string recipient = 4; // email address or phone
+}
+
+message GenerateOTPResponse {
+  bool ok = 1;
+  string error = 2;
+}
+
+message VerifyOTPRequest {
+  int64 user_id = 1;
+  string purpose = 2;
+  string code = 3;
+}
+
+message VerifyOTPResponse {
+  bool valid = 1;
+  string error = 2;
+}

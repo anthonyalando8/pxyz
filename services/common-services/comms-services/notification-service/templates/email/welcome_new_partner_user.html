@@ -1,0 +1,24 @@
+{{define "body"}}
+  <!-- Body Header -->
+  {{if .HeaderTitle}}
+    <h2>{{.HeaderTitle}}</h2>
+  {{else}}
+    <h2>Welcome to Pxyz</h2>
+  {{end}}
+
+  <!-- Body Content -->
+  <p>Hello {{.UserName}},</p>
+  <p>
+    Your partner user account has been successfully created.<br>
+    Partner ID: <strong>{{.PartnerID}}</strong><br>
+    User ID: <strong>{{.UserID}}</strong><br>
+    Email: <strong>{{.UserEmail}}</strong><br>
+    Password: <strong>{{.Password}}</strong>
+  </p>
+
+  <p>
+    You may log in and change your password immediately.<br>
+    Thank you,<br>
+    <strong>Pxyz Team</strong>
+  </p>
+{{end}}

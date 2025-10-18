@@ -1,0 +1,18 @@
+{{define "body"}}
+  <!-- Body Header -->
+  {{if .HeaderTitle}}
+    <h2>{{.HeaderTitle}}</h2>
+  {{else}}
+    <h2>New User Added</h2>
+  {{end}}
+
+  <!-- Body Content -->
+  <p>Hello,</p>
+  <p>
+    A new user has been added to your partner account <strong>{{.PartnerName}}</strong>.<br>
+    User ID: <strong>{{.UserID}}</strong><br>
+    Email: <strong>{{.UserEmail}}</strong>
+  </p>
+
+  <p>Thank you,<br><strong>Pxyz Team</strong></p>
+{{end}}

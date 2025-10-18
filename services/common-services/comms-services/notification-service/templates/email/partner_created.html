@@ -1,0 +1,38 @@
+{{define "body"}}
+  <!-- Body Header -->
+  {{if .HeaderTitle}}
+    <h2>{{.HeaderTitle}}</h2>
+  {{else}}
+    <h2>Welcome to Pxyz</h2>
+  {{end}}
+
+  <!-- Body Content -->
+  <p>Hello,</p>
+
+  <p>
+    Your partner account has been successfully created.<br><br>
+    <strong>Partner Name:</strong> {{.PartnerName}}<br>
+    <strong>Partner ID:</strong> {{.PartnerID}}
+  </p>
+
+  <p style="margin-top:20px;">
+    We’ve also created a default <strong>Partner Admin</strong> account for you.<br>
+    You can access the Partner Dashboard using the following credentials:
+  </p>
+
+  <div style="background:#f4f6f8; padding:12px; border-radius:6px; margin-top:10px;">
+    <p style="margin:0;">
+      <strong>Email:</strong> {{.AdminEmail}}<br>
+      <strong>Password:</strong> {{.AdminPassword}}
+    </p>
+  </div>
+
+  <p style="font-size: 14px; color:#cc0000; margin-top:15px;">
+    ⚠️ For security reasons, please log in immediately and change your password.
+  </p>
+
+  <p style="margin-top:30px; font-size:14px; color:#999999;">
+    Thank you,<br>
+    <strong>Pxyz Team</strong>
+  </p>
+{{end}}

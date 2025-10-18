@@ -1,0 +1,8 @@
+{{define "body"}}
+Hello {{.UserName}},
+
+Welcome to Pxyz! Your account has been created successfully.
+Login here: {{.LoginURL}}
+
+If this wasn’t you, please contact support immediately.
+{{end}}

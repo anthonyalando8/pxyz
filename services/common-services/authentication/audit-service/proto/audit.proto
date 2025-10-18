@@ -1,0 +1,379 @@
+// security_audit.proto
+syntax = "proto3";
+
+package auth.audit.security;
+
+option go_package = "shared/genproto/authentication/audit-service/grpcpb";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+// ================================
+// SECURITY AUDIT SERVICE
+// ================================
+
+service SecurityAuditService {
+  // Account Lock Management
+  rpc CheckAccountLockStatus(CheckAccountLockStatusRequest) returns (CheckAccountLockStatusResponse);
+  rpc CheckAccountsLockStatus(CheckAccountsLockStatusRequest) returns (CheckAccountsLockStatusResponse);
+  rpc UnlockAccount(UnlockAccountRequest) returns (UnlockAccountResponse);
+  rpc UnlockAccounts(UnlockAccountsRequest) returns (UnlockAccountsResponse);
+
+  // Suspicious Activity Management
+  rpc DetectSuspiciousActivity(DetectSuspiciousActivityRequest) returns (DetectSuspiciousActivityResponse);
+  rpc ReportSuspiciousActivity(ReportSuspiciousActivityRequest) returns (ReportSuspiciousActivityResponse);
+  rpc ReportSuspiciousActivities(ReportSuspiciousActivitiesRequest) returns (ReportSuspiciousActivitiesResponse);
+  rpc ResolveSuspiciousActivity(ResolveSuspiciousActivityRequest) returns (ResolveSuspiciousActivityResponse);
+  rpc ResolveSuspiciousActivities(ResolveSuspiciousActivitiesRequest) returns (ResolveSuspiciousActivitiesResponse);
+  rpc GetActiveSuspiciousActivities(GetActiveSuspiciousActivitiesRequest) returns (GetActiveSuspiciousActivitiesResponse);
+  rpc GetHighRiskUsers(GetHighRiskUsersRequest) returns (GetHighRiskUsersResponse);
+
+  // Audit Queries
+  rpc GetUserAuditHistory(GetUserAuditHistoryRequest) returns (GetUserAuditHistoryResponse);
+  rpc GetUsersAuditHistory(GetUsersAuditHistoryRequest) returns (GetUsersAuditHistoryResponse);
+  rpc QueryAuditLogs(QueryAuditLogsRequest) returns (QueryAuditLogsResponse);
+  rpc GetCriticalEvents(GetCriticalEventsRequest) returns (GetCriticalEventsResponse);
+  rpc GetSecuritySummary(GetSecuritySummaryRequest) returns (GetSecuritySummaryResponse);
+  rpc GetUserRiskScore(GetUserRiskScoreRequest) returns (GetUserRiskScoreResponse);
+  rpc GetUsersRiskScores(GetUsersRiskScoresRequest) returns (GetUsersRiskScoresResponse);
+
+  // Rate Limiting
+  rpc CheckRateLimit(CheckRateLimitRequest) returns (CheckRateLimitResponse);
+  rpc CheckRateLimits(CheckRateLimitsRequest) returns (CheckRateLimitsResponse);
+}
+
+// ================================
+// ACCOUNT LOCK MESSAGES
+// ================================
+
+message CheckAccountLockStatusRequest {
+  string user_id = 1;
+}
+
+message CheckAccountsLockStatusRequest {
+  repeated string user_ids = 1;
+}
+
+message AccountLockStatus {
+  string user_id = 1;
+  bool is_locked = 2;
+  AccountLockout lockout = 3;
+}
+
+message CheckAccountLockStatusResponse {
+  bool is_locked = 1;
+  AccountLockout lockout = 2;
+}
+
+message CheckAccountsLockStatusResponse {
+  repeated AccountLockStatus statuses = 1;
+}
+
+message UnlockAccountRequest {
+  string user_id = 1;
+  string unlocked_by = 2;
+  string ip_address = 3;
+}
+
+message UnlockAccountsRequest {
+  repeated string user_ids = 1;
+  string unlocked_by = 2;
+  string ip_address = 3;
+}
+
+message UnlockAccountResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message UnlockAccountsResponse {
+  int32 unlocked_count = 1;
+  repeated UnlockResult results = 2;
+}
+
+message UnlockResult {
+  string user_id = 1;
+  bool success = 2;
+  string error = 3;
+}
+
+message AccountLockout {
+  string id = 1;
+  string user_id = 2;
+  string reason = 3;
+  string locked_by = 4;
+  google.protobuf.Timestamp locked_at = 5;
+  google.protobuf.Timestamp unlock_at = 6;
+  google.protobuf.Timestamp unlocked_at = 7;
+  string unlocked_by = 8;
+  bool is_active = 9;
+  google.protobuf.Struct metadata = 10;
+}
+
+// ================================
+// SUSPICIOUS ACTIVITY MESSAGES
+// ================================
+
+message DetectSuspiciousActivityRequest {
+  string user_id = 1;
+  string ip_address = 2;
+  string session_id = 3;
+  string user_agent = 4;
+}
+
+message DetectSuspiciousActivityResponse {
+  bool suspicious_detected = 1;
+  int32 risk_score = 2;
+  repeated string activities = 3;
+}
+
+message ReportSuspiciousActivityRequest {
+  string user_id = 1;
+  string activity_type = 2;
+  int32 risk_score = 3;
+  string ip_address = 4;
+  google.protobuf.Struct details = 5;
+  string reported_by = 6;
+}
+
+message ReportSuspiciousActivitiesRequest {
+  repeated ReportSuspiciousActivityRequest activities = 1;
+}
+
+message ReportSuspiciousActivityResponse {
+  bool success = 1;
+  string activity_id = 2;
+  string message = 3;
+}
+
+message ReportSuspiciousActivitiesResponse {
+  int32 reported_count = 1;
+  repeated ReportResult results = 2;
+}
+
+message ReportResult {
+  string user_id = 1;
+  bool success = 2;
+  string activity_id = 3;
+  string error = 4;
+}
+
+message ResolveSuspiciousActivityRequest {
+  string activity_id = 1;
+  string resolved_by = 2;
+  string status = 3; // 'resolved', 'false_positive'
+}
+
+message ResolveSuspiciousActivitiesRequest {
+  repeated string activity_ids = 1;
+  string resolved_by = 2;
+  string status = 3;
+}
+
+message ResolveSuspiciousActivityResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message ResolveSuspiciousActivitiesResponse {
+  int32 resolved_count = 1;
+  repeated ResolveResult results = 2;
+}
+
+message ResolveResult {
+  string activity_id = 1;
+  bool success = 2;
+  string error = 3;
+}
+
+message GetActiveSuspiciousActivitiesRequest {
+  string user_id = 1;
+}
+
+message GetActiveSuspiciousActivitiesResponse {
+  repeated SuspiciousActivity activities = 1;
+}
+
+message GetHighRiskUsersRequest {
+  int32 min_risk_score = 1;
+  int32 limit = 2;
+}
+
+message GetHighRiskUsersResponse {
+  repeated SuspiciousActivity activities = 1;
+}
+
+message SuspiciousActivity {
+  string id = 1;
+  string user_id = 2;
+  string activity_type = 3;
+  int32 risk_score = 4;
+  string ip_address = 5;
+  google.protobuf.Struct details = 6;
+  string status = 7;
+  string resolved_by = 8;
+  google.protobuf.Timestamp resolved_at = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+// ================================
+// AUDIT LOG MESSAGES
+// ================================
+
+message GetUserAuditHistoryRequest {
+  string user_id = 1;
+  int32 limit = 2;
+}
+
+message GetUsersAuditHistoryRequest {
+  repeated string user_ids = 1;
+  int32 limit = 2;
+}
+
+message GetUserAuditHistoryResponse {
+  repeated SecurityAuditLog logs = 1;
+}
+
+message GetUsersAuditHistoryResponse {
+  repeated UserAuditHistory histories = 1;
+}
+
+message UserAuditHistory {
+  string user_id = 1;
+  repeated SecurityAuditLog logs = 2;
+}
+
+message QueryAuditLogsRequest {
+  string user_id = 1;
+  string event_category = 2;
+  string event_type = 3;
+  string severity = 4;
+  string status = 5;
+  google.protobuf.Timestamp start_date = 6;
+  google.protobuf.Timestamp end_date = 7;
+  int32 limit = 8;
+  int32 offset = 9;
+}
+
+message QueryAuditLogsResponse {
+  repeated SecurityAuditLog logs = 1;
+  int32 total_count = 2;
+}
+
+message GetCriticalEventsRequest {
+  int32 hours = 1;
+  int32 limit = 2;
+}
+
+message GetCriticalEventsResponse {
+  repeated SecurityAuditLog events = 1;
+}
+
+message GetSecuritySummaryRequest {
+  google.protobuf.Timestamp start_date = 1;
+  google.protobuf.Timestamp end_date = 2;
+}
+
+message GetSecuritySummaryResponse {
+  google.protobuf.Timestamp start_date = 1;
+  google.protobuf.Timestamp end_date = 2;
+  int64 total_events = 3;
+  int64 total_failures = 4;
+  int64 critical_events = 5;
+  repeated SecurityEventsSummary events = 6;
+  repeated SuspiciousActivity high_risk_users = 7;
+}
+
+message GetUserRiskScoreRequest {
+  string user_id = 1;
+}
+
+message GetUsersRiskScoresRequest {
+  repeated string user_ids = 1;
+}
+
+message GetUserRiskScoreResponse {
+  string user_id = 1;
+  int32 risk_score = 2;
+}
+
+message GetUsersRiskScoresResponse {
+  repeated UserRiskScore scores = 1;
+}
+
+message UserRiskScore {
+  string user_id = 1;
+  int32 risk_score = 2;
+}
+
+message SecurityAuditLog {
+  string id = 1;
+  string event_type = 2;
+  string event_category = 3;
+  string severity = 4;
+  string status = 5;
+  string user_id = 6;
+  string target_user_id = 7;
+  string session_id = 8;
+  string ip_address = 9;
+  string user_agent = 10;
+  string request_id = 11;
+  string resource_type = 12;
+  string resource_id = 13;
+  string action = 14;
+  string description = 15;
+  google.protobuf.Struct metadata = 16;
+  google.protobuf.Struct previous_value = 17;
+  google.protobuf.Struct new_value = 18;
+  string error_code = 19;
+  string error_message = 20;
+  string country = 21;
+  string city = 22;
+  google.protobuf.Timestamp created_at = 23;
+}
+
+message SecurityEventsSummary {
+  google.protobuf.Timestamp event_date = 1;
+  string event_category = 2;
+  string event_type = 3;
+  string status = 4;
+  string severity = 5;
+  int64 event_count = 6;
+  int64 unique_users = 7;
+  int64 unique_ips = 8;
+}
+
+// ================================
+// RATE LIMITING MESSAGES
+// ================================
+
+message CheckRateLimitRequest {
+  string identifier = 1; // email, phone, or user_id
+  string ip_address = 2;
+}
+
+message CheckRateLimitsRequest {
+  repeated RateLimitCheck checks = 1;
+}
+
+message RateLimitCheck {
+  string identifier = 1;
+  string ip_address = 2;
+}
+
+message CheckRateLimitResponse {
+  bool is_limited = 1;
+  string message = 2;
+}
+
+message CheckRateLimitsResponse {
+  repeated RateLimitResult results = 1;
+}
+
+message RateLimitResult {
+  string identifier = 1;
+  string ip_address = 2;
+  bool is_limited = 3;
+  string error = 4;
+}

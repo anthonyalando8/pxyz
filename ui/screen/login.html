@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Login & Signup</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+  <div class="container d-flex justify-content-center align-items-center vh-100">
+    <div class="card shadow p-4" style="max-width: 400px; width: 100%;">
+      <ul class="nav nav-tabs mb-3" id="authTab" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" id="login-tab" data-bs-toggle="tab" data-bs-target="#login" type="button" role="tab">Login</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="signup-tab" data-bs-toggle="tab" data-bs-target="#signup" type="button" role="tab">Sign Up</button>
+        </li>
+      </ul>
+
+      <div class="tab-content" id="authTabContent">
+        <!-- Login Tab -->
+        <div class="tab-pane fade show active" id="login" role="tabpanel">
+          <form>
+            <div class="mb-3">
+              <label for="loginEmailPhone" class="form-label">Email or Phone</label>
+              <input type="text" class="form-control" id="loginEmailPhone" placeholder="Enter email or phone">
+            </div>
+            <div class="mb-3">
+              <label for="loginPassword" class="form-label">Password</label>
+              <input type="password" class="form-control" id="loginPassword" placeholder="Enter password">
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Login</button>
+          </form>
+        </div>
+
+        <!-- Signup Tab -->
+        <div class="tab-pane fade" id="signup" role="tabpanel">
+          <form>
+            <div class="mb-3">
+              <label for="signupFirstName" class="form-label">First Name</label>
+              <input type="text" class="form-control" id="signupFirstName" placeholder="Enter first name">
+            </div>
+            <div class="mb-3">
+              <label for="signupLastName" class="form-label">Last Name</label>
+              <input type="text" class="form-control" id="signupLastName" placeholder="Enter last name">
+            </div>
+            <div class="mb-3">
+              <label for="signupEmailPhone" class="form-label">Email or Phone</label>
+              <input type="text" class="form-control" id="signupEmailPhone" placeholder="Enter email or phone">
+            </div>
+            <div class="mb-3">
+              <label for="signupPassword" class="form-label">Password</label>
+              <input type="password" class="form-control" id="signupPassword" placeholder="Enter password">
+            </div>
+            <button type="submit" class="btn btn-success w-100">Sign Up</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+(() => {
+  // ---- Helpers ------------------------------------------------------------
+  const MIN_PASSWORD_LEN = 8;
+
+  const isEmail = (v) =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+
+  // Generic E.164-ish phone: + and 8-15 digits
+  const isPhone = (v) =>
+    /^\+?[1-9]\d{7,14}$/.test(v.replace(/\s+/g, ''));
+
+  function validateIdentifier(value) {
+    return isEmail(value) || isPhone(value);
+  }
+
+  function setInvalid(input, message) {
+    input.classList.add('is-invalid');
+    let feedback = input.parentElement.querySelector('.invalid-feedback');
+    if (!feedback) {
+      feedback = document.createElement('div');
+      feedback.className = 'invalid-feedback';
+      input.parentElement.appendChild(feedback);
+    }
+    feedback.textContent = message;
+  }
+
+  function clearInvalid(input) {
+    input.classList.remove('is-invalid');
+  }
+
+  function disableBtn(btn, disabled = true) {
+    btn.disabled = disabled;
+    if (disabled) {
+      btn.dataset.originalText = btn.textContent;
+      btn.textContent = 'Please wait...';
+    } else {
+      btn.textContent = btn.dataset.originalText || btn.textContent;
+    }
+  }
+
+  async function postJSON(url, payload) {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    let data = null;
+    try { data = await res.json(); } catch (_) {}
+
+    if (!res.ok) {
+      const msg = (data && (data.error || data.message)) || `HTTP ${res.status}`;
+      throw new Error(msg);
+    }
+    return data;
+  }
+
+  function showAlert(container, type, message) {
+    // Remove existing alerts in the same container
+    container.querySelectorAll('.alert').forEach(a => a.remove());
+
+    const div = document.createElement('div');
+    div.className = `alert alert-${type} mt-3`;
+    div.role = 'alert';
+    div.textContent = message;
+    container.appendChild(div);
+  }
+
+  // ---- Login --------------------------------------------------------------
+  const loginPane = document.getElementById('login');
+  const loginForm = loginPane?.querySelector('form');
+  if (loginForm) {
+    loginForm.setAttribute('novalidate', 'true');
+
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const identifierInput = document.getElementById('loginEmailPhone');
+      const passwordInput   = document.getElementById('loginPassword');
+      const submitBtn       = loginForm.querySelector('button[type="submit"]');
+
+      // reset invalid states
+      [identifierInput, passwordInput].forEach(clearInvalid);
+
+      let hasError = false;
+
+      const identifier = identifierInput.value.trim();
+      const password   = passwordInput.value;
+
+      if (!identifier) {
+        setInvalid(identifierInput, 'Email or phone is required.');
+        hasError = true;
+      } else if (!validateIdentifier(identifier)) {
+        setInvalid(identifierInput, 'Enter a valid email or phone number.');
+        hasError = true;
+      }
+
+      if (!password) {
+        setInvalid(passwordInput, 'Password is required.');
+        hasError = true;
+      } else if (password.length < MIN_PASSWORD_LEN) {
+        setInvalid(passwordInput, `Password must be at least ${MIN_PASSWORD_LEN} characters.`);
+        hasError = true;
+      }
+
+      if (hasError) return;
+
+      try {
+        disableBtn(submitBtn, true);
+        const payload = { identifier, password };
+        const response = await postJSON('http://localhost:8001/auth/login', payload);
+
+        showAlert(loginPane, 'success', 'Logged in successfully.');
+        const data = response.data;
+
+        // Save to localStorage
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('first_name', data.first_name || '');
+        localStorage.setItem('last_name', data.last_name || '');
+        localStorage.setItem('email', data.email || '');
+        localStorage.setItem('user_id', data.user_id || '');
+        localStorage.setItem('device', data.device || '');
+
+        showAlert(loginPane, 'success', 'Logged in successfully.');
+        window.location.href = 'dashboard.html';
+      } catch (err) {
+        console.error('Login error:', err);
+        showAlert(loginPane, 'danger', err.message || 'Login failed.');
+      } finally {
+        disableBtn(submitBtn, false);
+      }
+    });
+  }
+
+  // ---- Register -----------------------------------------------------------
+  const signupPane = document.getElementById('signup');
+  const signupForm = signupPane?.querySelector('form');
+
+  if (signupForm) {
+    signupForm.setAttribute('novalidate', 'true');
+
+    signupForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const firstNameInput = document.getElementById('signupFirstName');
+      const lastNameInput = document.getElementById('signupLastName');
+      const idInput = document.getElementById('signupEmailPhone');
+      const passwordInput = document.getElementById('signupPassword');
+      const submitBtn = signupForm.querySelector('button[type="submit"]');
+
+      [firstNameInput, lastNameInput, idInput, passwordInput].forEach(clearInvalid);
+
+      const first_name = firstNameInput.value.trim();
+      const last_name = lastNameInput.value.trim();
+      const rawInput = idInput.value.trim();
+      const password = passwordInput.value;
+
+      let hasError = false;
+      let identifierType = null;
+
+      if (!first_name) {
+        setInvalid(firstNameInput, 'First name is required.');
+        hasError = true;
+      }
+
+      if (!last_name) {
+        setInvalid(lastNameInput, 'Last name is required.');
+        hasError = true;
+      }
+
+      if (!rawInput) {
+        setInvalid(idInput, 'Email or phone is required.');
+        hasError = true;
+      } else if (isEmail(rawInput)) {
+        identifierType = 'email';
+      } else if (isPhone(rawInput)) {
+        identifierType = 'phone';
+      } else {
+        setInvalid(idInput, 'Enter a valid email or phone number.');
+        hasError = true;
+      }
+
+      if (!password) {
+        setInvalid(passwordInput, 'Password is required.');
+        hasError = true;
+      } else if (password.length < MIN_PASSWORD_LEN) {
+        setInvalid(passwordInput, `Password must be at least ${MIN_PASSWORD_LEN} characters.`);
+        hasError = true;
+      }
+
+      if (hasError) return;
+
+      try {
+        disableBtn(submitBtn, true);
+
+        const payload = {
+          first_name,
+          last_name,
+          password,
+          [identifierType]: rawInput,
+        };
+
+        const data = await postJSON('http://localhost:8001/auth/register', payload);
+
+        showAlert(signupPane, 'success', 'Account created successfully. You can now login.');
+
+        const loginTabBtn = document.querySelector('#login-tab');
+        if (loginTabBtn) new bootstrap.Tab(loginTabBtn).show();
+
+      } catch (err) {
+        const message = err?.message || 'Registration failed.';
+        showAlert(signupPane, 'danger', message);
+      } finally {
+        disableBtn(submitBtn, false);
+      }
+    });
+  }
+
+})();
+</script>
+
+</body>
+</html>

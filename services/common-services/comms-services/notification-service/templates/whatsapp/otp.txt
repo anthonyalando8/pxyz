@@ -1,0 +1,6 @@
+{{define "body"}}
+Your OTP for {{.Purpose}} is *{{.OTP}}*.
+
+It expires in {{.ExpiryMinutes}} minutes.  
+⚠️ Keep it private; we will never ask for this code.
+{{end}}

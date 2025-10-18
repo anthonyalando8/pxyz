@@ -1,0 +1,19 @@
+{{define "body"}}
+  <!-- Body Header -->
+  {{if .HeaderTitle}}
+    <h2>{{.HeaderTitle}}</h2>
+  {{else}}
+    <h2>Welcome to Admin Portal</h2>
+  {{end}}
+
+  <!-- Body Content -->
+  <p>Hello {{.UserName}},</p>
+  <p>Your admin account has been successfully created.</p>
+
+  <p><strong>Email:</strong> {{.Email}}</p>
+  <p><strong>Password:</strong> {{.Password}}</p>
+
+  <p>Please log in and change your password immediately to secure your account.</p>
+
+  <p>Regards,<br><strong>Admin Team</strong></p>
+{{end}}

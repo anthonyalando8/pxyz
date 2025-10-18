@@ -1,0 +1,81 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    outputs:
+      image-sha: ${{ steps.set-sha.outputs.sha }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set image tag (short SHA)
+        id: set-sha
+        run: echo "::set-output name=sha::${GITHUB_SHA::8}"
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_PAT }}
+
+      # Build & push each service (both sha and latest)
+      - name: Build and push auth-service
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/auth-service:${{ steps.set-sha.outputs.sha }} -f services/common-services/authentication/auth-service/Dockerfile .
+          docker tag ghcr.io/${{ github.repository }}/auth-service:${{ steps.set-sha.outputs.sha }} ghcr.io/${{ github.repository }}/auth-service:latest
+          docker push ghcr.io/${{ github.repository }}/auth-service:${{ steps.set-sha.outputs.sha }}
+          docker push ghcr.io/${{ github.repository }}/auth-service:latest
+
+      - name: Build and push session-service
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/session-service:${{ steps.set-sha.outputs.sha }} -f services/common-services/authentication/session-mngt/Dockerfile .
+          docker tag ghcr.io/${{ github.repository }}/session-service:${{ steps.set-sha.outputs.sha }} ghcr.io/${{ github.repository }}/session-service:latest
+          docker push ghcr.io/${{ github.repository }}/session-service:${{ steps.set-sha.outputs.sha }}
+          docker push ghcr.io/${{ github.repository }}/session-service:latest
+
+      - name: Build and push email-service
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/email-service:${{ steps.set-sha.outputs.sha }} -f services/common-services/comms-services/email-service/Dockerfile .
+          docker tag ghcr.io/${{ github.repository }}/email-service:${{ steps.set-sha.outputs.sha }} ghcr.io/${{ github.repository }}/email-service:latest
+          docker push ghcr.io/${{ github.repository }}/email-service:${{ steps.set-sha.outputs.sha }}
+          docker push ghcr.io/${{ github.repository }}/email-service:latest
+
+      - name: Build and push otp-service
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/otp-service:${{ steps.set-sha.outputs.sha }} -f services/common-services/authentication/otp-service/Dockerfile .
+          docker tag ghcr.io/${{ github.repository }}/otp-service:${{ steps.set-sha.outputs.sha }} ghcr.io/${{ github.repository }}/otp-service:latest
+          docker push ghcr.io/${{ github.repository }}/otp-service:${{ steps.set-sha.outputs.sha }}
+          docker push ghcr.io/${{ github.repository }}/otp-service:latest
+
+      # add other services here if you want (core-service, u-access-service, etc.)
+      # follow the same pattern: build -> tag sha + latest -> push sha + latest
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to dedicated server
+        uses: appleboy/ssh-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          script: |
+            set -eux
+            cd /var/www/user.safarigari.com
+            # Make sure docker-compose file is present as docker-compose.prod.yml
+            docker-compose -f docker-compose.prod.yml pull
+            docker-compose -f docker-compose.prod.yml up -d --remove-orphans
+            # Optional cleanup
+            docker image prune -af
+            docker system prune -af --volumes || true
+            # show running containers
+            docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}"

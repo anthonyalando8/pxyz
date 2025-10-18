@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>ngrok GET test</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; margin: 24px; }
+    label { display: block; margin: 12px 0 6px; }
+    input { width: 100%; padding: 8px; }
+    button { margin-right: 8px; padding: 8px 12px; cursor: pointer; }
+    pre { white-space: pre-wrap; background: #111; color: #0f0; padding: 12px; border-radius: 8px; min-height: 160px; }
+    small { color: #666; }
+  </style>
+</head>
+<body>
+  <h1>ngrok GET test → /auth/profile</h1>
+
+  <label>Base URL</label>
+  <input id="baseUrl" value="https://c8a250490b48.ngrok-free.app" />
+
+  <label>Bearer Token <small>(without the word "Bearer")</small></label>
+  <input id="token" value="YOUR_JWT_TOKEN_HERE" />
+
+  <div style="margin:16px 0;">
+    <button id="btnFetch">GET profile</button>
+  </div>
+
+  <h3>Raw response</h3>
+  <pre id="out">(nothing yet)</pre>
+
+  <script>
+    const out = document.getElementById('out');
+    const getAuthHeader = () => {
+      const t = document.getElementById('token').value.trim();
+      return t ? `Bearer ${t}` : '';
+    };
+
+    const url = () => {
+      let base = document.getElementById('baseUrl').value.trim().replace(/\/+$/, '');
+      return `${base}/auth/profile`;
+    };
+
+    async function run() {
+      out.textContent = 'Loading...';
+
+      const headers = {
+        'Authorization': getAuthHeader(),
+        'ngrok-skip-browser-warning': 'true'
+      };
+
+      try {
+        const res = await fetch(url(), {
+          method: 'GET',
+          headers,
+        });
+
+        const text = await res.text(); // raw response
+        const headerDump = [...res.headers.entries()]
+          .map(([k, v]) => `${k}: ${v}`)
+          .join('\n');
+
+        out.textContent =
+`STATUS: ${res.status} ${res.statusText}
+URL: ${res.url}
+---- HEADERS ----
+${headerDump}
+---- BODY (raw) ----
+${text}`;
+      } catch (err) {
+        out.textContent = `FETCH ERROR:\n${err?.stack || err}`;
+      }
+    }
+
+    document.getElementById('btnFetch').addEventListener('click', run);
+  </script>
+</body>
+</html>

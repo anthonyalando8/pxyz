@@ -1,0 +1,137 @@
+syntax = "proto3";
+
+package notification;
+
+option go_package = "genproto/shared/notificationpb;notificationpb";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+service NotificationService {
+  // Core CRUD
+  rpc CreateNotification(CreateNotificationsRequest) returns (NotificationsResponse);
+  rpc GetNotification(GetNotificationRequest) returns (NotificationsResponse);
+  rpc GetNotificationByRequestID(GetNotificationByRequestIDRequest) returns (NotificationsResponse);
+
+  // Listing
+  rpc ListNotifications(ListNotificationsRequest) returns (ListNotificationsResponse);
+
+  // Status updates
+  rpc MarkAsRead(MarkAsReadRequest) returns (NotificationsResponse);
+  rpc HideFromApp(HideFromAppRequest) returns (NotificationsResponse);
+  rpc UpdateStatus(UpdateStatusRequest) returns (NotificationsResponse);
+
+  // Unread helpers
+  rpc ListUnread(ListUnreadRequest) returns (ListNotificationsResponse);
+  rpc CountUnread(CountUnreadRequest) returns (CountUnreadResponse);
+
+  // Deletion
+  rpc DeleteNotification(DeleteNotificationRequest) returns (DeleteNotificationResponse);
+  rpc DeleteNotificationsByOwner(DeleteNotificationsByOwnerRequest) returns (DeleteNotificationsByOwnerResponse);
+}
+
+// === Messages ===
+
+message Notification {
+  int64 id = 1;
+  string request_id = 2;
+  string owner_type = 3; // user, partner, admin
+  string owner_id = 4;
+  string event_type = 5;
+  repeated string channel_hint = 6;
+  string title = 7;
+  string body = 8;
+  google.protobuf.Struct payload = 9;
+  string priority = 10;
+  string status = 11;
+  bool visible_in_app = 12;
+  google.protobuf.Timestamp read_at = 13;
+  google.protobuf.Timestamp created_at = 14;
+  google.protobuf.Timestamp delivered_at = 15;
+  google.protobuf.Struct metadata = 16;
+  string recipient_email = 17;
+  string recipient_phone = 18;
+  string recipient_name = 19;
+}
+
+// === Requests & Responses ===
+
+message CreateNotificationsRequest {
+  repeated Notification notifications = 1;
+}
+
+message NotificationsResponse {
+  repeated Notification notifications = 1;
+}
+
+message GetNotificationRequest {
+  int64 id = 1;
+}
+
+message GetNotificationByRequestIDRequest {
+  string request_id = 1;
+}
+
+message ListNotificationsRequest {
+  string owner_type = 1;
+  string owner_id = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+}
+
+message ListNotificationsResponse {
+  repeated Notification notifications = 1;
+}
+
+message MarkAsReadRequest {
+  int64 id = 1;
+  string owner_type = 2;
+  string owner_id = 3;
+}
+
+message HideFromAppRequest {
+  int64 id = 1;
+  string owner_type = 2;
+  string owner_id = 3;
+}
+
+message UpdateStatusRequest {
+  int64 id = 1;
+  string status = 2;
+  google.protobuf.Timestamp delivered_at = 3;
+}
+
+message ListUnreadRequest {
+  string owner_type = 1;
+  string owner_id = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+}
+
+message CountUnreadRequest {
+  string owner_type = 1;
+  string owner_id = 2;
+}
+
+message CountUnreadResponse {
+  int32 count = 1;
+}
+
+message DeleteNotificationRequest {
+  int64 id = 1;
+  string owner_type = 2;
+  string owner_id = 3;
+}
+
+message DeleteNotificationResponse {
+  bool success = 1;
+}
+
+message DeleteNotificationsByOwnerRequest {
+  string owner_type = 1;
+  string owner_id = 2;
+}
+
+message DeleteNotificationsByOwnerResponse {
+  bool success = 1;
+}

@@ -1,0 +1,30 @@
+{{define "body"}}
+  <!-- Body Header -->
+  {{if .HeaderTitle}}
+    <h2>{{.HeaderTitle}}</h2>
+  {{else}}
+    <h2>Account Credited</h2>
+  {{end}}
+
+  <!-- Body Content -->
+  <p>Hello,</p>
+
+  <p>
+    We’re pleased to inform you that your account has been successfully credited.  
+    An amount of <strong>{{.Amount}} {{.Currency}}</strong> has been added to your account on <strong>{{.Date}}</strong> at <strong>{{.Time}}</strong>.
+  </p>
+
+  <p>
+    Your transaction reference number is <strong>{{.ReferenceNumber}}</strong>, and the external reference for this transaction is <strong>{{.ExternalRef}}</strong>.  
+    Please keep these details for your records.
+  </p>
+
+  <p>
+    If you did not authorize this transaction or notice any discrepancies, please contact our support team immediately.
+  </p>
+
+  <p style="margin-top:30px; font-size:14px; color:#999999;">
+    Thank you,<br>
+    <strong>Pxyz Team</strong>
+  </p>
+{{end}}

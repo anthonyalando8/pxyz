@@ -1,0 +1,139 @@
+syntax = "proto3";
+
+package accounting.receipt.v2;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+option go_package = "genproto/shared/accounting/receipt/v2;receiptpb";
+
+// ===============================
+// Domain Messages
+// ===============================
+
+// Party Info (creditor/debitor)
+message PartyInfo {
+  int64 account_id = 1;           // FK -> accounts.id
+  int64 ledger_id = 2;            // FK -> ledgers.id
+  string account_type = 3;        // user, partner, system
+  string status = 4;              // pending, success, failed
+  string name = 5;
+  string phone = 6;
+  string email = 7;
+  string account_number = 8;      // optional external identifier
+  bool is_creditor = 9;
+}
+
+// Receipt
+message Receipt {
+  int64 id = 1;
+  string code = 2;                                // unique receipt code
+  string type = 3;                                // deposit, withdrawal, transfer, conversion, admin_credit
+  string coded_type = 4;                          // optional subtype (fee, cashback, etc.)
+  double amount = 5;
+  double transaction_cost = 6;                    // new field: transaction fee or cost
+  string currency = 7;
+  string external_ref = 8;                        // bank txn id, blockchain tx hash, etc.
+  string status = 9;                              // pending, success, failed, reversed
+
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+  string created_by = 12;
+  google.protobuf.Timestamp reversed_at = 13;
+  string reversed_by = 14;
+
+  PartyInfo creditor = 15;
+  PartyInfo debitor = 16;
+
+  // Flexible metadata (e.g. channel, fees breakdown, device info)
+  google.protobuf.Struct metadata = 17;
+}
+
+
+// ===============================
+// Requests / Responses
+// ===============================
+
+// --- Create ---
+message CreateReceiptRequest {
+  string type = 1;
+  string coded_type = 2;
+  double amount = 3;
+  double transaction_cost = 10;   // new field: optional, can default to 0
+  string currency = 4;
+  string external_ref = 5;
+  PartyInfo creditor = 6;
+  PartyInfo debitor = 7;
+  string created_by = 8;
+  google.protobuf.Struct metadata = 9;
+}
+
+
+message CreateReceiptResponse {
+  Receipt receipt = 1;
+}
+
+// NEW: batch create
+message CreateReceiptsRequest {
+  repeated CreateReceiptRequest receipts = 1;
+}
+
+message CreateReceiptsResponse {
+  repeated Receipt receipts = 1;
+}
+
+// --- Get ---
+message GetReceiptByCodeRequest {
+  string code = 1;
+}
+
+// --- Update ---
+message UpdateReceiptRequest {
+  string code = 1;                      // which receipt to update
+  string status = 2;                    // optional new overall status
+  string creditor_status = 3;           // optional update
+  string debitor_status = 4;            // optional update
+  string reversed_by = 5;               // optional
+  google.protobuf.Timestamp reversed_at = 6;
+  google.protobuf.Struct metadata_patch = 7; // new metadata to append/merge
+}
+
+message UpdateReceiptResponse {
+  Receipt receipt = 1;
+}
+
+// NEW: batch update
+message UpdateReceiptsRequest {
+  repeated UpdateReceiptRequest updates = 1;
+}
+
+message UpdateReceiptsResponse {
+  repeated Receipt receipts = 1;
+}
+
+enum ReceiptMessageType {
+    CREATE = 0;
+    UPDATE = 1;
+}
+
+message ReceiptMessage {
+    ReceiptMessageType type = 1;
+    Receipt receipt = 2;           // used for creation
+    UpdateReceiptRequest update = 3;      // used for updates
+}
+
+// ===============================
+// Service
+// ===============================
+service ReceiptServiceV2 {
+  // Create
+  rpc CreateReceipt(CreateReceiptRequest) returns (CreateReceiptResponse);
+  rpc CreateReceipts(CreateReceiptsRequest) returns (CreateReceiptsResponse); // NEW
+
+  // Get
+  rpc GetReceiptByCode(GetReceiptByCodeRequest) returns (Receipt);
+
+  // Update
+  rpc UpdateReceipt(UpdateReceiptRequest) returns (UpdateReceiptResponse);    // existing single update
+  rpc UpdateReceipts(UpdateReceiptsRequest) returns (UpdateReceiptsResponse); // NEW
+}

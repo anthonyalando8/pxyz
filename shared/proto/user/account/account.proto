@@ -1,0 +1,223 @@
+syntax = "proto3";
+
+import "google/protobuf/struct.proto";
+
+package account;
+
+option go_package = "genproto/accountpb;accountpb";
+
+
+//import "google/protobuf/timestamp.proto";
+
+// ---------- 2FA ----------
+message GetTwoFAStatusRequest {
+  string user_id = 1;
+}
+
+message GetTwoFAStatusResponse {
+  bool is_enabled = 1;
+  string method = 2; // e.g. "totp"
+}
+
+// ---------- 2FA Setup (new) ----------
+message InitiateTOTPSetupRequest {
+  string user_id = 1;
+  string email = 2; // used in provisioning URI
+}
+
+message InitiateTOTPSetupResponse {
+  string secret = 1;  // base32 secret (only once)
+  string otp_url = 2; // otpauth:// URL (QR code)
+}
+
+// Enable after verification
+message EnableTwoFARequest {
+  string user_id = 1;
+  string method = 2;   // "totp"
+  string secret = 3;   // must match the one generated
+  string code = 4;     // the one-time OTP user entered
+  string com_channel = 5;
+  string com_target = 6;
+}
+
+message EnableTwoFAResponse {
+  bool success = 1;
+  repeated string backup_codes = 2;
+}
+
+message DisableTwoFARequest {
+  string user_id = 1;
+  string method = 2;
+  string code = 3;          // one-time TOTP code
+  string backup_code = 4;   // optional backup code
+  string com_channel = 5;
+  string com_target = 6;
+}
+
+message DisableTwoFAResponse {
+  bool success = 1;
+}
+
+message VerifyTwoFARequest {
+  string user_id = 1;
+  string method = 2;
+  string code = 3;          // one-time TOTP code
+  string backup_code = 4;   // optional backup code
+}
+
+message VerifyTwoFAResponse {
+  bool success = 1;
+}
+
+// Regenerate backup codes (invalidate old ones, create new)
+message RegenerateBackupCodesRequest {
+  string user_id = 1;
+  string method = 2;
+  string com_channel = 3;
+  string com_target = 4;
+}
+
+message RegenerateBackupCodesResponse {
+  bool success = 1;
+  repeated string backup_codes = 2; // new plaintext codes
+}
+
+// Fetch all active backup codes (only if needed, usually admin/debug)
+message GetBackupCodesRequest {
+  string user_id = 1;
+  string method = 2;
+}
+
+message GetBackupCodesResponse {
+  repeated string backup_codes = 1; // unused codes (plaintext)
+}
+
+
+// ---------- Preferences ----------
+
+message GetPreferencesRequest {
+  string user_id = 1;
+  repeated string keys = 2; // optional, return only requested keys
+}
+
+message GetPreferencesResponse {
+  // map values can now be string, bool, number, object, array, etc.
+  map<string, google.protobuf.Value> preferences = 1;
+}
+
+message UpdatePreferencesRequest {
+  string user_id = 1;
+  map<string, google.protobuf.Value> preferences = 2; // can store bool/text/number
+}
+
+message UpdatePreferencesResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+
+// ---------- Profile ----------
+
+// Existing
+message UpdateProfileRequest {
+  string user_id = 1;
+  string first_name = 2;
+  string last_name = 3;
+  string bio = 4;
+  string gender = 5;
+  string date_of_birth = 6; // ISO format
+  string address_json = 7;  // JSON encoded string
+  string com_channel = 8;
+  string com_target = 9;
+  string sys_username = 10; // system username, if applicable
+  string surname = 11;     // public username, if applicable
+}
+
+message UpdateProfileResponse {
+  bool success = 1;
+}
+
+// For profile picture
+message UpdateProfilePictureRequest {
+  string user_id = 1;
+  string image_url = 2; // already stored in /uploads/... or S3
+}
+
+message UpdateProfilePictureResponse {
+  bool success = 1;
+  string profile_image_url = 2;
+}
+
+// New: Get User Profile
+message GetUserProfileRequest {
+  string user_id = 1;
+}
+
+message UserProfile {
+  string user_id = 1;
+  string first_name = 2;
+  string last_name = 3;
+  string bio = 4;
+  string gender = 5;
+  string date_of_birth = 6;
+  string address_json = 7;
+  string profile_image_url = 8;
+  string email = 9;
+  string phone = 10;
+  string created_at = 11;
+  string updated_at = 12;
+  string nationality = 13;
+  string username = 14;
+}
+
+message GetUserNationalityRequest {
+  string user_id = 1;
+}
+
+message GetUserNationalityResponse {
+  bool has_nationality = 1;  // true if set, false if null
+  string nationality = 2;    // ISO2 code, empty if not set
+}
+
+message UpdateUserNationalityRequest {
+  string user_id = 1;
+  string nationality = 2; // ISO2 code from countries table
+}
+
+message UpdateUserNationalityResponse {
+  bool success = 1;
+  string error =2;
+}
+
+message GetUserProfileResponse {
+  UserProfile profile = 1;
+}
+
+// ========== SERVICE ==========
+service AccountService {
+  // New: TOTP setup
+  rpc InitiateTOTPSetup(InitiateTOTPSetupRequest) returns (InitiateTOTPSetupResponse);
+
+  // Existing 2FA
+  rpc GetTwoFAStatus(GetTwoFAStatusRequest) returns (GetTwoFAStatusResponse);
+  rpc EnableTwoFA(EnableTwoFARequest) returns (EnableTwoFAResponse);
+  rpc DisableTwoFA(DisableTwoFARequest) returns (DisableTwoFAResponse);
+  rpc VerifyTwoFA(VerifyTwoFARequest) returns (VerifyTwoFAResponse);
+  rpc RegenerateBackupCodes(RegenerateBackupCodesRequest) returns (RegenerateBackupCodesResponse);
+  rpc GetBackupCodes(GetBackupCodesRequest) returns (GetBackupCodesResponse);
+
+  // Preferences
+  rpc GetPreferences(GetPreferencesRequest) returns (GetPreferencesResponse);
+  rpc UpdatePreferences(UpdatePreferencesRequest) returns (UpdatePreferencesResponse);
+
+  // Profile
+  rpc UpdateProfile(UpdateProfileRequest) returns (UpdateProfileResponse);
+  rpc UpdateProfilePicture(UpdateProfilePictureRequest) returns (UpdateProfilePictureResponse);
+
+  // New: Get full user profile
+  rpc GetUserProfile(GetUserProfileRequest) returns (GetUserProfileResponse);
+  
+  // Nationality management
+  rpc GetUserNationality(GetUserNationalityRequest) returns (GetUserNationalityResponse);
+  rpc UpdateUserNationality(UpdateUserNationalityRequest) returns (UpdateUserNationalityResponse);
+}
