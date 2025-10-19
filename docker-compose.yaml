@@ -401,6 +401,8 @@ services:
       - ./services/user-services/account-service/.env
     networks:
       - micro_net
+    extra_hosts:
+    - "host.docker.internal:host-gateway"
     environment:
       DB_CONN: postgres://postgres:2000@host.docker.internal:5432/pxyz_user
       REDIS_ADDR: redis:6379

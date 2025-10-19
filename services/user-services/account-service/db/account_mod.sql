@@ -2,6 +2,7 @@
 -- ============================
 -- USER PROFILES
 -- ============================
+BEGIN;
 CREATE TABLE IF NOT EXISTS user_profiles (
     user_id BIGINT PRIMARY KEY, -- references auth.users(id) logically
     date_of_birth DATE,
@@ -76,3 +77,5 @@ CREATE INDEX IF NOT EXISTS idx_user_twofa_method ON user_twofa(method);
 
 CREATE INDEX IF NOT EXISTS idx_backup_codes_twofa_id ON user_twofa_backup_codes(twofa_id);
 CREATE INDEX IF NOT EXISTS idx_backup_codes_is_used ON user_twofa_backup_codes(is_used);
+
+COMMIT;

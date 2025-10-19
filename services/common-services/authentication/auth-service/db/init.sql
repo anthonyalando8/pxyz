@@ -276,7 +276,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     expires_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
-    CONSTRAINT unique_user_device UNIQUE (user_id, device_id)
+    CONSTRAINT unique_user_device UNIQUE (user_id, device_id, is_temp)
 );
 
 -- sessions
