@@ -142,7 +142,7 @@ func (r *rbacRepo) GetUsersWithoutRolesAndClassify(ctx context.Context) ([]*User
 			WHEN 
 				(u.account_type = 'hybrid' AND u.password_hash IS NULL)
 				OR (u.account_type = 'password' AND u.password_hash IS NULL)
-				OR NOT u.is_email_verified
+				OR NOT uc.is_email_verified
 				OR up.nationality IS NULL
 			THEN 'any'
 
@@ -152,6 +152,7 @@ func (r *rbacRepo) GetUsersWithoutRolesAndClassify(ctx context.Context) ([]*User
 			ELSE 'trader'
 		END AS role_name
 	FROM users u
+	LEFT JOIN user_credentials uc ON uc.user_id = u.id
 	LEFT JOIN rbac_user_roles rur ON rur.user_id = u.id
 	LEFT JOIN (
 		SELECT DISTINCT ON (user_id) *
