@@ -64,6 +64,44 @@ services:
       timeout: 10s
       retries: 10
 
+  # 🔹 Audit Service
+  audit-service:
+    build:
+      context: .
+      dockerfile: services/common-services/authentication/audit-service/Dockerfile
+    container_name: audit-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.user-audit.rule=PathPrefix(`/audit`)"
+      - "traefik.http.services.user-audit.loadbalancer.server.port=8008"
+    env_file:
+      - ./services/common-services/authentication/audit-service/.env
+    volumes:
+      - ./services/common-services/authentication/audit-service/secrets:/app/secrets:ro
+    networks:
+      - micro_net
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: 2000
+      DB_NAME: pxyz_user
+      HTTP_ADDR: :8008
+      GRPC_ADDR: :8007
+      REDIS_ADDR: redis:6379
+      REDIS_PASS:
+
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+      JWT_AUDIENCE: pxyz-clients
+      JWT_ISSUER: audit-service
+      JWT_ACCESS_TTL: 24h
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - redis
+      - email-service
+
   # 🔹 Auth Service
   auth-service:
     build:
@@ -348,6 +386,30 @@ services:
       - micro_net
     depends_on:
       - redis
+
+  # 🔹 Account Service
+  account-service:
+    build:
+      context: .
+      dockerfile: services/user-services/account-service/Dockerfile
+    container_name: account-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.user-account.rule=PathPrefix(`/account`)"
+      - "traefik.http.services.user-account.loadbalancer.server.port=8004"
+    env_file:
+      - ./services/user-services/account-service/.env
+    networks:
+      - micro_net
+    environment:
+      DB_CONN: postgres://postgres:2000@host.docker.internal:5432/pxyz_user
+      REDIS_ADDR: redis:6379
+      EMAIL_SVC_ADDR: email-service:8011
+      GRPC_ADDR: :8004
+      REDIS_PASS:
+    depends_on:
+      - redis
+      - email-service
 
 networks:
   micro_net:

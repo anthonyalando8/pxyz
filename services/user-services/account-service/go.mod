@@ -2,7 +2,7 @@ module account-service
 
 go 1.24.5
 
-replace x/shared => ../../shared
+replace x/shared => ../../../shared
 
 require (
 	github.com/google/uuid v1.6.0
