@@ -595,14 +595,14 @@ func (h *AuthHandler) HandleForgotPassword(w http.ResponseWriter, r *http.Reques
 	// Step 4: Send OTP in background
 	go func(u *domain.UserCredential) {
 		if u.Email == nil || *u.Email == "" {
-			log.Printf("[ForgotPassword] user %v has no email set, skipping OTP send", u.ID)
+			log.Printf("[ForgotPassword] user %v has no email set, skipping OTP send", u.UserID)
 			return
 		}
 
 		otpResp, otpErr := h.otp.Client.GenerateOTP(
 			context.Background(),
 			&otppb.GenerateOTPRequest{
-				UserId:    u.ID,
+				UserId:    u.UserID,
 				Channel:   "email",
 				Purpose:   "password_reset",
 				Recipient: *u.Email,
@@ -610,11 +610,11 @@ func (h *AuthHandler) HandleForgotPassword(w http.ResponseWriter, r *http.Reques
 		)
 		if otpErr != nil || otpResp == nil || !otpResp.Ok {
 			log.Printf("[ForgotPassword] ❌ OTP generation failed userID=%v, otpErr=%v, serviceErr=%v",
-				u.ID, otpErr, otpResp.GetError(),
+				u.UserID, otpErr, otpResp.GetError(),
 			)
 			return
 		}
-		log.Printf("[ForgotPassword] ✅ OTP sent successfully to %s for userID=%v", *u.Email, u.ID)
+		log.Printf("[ForgotPassword] ✅ OTP sent successfully to %s for userID=%v", *u.Email, u.UserID)
 	}(&user.Credential)
 }
 
