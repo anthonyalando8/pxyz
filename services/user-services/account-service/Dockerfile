@@ -30,4 +30,4 @@ RUN set -eux; \
 
 USER nonroot
 EXPOSE 8004
-ENTRYPOINT ["/account-service"]
+ENTRYPOINT ["/app/account-service"]
