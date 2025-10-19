@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && rm -rf /var/lib/apt/lists/*
 
 # Copy only the binary from builder stage
-COPY --from=builder /app/auth-service /app/auth-service
+COPY --from=builder /app/account-service /app/account-service
 
 # Create uploads directory for profile pictures
 RUN mkdir -p /app/uploads/profile_pictures
