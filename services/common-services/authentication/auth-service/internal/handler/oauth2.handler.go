@@ -58,11 +58,7 @@ func (h *AuthHandler) GoogleAuthHandler(w http.ResponseWriter, r *http.Request) 
 	userID := userWithCred.User.ID
 
 	// Attempt role upgrade if current role is "any"
-	if currentRole == "any" {
-		if err := h.handleRoleUpgrade(ctx, userID, currentRole); err != nil {
-			log.Printf("Role upgrade failed for user %s: %v", userID, err)
-		}
-	}
+	h.postAccountCreationTask(userID, currentRole) // refresh profile cache in background
 
 	// Ensure nationality
 	next, _ := /*h.ensureNationality(ctx, userID)*/ "",""
@@ -182,11 +178,8 @@ func (h *AuthHandler) AppleAuthHandler(w http.ResponseWriter, r *http.Request) {
 	userID := userWithCred.User.ID
 
 	// Attempt role upgrade
-	if currentRole == "any" {
-		if err := h.handleRoleUpgrade(ctx, userID, currentRole); err != nil {
-			log.Printf("Role upgrade failed for user %s: %v", userID, err)
-		}
-	}
+	h.postAccountCreationTask(userID, currentRole) // refresh profile cache in background
+
 
 	// Persist first/last name if Apple sent them on first sign-in
 	// if isNew && (req.FirstName != nil || req.LastName != nil) {
@@ -322,11 +315,8 @@ func (h *AuthHandler) TelegramLogin(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[TelegramLogin] User processed successfully: userID=%s", userID)
 
 	// Attempt role upgrade
-	if currentRole == "any" {
-		if err := h.handleRoleUpgrade(ctx, userID, currentRole); err != nil {
-			log.Printf("Role upgrade failed for user %s: %v", userID, err)
-		}
-	}
+	h.postAccountCreationTask(userID, currentRole) // refresh profile cache in background
+
 
 	// Ensure nationality
 	next, _ := /*h.ensureNationality(ctx, userID)*/ "",""

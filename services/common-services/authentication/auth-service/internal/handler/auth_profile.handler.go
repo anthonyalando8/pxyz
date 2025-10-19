@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 	"x/shared/auth/middleware"
 	accountclient "x/shared/genproto/accountpb"
 	"x/shared/response"
@@ -23,6 +24,27 @@ import (
 
 	"google.golang.org/protobuf/types/known/structpb"
 )
+
+func (h *AuthHandler) postAccountCreationTask(userID, currentRole string) {
+	go func(userID, currentRole string) {
+		bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		// 2a. Role upgrade
+		if currentRole == "any" {
+			if err := h.handleRoleUpgrade(bgCtx, userID, currentRole); err != nil {
+				log.Printf("[SetPassword] ⚠️ Role upgrade failed for user %s: %v", userID, err)
+			} else {
+				log.Printf("[SetPassword] ✅ Role upgraded successfully for user %s", userID)
+			}
+		}
+
+		// 2b. Profile cache refresh
+		if _, err := h.GetFullUserProfile(bgCtx, userID); err != nil {
+			log.Printf("[SetPassword] ⚠️ Failed to refresh profile cache for user %s: %v", userID, err)
+		}
+	}(userID, currentRole)
+}
 
 // GetFullUserProfile fetches and merges user + account-service profile into a map
 func (h *AuthHandler) GetFullUserProfile(ctx context.Context, userID string) (map[string]interface{}, error) {

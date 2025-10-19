@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"x/shared/auth/middleware"
 	"x/shared/response"
-
 )
 
 // SubmitIdentifierRequest matches the usecase type
@@ -131,6 +131,7 @@ func (h *AuthHandler) ResendOTP(w http.ResponseWriter, r *http.Request) {
 // POST /api/v1/auth/set-password
 func (h *AuthHandler) SetPassword(w http.ResponseWriter, r *http.Request) {
 	var req SetPasswordRequest
+	ctx := r.Context()
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid request")
 		return
@@ -140,11 +141,18 @@ func (h *AuthHandler) SetPassword(w http.ResponseWriter, r *http.Request) {
         response.Error(w, http.StatusUnauthorized, "unauthorized")
         return
     }
+	currentRoleVal := ctx.Value(middleware.ContextRole)
+	currentRole, ok := currentRoleVal.(string)
+	if !ok || currentRole == "" || currentRole == "temp" {
+		currentRole = "any"
+	}
 
 	if err := h.uc.SetPasswordFromCache(r.Context(), userID, req.Password); err != nil {
 		response.Error(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	h.postAccountCreationTask(userID, currentRole) // refresh profile cache in background
+
 	deviceID := h.getDeviceIDFromContext(r)
 	session, err := h.createSessionHelper(
 		r.Context(),userID,false,false,"general",nil,toPtr(deviceID),nil, nil, r,

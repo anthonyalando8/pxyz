@@ -72,7 +72,7 @@ services:
     container_name: audit-service
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.user-audit.rule=PathPrefix(`/audit`)"
+      - "traefik.http.routers.user-audit.rule=PathPrefix(`/api/v1/audit`)"
       - "traefik.http.services.user-audit.loadbalancer.server.port=8008"
     env_file:
       - ./services/common-services/authentication/audit-service/.env
@@ -162,7 +162,7 @@ services:
     container_name: session-service
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.session.rule=PathPrefix(`/session`)"
+      - "traefik.http.routers.session.rule=PathPrefix(`/api/v1/session`)"
       - "traefik.http.routers.session.entrypoints=web"
       - "traefik.http.services.session.loadbalancer.server.port=8002"
     env_file:
@@ -195,7 +195,7 @@ services:
     container_name: sms-service
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.sms.rule=PathPrefix(`/sms`)"
+      - "traefik.http.routers.sms.rule=PathPrefix(`/api/v1/sms`)"
       - "traefik.http.routers.sms.entrypoints=web"
       - "traefik.http.services.sms.loadbalancer.server.port=8012"
     env_file:
@@ -230,7 +230,7 @@ services:
     container_name: email-service
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.email.rule=PathPrefix(`/email`)"
+      - "traefik.http.routers.email.rule=PathPrefix(`/api/v1/email`)"
       - "traefik.http.routers.email.entrypoints=web"
       - "traefik.http.services.email.loadbalancer.server.port=8011"
     env_file:
@@ -263,7 +263,7 @@ services:
     container_name: otp-service
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.otp.rule=PathPrefix(`/otp`)"
+      - "traefik.http.routers.otp.rule=PathPrefix(`/api/v1/otp`)"
       - "traefik.http.routers.otp.entrypoints=web"
       - "traefik.http.services.otp.loadbalancer.server.port=8003"
     env_file:
@@ -289,7 +289,7 @@ services:
     container_name: core-service
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.core.rule=PathPrefix(`/core`)"
+      - "traefik.http.routers.core.rule=PathPrefix(`/api/v1/core`)"
       - "traefik.http.routers.core.entrypoints=web"
       - "traefik.http.services.core.loadbalancer.server.port=8051"
     env_file:
@@ -324,7 +324,7 @@ services:
     container_name: notification-service
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.notification.rule=PathPrefix(`/user/notifications`)"
+      - "traefik.http.routers.notification.rule=PathPrefix(`/api/v1/user/notifications`)"
       - "traefik.http.routers.notification.entrypoints=web"
       - "traefik.http.services.notification.loadbalancer.server.port=8013"
     env_file:
@@ -360,7 +360,7 @@ services:
     container_name: u-access-service
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.uaccess.rule=PathPrefix(`/urbac`)"
+      - "traefik.http.routers.uaccess.rule=PathPrefix(`/api/v1/urbac`)"
       - "traefik.http.routers.uaccess.entrypoints=web"
       - "traefik.http.services.uaccess.loadbalancer.server.port=8031"
     env_file:
@@ -395,7 +395,7 @@ services:
     container_name: account-service
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.user-account.rule=PathPrefix(`/account`)"
+      - "traefik.http.routers.user-account.rule=PathPrefix(`/api/v1/account`)"
       - "traefik.http.services.user-account.loadbalancer.server.port=8004"
     env_file:
       - ./services/user-services/account-service/.env
