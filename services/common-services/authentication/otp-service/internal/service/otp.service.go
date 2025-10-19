@@ -80,6 +80,7 @@ func (s *OTPService) GenerateOTP(ctx context.Context, userID string, purpose, ch
 	if err != nil {
 		return err
 	}
+	log.Printf("Stored OTP in Redis | Key=%s | Code=%s | ExpiresIn=%s", key, otp.Code, s.ttl.String())
 
 	// 4. Log to DB (audit)
 	if purpose != "sys_test" {
@@ -127,15 +128,19 @@ func (s *OTPService) VerifyOTP(ctx context.Context, userID int64, purpose, code 
 	// 1. Get OTP from Redis
 	val, err := s.cache.Get(ctx,"otp", key)
 	if err == redis.Nil {
+		log.Printf("OTP not found or expired | UserID=%d | Purpose=%s", userID, purpose)
 		return false, nil // not found (expired or never existed)
 	} else if err != nil {
+		log.Printf("Failed to get OTP from Redis: %v", err)
 		return false, err
 	}
 
 	// 2. Compare
 	if val != code {
+		log.Printf("OTP verification failed | UserID=%d | Purpose=%s | Provided=%s | Expected=%s", userID, purpose, code, val)
 		return false, nil
 	}
+	log.Printf("OTP verified successfully | UserID=%d | Purpose=%s", userID, purpose)
 
 	// 3. Invalidate in Redis
 	if err := s.cache.Delete(ctx,"otp", key); err != nil {
