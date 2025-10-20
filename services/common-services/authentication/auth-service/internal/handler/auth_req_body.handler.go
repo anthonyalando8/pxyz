@@ -1,38 +1,41 @@
 package handler
 
-type RegisterRequest struct {
-	Email     string `json:"email"`
-	Phone     string `json:"phone"`
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
-	Password  string `json:"password"`
-
-	DeviceID       *string     `json:"device_id"`
-	GeoLocation    *string     `json:"geo_location"`
-	DeviceMetadata *any        `json:"device_metadata"`
+// OAuth2Context holds OAuth2 authorization request context
+type OAuth2Context struct {
+	ClientID            string  `json:"client_id"`
+	RedirectURI         string  `json:"redirect_uri"`
+	Scope               string  `json:"scope"`
+	State               string  `json:"state"`
+	CodeChallenge       *string `json:"code_challenge,omitempty"`
+	CodeChallengeMethod *string `json:"code_challenge_method,omitempty"`
 }
 
-type RegisterInit struct {
-	Email string `json:"email,omitempty"`
-	Phone string `json:"phone,omitempty"`
-	AcceptTerms bool   `json:"accept_terms"`
+type SubmitIdentifierRequest struct {
+	Identifier string `json:"identifier" binding:"required"`
 
-	// Optional fields for device tracking
-
-	DeviceID       *string     `json:"device_id"`
-	GeoLocation    *string     `json:"geo_location"`
-	DeviceMetadata *any        `json:"device_metadata"`
+	DeviceID       *string        `json:"device_id"`
+	GeoLocation    *string        `json:"geo_location"`
+	DeviceMetadata *any           `json:"device_metadata"`
+	OAuth2Context  *OAuth2Context `json:"oauth2_context,omitempty"` // NEW: OAuth2 context
 }
 
-type LoginRequest struct {
-	Identifier string `json:"identifier"`
-	Password   string `json:"password"`
-	
-	DeviceID       *string     `json:"device_id"`
-	GeoLocation    *string     `json:"geo_location"`
-	DeviceMetadata *any        `json:"device_metadata"`
+// VerifyIdentifierRequest for verification step
+type VerifyIdentifierRequest struct {
+	Code          string         `json:"code" binding:"required"`
+	OAuth2Context *OAuth2Context `json:"oauth2_context,omitempty"` // NEW
 }
 
+// LoginPasswordRequest for final login step
+type LoginPasswordRequest struct {
+	Password      string         `json:"password" binding:"required"`
+	OAuth2Context *OAuth2Context `json:"oauth2_context,omitempty"` // NEW
+}
+
+// SetPasswordRequest for setting password
+type SetPasswordRequest struct {
+	Password      string         `json:"password" binding:"required"`
+	OAuth2Context *OAuth2Context `json:"oauth2_context,omitempty"` // NEW
+}
 type ForgotPasswordRequest struct {
 	Identifier string `json:"identifier"`
 	
@@ -59,20 +62,13 @@ type ResetPasswordRequest struct {
 	NewPassword string `json:"new_password"`
 }
 
-type SetPasswordRequest struct {
-	Password string `json:"new_password"`
-}
-
-
 type UserExistsRequest struct {
 	Identifier string `json:"identifier"`
 }
 
-
 type ProfileRequest struct {
 	UserID string `json:"user_id"`
 }
-
 
 type UpdateProfileRequest struct {
 	UserID         string                 `json:"user_id"`

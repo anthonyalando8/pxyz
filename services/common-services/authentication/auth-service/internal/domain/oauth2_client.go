@@ -144,18 +144,6 @@ func (c *OAuth2UserConsent) IsValid() bool {
 	return !c.Revoked && !c.IsExpired()
 }
 
-// ConsentInfo contains information for the consent screen
-type ConsentInfo struct {
-	ClientID           string            `json:"client_id"`
-	ClientName         string            `json:"client_name"`
-	ClientURI          *string           `json:"client_uri,omitempty"`
-	LogoURI            *string           `json:"logo_uri,omitempty"`
-	RequestedScopes    []string          `json:"requested_scopes"`
-	GrantedScopes      []string          `json:"granted_scopes,omitempty"`
-	ScopeDescriptions  map[string]string `json:"scope_descriptions"`
-	HasExistingConsent bool              `json:"has_existing_consent"`
-}
-
 // OAuth2Scope represents an available permission scope
 type OAuth2Scope struct {
 	ID          string    `json:"id"`
@@ -191,18 +179,6 @@ type CreateOAuth2ClientRequest struct {
 	OwnerUserID   string   `json:"owner_user_id" validate:"required"`
 }
 
-// OAuth2TokenRequest represents a token request
-type OAuth2TokenRequest struct {
-	GrantType    string  `json:"grant_type" validate:"required"`
-	Code         *string `json:"code,omitempty"`
-	RedirectURI  *string `json:"redirect_uri,omitempty"`
-	ClientID     string  `json:"client_id" validate:"required"`
-	ClientSecret *string `json:"client_secret,omitempty"`
-	RefreshToken *string `json:"refresh_token,omitempty"`
-	Scope        *string `json:"scope,omitempty"`
-	CodeVerifier *string `json:"code_verifier,omitempty"` // PKCE
-}
-
 // OAuth2TokenResponse represents a token response
 type OAuth2TokenResponse struct {
 	AccessToken  string `json:"access_token"`
@@ -218,7 +194,7 @@ type OAuth2AuthorizationRequest struct {
 	ClientID            string  `json:"client_id" validate:"required"`
 	RedirectURI         string  `json:"redirect_uri" validate:"required,url"`
 	Scope               string  `json:"scope"`
-	State               *string `json:"state,omitempty"`
+	State               string `json:"state,omitempty"`
 	CodeChallenge       *string `json:"code_challenge,omitempty"`       // PKCE
 	CodeChallengeMethod *string `json:"code_challenge_method,omitempty"` // PKCE
 }
@@ -226,16 +202,6 @@ type OAuth2AuthorizationRequest struct {
 // ================================
 // DOMAIN ERRORS
 // ================================
-
-var (
-	ErrInvalidClient        = &DomainError{Code: "INVALID_CLIENT", Message: "invalid client credentials"}
-	ErrInvalidGrant         = &DomainError{Code: "INVALID_GRANT", Message: "invalid authorization grant"}
-	ErrInvalidScope         = &DomainError{Code: "INVALID_SCOPE", Message: "requested scope is invalid"}
-	ErrUnauthorizedClient   = &DomainError{Code: "UNAUTHORIZED_CLIENT", Message: "client is not authorized"}
-	ErrUnsupportedGrantType = &DomainError{Code: "UNSUPPORTED_GRANT_TYPE", Message: "grant type is not supported"}
-	ErrInvalidRedirectURI   = &DomainError{Code: "INVALID_REDIRECT_URI", Message: "redirect URI is invalid"}
-	ErrAccessDenied         = &DomainError{Code: "ACCESS_DENIED", Message: "user denied access"}
-)
 
 type UpdateOAuth2ClientRequest struct {
 	ClientName   *string   `json:"client_name,omitempty"`
@@ -254,4 +220,58 @@ type OAuth2TokenIntrospection struct {
 	TokenType string  `json:"token_type,omitempty"`
 	ExpiresAt int64   `json:"exp,omitempty"`
 	IssuedAt  int64   `json:"iat,omitempty"`
+}
+
+
+// new
+
+// ConsentInfo represents information shown on the consent screen
+type ConsentInfo struct {
+	ClientID           string            `json:"client_id"`
+	ClientName         string            `json:"client_name"`
+	ClientURI          *string           `json:"client_uri,omitempty"`
+	LogoURI            *string           `json:"logo_uri,omitempty"`
+	RequestedScopes    []string          `json:"requested_scopes"`
+	ScopeDescriptions  map[string]string `json:"scope_descriptions"`
+	HasExistingConsent bool              `json:"has_existing_consent"`
+	GrantedScopes      []string          `json:"granted_scopes,omitempty"`
+}
+
+
+// OAuth2TokenRequest represents a token exchange request
+type OAuth2TokenRequest struct {
+	GrantType    string  `json:"grant_type"`
+	ClientID     string  `json:"client_id"`
+	ClientSecret *string `json:"client_secret"`
+	Code         *string `json:"code"`
+	RedirectURI  *string `json:"redirect_uri"`
+	RefreshToken *string `json:"refresh_token"`
+	Scope        *string `json:"scope"`
+	CodeVerifier *string `json:"code_verifier"`
+}
+
+// Custom errors for OAuth2
+var (
+	ErrInvalidClient          = NewAppError("invalid_client", "Client authentication failed")
+	ErrUnauthorizedClient     = NewAppError("unauthorized_client", "Client is not authorized")
+	ErrInvalidGrant           = NewAppError("invalid_grant", "Invalid authorization grant")
+	ErrUnsupportedGrantType   = NewAppError("unsupported_grant_type", "Grant type not supported")
+	ErrInvalidScope           = NewAppError("invalid_scope", "Invalid scope")
+	ErrInvalidRedirectURI     = NewAppError("invalid_redirect_uri", "Invalid redirect URI")
+	ErrOauthConsentRequired        = NewAppError("consent_required", "User consent required")
+	ErrAccessDenied           = NewAppError("access_denied", "Access denied")
+)
+
+// AppError represents an application error
+type AppError struct {
+	Code    string
+	Message string
+}
+
+func (e *AppError) Error() string {
+	return e.Message
+}
+
+func NewAppError(code, message string) *AppError {
+	return &AppError{Code: code, Message: message}
 }

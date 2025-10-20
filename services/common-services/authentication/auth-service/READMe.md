@@ -425,3 +425,714 @@ services:
 - Verify Kafka replication factor
 - Check consumer offset commits
 - Review producer acknowledgments
+
+
+# OAuth2 Integration Guide
+
+## Overview
+This guide explains how to integrate OAuth2 authorization with your existing authentication flow. Users can sign in through your platform to authorize third-party applications.
+
+## Architecture
+
+### Flow Types
+1. **Regular Login**: User logs in to your platform directly
+2. **OAuth2 Authorization**: User logs in to authorize a third-party app
+
+## How It Works
+
+### 1. Third-Party App Initiates Authorization
+
+```
+GET /oauth2/authorize?
+  response_type=code&
+  client_id=client_xxx&
+  redirect_uri=https://thirdparty.com/callback&
+  scope=read%20email&
+  state=random_state&
+  code_challenge=xxx&
+  code_challenge_method=S256
+```
+
+### 2. User Authentication Check
+
+- **If user NOT authenticated**: Redirect to login with OAuth2 context
+- **If user authenticated**: Check consent status
+
+### 3. Login Flow with OAuth2 Context
+
+When redirected to login, the OAuth2 context is preserved:
+
+```json
+{
+  "identifier": "user@example.com",
+  "oauth2_context": {
+    "client_id": "client_xxx",
+    "redirect_uri": "https://thirdparty.com/callback",
+    "scope": "read email",
+    "state": "random_state",
+    "code_challenge": "xxx",
+    "code_challenge_method": "S256"
+  }
+}
+```
+
+The `oauth2_context` is passed through all authentication steps:
+- Submit identifier
+- Verify OTP
+- Set/Enter password
+
+### 4. Post-Authentication
+
+After successful authentication:
+
+**A. If user has granted consent before**:
+- Generate authorization code immediately
+- Redirect back to third-party app
+
+**B. If consent required**:
+- Show consent screen with app details and requested permissions
+- User approves/denies
+
+### 5. Authorization Code Exchange
+
+Third-party app exchanges code for tokens:
+
+```
+POST /oauth2/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=authorization_code&
+code=auth_code_xxx&
+redirect_uri=https://thirdparty.com/callback&
+client_id=client_xxx&
+client_secret=secret_xxx&
+code_verifier=xxx
+```
+
+Response:
+```json
+{
+  "access_token": "token_xxx",
+  "token_type": "Bearer",
+  "expires_in": 3600,
+  "refresh_token": "refresh_xxx",
+  "scope": "read email"
+}
+```
+
+## Implementation Steps
+
+### Step 1: Initialize Services
+
+```go
+// main.go or dependency injection setup
+oauth2Repo := repository.NewUserRepository(db) // Uses same repo
+oauth2Svc := service.NewOAuth2Service(oauth2Repo)
+oauth2Handler := handler.NewOAuth2Handler(oauth2Svc, authUsecase)
+```
+
+### Step 2: Update Auth Handler
+
+```go
+// Add oauth2Svc to your AuthHandler
+type AuthHandler struct {
+    uc        *usecase.AuthUsecase
+    oauth2Svc *service.OAuth2Service // ADD THIS
+    // ... other fields
+}
+
+func NewAuthHandler(uc *usecase.AuthUsecase, oauth2Svc *service.OAuth2Service) *AuthHandler {
+    return &AuthHandler{
+        uc:        uc,
+        oauth2Svc: oauth2Svc,
+    }
+}
+```
+
+### Step 3: Setup Routes
+
+```go
+// routes/routes.go
+func SetupRoutes(mux *http.ServeMux, handlers *Handlers, middleware *AuthMiddleware) {
+    // Existing auth routes
+    mux.HandleFunc("POST /api/v1/auth/submit-identifier", handlers.Auth.SubmitIdentifier)
+    mux.HandleFunc("POST /api/v1/auth/verify-identifier", 
+        middleware.ValidateToken(handlers.Auth.VerifyIdentifier))
+    mux.HandleFunc("POST /api/v1/auth/set-password", 
+        middleware.ValidateToken(handlers.Auth.SetPassword))
+    mux.HandleFunc("POST /api/v1/auth/login-password", 
+        middleware.ValidateToken(handlers.Auth.LoginWithPassword))
+    
+    // OAuth2 routes
+    SetupOAuth2Routes(mux, handlers.OAuth2, middleware)
+}
+```
+
+### Step 4: Frontend Integration
+
+#### A. Regular Login (No Changes)
+
+```javascript
+// Regular login flow remains unchanged
+const response = await fetch('/api/v1/auth/submit-identifier', {
+  method: 'POST',
+  body: JSON.stringify({ identifier: 'user@example.com' })
+});
+```
+
+#### B. OAuth2 Authorization Flow
+
+```javascript
+// 1. Parse OAuth2 params from URL
+const urlParams = new URLSearchParams(window.location.search);
+const oauth2Context = {
+  client_id: urlParams.get('client_id'),
+  redirect_uri: urlParams.get('redirect_uri'),
+  scope: urlParams.get('scope'),
+  state: urlParams.get('state'),
+  code_challenge: urlParams.get('code_challenge'),
+  code_challenge_method: urlParams.get('code_challenge_method')
+};
+
+// 2. Submit identifier with OAuth2 context
+const response = await fetch('/api/v1/auth/submit-identifier', {
+  method: 'POST',
+  body: JSON.stringify({
+    identifier: 'user@example.com',
+    oauth2_context: oauth2Context
+  })
+});
+
+const data = await response.json();
+// Store token and oauth2_context for next steps
+
+// 3. Verify OTP with context
+await fetch('/api/v1/auth/verify-identifier', {
+  method: 'POST',
+  headers: { 'Authorization': `Bearer ${token}` },
+  body: JSON.stringify({
+    code: '123456',
+    oauth2_context: oauth2Context
+  })
+});
+
+// 4. Login with password
+const loginResponse = await fetch('/api/v1/auth/login-password', {
+  method: 'POST',
+  headers: { 'Authorization': `Bearer ${token}` },
+  body: JSON.stringify({
+    password: 'userpassword',
+    oauth2_context: oauth2Context
+  })
+});
+
+const loginData = await loginResponse.json();
+
+// 5. Handle consent if required
+if (loginData.requires_consent) {
+  // Show consent screen with loginData.consent_info
+  // After user approves:
+  const consentResponse = await fetch('/oauth2/consent', {
+    method: 'POST',
+    body: JSON.stringify({
+      client_id: oauth2Context.client_id,
+      scope: oauth2Context.scope,
+      redirect_uri: oauth2Context.redirect_uri,
+      state: oauth2Context.state,
+      approved: true
+    })
+  });
+  
+  const consentData = await consentResponse.json();
+  window.location.href = consentData.redirect_url;
+} else if (loginData.redirect_url) {
+  // User already consented, redirect immediately
+  window.location.href = loginData.redirect_url;
+}
+```
+
+## Client Registration
+
+### Register a New OAuth2 Client
+
+```bash
+curl -X POST http://localhost:8080/api/v1/oauth2/clients \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "client_name": "My Awesome App",
+    "client_uri": "https://myapp.com",
+    "logo_uri": "https://myapp.com/logo.png",
+    "redirect_uris": ["https://myapp.com/callback"],
+    "scope": "read email"
+  }'
+```
+
+Response:
+```json
+{
+  "client_id": "client_abc123",
+  "client_secret": "secret_xyz789",  // SAVE THIS - shown only once!
+  "client_name": "My Awesome App",
+  "redirect_uris": ["https://myapp.com/callback"],
+  "grant_types": ["authorization_code", "refresh_token"],
+  "scope": "read email",
+  "created_at": "2025-10-19T10:30:00Z"
+}
+```
+
+## Security Features
+
+### 1. PKCE (Proof Key for Code Exchange)
+- Protects against authorization code interception
+- Required for public clients
+- Recommended for all clients
+
+### 2. State Parameter
+- Prevents CSRF attacks
+- Client generates random state
+- Server returns same state in callback
+
+### 3. Token Hashing
+- Access and refresh tokens are hashed (SHA-256) before storage
+- Plain tokens never stored in database
+
+### 4. Consent Management
+- Users control which apps access their data
+- Granular scope permissions
+- Easy revocation
+
+### 5. Audit Logging
+- All OAuth2 operations logged
+- IP address and user agent tracking
+- Event types: authorization_granted, token_issued, consent_revoked, etc.
+
+## Database Maintenance
+
+### Cleanup Expired Tokens
+
+```go
+// Run periodically (e.g., daily cron job)
+deleted, err := oauth2Svc.CleanupExpiredTokens(ctx)
+log.Printf("Cleaned up %d expired tokens", deleted)
+```
+
+## Testing
+
+### Test Authorization Flow
+
+```bash
+# 1. Start authorization
+curl "http://localhost:8080/oauth2/authorize?\
+response_type=code&\
+client_id=client_abc123&\
+redirect_uri=http://localhost:3000/callback&\
+scope=read&\
+state=xyz123"
+
+# 2. Login and authorize (follow redirects)
+
+# 3. Exchange code for token
+curl -X POST http://localhost:8080/oauth2/token \
+  -d "grant_type=authorization_code" \
+  -d "code=AUTH_CODE_HERE" \
+  -d "redirect_uri=http://localhost:3000/callback" \
+  -d "client_id=client_abc123" \
+  -d "client_secret=secret_xyz789"
+
+# 4. Use access token
+curl http://localhost:8080/api/v1/user/profile \
+  -H "Authorization: Bearer ACCESS_TOKEN_HERE"
+
+# 5. Refresh token
+curl -X POST http://localhost:8080/oauth2/token \
+  -d "grant_type=refresh_token" \
+  -d "refresh_token=REFRESH_TOKEN_HERE" \
+  -d "client_id=client_abc123" \
+  -d "client_secret=secret_xyz789"
+```
+
+## Error Handling
+
+### OAuth2 Error Responses
+
+All OAuth2 errors follow RFC 6749 format:
+
+```json
+{
+  "error": "invalid_grant",
+  "error_description": "Authorization code has expired"
+}
+```
+
+Common error codes:
+- `invalid_request`: Malformed request
+- `invalid_client`: Client authentication failed
+- `invalid_grant`: Invalid authorization code or refresh token
+- `unauthorized_client`: Client not authorized for this grant type
+- `unsupported_grant_type`: Grant type not supported
+- `invalid_scope`: Invalid or unknown scope
+- `access_denied`: User denied authorization
+
+## UI Components Needed
+
+### 1. Login Page Modifications
+
+Detect OAuth2 context and show appropriate UI:
+
+```javascript
+// Check if this is OAuth2 authorization flow
+const isOAuth2Flow = urlParams.has('client_id') || 
+                     sessionStorage.getItem('oauth2_context');
+
+if (isOAuth2Flow) {
+  // Show: "AppName wants to access your account"
+  // Display app logo and name
+}
+```
+
+### 2. Consent Screen Component
+
+```jsx
+function ConsentScreen({ consentInfo, onApprove, onDeny }) {
+  return (
+    <div className="consent-screen">
+      <div className="app-info">
+        {consentInfo.logo_uri && (
+          <img src={consentInfo.logo_uri} alt={consentInfo.client_name} />
+        )}
+        <h2>{consentInfo.client_name}</h2>
+        <p>wants to access your account</p>
+      </div>
+
+      <div className="permissions">
+        <h3>This app will be able to:</h3>
+        <ul>
+          {consentInfo.requested_scopes.map(scope => (
+            <li key={scope}>
+              <strong>{scope}:</strong> {consentInfo.scope_descriptions[scope]}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="actions">
+        <button onClick={onDeny}>Deny</button>
+        <button onClick={onApprove}>Allow</button>
+      </div>
+    </div>
+  );
+}
+```
+
+### 3. User Settings - Connected Apps
+
+```jsx
+function ConnectedApps({ consents, onRevoke }) {
+  return (
+    <div className="connected-apps">
+      <h2>Connected Applications</h2>
+      {consents.map(consent => (
+        <div key={consent.client_id} className="app-card">
+          <div className="app-details">
+            <h3>{consent.client_name}</h3>
+            <p>Granted: {new Date(consent.granted_at).toLocaleDateString()}</p>
+            <p>Permissions: {consent.scope}</p>
+          </div>
+          <button onClick={() => onRevoke(consent.client_id)}>
+            Revoke Access
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+## Middleware Integration
+
+### Extract User from OAuth2 Access Token
+
+```go
+// middleware/oauth2_auth.go
+package middleware
+
+import (
+	"auth-service/internal/service"
+	"context"
+	"net/http"
+	"strings"
+	"x/shared/response"
+)
+
+type OAuth2Middleware struct {
+	oauth2Svc *service.OAuth2Service
+}
+
+func NewOAuth2Middleware(oauth2Svc *service.OAuth2Service) *OAuth2Middleware {
+	return &OAuth2Middleware{oauth2Svc: oauth2Svc}
+}
+
+// ValidateOAuth2Token validates OAuth2 access tokens for API access
+func (m *OAuth2Middleware) ValidateOAuth2Token(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			response.Error(w, http.StatusUnauthorized, "Authorization header required")
+			return
+		}
+
+		parts := strings.SplitN(authHeader, " ", 2)
+		if len(parts) != 2 || parts[0] != "Bearer" {
+			response.Error(w, http.StatusUnauthorized, "Invalid authorization header format")
+			return
+		}
+
+		token := parts[1]
+
+		// Validate the access token
+		accessToken, err := m.oauth2Svc.ValidateAccessToken(r.Context(), token)
+		if err != nil {
+			response.Error(w, http.StatusUnauthorized, "Invalid or expired token")
+			return
+		}
+
+		// Add user and client info to context
+		ctx := r.Context()
+		if accessToken.UserID != nil {
+			ctx = context.WithValue(ctx, "user_id", *accessToken.UserID)
+		}
+		ctx = context.WithValue(ctx, "client_id", accessToken.ClientID)
+		ctx = context.WithValue(ctx, "scope", accessToken.Scope)
+
+		next(w, r.WithContext(ctx))
+	}
+}
+
+// CheckScope ensures the token has required scope
+func (m *OAuth2Middleware) CheckScope(requiredScope string) func(http.HandlerFunc) http.HandlerFunc {
+	return func(next http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			scope, ok := r.Context().Value("scope").(string)
+			if !ok {
+				response.Error(w, http.StatusForbidden, "Insufficient permissions")
+				return
+			}
+
+			// Check if required scope is present
+			scopes := strings.Split(scope, " ")
+			hasScope := false
+			for _, s := range scopes {
+				if s == requiredScope {
+					hasScope = true
+					break
+				}
+			}
+
+			if !hasScope {
+				response.Error(w, http.StatusForbidden, "Insufficient scope")
+				return
+			}
+
+			next(w, r)
+		}
+	}
+}
+```
+
+### Usage in Routes
+
+```go
+// Protect API endpoints with OAuth2
+mux.HandleFunc("GET /api/v1/user/profile", 
+	oauth2Middleware.ValidateOAuth2Token(
+		oauth2Middleware.CheckScope("read")(userHandler.GetProfile)))
+
+mux.HandleFunc("PUT /api/v1/user/profile", 
+	oauth2Middleware.ValidateOAuth2Token(
+		oauth2Middleware.CheckScope("write")(userHandler.UpdateProfile)))
+```
+
+## Complete Flow Diagram
+
+```
+┌─────────────────┐
+│  Third-Party    │
+│      App        │
+└────────┬────────┘
+         │
+         │ 1. GET /oauth2/authorize
+         ↓
+┌─────────────────┐
+│  Your Platform  │ → Check if user authenticated
+│  Auth Server    │
+└────────┬────────┘
+         │
+         │ 2. Redirect to login (if not authenticated)
+         │    with oauth2_context preserved
+         ↓
+┌─────────────────┐
+│  Login UI       │
+│  (Your App)     │ → Shows "AppName wants to access..."
+└────────┬────────┘
+         │
+         │ 3. User logs in (submit-identifier → verify → password)
+         │    oauth2_context passed through all steps
+         ↓
+┌─────────────────┐
+│  Post-Auth      │ → Check consent status
+│  Handler        │
+└────────┬────────┘
+         │
+         ├─→ Consent exists?
+         │   ├─→ YES: Generate code, redirect to app
+         │   └─→ NO: Show consent screen
+         │
+         │ 4. User approves consent
+         ↓
+┌─────────────────┐
+│  Auth Server    │ → Generate authorization code
+│                 │ → Redirect to app callback
+└────────┬────────┘
+         │
+         │ 5. Redirect: app.com/callback?code=xxx&state=xyz
+         ↓
+┌─────────────────┐
+│  Third-Party    │
+│      App        │
+└────────┬────────┘
+         │
+         │ 6. POST /oauth2/token (exchange code)
+         ↓
+┌─────────────────┐
+│  Auth Server    │ → Validate code
+│                 │ → Issue access + refresh tokens
+└────────┬────────┘
+         │
+         │ 7. Return tokens
+         ↓
+┌─────────────────┐
+│  Third-Party    │ → Store tokens
+│      App        │ → Use access_token for API calls
+└─────────────────┘
+```
+
+## Session Management During OAuth2 Flow
+
+The key difference from regular login:
+
+### Regular Login
+```
+submit-identifier → verify → password → CREATE_SESSION → return token
+```
+
+### OAuth2 Flow
+```
+submit-identifier → verify → password → CHECK_CONSENT → 
+  ├─→ if consented: generate_code → redirect_to_app
+  └─→ if not: show_consent → generate_code → redirect_to_app
+```
+
+**Important**: During OAuth2 flow, you still create a temporary session for the login process, but the final token is the OAuth2 authorization code, not a session token.
+
+## Monitoring & Analytics
+
+### Track OAuth2 Usage
+
+```sql
+-- Most popular OAuth2 apps
+SELECT 
+    oc.client_name,
+    COUNT(DISTINCT ouc.user_id) as total_users,
+    COUNT(oat.id) as total_tokens
+FROM oauth2_clients oc
+LEFT JOIN oauth2_user_consents ouc ON oc.client_id = ouc.client_id
+LEFT JOIN oauth2_access_tokens oat ON oc.client_id = oat.client_id
+WHERE ouc.revoked = false
+GROUP BY oc.client_id, oc.client_name
+ORDER BY total_users DESC;
+
+-- Recent OAuth2 activity
+SELECT 
+    event_type,
+    COUNT(*) as count,
+    DATE(created_at) as date
+FROM oauth2_audit_log
+WHERE created_at > NOW() - INTERVAL '30 days'
+GROUP BY event_type, DATE(created_at)
+ORDER BY date DESC;
+
+-- Token refresh rate
+SELECT 
+    client_id,
+    COUNT(*) as refresh_count
+FROM oauth2_audit_log
+WHERE event_type = 'token_refreshed'
+    AND created_at > NOW() - INTERVAL '7 days'
+GROUP BY client_id
+ORDER BY refresh_count DESC;
+```
+
+## Best Practices
+
+### 1. Token Expiration
+- **Access tokens**: 1 hour (short-lived)
+- **Refresh tokens**: 30 days (can be longer)
+- **Authorization codes**: 10 minutes
+
+### 2. Security
+- Always use HTTPS in production
+- Validate redirect URIs strictly
+- Implement rate limiting on token endpoint
+- Log all OAuth2 operations
+- Regularly cleanup expired tokens
+
+### 3. Scope Design
+```
+read          → Basic profile information
+write         → Modify user data
+email         → Access email address
+phone         → Access phone number
+profile:full  → Complete profile access
+admin         → Administrative actions (careful!)
+```
+
+### 4. Error Messages
+- Be specific in development
+- Be generic in production (avoid leaking info)
+- Always include `state` parameter in error redirects
+
+## Troubleshooting
+
+### Common Issues
+
+**1. "Invalid redirect URI"**
+- Ensure exact match including protocol, domain, path
+- No wildcards allowed
+- Register all callback URLs
+
+**2. "Code already used"**
+- Authorization codes are single-use
+- Generate new code by re-authorizing
+
+**3. "Token expired"**
+- Use refresh token to get new access token
+- Check server time synchronization
+
+**4. "Consent required" loop**
+- Check consent storage/retrieval
+- Verify user_id and client_id matching
+
+**5. OAuth2 context not preserved**
+- Store in session/state during redirects
+- Pass through all auth steps
+- Use signed/encrypted state parameter
+
+## Next Steps
+
+1. **Test the integration**: Start with a test OAuth2 client
+2. **Build consent UI**: Create user-friendly consent screens
+3. **Add monitoring**: Set up dashboards for OAuth2 metrics
+4. **Documentation**: Document your OAuth2 endpoints for developers
+5. **Rate limiting**: Implement token endpoint rate limits
+6. **Webhooks**: Consider adding webhooks for revocation events

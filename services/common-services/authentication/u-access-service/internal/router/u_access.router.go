@@ -46,8 +46,8 @@ func SetupRoutes(
 		pr.Use(auth.Middleware)
 
 		// Module management
-		pr.Post("/urbac/modules/create", h.HandleCreateModule)    // Create new module
-		pr.Get("/urbac/user/permission", h.HandleGetUserPermissions) // Update module by code
+		pr.Post("/api/v1/urbac/modules/create", h.HandleCreateModule)    // Create new module
+		pr.Get("/api/v1/urbac/user/permission", h.HandleGetUserPermissions) // Update module by code
 	})
 
 	return r

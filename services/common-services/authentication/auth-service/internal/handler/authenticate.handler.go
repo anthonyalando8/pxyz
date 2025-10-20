@@ -3,6 +3,7 @@ package handler
 
 import (
 	//"auth-service/internal/usecase"
+	"auth-service/internal/domain"
 	"auth-service/pkg/utils"
 	"encoding/json"
 	"log"
@@ -11,27 +12,13 @@ import (
 	"x/shared/response"
 )
 
-// SubmitIdentifierRequest matches the usecase type
-type SubmitIdentifierRequest struct {
-	Identifier string `json:"identifier" binding:"required"`
-
-	DeviceID       *string     `json:"device_id"`
-	GeoLocation    *string     `json:"geo_location"`
-	DeviceMetadata *any        `json:"device_metadata"`
-}
-
-// VerifyIdentifierRequest for verification step
-type VerifyIdentifierRequest struct {
-	Code   string `json:"code" binding:"required"`
-}
-
-// LoginPasswordRequest for final login step
-type LoginPasswordRequest struct {
-	Password string `json:"password" binding:"required"`
-}
-
 // SubmitIdentifier handles the first step: identifier submission
 // POST /api/v1/auth/submit-identifier
+func (h *AuthHandler) Health(w http.ResponseWriter, r *http.Request) {
+	response.JSON(w, http.StatusOK, map[string]string{
+		"status": "ok",
+	})
+}
 func (h *AuthHandler) SubmitIdentifier(w http.ResponseWriter, r *http.Request) {
 	var req SubmitIdentifierRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -45,8 +32,18 @@ func (h *AuthHandler) SubmitIdentifier(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Store OAuth2 context in session metadata if present
+	var metadata map[string]interface{}
+	if req.OAuth2Context != nil {
+		oauth2Data, _ := json.Marshal(req.OAuth2Context)
+		metadata = map[string]interface{}{
+			"oauth2_context": string(oauth2Data),
+		}
+	}
+
 	session, err := h.createSessionHelper(
-		r.Context(),result.UserID,true,false,"init_account",nil,req.DeviceID,req.DeviceMetadata, req.GeoLocation, r,
+		r.Context(), result.UserID, true, false, "init_account", metadata,
+		req.DeviceID, req.DeviceMetadata, req.GeoLocation, r,
 	)
 	if err != nil {
 		log.Printf("[SubmitID] ❌ Failed to create temp session user=%s err=%v", result.UserID, err)
@@ -54,14 +51,21 @@ func (h *AuthHandler) SubmitIdentifier(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, map[string]interface{}{
+	resp := map[string]interface{}{
 		"user_id":      result.UserID,
 		"next":         result.Next,
 		"account_type": result.AccountType,
 		"is_new_user":  result.IsNewUser,
-		"token": session.AuthToken,
-		"device": session.DeviceID,
-	})
+		"token":        session.AuthToken,
+		"device":       session.DeviceID,
+	}
+
+	// Include OAuth2 context in response if present
+	if req.OAuth2Context != nil {
+		resp["oauth2_context"] = req.OAuth2Context
+	}
+
+	response.JSON(w, http.StatusOK, resp)
 }
 
 // VerifyIdentifier handles account verification
@@ -72,20 +76,19 @@ func (h *AuthHandler) VerifyIdentifier(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, "invalid request")
 		return
 	}
-	 // Extract userID from context (ignore client-provided one)
-    userID, _, ok := h.getUserFromContext(r)
-    if !ok {
+
+	userID, _, ok := h.getUserFromContext(r)
+	if !ok {
 		log.Printf("unauthorized: user not found in context")
-        response.Error(w, http.StatusUnauthorized, "unauthorized: user not found in context")
-        return
-    }
+		response.Error(w, http.StatusUnauthorized, "unauthorized: user not found in context")
+		return
+	}
 
 	if err := h.uc.VerifyIdentifier(r.Context(), userID, req.Code); err != nil {
 		response.Error(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	// Get updated cached data to determine next step
 	cachedData, err := h.uc.GetCachedUserData(r.Context(), userID)
 	if err != nil {
 		log.Printf("failed to get cached user data for user %s: %v", userID, err)
@@ -100,10 +103,16 @@ func (h *AuthHandler) VerifyIdentifier(w http.ResponseWriter, r *http.Request) {
 		nextStep = "enter_password"
 	}
 
-	response.JSON(w, http.StatusOK, map[string]interface{}{
+	resp := map[string]interface{}{
 		"message": "verification successful",
 		"next":    nextStep,
-	})
+	}
+
+	if req.OAuth2Context != nil {
+		resp["oauth2_context"] = req.OAuth2Context
+	}
+
+	response.JSON(w, http.StatusOK, resp)
 }
 
 func (h *AuthHandler) ResendOTP(w http.ResponseWriter, r *http.Request) {
@@ -136,11 +145,13 @@ func (h *AuthHandler) SetPassword(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, "invalid request")
 		return
 	}
+
 	userID, _, ok := h.getUserFromContext(r)
-    if !ok {
-        response.Error(w, http.StatusUnauthorized, "unauthorized")
-        return
-    }
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
 	currentRoleVal := ctx.Value(middleware.ContextRole)
 	currentRole, ok := currentRoleVal.(string)
 	if !ok || currentRole == "" || currentRole == "temp" {
@@ -151,22 +162,31 @@ func (h *AuthHandler) SetPassword(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	h.postAccountCreationTask(userID, currentRole) // refresh profile cache in background
 
+	h.postAccountCreationTask(userID, currentRole)
+
+	// Check if this is an OAuth2 flow
+	if req.OAuth2Context != nil {
+		// For OAuth2 flow, redirect to consent screen after setting password
+		h.handleOAuth2PostAuth(w, r, userID, req.OAuth2Context)
+		return
+	}
+
+	// Regular flow - create session and return token
 	deviceID := h.getDeviceIDFromContext(r)
 	session, err := h.createSessionHelper(
-		r.Context(),userID,false,false,"general",nil,toPtr(deviceID),nil, nil, r,
+		r.Context(), userID, false, false, "general", nil, toPtr(deviceID), nil, nil, r,
 	)
 	if err != nil {
 		log.Printf("[SetPassword] ❌ Failed to create main session user=%s err=%v", userID, err)
 		response.Error(w, http.StatusInternalServerError, "Session creation failed")
 		return
 	}
-	// generate main token afterwards if needed
+
 	response.JSON(w, http.StatusOK, map[string]interface{}{
 		"message": "password set successfully",
-		"token":    session.AuthToken,
-		"device": session.DeviceID,
+		"token":   session.AuthToken,
+		"device":  session.DeviceID,
 	})
 }
 
@@ -178,27 +198,25 @@ func (h *AuthHandler) LoginWithPassword(w http.ResponseWriter, r *http.Request) 
 		response.Error(w, http.StatusBadRequest, "invalid request")
 		return
 	}
-	 // Extract userID from context (ignore client-provided one)
-    userID, _, ok := h.getUserFromContext(r)
-    if !ok {
-        response.Error(w, http.StatusUnauthorized, "unauthorized")
-        return
-    }
-	// Get cached data
+
+	userID, _, ok := h.getUserFromContext(r)
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
 	cachedData, err := h.uc.GetCachedUserData(r.Context(), userID)
 	if err != nil {
 		response.Error(w, http.StatusUnauthorized, "session expired")
 		return
 	}
 
-	// Get user with credentials
 	userWithCred, err := h.uc.GetUserByIdentifier(r.Context(), cachedData.Identifier)
 	if err != nil {
 		response.Error(w, http.StatusUnauthorized, "invalid credentials")
 		return
 	}
 
-	// Verify password
 	if userWithCred.Credential.PasswordHash == nil {
 		response.Error(w, http.StatusUnauthorized, "no password set")
 		return
@@ -209,12 +227,18 @@ func (h *AuthHandler) LoginWithPassword(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Clear cached data
 	_ = h.uc.ClearCachedUserData(r.Context(), userID)
 
+	// Check if this is an OAuth2 flow
+	if req.OAuth2Context != nil {
+		h.handleOAuth2PostAuth(w, r, userID, req.OAuth2Context)
+		return
+	}
+
+	// Regular flow - create session and return token
 	deviceID := h.getDeviceIDFromContext(r)
 	session, err := h.createSessionHelper(
-		r.Context(),userID,false,false,"general",nil,toPtr(deviceID),nil, nil, r,
+		r.Context(), userID, false, false, "general", nil, toPtr(deviceID), nil, nil, r,
 	)
 	if err != nil {
 		log.Printf("[Login] ❌ Failed to create main session user=%s err=%v", userID, err)
@@ -225,8 +249,51 @@ func (h *AuthHandler) LoginWithPassword(w http.ResponseWriter, r *http.Request) 
 	response.JSON(w, http.StatusOK, map[string]interface{}{
 		"message": "login successful",
 		"user_id": userID,
-		 "token":  session.AuthToken,
-		 "device": session.DeviceID,
+		"token":   session.AuthToken,
+		"device":  session.DeviceID,
+	})
+}
+
+func (h *AuthHandler) handleOAuth2PostAuth(w http.ResponseWriter, r *http.Request, userID string, oauth2Ctx *OAuth2Context) {
+	ctx := r.Context()
+
+	// Check if consent already exists
+	consent, err := h.oauth2Svc.GetConsentInfo(ctx, oauth2Ctx.ClientID, userID, oauth2Ctx.Scope)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "Failed to check consent")
+		return
+	}
+
+	if consent.HasExistingConsent {
+		// User already granted consent, generate code directly
+		authReq := &domain.OAuth2AuthorizationRequest{
+			ClientID:            oauth2Ctx.ClientID,
+			RedirectURI:         oauth2Ctx.RedirectURI,
+			Scope:               oauth2Ctx.Scope,
+			State:               oauth2Ctx.State,
+			CodeChallenge:       oauth2Ctx.CodeChallenge,
+			CodeChallengeMethod: oauth2Ctx.CodeChallengeMethod,
+		}
+
+		code, err := h.oauth2Svc.AuthorizeRequest(ctx, authReq, userID)
+		if err != nil {
+			response.Error(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		redirectURL := h.oauth2Svc.BuildAuthorizationResponse(oauth2Ctx.RedirectURI, code, oauth2Ctx.State)
+		response.JSON(w, http.StatusOK, map[string]interface{}{
+			"redirect_url": redirectURL,
+			"requires_consent": false,
+		})
+		return
+	}
+
+	// User needs to grant consent
+	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"requires_consent": true,
+		"consent_info":     consent,
+		"oauth2_context":   oauth2Ctx,
 	})
 }
 

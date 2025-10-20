@@ -34,6 +34,8 @@ import (
 
 	authpb "x/shared/genproto/authpb"
 
+	oauths "auth-service/internal/service/app_oauth2_client"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
@@ -74,6 +76,9 @@ func NewServer(cfg config.AppConfig) *http.Server {
 	}
 
 	userUC := usecase.NewUserUsecase(userRepo, sf, cache, producer, otpSvc)
+
+	oauth2Svc := oauths.NewOAuth2Service(userRepo)
+
 	authHandler := handler.NewAuthHandler(
 		userUC,
 		auth,
@@ -88,6 +93,7 @@ func NewServer(cfg config.AppConfig) *http.Server {
 		auth.Client,
 		config,
 		telegramClient,
+		oauth2Svc,
 	)
 
 	grpcAuthHandler := handler.NewGRPCAuthHandler(
@@ -100,6 +106,8 @@ func NewServer(cfg config.AppConfig) *http.Server {
 		config,
 		telegramClient,
 	)
+	// Initialize OAuth2 handler
+    oauthHandler := handler.NewOAuth2Handler(oauth2Svc, userUC)
 
 	consumer, err := kafka.NewUserRegistrationConsumer(
 		cfg.KafkaBrokers,
@@ -210,7 +218,7 @@ func NewServer(cfg config.AppConfig) *http.Server {
 
 	// Setup HTTP routes
 	r := chi.NewRouter()
-	r = router.SetupRoutes(r, authHandler, auth, wsHandler, cache, rdb).(*chi.Mux)
+	r = router.SetupRoutes(r, authHandler, oauthHandler, auth, wsHandler, cache, rdb).(*chi.Mux)
 
 	return &http.Server{
 		Addr:    cfg.HTTPAddr,

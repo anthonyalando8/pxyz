@@ -18,6 +18,8 @@ import (
 	sessionpb "x/shared/genproto/sessionpb"
 
 	"github.com/redis/go-redis/v9"
+	oauth2s "auth-service/internal/service/app_oauth2_client"
+
 )
 
 type Config struct {
@@ -39,6 +41,7 @@ type AuthHandler struct {
 	sessionClient      sessionpb.AuthServiceClient
 	config             *Config
 	telegramClient     *telegramclient.TelegramClient
+	oauth2Svc *oauth2s.OAuth2Service
 }
 
 func NewAuthHandler(
@@ -55,6 +58,7 @@ func NewAuthHandler(
 	sessionClient sessionpb.AuthServiceClient,
 	config *Config,
 	telegramClient *telegramclient.TelegramClient,
+	oauth2Svc *oauth2s.OAuth2Service,
 ) *AuthHandler {
 	return &AuthHandler{
 		uc:                 uc,
@@ -70,6 +74,7 @@ func NewAuthHandler(
 		sessionClient:      sessionClient,
 		config:             config,
 		telegramClient:     telegramClient,
+		oauth2Svc: oauth2Svc,
 	}
 }
 

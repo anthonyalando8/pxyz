@@ -21,7 +21,7 @@ func (h *AuthHandler) createSessionHelper(
     isTemp bool,
     isSingleUse bool,
     purpose string,
-    extraData map[string]string,
+    extraData map[string]interface{},
     deviceID *string,
     devMetadata *any,
     geoLocation *string,
@@ -42,7 +42,7 @@ func (h *AuthHandler) createSessionHelper(
 
     // Ensure extraData is not nil
     if extraData == nil {
-        extraData = make(map[string]string)
+        extraData = make(map[string]interface{})
     }
 
     // Context info
@@ -58,6 +58,16 @@ func (h *AuthHandler) createSessionHelper(
             return nil, fmt.Errorf("failed to marshal device metadata: %w", err)
         }
     }
+    extraStr := make(map[string]string)
+    for k, v := range extraData {
+        if strVal, ok := v.(string); ok {
+            extraStr[k] = strVal
+        } else {
+            // optional: handle non-string values
+            extraStr[k] = fmt.Sprintf("%v", v)
+        }
+    }
+
 
     // gRPC call
     grpcResp, err := h.auth.Client.CreateSession(ctx, &sessionpb.CreateSessionRequest{
@@ -71,7 +81,7 @@ func (h *AuthHandler) createSessionHelper(
         IsTemp:         isTemp,
         IsSingleUse:    isSingleUse,
         Purpose:        purpose,
-        ExtraData:      extraData,
+        ExtraData:      extraStr,
     })
     if err != nil {
         return nil, fmt.Errorf("failed to create session via gRPC: %w", err)
