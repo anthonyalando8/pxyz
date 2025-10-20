@@ -3,7 +3,7 @@ package router
 import (
 	"net/http"
 	"os"
-	"time"
+	//"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
@@ -30,7 +30,7 @@ func SetupRoutes(
 		AllowCredentials: false,
 		MaxAge:           300,
 	}))
-	r.Use(auth.RateLimit(rdb, 100, time.Minute, time.Minute, "global_user_auth"))
+	//r.Use(auth.RateLimit(rdb, 100, time.Minute, time.Minute, "global_user_auth"))
 
 	uploadDir := "/app/uploads"
 	if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
@@ -62,7 +62,7 @@ func SetupRoutes(
 	})
 
 	r.Route("/api/v1", func(api chi.Router) {
-		api.Use(auth.RateLimit(rdb, 5, 30*time.Second, 30*time.Second, "user_auth"))
+		//api.Use(auth.RateLimit(rdb, 5, 30*time.Second, 30*time.Second, "user_auth"))
 		
 		// ---------------- Public ----------------
 		api.Group(func(pub chi.Router) {
