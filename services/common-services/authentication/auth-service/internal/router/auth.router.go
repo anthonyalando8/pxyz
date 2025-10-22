@@ -1,8 +1,10 @@
 package router
 
 import (
+	"fmt"
 	"net/http"
 	"os"
+
 	//"time"
 
 	"github.com/go-chi/chi/v5"
@@ -185,6 +187,12 @@ func SetupRoutes(
 				consent.Delete("/{client_id}", oauthHandler.RevokeConsent)
 			})
 		})
+	})
+
+	fmt.Println("Registered routes:")
+	chi.Walk(r, func(method, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
+		fmt.Printf("%s %s\n", method, route)
+		return nil
 	})
 
 	return r
