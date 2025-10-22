@@ -116,9 +116,17 @@ services:
       - "traefik.http.services.auth.loadbalancer.server.port=8001"
 
       # --- OAuth2 routes (without prefix) ---
-      # - "traefik.http.routers.oauth2.rule=PathPrefix(`/oauth2`)"
-      # - "traefik.http.routers.oauth2.entrypoints=web"
-      # - "traefik.http.services.oauth2.loadbalancer.server.port=8001"
+      - "traefik.http.routers.oauth2.rule=PathPrefix(`/oauth2`)"
+      - "traefik.http.routers.oauth2.entrypoints=web"
+      - "traefik.http.services.oauth2.loadbalancer.server.port=8001"
+
+      # ✅ Shared CORS middleware
+      - "traefik.http.middlewares.auth-cors.headers.accesscontrolalloworigin=*"
+      - "traefik.http.middlewares.auth-cors.headers.accesscontrolallowmethods=GET,POST,PUT,PATCH,DELETE,OPTIONS"
+      - "traefik.http.middlewares.auth-cors.headers.accesscontrolallowheaders=Content-Type,Authorization,Accept,ngrok-skip-browser-warning"
+      - "traefik.http.middlewares.auth-cors.headers.accesscontrolmaxage=100"
+      - "traefik.http.routers.auth.middlewares=auth-cors@docker"
+      - "traefik.http.routers.oauth2.middlewares=auth-cors@docker"
     env_file:
       - ./services/common-services/authentication/auth-service/.env
     volumes:
