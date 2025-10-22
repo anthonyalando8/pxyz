@@ -116,9 +116,9 @@ services:
       - "traefik.http.services.auth.loadbalancer.server.port=8001"
 
       # --- OAuth2 routes (without prefix) ---
-      - "traefik.http.routers.oauth2.rule=PathPrefix(`/oauth2`)"
-      - "traefik.http.routers.oauth2.entrypoints=web"
-      - "traefik.http.services.oauth2.loadbalancer.server.port=8001"
+      # - "traefik.http.routers.oauth2.rule=PathPrefix(`/oauth2`)"
+      # - "traefik.http.routers.oauth2.entrypoints=web"
+      # - "traefik.http.services.oauth2.loadbalancer.server.port=8001"
     env_file:
       - ./services/common-services/authentication/auth-service/.env
     volumes:

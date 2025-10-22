@@ -11,7 +11,14 @@
   .hidden { display: none; }
   .oauth-buttons { margin-top: 20px; text-align: center; }
   .oauth-buttons button { width: 30%; margin: 0 1%; }
-  pre { background: #f4f4f4; padding: 10px; border-radius: 5px; }
+  pre { 
+    background: #f4f4f4; 
+    padding: 10px; 
+    border-radius: 5px; 
+    white-space: pre-wrap;     /* wrap long lines */
+    word-break: break-word;    /* break long words (tokens) */
+    overflow-x: auto;          /* enable horizontal scroll if still too long */
+  }
 </style>
 </head>
 <body>
