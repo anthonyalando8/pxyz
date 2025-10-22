@@ -40,7 +40,7 @@ func SetupRoutes(
 	// ================================
 	// OAUTH2 PUBLIC ENDPOINTS (Outside /api/v1)
 	// ================================
-	r.Route("/oauth2", func(oauth chi.Router) {
+	r.Route("/api/v1/auth/oauth2", func(oauth chi.Router) {
 		// Authorization endpoint - public
 		oauth.Get("/authorize", oauthHandler.Authorize)
 		
@@ -167,7 +167,7 @@ func SetupRoutes(
 			// ================================
 			// OAUTH2 CLIENT MANAGEMENT (Authenticated)
 			// ================================
-			g.Route("/oauth2/clients", func(oauth chi.Router) {
+			g.Route("/auth/oauth2/clients", func(oauth chi.Router) {
 				oauth.Post("/", oauthHandler.RegisterClient)
 				oauth.Get("/", oauthHandler.ListMyClients)
 				oauth.Get("/{client_id}", oauthHandler.GetClient)
@@ -179,7 +179,7 @@ func SetupRoutes(
 			// ================================
 			// USER CONSENT MANAGEMENT (Authenticated)
 			// ================================
-			g.Route("/oauth2/consents", func(consent chi.Router) {
+			g.Route("/auth/oauth2/consents", func(consent chi.Router) {
 				consent.Get("/", oauthHandler.ListMyConsents)
 				consent.Delete("/", oauthHandler.RevokeAllConsents)
 				consent.Delete("/{client_id}", oauthHandler.RevokeConsent)
