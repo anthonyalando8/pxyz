@@ -39,30 +39,6 @@ func SetupRoutes(
 		_ = os.MkdirAll(uploadDir, 0755)
 	}
 
-	// ================================
-	// OAUTH2 PUBLIC ENDPOINTS (Outside /api/v1)
-	// ================================
-	// r.Route("/api/v1/auth/oauth2", func(oauth chi.Router) {
-	// 	// Authorization endpoint - public
-	// 	oauth.Get("/authorize", oauthHandler.Authorize)
-		
-	// 	// Token endpoint - public (client authenticates via credentials)
-	// 	oauth.Post("/token", oauthHandler.Token)
-		
-	// 	// Token revocation - public
-	// 	oauth.Post("/revoke", oauthHandler.Revoke)
-		
-	// 	// Token introspection - public (requires client auth)
-	// 	oauth.Post("/introspect", oauthHandler.Introspect)
-		
-	// 	// Consent endpoints - require user authentication
-	// 	oauth.Group(func(consent chi.Router) {
-	// 		consent.Use(auth.Require([]string{"main", "temp"}, nil, nil))
-	// 		consent.Get("/consent", oauthHandler.ShowConsent)
-	// 		consent.Post("/consent", oauthHandler.GrantConsent)
-	// 	})
-	// })
-
 	r.Route("/api/v1", func(api chi.Router) {
 		api.Use(auth.RateLimit(rdb, 5, 30*time.Second, 30*time.Second, "user_auth"))
 		
@@ -166,27 +142,6 @@ func SetupRoutes(
 				r.Delete("/{id}", h.DeleteSessionByIDHandler(auth.Client))
 			})
 			g.Delete("/auth/logout", h.LogoutHandler(auth.Client))
-
-			// ================================
-			// OAUTH2 CLIENT MANAGEMENT (Authenticated)
-			// ================================
-			// g.Route("/auth/oauth2/clients", func(oauth chi.Router) {
-			// 	oauth.Post("/", oauthHandler.RegisterClient)
-			// 	oauth.Get("/", oauthHandler.ListMyClients)
-			// 	oauth.Get("/{client_id}", oauthHandler.GetClient)
-			// 	oauth.Put("/{client_id}", oauthHandler.UpdateClient)
-			// 	oauth.Delete("/{client_id}", oauthHandler.DeleteClient)
-			// 	oauth.Post("/{client_id}/regenerate-secret", oauthHandler.RegenerateClientSecret)
-			// })
-
-			// // ================================
-			// // USER CONSENT MANAGEMENT (Authenticated)
-			// // ================================
-			// g.Route("/auth/oauth2/consents", func(consent chi.Router) {
-			// 	consent.Get("/", oauthHandler.ListMyConsents)
-			// 	consent.Delete("/", oauthHandler.RevokeAllConsents)
-			// 	consent.Delete("/{client_id}", oauthHandler.RevokeConsent)
-			// })
 		})
 	})
 
