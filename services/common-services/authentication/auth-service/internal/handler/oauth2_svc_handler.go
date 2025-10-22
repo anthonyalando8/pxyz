@@ -335,7 +335,7 @@ func (h *OAuth2Handler) getUserFromRequest(r *http.Request) (userID string, auth
 	if !ok || userID == "" {
 		return "", false
 	}
-	return "", true
+	return userID, true
 }
 
 func stringPtrOrNil(s string) *string {
