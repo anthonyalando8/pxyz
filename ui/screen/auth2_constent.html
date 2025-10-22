@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>App Consent</title>
+<style>
+  body { font-family: sans-serif; text-align: center; margin-top: 80px; }
+  .consent { border: 1px solid #ccc; padding: 30px; display: inline-block; }
+  button { margin: 10px; padding: 10px 20px; }
+</style>
+</head>
+<body>
+  <div class="consent">
+    <h2 id="appName">App requesting access...</h2>
+    <p>This app wants to access your account.</p>
+    <p id="scopeList"></p>
+    <button id="deny">Deny</button>
+    <button id="approve">Allow</button>
+  </div>
+
+<script>
+const baseURL = "http://212.95.35.81:70/api/v1";
+const params = new URLSearchParams(window.location.search);
+const client_id = params.get("client_id");
+const redirect_uri = params.get("redirect_uri");
+const scope = params.get("scope");
+const state = params.get("state");
+
+document.getElementById("appName").textContent = `App ${client_id}`;
+document.getElementById("scopeList").textContent = `Requested scopes: ${scope}`;
+
+document.getElementById("approve").onclick = async () => {
+  const res = await fetch(`${baseURL}/oauth2/consent`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      client_id,
+      scope,
+      redirect_uri,
+      state,
+      approved: true
+    })
+  });
+  const data = await res.json();
+  if (data.redirect_url) window.location.href = data.redirect_url;
+};
+
+document.getElementById("deny").onclick = () => {
+  alert("You denied access");
+  window.close();
+};
+</script>
+</body>
+</html>

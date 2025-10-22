@@ -34,7 +34,7 @@ func (h *AuthHandler) SubmitIdentifier(w http.ResponseWriter, r *http.Request) {
 
 	// Store OAuth2 context in session metadata if present
 	var metadata map[string]interface{}
-	if req.OAuth2Context != nil {
+	if req.OAuth2Context != nil && req.OAuth2Context.ClientID != "" {
 		oauth2Data, _ := json.Marshal(req.OAuth2Context)
 		metadata = map[string]interface{}{
 			"oauth2_context": string(oauth2Data),
@@ -61,7 +61,7 @@ func (h *AuthHandler) SubmitIdentifier(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Include OAuth2 context in response if present
-	if req.OAuth2Context != nil {
+	if req.OAuth2Context != nil && req.OAuth2Context.ClientID != "" {
 		resp["oauth2_context"] = req.OAuth2Context
 	}
 
@@ -108,7 +108,7 @@ func (h *AuthHandler) VerifyIdentifier(w http.ResponseWriter, r *http.Request) {
 		"next":    nextStep,
 	}
 
-	if req.OAuth2Context != nil {
+	if req.OAuth2Context != nil && req.OAuth2Context.ClientID != "" {
 		resp["oauth2_context"] = req.OAuth2Context
 	}
 
@@ -166,7 +166,7 @@ func (h *AuthHandler) SetPassword(w http.ResponseWriter, r *http.Request) {
 	h.postAccountCreationTask(userID, currentRole)
 
 	// Check if this is an OAuth2 flow
-	if req.OAuth2Context != nil {
+	if req.OAuth2Context != nil && req.OAuth2Context.ClientID != "" {
 		// For OAuth2 flow, redirect to consent screen after setting password
 		h.handleOAuth2PostAuth(w, r, userID, req.OAuth2Context)
 		return
@@ -230,7 +230,7 @@ func (h *AuthHandler) LoginWithPassword(w http.ResponseWriter, r *http.Request) 
 	_ = h.uc.ClearCachedUserData(r.Context(), userID)
 
 	// Check if this is an OAuth2 flow
-	if req.OAuth2Context != nil {
+	if req.OAuth2Context != nil && req.OAuth2Context.ClientID != ""{
 		h.handleOAuth2PostAuth(w, r, userID, req.OAuth2Context)
 		return
 	}

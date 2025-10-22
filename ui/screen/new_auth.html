@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Multi Auth Demo</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  body { font-family: sans-serif; max-width: 600px; margin: 40px auto; }
+  input, button { width: 100%; padding: 10px; margin: 8px 0; }
+  button { cursor: pointer; }
+  .hidden { display: none; }
+  .oauth-buttons { margin-top: 20px; text-align: center; }
+  .oauth-buttons button { width: 30%; margin: 0 1%; }
+  pre { background: #f4f4f4; padding: 10px; border-radius: 5px; }
+</style>
+</head>
+<body>
+<h1>Multi Sign-Up / Login Demo</h1>
+
+<!-- Identifier Step -->
+<div id="step-identifier">
+  <input id="identifier" placeholder="Email or Phone" />
+  <button id="submitIdentifier">Submit Identifier</button>
+</div>
+
+<!-- Verify OTP Step -->
+<div id="step-verify" class="hidden">
+  <input id="code" placeholder="Verification Code" />
+  <button id="verifyCode">Verify Code</button>
+</div>
+
+<!-- Set Password Step -->
+<div id="step-setpassword" class="hidden">
+  <input id="newPassword" type="password" placeholder="Set New Password" />
+  <button id="setPassword">Set Password</button>
+</div>
+
+<!-- Login Step -->
+<div id="step-login" class="hidden">
+  <input id="password" type="password" placeholder="Enter Password" />
+  <button id="login">Login</button>
+</div>
+
+<hr />
+<div class="oauth-buttons">
+  <h3>Or sign in with</h3>
+  <div id="g_id_onload"
+       data-client_id="866559606665-nt1g6q72e0kfulbc2qeoba1m35e3tr5a.apps.googleusercontent.com"
+       data-callback="handleGoogleCredential">
+  </div>
+  <div class="g_id_signin"></div>
+
+  <div id="telegram-button" style="margin-top: 10px;"></div>
+
+  <button id="appleBtn"> Sign in with Apple</button>
+</div>
+
+<pre id="output"></pre>
+
+<script>
+const baseURL = "http://212.95.35.81:70/api/v1";
+let token = null;
+
+// --- Parse OAuth2 Context ---
+const urlParams = new URLSearchParams(window.location.search);
+const oauth2Context = {
+  client_id: urlParams.get('client_id'),
+  redirect_uri: urlParams.get('redirect_uri'),
+  scope: urlParams.get('scope'),
+  state: urlParams.get('state'),
+  code_challenge: urlParams.get('code_challenge'),
+  code_challenge_method: urlParams.get('code_challenge_method')
+};
+
+function log(msg, data) {
+  const el = document.getElementById("output");
+  el.textContent = msg + (data ? "\n" + JSON.stringify(data, null, 2) : "");
+  console.log(msg, data);
+}
+
+/* ---------------------- Identifier Submit ---------------------- */
+document.getElementById("submitIdentifier").onclick = async () => {
+  const identifier = document.getElementById("identifier").value;
+  const body = {
+    identifier,
+    device_id: "355203684923084800",
+    geo_location: "Nairobi, Kenya",
+    device_metadata: {
+      os: "Windows 11",
+      browser: "Edge",
+      app_version: "1.0.0"
+    },
+    oauth2_context: oauth2Context
+  };
+
+  const res = await fetch(`${baseURL}/auth/submit-identifier`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  const data = await res.json();
+  log("Submit Identifier Response:", data);
+
+  if (data.status === "success") {
+    token = data.data.token;
+    const next = data.data.next;
+
+    // Always hide the identifier step once submitted
+    document.getElementById("step-identifier").classList.add("hidden");
+
+    // Move to the next step
+    if (next === "verify_account") {
+      document.getElementById("step-verify").classList.remove("hidden");
+    } else if (next === "enter_password") {
+      document.getElementById("step-login").classList.remove("hidden");
+    } else if (next === "set_password") {
+      document.getElementById("step-setpassword").classList.remove("hidden");
+    } else {
+      // Fallback — if backend doesn’t specify, assume verification
+      document.getElementById("step-verify").classList.remove("hidden");
+    }
+  }
+};
+
+
+/* ---------------------- Verify Code ---------------------- */
+document.getElementById("verifyCode").onclick = async () => {
+  const code = document.getElementById("code").value;
+
+  const res = await fetch(`${baseURL}/auth/verify-identifier`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    },
+    body: JSON.stringify({ code, oauth2_context: oauth2Context })
+  });
+
+  const data = await res.json();
+  log("Verify Code Response:", data);
+
+  // Handle next step after verification
+  if (data.status === "success") {
+    const next = data.data?.next;
+
+    // Hide current step
+    document.getElementById("step-verify").classList.add("hidden");
+
+    if (next === "enter_password") {
+      document.getElementById("step-login").classList.remove("hidden");
+    } else if (next === "set_password") {
+      document.getElementById("step-setpassword").classList.remove("hidden");
+    } else {
+      // Default fallback — assume user needs to set password
+      document.getElementById("step-setpassword").classList.remove("hidden");
+    }
+  }
+};
+
+
+/* ---------------------- Set Password ---------------------- */
+document.getElementById("setPassword").onclick = async () => {
+  const new_password = document.getElementById("newPassword").value;
+  const res = await fetch(`${baseURL}/auth/set-password`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    },
+    body: JSON.stringify({ new_password, oauth2_context: oauth2Context })
+  });
+  const data = await res.json();
+  log("Set Password Response:", data);
+};
+
+/* ---------------------- Login ---------------------- */
+document.getElementById("login").onclick = async () => {
+  const password = document.getElementById("password").value;
+  const res = await fetch(`${baseURL}/auth/login-password`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    },
+    body: JSON.stringify({ password, oauth2_context: oauth2Context })
+  });
+  const data = await res.json();
+  log("Login Response:", data);
+
+  if (data.requires_consent) {
+    window.location.href = `consent.html?client_id=${oauth2Context.client_id}&state=${oauth2Context.state}`;
+  } else if (data.redirect_url) {
+    window.location.href = data.redirect_url;
+  }
+};
+
+/* ---------------------- Google ---------------------- */
+function handleGoogleCredential(response) {
+  console.log("Google ID Token:", response.credential);
+  fetch(`${baseURL}/auth/google`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id_token: response.credential })
+  })
+  .then(res => res.json())
+  .then(data => {
+    console.log("Server response (Google):", data);
+    alert("Logged in via Google!");
+  })
+  .catch(err => console.error(err));
+}
+
+/* ---------------------- Telegram ---------------------- */
+function onTelegramAuth(user) {
+  console.log("Telegram user data:", user);
+  fetch(`${baseURL}/auth/telegram`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      id: user.id.toString(),
+      first_name: user.first_name || "",
+      last_name: user.last_name || "",
+      username: user.username || "",
+      photo_url: user.photo_url || "",
+      auth_date: user.auth_date.toString(),
+      hash: user.hash || "",
+      device_id: "browser-test",
+      geo_location: "Nairobi, Kenya",
+      device_metadata: { os: "Windows" }
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    console.log("Server response (Telegram):", data);
+    if (data.next) {
+      alert("Next step required: " + data.next);
+    } else {
+      alert("Logged in via Telegram!");
+    }
+  })
+  .catch(err => console.error(err));
+}
+
+// Load Telegram widget dynamically
+const tgScript = document.createElement('script');
+tgScript.src = "https://telegram.org/js/telegram-widget.js?7";
+tgScript.setAttribute("data-telegram-login", "PxyzAuthBot"); // update your bot
+tgScript.setAttribute("data-size", "large");
+tgScript.setAttribute("data-userpic", "true");
+tgScript.setAttribute("data-lang", "en");
+tgScript.setAttribute("data-onauth", "onTelegramAuth(user)");
+tgScript.async = true;
+document.getElementById('telegram-button').appendChild(tgScript);
+
+/* ---------------------- Apple (Placeholder) ---------------------- */
+document.getElementById("appleBtn").onclick = () => {
+  alert("Sign in with Apple not yet implemented (OAuth2 will handle it).");
+};
+</script>
+</body>
+</html>
