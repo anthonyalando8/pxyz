@@ -110,9 +110,15 @@ services:
     container_name: auth-service
     labels:
       - "traefik.enable=true"
+      # --- Main Auth API ---
       - "traefik.http.routers.auth.rule=PathPrefix(`/api/v1/auth`)"
       - "traefik.http.routers.auth.entrypoints=web"
       - "traefik.http.services.auth.loadbalancer.server.port=8001"
+
+      # --- OAuth2 routes (without prefix) ---
+      - "traefik.http.routers.oauth2.rule=PathPrefix(`/oauth2`)"
+      - "traefik.http.routers.oauth2.entrypoints=web"
+      - "traefik.http.services.oauth2.loadbalancer.server.port=8001"
     env_file:
       - ./services/common-services/authentication/auth-service/.env
     volumes:
