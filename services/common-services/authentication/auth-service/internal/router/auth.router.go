@@ -105,6 +105,7 @@ func SetupRoutes(
 			g.Use(auth.Require([]string{"temp", "main"}, []string{"email_change"}, nil))
 			g.Patch("/auth/email", h.HandleChangeEmail)
 		})
+		
 		api.Group(func(g chi.Router) {
 			g.Use(auth.Require([]string{"temp", "main"}, []string{"phone_change"}, nil))
 			g.Patch("/auth/phone/update", h.HandlePhoneChange)

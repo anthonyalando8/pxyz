@@ -11,6 +11,14 @@ services:
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
+
+      # 🧩 Enable detailed logs
+      - "--log.level=DEBUG"
+
+      # 🧾 Enable access logs (shows every incoming request)
+      - "--accesslog=true"
+      - "--accesslog.format=json"
+      - "--accesslog.filepath=/var/log/traefik/access.log"
     ports:
       - "70:80"      # Map host:70 to container:80
       - "7070:8080"  # Dashboard
@@ -111,7 +119,7 @@ services:
     labels:
       - "traefik.enable=true"
       # --- Main Auth API ---
-      - "traefik.http.routers.auth.rule=PathPrefix(`/api/v1/auth`) || PathPrefix(`/api/v1/auth/oauth2`)"
+      - "traefik.http.routers.auth.rule=PathPrefix(`/api/v1/auth`)"
       - "traefik.http.routers.auth.entrypoints=web"
       - "traefik.http.services.auth.loadbalancer.server.port=8001"
     env_file:
