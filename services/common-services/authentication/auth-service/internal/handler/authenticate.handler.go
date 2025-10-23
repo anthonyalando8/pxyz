@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"path/filepath"
 	"x/shared/auth/middleware"
 	"x/shared/response"
 )
@@ -18,6 +19,14 @@ func (h *AuthHandler) Health(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, map[string]string{
 		"status": "ok",
 	})
+}
+
+func (h *AuthHandler) ServeLoginUI(w http.ResponseWriter, r *http.Request) {
+    // Build the path to your UI folder
+    uiDir := "./ui" // adjust if needed; relative to where binary runs
+    file := filepath.Join(uiDir, "screen/login.html")
+
+    http.ServeFile(w, r, file)
 }
 func (h *AuthHandler) SubmitIdentifier(w http.ResponseWriter, r *http.Request) {
 	var req SubmitIdentifierRequest

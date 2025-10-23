@@ -1,288 +1,268 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Login & Signup</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<meta charset="UTF-8">
+<title>Multi Auth Demo</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  body { font-family: sans-serif; max-width: 600px; margin: 40px auto; }
+  input, button { width: 100%; padding: 10px; margin: 8px 0; }
+  button { cursor: pointer; }
+  .hidden { display: none; }
+  .oauth-buttons { margin-top: 20px; text-align: center; }
+  .oauth-buttons button { width: 30%; margin: 0 1%; }
+  pre { 
+    background: #f4f4f4; 
+    padding: 10px; 
+    border-radius: 5px; 
+    white-space: pre-wrap;     /* wrap long lines */
+    word-break: break-word;    /* break long words (tokens) */
+    overflow-x: auto;          /* enable horizontal scroll if still too long */
+  }
+</style>
 </head>
-<body class="bg-light">
+<body>
+<h1>Multi Sign-Up / Login Demo</h1>
 
-  <div class="container d-flex justify-content-center align-items-center vh-100">
-    <div class="card shadow p-4" style="max-width: 400px; width: 100%;">
-      <ul class="nav nav-tabs mb-3" id="authTab" role="tablist">
-        <li class="nav-item" role="presentation">
-          <button class="nav-link active" id="login-tab" data-bs-toggle="tab" data-bs-target="#login" type="button" role="tab">Login</button>
-        </li>
-        <li class="nav-item" role="presentation">
-          <button class="nav-link" id="signup-tab" data-bs-toggle="tab" data-bs-target="#signup" type="button" role="tab">Sign Up</button>
-        </li>
-      </ul>
+<!-- Identifier Step -->
+<div id="step-identifier">
+  <input id="identifier" placeholder="Email or Phone" />
+  <button id="submitIdentifier">Submit Identifier</button>
+</div>
 
-      <div class="tab-content" id="authTabContent">
-        <!-- Login Tab -->
-        <div class="tab-pane fade show active" id="login" role="tabpanel">
-          <form>
-            <div class="mb-3">
-              <label for="loginEmailPhone" class="form-label">Email or Phone</label>
-              <input type="text" class="form-control" id="loginEmailPhone" placeholder="Enter email or phone">
-            </div>
-            <div class="mb-3">
-              <label for="loginPassword" class="form-label">Password</label>
-              <input type="password" class="form-control" id="loginPassword" placeholder="Enter password">
-            </div>
-            <button type="submit" class="btn btn-primary w-100">Login</button>
-          </form>
-        </div>
+<!-- Verify OTP Step -->
+<div id="step-verify" class="hidden">
+  <input id="code" placeholder="Verification Code" />
+  <button id="verifyCode">Verify Code</button>
+</div>
 
-        <!-- Signup Tab -->
-        <div class="tab-pane fade" id="signup" role="tabpanel">
-          <form>
-            <div class="mb-3">
-              <label for="signupFirstName" class="form-label">First Name</label>
-              <input type="text" class="form-control" id="signupFirstName" placeholder="Enter first name">
-            </div>
-            <div class="mb-3">
-              <label for="signupLastName" class="form-label">Last Name</label>
-              <input type="text" class="form-control" id="signupLastName" placeholder="Enter last name">
-            </div>
-            <div class="mb-3">
-              <label for="signupEmailPhone" class="form-label">Email or Phone</label>
-              <input type="text" class="form-control" id="signupEmailPhone" placeholder="Enter email or phone">
-            </div>
-            <div class="mb-3">
-              <label for="signupPassword" class="form-label">Password</label>
-              <input type="password" class="form-control" id="signupPassword" placeholder="Enter password">
-            </div>
-            <button type="submit" class="btn btn-success w-100">Sign Up</button>
-          </form>
-        </div>
-      </div>
-    </div>
+<!-- Set Password Step -->
+<div id="step-setpassword" class="hidden">
+  <input id="newPassword" type="password" placeholder="Set New Password" />
+  <button id="setPassword">Set Password</button>
+</div>
+
+<!-- Login Step -->
+<div id="step-login" class="hidden">
+  <input id="password" type="password" placeholder="Enter Password" />
+  <button id="login">Login</button>
+</div>
+
+<hr />
+<div class="oauth-buttons">
+  <h3>Or sign in with</h3>
+  <div id="g_id_onload"
+       data-client_id="866559606665-nt1g6q72e0kfulbc2qeoba1m35e3tr5a.apps.googleusercontent.com"
+       data-callback="handleGoogleCredential">
   </div>
+  <div class="g_id_signin"></div>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script>
-(() => {
-  // ---- Helpers ------------------------------------------------------------
-  const MIN_PASSWORD_LEN = 8;
+  <div id="telegram-button" style="margin-top: 10px;"></div>
 
-  const isEmail = (v) =>
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+  <button id="appleBtn"> Sign in with Apple</button>
+</div>
 
-  // Generic E.164-ish phone: + and 8-15 digits
-  const isPhone = (v) =>
-    /^\+?[1-9]\d{7,14}$/.test(v.replace(/\s+/g, ''));
+<pre id="output"></pre>
 
-  function validateIdentifier(value) {
-    return isEmail(value) || isPhone(value);
-  }
+<script>
+const baseURL = "http://212.95.35.81:70/api/v1";
+let token = null;
 
-  function setInvalid(input, message) {
-    input.classList.add('is-invalid');
-    let feedback = input.parentElement.querySelector('.invalid-feedback');
-    if (!feedback) {
-      feedback = document.createElement('div');
-      feedback.className = 'invalid-feedback';
-      input.parentElement.appendChild(feedback);
-    }
-    feedback.textContent = message;
-  }
+// --- Parse OAuth2 Context ---
+const urlParams = new URLSearchParams(window.location.search);
+const oauth2Context = {
+  client_id: urlParams.get('client_id'),
+  redirect_uri: urlParams.get('redirect_uri'),
+  scope: urlParams.get('scope'),
+  state: urlParams.get('state'),
+  code_challenge: urlParams.get('code_challenge'),
+  code_challenge_method: urlParams.get('code_challenge_method')
+};
 
-  function clearInvalid(input) {
-    input.classList.remove('is-invalid');
-  }
+function log(msg, data) {
+  const el = document.getElementById("output");
+  el.textContent = msg + (data ? "\n" + JSON.stringify(data, null, 2) : "");
+  console.log(msg, data);
+}
 
-  function disableBtn(btn, disabled = true) {
-    btn.disabled = disabled;
-    if (disabled) {
-      btn.dataset.originalText = btn.textContent;
-      btn.textContent = 'Please wait...';
+/* ---------------------- Identifier Submit ---------------------- */
+document.getElementById("submitIdentifier").onclick = async () => {
+  const identifier = document.getElementById("identifier").value;
+  const body = {
+    identifier,
+    device_id: "355203684923084800",
+    geo_location: "Nairobi, Kenya",
+    device_metadata: {
+      os: "Windows 11",
+      browser: "Edge",
+      app_version: "1.0.0"
+    },
+    oauth2_context: oauth2Context
+  };
+
+  const res = await fetch(`${baseURL}/auth/submit-identifier`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  const data = await res.json();
+  log("Submit Identifier Response:", data);
+
+  if (data.status === "success") {
+    token = data.data.token;
+    const next = data.data.next;
+
+    // Always hide the identifier step once submitted
+    document.getElementById("step-identifier").classList.add("hidden");
+
+    // Move to the next step
+    if (next === "verify_account") {
+      document.getElementById("step-verify").classList.remove("hidden");
+    } else if (next === "enter_password") {
+      document.getElementById("step-login").classList.remove("hidden");
+    } else if (next === "set_password") {
+      document.getElementById("step-setpassword").classList.remove("hidden");
     } else {
-      btn.textContent = btn.dataset.originalText || btn.textContent;
+      // Fallback — if backend doesn’t specify, assume verification
+      document.getElementById("step-verify").classList.remove("hidden");
     }
   }
+};
 
-  async function postJSON(url, payload) {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
 
-    let data = null;
-    try { data = await res.json(); } catch (_) {}
+/* ---------------------- Verify Code ---------------------- */
+document.getElementById("verifyCode").onclick = async () => {
+  const code = document.getElementById("code").value;
 
-    if (!res.ok) {
-      const msg = (data && (data.error || data.message)) || `HTTP ${res.status}`;
-      throw new Error(msg);
+  const res = await fetch(`${baseURL}/auth/verify-identifier`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    },
+    body: JSON.stringify({ code, oauth2_context: oauth2Context })
+  });
+
+  const data = await res.json();
+  log("Verify Code Response:", data);
+
+  // Handle next step after verification
+  if (data.status === "success") {
+    const next = data.data?.next;
+
+    // Hide current step
+    document.getElementById("step-verify").classList.add("hidden");
+
+    if (next === "enter_password") {
+      document.getElementById("step-login").classList.remove("hidden");
+    } else if (next === "set_password") {
+      document.getElementById("step-setpassword").classList.remove("hidden");
+    } else {
+      // Default fallback — assume user needs to set password
+      document.getElementById("step-setpassword").classList.remove("hidden");
     }
-    return data;
   }
+};
 
-  function showAlert(container, type, message) {
-    // Remove existing alerts in the same container
-    container.querySelectorAll('.alert').forEach(a => a.remove());
 
-    const div = document.createElement('div');
-    div.className = `alert alert-${type} mt-3`;
-    div.role = 'alert';
-    div.textContent = message;
-    container.appendChild(div);
+/* ---------------------- Set Password ---------------------- */
+document.getElementById("setPassword").onclick = async () => {
+  const new_password = document.getElementById("newPassword").value;
+  const res = await fetch(`${baseURL}/auth/set-password`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    },
+    body: JSON.stringify({ new_password, oauth2_context: oauth2Context })
+  });
+  const data = await res.json();
+  log("Set Password Response:", data);
+};
+
+/* ---------------------- Login ---------------------- */
+document.getElementById("login").onclick = async () => {
+  const password = document.getElementById("password").value;
+  const res = await fetch(`${baseURL}/auth/login-password`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    },
+    body: JSON.stringify({ password, oauth2_context: oauth2Context })
+  });
+  const data = await res.json();
+  log("Login Response:", data);
+
+  if (data.requires_consent) {
+    window.location.href = `consent.html?client_id=${oauth2Context.client_id}&state=${oauth2Context.state}`;
+  } else if (data.redirect_url) {
+    window.location.href = data.redirect_url;
   }
+};
 
-  // ---- Login --------------------------------------------------------------
-  const loginPane = document.getElementById('login');
-  const loginForm = loginPane?.querySelector('form');
-  if (loginForm) {
-    loginForm.setAttribute('novalidate', 'true');
+/* ---------------------- Google ---------------------- */
+function handleGoogleCredential(response) {
+  console.log("Google ID Token:", response.credential);
+  fetch(`${baseURL}/auth/google`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id_token: response.credential })
+  })
+  .then(res => res.json())
+  .then(data => {
+    console.log("Server response (Google):", data);
+    alert("Logged in via Google!");
+  })
+  .catch(err => console.error(err));
+}
 
-    loginForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
+/* ---------------------- Telegram ---------------------- */
+function onTelegramAuth(user) {
+  console.log("Telegram user data:", user);
+  fetch(`${baseURL}/auth/telegram`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      id: user.id.toString(),
+      first_name: user.first_name || "",
+      last_name: user.last_name || "",
+      username: user.username || "",
+      photo_url: user.photo_url || "",
+      auth_date: user.auth_date.toString(),
+      hash: user.hash || "",
+      device_id: "browser-test",
+      geo_location: "Nairobi, Kenya",
+      device_metadata: { os: "Windows" }
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    console.log("Server response (Telegram):", data);
+    if (data.next) {
+      alert("Next step required: " + data.next);
+    } else {
+      alert("Logged in via Telegram!");
+    }
+  })
+  .catch(err => console.error(err));
+}
 
-      const identifierInput = document.getElementById('loginEmailPhone');
-      const passwordInput   = document.getElementById('loginPassword');
-      const submitBtn       = loginForm.querySelector('button[type="submit"]');
+// Load Telegram widget dynamically
+const tgScript = document.createElement('script');
+tgScript.src = "https://telegram.org/js/telegram-widget.js?7";
+tgScript.setAttribute("data-telegram-login", "PxyzAuthBot"); // update your bot
+tgScript.setAttribute("data-size", "large");
+tgScript.setAttribute("data-userpic", "true");
+tgScript.setAttribute("data-lang", "en");
+tgScript.setAttribute("data-onauth", "onTelegramAuth(user)");
+tgScript.async = true;
+document.getElementById('telegram-button').appendChild(tgScript);
 
-      // reset invalid states
-      [identifierInput, passwordInput].forEach(clearInvalid);
-
-      let hasError = false;
-
-      const identifier = identifierInput.value.trim();
-      const password   = passwordInput.value;
-
-      if (!identifier) {
-        setInvalid(identifierInput, 'Email or phone is required.');
-        hasError = true;
-      } else if (!validateIdentifier(identifier)) {
-        setInvalid(identifierInput, 'Enter a valid email or phone number.');
-        hasError = true;
-      }
-
-      if (!password) {
-        setInvalid(passwordInput, 'Password is required.');
-        hasError = true;
-      } else if (password.length < MIN_PASSWORD_LEN) {
-        setInvalid(passwordInput, `Password must be at least ${MIN_PASSWORD_LEN} characters.`);
-        hasError = true;
-      }
-
-      if (hasError) return;
-
-      try {
-        disableBtn(submitBtn, true);
-        const payload = { identifier, password };
-        const response = await postJSON('http://localhost:8001/auth/login', payload);
-
-        showAlert(loginPane, 'success', 'Logged in successfully.');
-        const data = response.data;
-
-        // Save to localStorage
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('first_name', data.first_name || '');
-        localStorage.setItem('last_name', data.last_name || '');
-        localStorage.setItem('email', data.email || '');
-        localStorage.setItem('user_id', data.user_id || '');
-        localStorage.setItem('device', data.device || '');
-
-        showAlert(loginPane, 'success', 'Logged in successfully.');
-        window.location.href = 'dashboard.html';
-      } catch (err) {
-        console.error('Login error:', err);
-        showAlert(loginPane, 'danger', err.message || 'Login failed.');
-      } finally {
-        disableBtn(submitBtn, false);
-      }
-    });
-  }
-
-  // ---- Register -----------------------------------------------------------
-  const signupPane = document.getElementById('signup');
-  const signupForm = signupPane?.querySelector('form');
-
-  if (signupForm) {
-    signupForm.setAttribute('novalidate', 'true');
-
-    signupForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-
-      const firstNameInput = document.getElementById('signupFirstName');
-      const lastNameInput = document.getElementById('signupLastName');
-      const idInput = document.getElementById('signupEmailPhone');
-      const passwordInput = document.getElementById('signupPassword');
-      const submitBtn = signupForm.querySelector('button[type="submit"]');
-
-      [firstNameInput, lastNameInput, idInput, passwordInput].forEach(clearInvalid);
-
-      const first_name = firstNameInput.value.trim();
-      const last_name = lastNameInput.value.trim();
-      const rawInput = idInput.value.trim();
-      const password = passwordInput.value;
-
-      let hasError = false;
-      let identifierType = null;
-
-      if (!first_name) {
-        setInvalid(firstNameInput, 'First name is required.');
-        hasError = true;
-      }
-
-      if (!last_name) {
-        setInvalid(lastNameInput, 'Last name is required.');
-        hasError = true;
-      }
-
-      if (!rawInput) {
-        setInvalid(idInput, 'Email or phone is required.');
-        hasError = true;
-      } else if (isEmail(rawInput)) {
-        identifierType = 'email';
-      } else if (isPhone(rawInput)) {
-        identifierType = 'phone';
-      } else {
-        setInvalid(idInput, 'Enter a valid email or phone number.');
-        hasError = true;
-      }
-
-      if (!password) {
-        setInvalid(passwordInput, 'Password is required.');
-        hasError = true;
-      } else if (password.length < MIN_PASSWORD_LEN) {
-        setInvalid(passwordInput, `Password must be at least ${MIN_PASSWORD_LEN} characters.`);
-        hasError = true;
-      }
-
-      if (hasError) return;
-
-      try {
-        disableBtn(submitBtn, true);
-
-        const payload = {
-          first_name,
-          last_name,
-          password,
-          [identifierType]: rawInput,
-        };
-
-        const data = await postJSON('http://localhost:8001/auth/register', payload);
-
-        showAlert(signupPane, 'success', 'Account created successfully. You can now login.');
-
-        const loginTabBtn = document.querySelector('#login-tab');
-        if (loginTabBtn) new bootstrap.Tab(loginTabBtn).show();
-
-      } catch (err) {
-        const message = err?.message || 'Registration failed.';
-        showAlert(signupPane, 'danger', message);
-      } finally {
-        disableBtn(submitBtn, false);
-      }
-    });
-  }
-
-})();
+/* ---------------------- Apple (Placeholder) ---------------------- */
+document.getElementById("appleBtn").onclick = () => {
+  alert("Sign in with Apple not yet implemented (OAuth2 will handle it).");
+};
 </script>
-
 </body>
 </html>

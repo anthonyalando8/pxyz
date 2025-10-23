@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"x/shared/auth/middleware"
 	"x/shared/response"
 )
@@ -102,6 +103,13 @@ func (h *OAuth2Handler) ShowConsent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.JSON(w, http.StatusOK, consentInfo)
+}
+func (h *OAuth2Handler) ServeConsentUI(w http.ResponseWriter, r *http.Request) {
+    // Build the path to your UI folder
+    uiDir := "./ui" // adjust if needed; relative to where binary runs
+    file := filepath.Join(uiDir, "screen/oauth2_consent.html")
+
+    http.ServeFile(w, r, file)
 }
 
 // GrantConsent handles user consent approval
@@ -275,7 +283,7 @@ func (h *OAuth2Handler) redirectToLogin(w http.ResponseWriter, r *http.Request, 
 
 	// Encode state as query parameter
 	stateJSON, _ := json.Marshal(state)
-	loginURL := "/auth/login?oauth2_context=" + url.QueryEscape(string(stateJSON))
+	loginURL := "/api/v1/auth/login/ui?oauth2_context=" + url.QueryEscape(string(stateJSON))
 	
 	http.Redirect(w, r, loginURL, http.StatusFound)
 }
@@ -283,7 +291,7 @@ func (h *OAuth2Handler) redirectToLogin(w http.ResponseWriter, r *http.Request, 
 func (h *OAuth2Handler) showConsentScreen(w http.ResponseWriter, r *http.Request, authReq *domain.OAuth2AuthorizationRequest, consent *domain.ConsentInfo) {
 	// In a real app, this would render an HTML consent screen
 	// For API, return JSON with consent information
-	consentURL := "/oauth2/consent?client_id=" + authReq.ClientID +
+	consentURL := "/api/v1/oauth2/consent?client_id=" + authReq.ClientID +
 		"&scope=" + url.QueryEscape(authReq.Scope) +
 		"&redirect_uri=" + url.QueryEscape(authReq.RedirectURI) +
 		"&state=" + url.QueryEscape(authReq.State)

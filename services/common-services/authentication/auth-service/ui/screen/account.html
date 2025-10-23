@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Account - TradeX</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.js"></script>
+</head>
+<body class="bg-light">
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+      <a class="navbar-brand" href="index.html">TradeX</a>
+      <div class="ms-auto">
+        <button class="btn btn-outline-light btn-sm" onclick="logout()">Logout</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container py-5">
+    <h3 class="mb-4">Account Settings</h3>
+    <div class="row g-4">
+      <div class="col-md-8">
+        <div class="card shadow-sm mb-4">
+          <div class="card-body">
+            <form id="accountForm">
+              <div class="mb-3">
+                <label for="userId" class="form-label">User ID</label>
+                <input type="text" id="userId" class="form-control" disabled />
+              </div>
+              <div class="mb-3">
+                <label for="firstName" class="form-label">First Name</label>
+                <input type="text" id="firstName" class="form-control" disabled />
+              </div>
+              <div class="mb-3">
+                <label for="lastName" class="form-label">Last Name</label>
+                <input type="text" id="lastName" class="form-control" disabled />
+              </div>
+              <div class="mb-3">
+                <label for="email" class="form-label">Email</label>
+                <input type="email" id="email" class="form-control" required />
+              </div>
+              <button type="submit" class="btn btn-primary">Update Email</button>
+            </form>
+
+            <hr class="my-4">
+
+            <h5>Change Password</h5>
+            <form id="passwordForm">
+              <div class="mb-3">
+                <label for="newPassword" class="form-label">New Password</label>
+                <input type="password" id="newPassword" class="form-control" required />
+              </div>
+              <button type="submit" class="btn btn-secondary">Update Password</button>
+            </form>
+          </div>
+        </div>
+
+        <div class="card shadow-sm">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5 class="mb-0">Active Sessions</h5>
+              <button class="btn btn-sm btn-danger" onclick="logoutAllSessions()">Logout All</button>
+            </div>
+            <ul class="list-group" id="sessionList"></ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="card shadow-sm">
+          <div class="card-body text-center">
+            <h5>Quick Logout</h5>
+            <button class="btn btn-danger w-100" onclick="logout()">Logout</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  const userId = localStorage.getItem("user_id");
+  const token = localStorage.getItem("token");
+  const currentDeviceId = localStorage.getItem("device");
+  const BASE_URL = "http://localhost:8001";
+
+  if (!userId || !token) {
+    alert("Session expired.");
+    location.href = "login.html";
+  }
+
+  document.getElementById("userId").value = userId;
+  document.getElementById("firstName").value = localStorage.getItem("first_name") || "";
+  document.getElementById("lastName").value = localStorage.getItem("last_name") || "";
+  document.getElementById("email").value = localStorage.getItem("email") || "";
+
+  document.getElementById("accountForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const updatedEmail = document.getElementById("email").value.trim();
+    try {
+      const res = await fetch(`${BASE_URL}/auth/email`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ new_email: updatedEmail })
+      });
+      const json = await res.json();
+      if (res.ok) {
+        localStorage.setItem("email", updatedEmail);
+        alert("Email updated successfully.");
+      } else {
+        alert(json.message || "Failed to update email.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error updating email.");
+    }
+  });
+
+  document.getElementById("passwordForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const newPassword = document.getElementById("newPassword").value.trim();
+    try {
+      const res = await fetch(`${BASE_URL}/auth/password`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ new_password: newPassword })
+      });
+      const json = await res.json();
+      if (res.ok) {
+        alert("Password updated successfully.");
+      } else {
+        alert(json.message || "Failed to update password.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error updating password.");
+    }
+  });
+
+  async function fetchSessions() {
+    try {
+      const res = await fetch(`${BASE_URL}/auth/sessions`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message);
+
+      const list = document.getElementById("sessionList");
+      list.innerHTML = "";
+
+      if (!json.data.length) {
+        // All sessions are gone
+        location.reload();
+        return;
+      }
+
+      json.data.forEach(sess => {
+        const isCurrent = sess.device === currentDeviceId;
+        const li = document.createElement("li");
+        li.className = `list-group-item d-flex justify-content-between align-items-center ${isCurrent ? 'bg-success-subtle border-success' : ''}`;
+        li.innerHTML = `
+          <div>
+            <div><strong>IP:</strong> ${sess.ip}</div>
+            <div><strong>Device ID:</strong> ${sess.device}</div>
+            <small class='mt-2'>Last login: ${new Date(sess.last_active).toLocaleString()}</small>
+            ${isCurrent ? "<span class='badge text-bg-success'>Current Session</span>" : ""}
+          </div>
+          <button class="btn btn-sm btn-outline-danger" onclick="deleteSession('${sess.id}', ${isCurrent})">
+            <i class="bi bi-trash"></i> Revoke
+          </button>
+        `;
+        list.appendChild(li);
+      });
+    } catch (err) {
+      console.error("Failed to load sessions", err);
+    }
+  }
+
+  async function deleteSession(id, isCurrent) {
+    try {
+      const res = await fetch(`${BASE_URL}/auth/sessions/${id}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      const json = await res.json();
+      if (res.ok) {
+        alert("Session revoked");
+        if (isCurrent) {
+          // Current session was deleted
+          logout();
+        } else {
+          fetchSessions();
+        }
+      } else {
+        alert(json.message || "Failed to revoke session");
+      }
+    } catch (err) {
+      console.error("Failed to delete session", err);
+    }
+  }
+
+  async function logoutAllSessions() {
+    try {
+      const res = await fetch(`${BASE_URL}/auth/sessions`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      const json = await res.json();
+      if (res.ok) {
+        alert("All sessions logged out");
+        logout();
+
+      } else {
+        alert(json.message || "Failed to logout all");
+      }
+    } catch (err) {
+      console.error("Failed to logout all sessions", err);
+    }
+  }
+
+  function logout() {
+    localStorage.clear();
+    location.href = "login.html";
+  }
+
+  fetchSessions();
+</script>
+
+</body>
+</html>

@@ -131,6 +131,7 @@ services:
       - ./services/common-services/authentication/auth-service/.env
     volumes:
       - ./services/common-services/authentication/auth-service/secrets:/app/secrets:ro
+      #- ./services/common-services/authentication/auth-service/ui:/app/ui
       - ./uploads:/app/uploads
     environment:
       DB_HOST: host.docker.internal

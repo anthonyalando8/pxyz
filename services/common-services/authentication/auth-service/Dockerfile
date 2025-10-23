@@ -18,6 +18,9 @@ RUN go mod tidy
 # Copy secrets (if needed at build time)
 COPY services/common-services/authentication/auth-service/secrets ./secrets
 
+# Copy UI folder
+COPY services/common-services/authentication/auth-service/ui ./ui
+
 # Copy auth-service source
 COPY services/common-services/authentication/auth-service/ ./
 

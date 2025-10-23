@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Consent | OAuth2</title>
+<style>
+  body {
+    font-family: sans-serif;
+    background: #f8f9fa;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+  }
+  .consent-box {
+    background: #fff;
+    border-radius: 8px;
+    padding: 30px 40px;
+    box-shadow: 0 0 8px rgba(0,0,0,0.1);
+    max-width: 480px;
+    width: 100%;
+    text-align: center;
+  }
+  img.logo {
+    max-width: 80px;
+    height: 80px;
+    border-radius: 12px;
+    object-fit: cover;
+  }
+  h2 {
+    margin-top: 10px;
+    font-size: 1.4em;
+  }
+  a.client-link {
+    display: block;
+    font-size: 0.9em;
+    color: #007bff;
+    text-decoration: none;
+    margin-bottom: 15px;
+  }
+  .scopes {
+    text-align: left;
+    margin-top: 15px;
+  }
+  .scopes ul {
+    padding-left: 20px;
+  }
+  button {
+    margin: 10px;
+    padding: 10px 20px;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+    border-radius: 4px;
+  }
+  button#approve {
+    background: #28a745;
+    color: white;
+  }
+  button#deny {
+    background: #dc3545;
+    color: white;
+  }
+  pre {
+    text-align: left;
+    background: #f1f3f5;
+    border-radius: 6px;
+    padding: 10px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+  <div class="consent-box">
+    <img id="appLogo" class="logo" alt="App logo" style="display:none;">
+    <h2 id="appName">Loading app info...</h2>
+    <a id="appLink" class="client-link" href="#" target="_blank" style="display:none;"></a>
+    <p id="existingConsentNote" style="display:none; color:#28a745; font-weight:600;">You’ve already granted this app access.</p>
+    
+    <div class="scopes">
+      <p><strong>This app is requesting access to:</strong></p>
+      <ul id="scopeList"></ul>
+    </div>
+
+    <button id="deny">Deny</button>
+    <button id="approve">Allow</button>
+
+    <h4 style="margin-top:20px;">Debug Log:</h4>
+    <pre id="logOutput"></pre>
+  </div>
+
+<script>
+const baseURL = "http://212.95.35.81:70/api/v1";
+const params = new URLSearchParams(window.location.search);
+const client_id = params.get("client_id");
+const redirect_uri = params.get("redirect_uri");
+const scope = params.get("scope");
+const state = params.get("state");
+
+function log(msg) {
+  const pre = document.getElementById("logOutput");
+  pre.textContent += (typeof msg === "string" ? msg : JSON.stringify(msg, null, 2)) + "\n";
+}
+
+async function loadConsent() {
+  try {
+    log("Fetching consent info...");
+    const res = await fetch(`${baseURL}/oauth2/consent?client_id=${encodeURIComponent(client_id)}&scope=${encodeURIComponent(scope)}`, {
+      credentials: "include",
+    });
+    const data = await res.json();
+    log(data);
+
+    if (!res.ok) {
+      document.getElementById("appName").textContent = "Error loading consent info";
+      return;
+    }
+
+    // Fill UI
+    document.getElementById("appName").textContent = data.client_name || `App ${data.client_id}`;
+
+    // Logo
+    if (data.logo_uri) {
+      const logo = document.getElementById("appLogo");
+      logo.src = data.logo_uri;
+      logo.style.display = "inline-block";
+    }
+
+    // Client URI
+    if (data.client_uri) {
+      const link = document.getElementById("appLink");
+      link.href = data.client_uri;
+      link.textContent = data.client_uri.replace(/^https?:\/\//, "");
+      link.style.display = "block";
+    }
+
+    // Existing consent
+    if (data.has_existing_consent) {
+      document.getElementById("existingConsentNote").style.display = "block";
+    }
+
+    // Scopes + Descriptions
+    const ul = document.getElementById("scopeList");
+    ul.innerHTML = "";
+    if (data.requested_scopes && data.requested_scopes.length > 0) {
+      data.requested_scopes.forEach(s => {
+        const li = document.createElement("li");
+        const desc = data.scope_descriptions?.[s] || "No description provided.";
+        li.innerHTML = `<strong>${s}</strong> — ${desc}`;
+        ul.appendChild(li);
+      });
+    } else {
+      ul.innerHTML = "<li>No scopes requested.</li>";
+    }
+
+  } catch (err) {
+    log("Error: " + err);
+  }
+}
+
+document.getElementById("approve").onclick = async () => {
+  try {
+    const res = await fetch(`${baseURL}/oauth2/consent`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        client_id,
+        scope,
+        redirect_uri,
+        state,
+        approved: true
+      })
+    });
+    const data = await res.json();
+    log(data);
+
+    if (data.redirect_url) {
+      log("Redirecting to: " + data.redirect_url);
+      window.location.href = data.redirect_url;
+    } else {
+      alert("Consent approved, but no redirect URL found.");
+    }
+  } catch (err) {
+    log("Error submitting consent: " + err);
+  }
+};
+
+document.getElementById("deny").onclick = () => {
+  log("User denied access");
+  alert("You denied access");
+  window.close();
+};
+
+window.onload = loadConsent;
+</script>
+</body>
+</html>

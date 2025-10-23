@@ -19,6 +19,8 @@ func SetupOAuth2Routes(r chi.Router, oauthHandler *handler.OAuth2Handler, auth *
             consent.Get("/consent", oauthHandler.ShowConsent)
             consent.Post("/consent", oauthHandler.GrantConsent)
         })
+		
+		oauth.Get("/consent/ui", oauthHandler.ServeConsentUI)
 
         oauth.Group(func(client chi.Router) {
             client.Use(auth.Require([]string{"main"}, nil, nil))

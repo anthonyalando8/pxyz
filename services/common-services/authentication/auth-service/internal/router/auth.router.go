@@ -45,6 +45,8 @@ func SetupRoutes(
 		// ---------------- Public ----------------
 		api.Group(func(pub chi.Router) {
 			pub.Get("/auth/health", h.Health)
+			pub.Get("/auth/login/ui", h.ServeLoginUI)
+
 			pub.Post("/auth/submit-identifier", h.SubmitIdentifier)
 			pub.Post("/auth/google", h.GoogleAuthHandler)
 			pub.Post("/auth/telegram", h.TelegramLogin)
