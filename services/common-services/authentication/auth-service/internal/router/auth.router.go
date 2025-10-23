@@ -1,7 +1,7 @@
 package router
 
 import (
-	"fmt"
+	//"fmt"
 	"net/http"
 	"os"
 
@@ -147,11 +147,7 @@ func SetupRoutes(
 		})
 	})
 
-	fmt.Println("Registered routes:")
-	chi.Walk(r, func(method, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
-		fmt.Printf("%s %s\n", method, route)
-		return nil
-	})
+	
 
 	return r
 }

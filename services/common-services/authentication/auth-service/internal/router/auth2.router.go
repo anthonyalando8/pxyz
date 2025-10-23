@@ -2,6 +2,8 @@
 package router
 
 import (
+	"fmt"
+	"net/http"
     "github.com/go-chi/chi/v5"
     "x/shared/auth/middleware"
     "auth-service/internal/handler"
@@ -19,7 +21,7 @@ func SetupOAuth2Routes(r chi.Router, oauthHandler *handler.OAuth2Handler, auth *
             consent.Get("/consent", oauthHandler.ShowConsent)
             consent.Post("/consent", oauthHandler.GrantConsent)
         })
-		
+
 		oauth.Get("/consent/ui", oauthHandler.ServeConsentUI)
 
         oauth.Group(func(client chi.Router) {
@@ -39,4 +41,9 @@ func SetupOAuth2Routes(r chi.Router, oauthHandler *handler.OAuth2Handler, auth *
             })
         })
     })
+	fmt.Println("Registered routes:")
+	chi.Walk(r, func(method, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
+		fmt.Printf("%s %s\n", method, route)
+		return nil
+	})
 }
