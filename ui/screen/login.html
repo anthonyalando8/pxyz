@@ -167,14 +167,14 @@ document.getElementById("verifyCode").onclick = async () => {
 
 /* ---------------------- Set Password ---------------------- */
 document.getElementById("setPassword").onclick = async () => {
-  const new_password = document.getElementById("newPassword").value;
+  const password = document.getElementById("newPassword").value;
   const res = await fetch(`${baseURL}/auth/set-password`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${token}`
     },
-    body: JSON.stringify({ new_password, oauth2_context: oauth2Context })
+    body: JSON.stringify({ password, oauth2_context: oauth2Context })
   });
   const data = await res.json();
   log("Set Password Response:", data);

@@ -9,6 +9,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -743,6 +744,7 @@ func (s *OAuth2Service) ValidateAuthorizationRequest(ctx context.Context, req *d
 	// Validate client
 	client, err := s.repo.GetOAuth2ClientByClientID(ctx, req.ClientID)
 	if err != nil {
+		log.Println("Error fetching client:", err)
 		return domain.ErrInvalidClient
 	}
 
