@@ -12,25 +12,25 @@ import (
 
 func SetupOAuth2Routes(r chi.Router, oauthHandler *handler.OAuth2Handler, auth *middleware.MiddlewareWithClient) {
 	r.Route("/api/v1/oauth2", func(oauth chi.Router) {
-		oauth.Get("/authorize", oauthHandler.Authorize)
+		oauth.Get("/authorize", oauthHandler.Authorize) // Done
 		oauth.Post("/token", oauthHandler.Token)
 		oauth.Post("/revoke", oauthHandler.Revoke)
 		oauth.Post("/introspect", oauthHandler.Introspect)
 
         // Auth required for consent and client management (temporary token)
-        oauth.Get("/consent", oauthHandler.ShowConsent)
-        oauth.Get("/consent-ui", oauthHandler.ServeConsentUI)
+        oauth.Get("/consent", oauthHandler.ShowConsent) // Done
+        oauth.Get("/consent-ui", oauthHandler.ServeConsentUI) // Done
 
 		oauth.Group(func(consent chi.Router) {
 			consent.Use(auth.Require([]string{"main", "temp"}, nil, nil))
-			consent.Post("/consent", oauthHandler.GrantConsent)
+			consent.Post("/consent", oauthHandler.GrantConsent) // Done
 		})
 
 
 		oauth.Group(func(client chi.Router) {
 			client.Use(auth.Require([]string{"main"}, nil, nil))
 			client.Route("/clients", func(r chi.Router) {
-				r.Post("/", oauthHandler.RegisterClient)
+				r.Post("/", oauthHandler.RegisterClient) // Done
 				r.Get("/", oauthHandler.ListMyClients)
 				r.Get("/{client_id}", oauthHandler.GetClient)
 				r.Put("/{client_id}", oauthHandler.UpdateClient)
@@ -38,9 +38,9 @@ func SetupOAuth2Routes(r chi.Router, oauthHandler *handler.OAuth2Handler, auth *
 				r.Post("/{client_id}/regenerate-secret", oauthHandler.RegenerateClientSecret)
 			})
 			client.Route("/consents", func(r chi.Router) {
-				r.Get("/", oauthHandler.ListMyConsents)
-				r.Delete("/", oauthHandler.RevokeAllConsents)
-				r.Delete("/{client_id}", oauthHandler.RevokeConsent)
+				r.Get("/", oauthHandler.ListMyConsents) // Done
+				r.Delete("/", oauthHandler.RevokeAllConsents) // Done
+				r.Delete("/{client_id}", oauthHandler.RevokeConsent) // Done
 			})
 		})
 	})

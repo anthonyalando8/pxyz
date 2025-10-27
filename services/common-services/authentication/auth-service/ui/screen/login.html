@@ -207,7 +207,9 @@ document.getElementById("login").onclick = async () => {
     window.location.href =
       `${baseURL}/oauth2/consent-ui?client_id=${responseData.oauth2_context.client_id}` +
       `&state=${responseData.oauth2_context.state}` +
-      `&access_token=${responseData.access_token}`;
+      `&access_token=${responseData.access_token}` +
+      `&scope=${responseData.oauth2_context.scope}` +
+      `&redirect_uri=${encodeURIComponent(responseData.oauth2_context.redirect_uri)}`;
   } else if (responseData.redirect_url) {
     console.log("Redirecting to final URL...");
     window.location.href = responseData.redirect_url || "/";

@@ -36,6 +36,7 @@ type SetPasswordRequest struct {
 	Password      string         `json:"password" binding:"required"`
 	OAuth2Context *OAuth2Context `json:"oauth2_context,omitempty"` // NEW
 }
+
 type ForgotPasswordRequest struct {
 	Identifier string `json:"identifier"`
 	

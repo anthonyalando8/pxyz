@@ -19,6 +19,8 @@ import (
 
 type GoogleAuthRequest struct {
 	IDToken        string  `json:"id_token"`
+	OAuth2Context *OAuth2Context `json:"oauth2_context,omitempty"`
+
 	DeviceID       *string `json:"device_id"`
 	GeoLocation    *string `json:"geo_location"`
 	DeviceMetadata *any    `json:"device_metadata"`
@@ -59,7 +61,12 @@ func (h *AuthHandler) GoogleAuthHandler(w http.ResponseWriter, r *http.Request) 
 
 	// Attempt role upgrade if current role is "any"
 	h.postAccountCreationTask(userID, currentRole) // refresh profile cache in background
-
+	// Check if this is an OAuth2 flow
+	if req.OAuth2Context != nil && req.OAuth2Context.ClientID != "" {
+		// For OAuth2 flow, redirect to consent screen after setting password
+		h.handleOAuth2PostAuth(w, r, userID, req.OAuth2Context)
+		return
+	}
 	// Ensure nationality
 	next, _ := /*h.ensureNationality(ctx, userID)*/ "",""
 
@@ -124,6 +131,8 @@ type AppleAuthRequest struct {
 	FirstName *string `json:"first_name,omitempty"`
 	LastName  *string `json:"last_name,omitempty"`
 
+	OAuth2Context *OAuth2Context `json:"oauth2_context,omitempty"`
+
 	DeviceID       *string `json:"device_id"`
 	GeoLocation    *string `json:"geo_location"`
 	DeviceMetadata *any    `json:"device_metadata"`
@@ -179,7 +188,12 @@ func (h *AuthHandler) AppleAuthHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Attempt role upgrade
 	h.postAccountCreationTask(userID, currentRole) // refresh profile cache in background
-
+	// Check if this is an OAuth2 flow
+	if req.OAuth2Context != nil && req.OAuth2Context.ClientID != "" {
+		// For OAuth2 flow, redirect to consent screen after setting password
+		h.handleOAuth2PostAuth(w, r, userID, req.OAuth2Context)
+		return
+	}
 
 	// Persist first/last name if Apple sent them on first sign-in
 	// if isNew && (req.FirstName != nil || req.LastName != nil) {
@@ -260,6 +274,8 @@ type TelegramLoginRequest struct {
 	AuthDate  string `json:"auth_date"`
 	Hash      string `json:"hash"`
 
+	OAuth2Context *OAuth2Context `json:"oauth2_context,omitempty"`
+
 	DeviceID       *string `json:"device_id"`
 	GeoLocation    *string `json:"geo_location"`
 	DeviceMetadata *any    `json:"device_metadata"`
@@ -317,7 +333,12 @@ func (h *AuthHandler) TelegramLogin(w http.ResponseWriter, r *http.Request) {
 	// Attempt role upgrade
 	h.postAccountCreationTask(userID, currentRole) // refresh profile cache in background
 
-
+	// Check if this is an OAuth2 flow
+	if req.OAuth2Context != nil && req.OAuth2Context.ClientID != "" {
+		// For OAuth2 flow, redirect to consent screen after setting password
+		h.handleOAuth2PostAuth(w, r, userID, req.OAuth2Context)
+		return
+	}
 	// Ensure nationality
 	next, _ := /*h.ensureNationality(ctx, userID)*/ "",""
 	if next != "" {
