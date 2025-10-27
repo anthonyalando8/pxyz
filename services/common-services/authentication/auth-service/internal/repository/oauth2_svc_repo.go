@@ -53,7 +53,7 @@ func (r *UserRepository) CreateOAuth2Client(ctx context.Context, client *domain.
 // GetOAuth2ClientByClientID fetches a client by client_id
 func (r *UserRepository) GetOAuth2ClientByClientID(ctx context.Context, clientID string) (*domain.OAuth2Client, error) {
 	query := `
-		SELECT 
+		SELECT
 			id, client_id, client_secret_hash, client_name, client_uri, logo_uri,
 			owner_user_id, redirect_uris, grant_types, response_types, scope,
 			is_confidential, is_active, created_at, updated_at
