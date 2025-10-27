@@ -6,15 +6,15 @@ import (
 	"net/http"
 	"strings"
 	"x/shared/response"
-	//globalmid "x/shared/auth/middleware"
+	globalmid "x/shared/auth/middleware"
 )
 
 
 type contextKey string
 
 const (
-	ContextUserID contextKey = "userID"
-	ContextToken  contextKey = "token"
+	// ContextUserID contextKey = "userID"
+	// ContextToken  contextKey = "token"
 	ContextScope contextKey = "scope"
 	ContextClientID contextKey = "clientID"
 )
@@ -54,11 +54,11 @@ func (m *OAuth2Middleware) ValidateOAuth2Token(next http.Handler) http.Handler {
 		// Add user and client info to context
 		ctx := r.Context()
 		if accessToken.UserID != nil {
-			ctx = context.WithValue(ctx, ContextUserID, *accessToken.UserID)
+			ctx = context.WithValue(ctx, globalmid.ContextUserID, *accessToken.UserID)
 		}
 		ctx = context.WithValue(ctx, ContextClientID, accessToken.ClientID)
 		ctx = context.WithValue(ctx, ContextScope, accessToken.Scope)
-		ctx = context.WithValue(ctx, ContextToken, token)
+		ctx = context.WithValue(ctx, globalmid.ContextToken, token)
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
