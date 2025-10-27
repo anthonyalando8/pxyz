@@ -6,10 +6,9 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	//"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/lib/pq"
+	// Remove: "github.com/lib/pq"
 )
 
 // ================================
@@ -36,9 +35,9 @@ func (r *UserRepository) CreateOAuth2Client(ctx context.Context, client *domain.
 		client.ClientURI,
 		client.LogoURI,
 		ownerID,
-		pq.Array(client.RedirectURIs),
-		pq.Array(client.GrantTypes),
-		pq.Array(client.ResponseTypes),
+		client.RedirectURIs,      // pgx handles slices directly
+		client.GrantTypes,        // pgx handles slices directly
+		client.ResponseTypes,     // pgx handles slices directly
 		client.Scope,
 		client.IsConfidential,
 	).Scan(&id, &client.CreatedAt, &client.UpdatedAt)
@@ -74,9 +73,9 @@ func (r *UserRepository) GetOAuth2ClientByClientID(ctx context.Context, clientID
 		&client.ClientURI,
 		&client.LogoURI,
 		&ownerID,
-		pq.Array(&client.RedirectURIs),
-		pq.Array(&client.GrantTypes),
-		pq.Array(&client.ResponseTypes),
+		&client.RedirectURIs,     // pgx scans directly into []string
+		&client.GrantTypes,       // pgx scans directly into []string
+		&client.ResponseTypes,    // pgx scans directly into []string
 		&client.Scope,
 		&client.IsConfidential,
 		&client.IsActive,
@@ -130,9 +129,9 @@ func (r *UserRepository) GetOAuth2ClientsByOwner(ctx context.Context, ownerUserI
 			&client.ClientURI,
 			&client.LogoURI,
 			&ownerID,
-			pq.Array(&client.RedirectURIs),
-			pq.Array(&client.GrantTypes),
-			pq.Array(&client.ResponseTypes),
+			&client.RedirectURIs,     // pgx scans directly into []string
+			&client.GrantTypes,       // pgx scans directly into []string
+			&client.ResponseTypes,    // pgx scans directly into []string
 			&client.Scope,
 			&client.IsConfidential,
 			&client.IsActive,
@@ -149,6 +148,80 @@ func (r *UserRepository) GetOAuth2ClientsByOwner(ctx context.Context, ownerUserI
 	}
 
 	return clients, rows.Err()
+}
+
+// UpdateOAuth2Client updates an existing OAuth2 client
+func (r *UserRepository) UpdateOAuth2Client(ctx context.Context, client *domain.OAuth2Client) (*domain.OAuth2Client, error) {
+	query := `
+		UPDATE oauth2_clients
+		SET 
+			client_name = $1,
+			client_uri = $2,
+			logo_uri = $3,
+			redirect_uris = $4,
+			is_active = $5,
+			updated_at = NOW()
+		WHERE client_id = $6
+		RETURNING updated_at
+	`
+
+	err := r.db.QueryRow(ctx, query,
+		client.ClientName,
+		client.ClientURI,
+		client.LogoURI,
+		client.RedirectURIs,  // pgx handles slices directly
+		client.IsActive,
+		client.ClientID,
+	).Scan(&client.UpdatedAt)
+
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, domain.ErrInvalidClient
+		}
+		return nil, fmt.Errorf("failed to update OAuth2 client: %w", err)
+	}
+
+	return client, nil
+}
+
+// DeleteOAuth2Client soft deletes an OAuth2 client by marking it inactive
+func (r *UserRepository) DeleteOAuth2Client(ctx context.Context, clientID string) error {
+	query := `
+		UPDATE oauth2_clients
+		SET is_active = false, updated_at = NOW()
+		WHERE client_id = $1
+	`
+
+	result, err := r.db.Exec(ctx, query, clientID)
+	if err != nil {
+		return fmt.Errorf("failed to delete OAuth2 client: %w", err)
+	}
+
+	if result.RowsAffected() == 0 {
+		return domain.ErrInvalidClient
+	}
+
+	return nil
+}
+
+// RegenerateClientSecret generates a new client secret for an existing client
+func (r *UserRepository) RegenerateClientSecret(ctx context.Context, clientID, newSecretHash string) error {
+	query := `
+		UPDATE oauth2_clients
+		SET client_secret_hash = $1, updated_at = NOW()
+		WHERE client_id = $2 AND is_active = true
+	`
+
+	result, err := r.db.Exec(ctx, query, newSecretHash, clientID)
+	if err != nil {
+		return fmt.Errorf("failed to regenerate client secret: %w", err)
+	}
+
+	if result.RowsAffected() == 0 {
+		return domain.ErrInvalidClient
+	}
+
+	return nil
 }
 
 // ================================
@@ -770,83 +843,4 @@ func (r *UserRepository) CleanupExpiredOAuth2Tokens(ctx context.Context) (int64,
 	}
 
 	return totalDeleted, nil
-}
-
-
-// continue from services/auth-service/internal/repository/verification_repo.go
-
-// Add this method to your oauth2_repository.go file
-
-// UpdateOAuth2Client updates an existing OAuth2 client
-func (r *UserRepository) UpdateOAuth2Client(ctx context.Context, client *domain.OAuth2Client) (*domain.OAuth2Client, error) {
-	query := `
-		UPDATE oauth2_clients
-		SET 
-			client_name = $1,
-			client_uri = $2,
-			logo_uri = $3,
-			redirect_uris = $4,
-			is_active = $5,
-			updated_at = NOW()
-		WHERE client_id = $6
-		RETURNING updated_at
-	`
-
-	err := r.db.QueryRow(ctx, query,
-		client.ClientName,
-		client.ClientURI,
-		client.LogoURI,
-		pq.Array(client.RedirectURIs),
-		client.IsActive,
-		client.ClientID,
-	).Scan(&client.UpdatedAt)
-
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, domain.ErrInvalidClient
-		}
-		return nil, fmt.Errorf("failed to update OAuth2 client: %w", err)
-	}
-
-	return client, nil
-}
-
-// DeleteOAuth2Client soft deletes an OAuth2 client by marking it inactive
-func (r *UserRepository) DeleteOAuth2Client(ctx context.Context, clientID string) error {
-	query := `
-		UPDATE oauth2_clients
-		SET is_active = false, updated_at = NOW()
-		WHERE client_id = $1
-	`
-
-	result, err := r.db.Exec(ctx, query, clientID)
-	if err != nil {
-		return fmt.Errorf("failed to delete OAuth2 client: %w", err)
-	}
-
-	if result.RowsAffected() == 0 {
-		return domain.ErrInvalidClient
-	}
-
-	return nil
-}
-
-// RegenerateClientSecret generates a new client secret for an existing client
-func (r *UserRepository) RegenerateClientSecret(ctx context.Context, clientID, newSecretHash string) error {
-	query := `
-		UPDATE oauth2_clients
-		SET client_secret_hash = $1, updated_at = NOW()
-		WHERE client_id = $2 AND is_active = true
-	`
-
-	result, err := r.db.Exec(ctx, query, newSecretHash, clientID)
-	if err != nil {
-		return fmt.Errorf("failed to regenerate client secret: %w", err)
-	}
-
-	if result.RowsAffected() == 0 {
-		return domain.ErrInvalidClient
-	}
-
-	return nil
 }
