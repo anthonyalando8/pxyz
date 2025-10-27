@@ -17,13 +17,15 @@ func SetupOAuth2Routes(r chi.Router, oauthHandler *handler.OAuth2Handler, auth *
 		oauth.Post("/revoke", oauthHandler.Revoke)
 		oauth.Post("/introspect", oauthHandler.Introspect)
 
+        // Auth required for consent and client management (temporary token)
+        oauth.Get("/consent", oauthHandler.ShowConsent)
+        oauth.Get("/consent-ui", oauthHandler.ServeConsentUI)
+
 		oauth.Group(func(consent chi.Router) {
 			consent.Use(auth.Require([]string{"main", "temp"}, nil, nil))
-			consent.Get("/consent", oauthHandler.ShowConsent)
 			consent.Post("/consent", oauthHandler.GrantConsent)
 		})
 
-		oauth.Get("/consent-ui", oauthHandler.ServeConsentUI)
 
 		oauth.Group(func(client chi.Router) {
 			client.Use(auth.Require([]string{"main"}, nil, nil))

@@ -100,17 +100,22 @@ const redirect_uri = params.get("redirect_uri");
 const access_token = params.get("access_token");
 const scope = params.get("scope");
 const state = params.get("state");
+let sessionToken = null;
+
+// The access token is NOT passed in URL. Retrieve from sessionStorage
+//const access_token = sessionStorage.getItem("access_token");
 
 function log(msg) {
   const pre = document.getElementById("logOutput");
   pre.textContent += (typeof msg === "string" ? msg : JSON.stringify(msg, null, 2)) + "\n";
 }
 
+/* -------------------- LOAD CONSENT INFO -------------------- */
 async function loadConsent() {
   try {
     log("Fetching consent info...");
     const res = await fetch(`${baseURL}/oauth2/consent?client_id=${encodeURIComponent(client_id)}&scope=${encodeURIComponent(scope)}&access_token=${encodeURIComponent(access_token)}`, {
-      credentials: "include",
+      method: "GET",
     });
     const data = await res.json();
     log(data);
@@ -120,36 +125,45 @@ async function loadConsent() {
       return;
     }
 
+    const consent = data.data.consent_info;
+    const token = data.data.token;
+    sessionToken = token;
+    log("Received consent info and token.");
+    if (!consent) {
+      document.getElementById("appName").textContent = "Invalid response from server.";
+      return;
+    }
+
     // Fill UI
-    document.getElementById("appName").textContent = data.client_name || `App ${data.client_id}`;
+    document.getElementById("appName").textContent = consent.client_name || `App ${consent.client_id}`;
 
     // Logo
-    if (data.logo_uri) {
+    if (consent.logo_uri) {
       const logo = document.getElementById("appLogo");
-      logo.src = data.logo_uri;
+      logo.src = consent.logo_uri;
       logo.style.display = "inline-block";
     }
 
     // Client URI
-    if (data.client_uri) {
+    if (consent.client_uri) {
       const link = document.getElementById("appLink");
-      link.href = data.client_uri;
-      link.textContent = data.client_uri.replace(/^https?:\/\//, "");
+      link.href = consent.client_uri;
+      link.textContent = consent.client_uri.replace(/^https?:\/\//, "");
       link.style.display = "block";
     }
 
     // Existing consent
-    if (data.has_existing_consent) {
+    if (consent.has_existing_consent) {
       document.getElementById("existingConsentNote").style.display = "block";
     }
 
     // Scopes + Descriptions
     const ul = document.getElementById("scopeList");
     ul.innerHTML = "";
-    if (data.requested_scopes && data.requested_scopes.length > 0) {
-      data.requested_scopes.forEach(s => {
+    if (consent.requested_scopes && consent.requested_scopes.length > 0) {
+      consent.requested_scopes.forEach(s => {
         const li = document.createElement("li");
-        const desc = data.scope_descriptions?.[s] || "No description provided.";
+        const desc = consent.scope_descriptions?.[s] || "No description provided.";
         li.innerHTML = `<strong>${s}</strong> — ${desc}`;
         ul.appendChild(li);
       });
@@ -162,11 +176,15 @@ async function loadConsent() {
   }
 }
 
+/* -------------------- APPROVE CONSENT -------------------- */
 document.getElementById("approve").onclick = async () => {
   try {
     const res = await fetch(`${baseURL}/oauth2/consent`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${sessionToken}`
+      },
       body: JSON.stringify({
         client_id,
         scope,
@@ -179,8 +197,8 @@ document.getElementById("approve").onclick = async () => {
     log(data);
 
     if (data.redirect_url) {
-      log("Redirecting to: " + data.redirect_url);
-      window.location.href = data.redirect_url;
+      log("Redirecting to: " + data.data.redirect_url);
+      window.location.href = data.data.redirect_url;
     } else {
       alert("Consent approved, but no redirect URL found.");
     }
@@ -189,6 +207,7 @@ document.getElementById("approve").onclick = async () => {
   }
 };
 
+/* -------------------- DENY CONSENT -------------------- */
 document.getElementById("deny").onclick = () => {
   log("User denied access");
   alert("You denied access");

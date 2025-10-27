@@ -107,7 +107,7 @@ func NewServer(cfg config.AppConfig) *http.Server {
 		telegramClient,
 	)
 	// Initialize OAuth2 handler
-    oauthHandler := handler.NewOAuth2Handler(oauth2Svc, userUC)
+    oauthHandler := handler.NewOAuth2Handler(oauth2Svc, userUC, authHandler)
 
 	consumer, err := kafka.NewUserRegistrationConsumer(
 		cfg.KafkaBrokers,

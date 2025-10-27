@@ -15,13 +15,15 @@ import (
 
 type OAuth2Handler struct {
 	oauth2Svc *service.OAuth2Service
+	AuthHandler *AuthHandler
 	authUC    interface{} // Your existing auth usecase
 }
 
-func NewOAuth2Handler(oauth2Svc *service.OAuth2Service, authUC interface{}) *OAuth2Handler {
+func NewOAuth2Handler(oauth2Svc *service.OAuth2Service, authUC interface{}, AuthHandler *AuthHandler) *OAuth2Handler {
 	return &OAuth2Handler{
 		oauth2Svc: oauth2Svc,
 		authUC:    authUC,
+		AuthHandler: AuthHandler,
 	}
 }
 
@@ -111,8 +113,19 @@ func (h *OAuth2Handler) ShowConsent(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	session, err := h.AuthHandler.createSessionHelper(
+		r.Context(), userID, true, false, "oauth2_consent", nil, nil, nil, nil, r,
+	)
+	if err != nil {
+		log.Printf("[Consent Token]  Failed to create main session user=%s err=%v", userID, err)
+		response.Error(w, http.StatusInternalServerError, "Session creation failed")
+		return
+	}
 
-	response.JSON(w, http.StatusOK, consentInfo)
+	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"consent_info": consentInfo,
+		"token": session.AuthToken,
+	})
 }
 func (h *OAuth2Handler) ServeConsentUI(w http.ResponseWriter, r *http.Request) {
 	access_token := r.URL.Query().Get("access_token")
