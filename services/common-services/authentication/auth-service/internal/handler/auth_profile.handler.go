@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"auth-service/internal/domain"
 	"context"
 	"encoding/json"
 	"errors"
@@ -22,6 +23,7 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -47,71 +49,84 @@ func (h *AuthHandler) postAccountCreationTask(userID, currentRole string) {
 }
 
 // GetFullUserProfile fetches and merges user + account-service profile into a map
-func (h *AuthHandler) GetFullUserProfile(ctx context.Context, userID string) (map[string]interface{}, error) {
-	// Get user (from user table)
-	user, err := h.uc.GetProfile(ctx, userID)
-	if err != nil {
-		log.Printf("[ERROR] Failed to retrieve user record user_id=%s error=%v", userID, err)
-		return nil, err
-	}
-	log.Printf("[DEBUG] Retrieved user record user_id=%s email=%s", userID, safeString(user.Email))
+func (h *AuthHandler) GetFullUserProfile(ctx context.Context, userID string) (*domain.UserProfile, error) {
+	cacheKey := fmt.Sprintf("user_profile:%s", userID)
 
-	// Get profile (from account-service gRPC)
-	profileResp, err := h.accountClient.Client.GetUserProfile(ctx, &accountclient.GetUserProfileRequest{
-		UserId: userID,
-	})
-	if err != nil {
-		log.Printf("[ERROR] Failed to fetch profile from account-service user_id=%s error=%v", userID, err)
-		return nil, err
-	}
-	if profileResp == nil || profileResp.Profile == nil {
-		log.Printf("[WARN] Profile not found in account-service user_id=%s", userID)
-		return nil, fmt.Errorf("profile not found")
-	}
-	profile := profileResp.Profile
-	log.Printf("[DEBUG] Retrieved profile from account-service user_id=%s", userID)
-
-	// Merge response
-	resp := map[string]interface{}{
-		"user_id":        userID,
-		"email":          safeString(user.Email),
-		"phone":          safeString(user.Phone),
-		"account_type":   user.AccountType,
-		"account_status": user.AccountStatus,
-		"created_at":     user.CreatedAt,
-		"updated_at":     user.UpdatedAt,
-
-		// Extended profile
-		"first_name":    profile.FirstName,
-		"last_name":     profile.LastName,
-		"username":      profile.Username,
-		"bio":           profile.Bio,
-		"gender":        profile.Gender,
-		"date_of_birth": profile.DateOfBirth,
-		"profile_image": profile.ProfileImageUrl,
-		"nationality":   profile.Nationality,
-	}
-
-	// Add is_email_verified only if email exists
-	if user.Email != nil && *user.Email != "" {
-		resp["is_email_verified"] = user.IsEmailVerified
-	}
-
-	// Add is_phone_verified only if phone exists
-	if user.Phone != nil && *user.Phone != "" {
-		resp["is_phone_verified"] = user.IsPhoneVerified
-	}
-
-
-	var address map[string]interface{}
-	if err := json.Unmarshal([]byte(profile.AddressJson), &address); err == nil {
-		resp["address"] = address
+	// 1️⃣ Try cache first
+	if cached, err := h.redisClient.Get(ctx, cacheKey).Result(); err == nil && cached != "" {
+		var user domain.UserProfile
+		if err := json.Unmarshal([]byte(cached), &user); err == nil {
+			log.Printf("[CACHE HIT] user_id=%s", userID)
+			return &user, nil
+		}
+		log.Printf("[CACHE ERROR] Failed to unmarshal cache user_id=%s error=%v", userID, err)
 	} else {
-		resp["address"] = profile.AddressJson // fallback to string
+		log.Printf("[CACHE MISS] user_id=%s", userID)
 	}
 
-	return resp, nil
+	// 2️⃣ Run local DB and gRPC fetch concurrently
+	var (
+		user    *domain.UserProfile
+		profile *accountclient.UserProfile
+	)
+
+	g, ctx := errgroup.WithContext(ctx)
+
+	g.Go(func() error {
+		u, err := h.uc.GetProfile(ctx, userID)
+		if err != nil {
+			log.Printf("[ERROR] Failed to retrieve user from DB user_id=%s error=%v", userID, err)
+			return err
+		}
+		user = u
+		return nil
+	})
+
+	g.Go(func() error {
+		resp, err := h.accountClient.Client.GetUserProfile(ctx, &accountclient.GetUserProfileRequest{
+			UserId: userID,
+		})
+		if err != nil {
+			log.Printf("[ERROR] Failed to fetch profile via gRPC user_id=%s error=%v", userID, err)
+			return err
+		}
+		if resp == nil || resp.Profile == nil {
+			return fmt.Errorf("profile not found")
+		}
+		profile = resp.Profile
+		return nil
+	})
+
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+
+	// 3️⃣ Merge results
+	if profile != nil && user != nil {
+		user.FirstName = profile.FirstName
+		user.LastName = profile.LastName
+		user.Username = profile.Username
+		user.Bio = profile.Bio
+		user.Gender = profile.Gender
+		user.DateOfBirth = profile.DateOfBirth
+		user.ProfileImageUrl = profile.ProfileImageUrl
+		user.Nationality = profile.Nationality
+		user.Address = profile.AddressJson
+	}
+
+	// 4️⃣ Cache combined result
+	if user != nil {
+		data, _ := json.Marshal(user)
+		if err := h.redisClient.Set(ctx, cacheKey, data, 15*time.Minute).Err(); err != nil {
+			log.Printf("[CACHE SET ERROR] Failed to cache user_id=%s error=%v", userID, err)
+		} else {
+			log.Printf("[CACHE SET] Cached user profile user_id=%s", userID)
+		}
+	}
+
+	return user, nil
 }
+
 
 // ---------- HTTP Handler ----------
 
@@ -666,4 +681,21 @@ func (h *AuthHandler) HandleGetPhoneVerificationStatus(w http.ResponseWriter, r 
 	response.JSON(w, http.StatusOK, map[string]interface{}{
 		"phone_verified": isVerified,
 	})
+}
+
+
+func (h *AuthHandler) ensureNationality(ctx context.Context, userID string) (string, string) {
+	// --- Extract user ID from context ---
+	natResp, err := h.accountClient.Client.GetUserNationality(ctx, &accountclient.GetUserNationalityRequest{
+		UserId: userID,
+	})
+	if err != nil {
+		log.Printf("GetUserNationality failed for user %s: %v", userID, err)
+		return "", ""
+	}
+	if natResp.HasNationality {
+		return natResp.Nationality, ""
+	} else {
+		return "","set_nationality"
+	}
 }

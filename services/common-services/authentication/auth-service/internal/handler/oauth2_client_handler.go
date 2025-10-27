@@ -327,10 +327,11 @@ func (h *OAuth2Handler) UserInfo(w http.ResponseWriter, r *http.Request) {
     info := map[string]interface{}{
         "sub":   userID,           // Standard OIDC field for subject ID
         "email": user.Email,
-        "name":  user.FullName,
+        "name":  user.FirstName + " " + user.LastName,
+		"username": user.Username,
         "phone": user.Phone,
 		"photo_url": user.ProfileImageUrl,
-        "verified": user.IsEmailVerified,
+        "verified": true,
     }
 
     response.JSON(w, http.StatusOK, info)

@@ -36,18 +36,30 @@ type UserWithCredential struct {
 
 // UserProfile is a view-friendly representation without sensitive data
 type UserProfile struct {
-	ID              string    `json:"id"`
-	AccountStatus   string    `json:"account_status"`
-	AccountType     string    `json:"account_type"`
-	Email           *string   `json:"email,omitempty"`
-	Phone           *string   `json:"phone,omitempty"`
-	FullName		*string   `json:"full_name,omitempty"`
-	ProfileImageUrl *string   `json:"profile_image_url,omitempty"`
-	IsEmailVerified bool      `json:"is_email_verified"`
-	IsPhoneVerified bool      `json:"is_phone_verified"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
+	ID              string                 `json:"user_id"`
+	Email           *string                `json:"email,omitempty"`
+	Phone           *string                `json:"phone,omitempty"`
+	AccountType     string                 `json:"account_type"`
+	AccountStatus   string                 `json:"account_status"`
+	IsEmailVerified bool                   `json:"is_email_verified,omitempty"`
+	IsPhoneVerified bool                   `json:"is_phone_verified,omitempty"`
+	CreatedAt       time.Time              `json:"created_at"`
+	UpdatedAt       time.Time              `json:"updated_at"`
+
+	// Extended profile fields
+	FirstName       string                 `json:"first_name,omitempty"`
+	LastName        string                 `json:"last_name,omitempty"`
+	Username        string                 `json:"username,omitempty"`
+	Bio             string                 `json:"bio,omitempty"`
+	Gender          string                 `json:"gender,omitempty"`
+	DateOfBirth     string                 `json:"date_of_birth,omitempty"`
+	ProfileImageUrl string                 `json:"profile_image,omitempty"`
+	Nationality     string                 `json:"nationality,omitempty"`
+
+	// Address can be dynamic (JSON object or string fallback)
+	Address         interface{}            `json:"address,omitempty"`
 }
+
 
 // ToProfile converts UserWithCredential to UserProfile (safe for API responses)
 func (uwc *UserWithCredential) ToProfile() *UserProfile {

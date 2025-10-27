@@ -266,7 +266,7 @@ func (h *AuthHandler) handleNextAction(
 
 	case "request_phone_change":
 		// --- Ensure nationality exists ---
-		nextAction, nationality := /*h.ensureNationality(ctx, userId)*/ "",""
+		nextAction, nationality := h.ensureNationality(ctx, userId)
 		if nextAction != "" {
 			resp["message"] = "Please update your nationality to continue."
 			resp["next"] = nextAction

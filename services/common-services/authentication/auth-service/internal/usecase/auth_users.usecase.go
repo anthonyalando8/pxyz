@@ -404,7 +404,7 @@ func (uc *UserUsecase) sendOTPAsync(ctx context.Context, userID, identifier, pur
 		channel = "email"
 		recipient = identifier
 	} else {
-		channel = "phone"
+		channel = "sms"
 		recipient = identifier
 	}
 

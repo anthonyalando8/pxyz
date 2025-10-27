@@ -46,7 +46,7 @@ func (h *AuthHandler) getUserFromContext(r *http.Request) (string, *domain.UserP
 		return "", nil, false
 	}
 
-	user, err := h.uc.GetUserByID(r.Context(), userID)
+	user, err := h.GetFullUserProfile(r.Context(), userID)
 	if err != nil {
 		// Log but still return userID — context was valid
 		log.Printf("failed to get user by ID %s: %v", userID, err)

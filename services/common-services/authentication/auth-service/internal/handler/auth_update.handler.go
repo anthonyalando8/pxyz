@@ -230,7 +230,7 @@ func (h *AuthHandler) HandleRequestPhoneChange(w http.ResponseWriter, r *http.Re
 	userNatKey := fmt.Sprintf("user_nationality:%s", userID)
 	nationality, err := h.redisClient.Get(ctx, userNatKey).Result()
 	if err != nil || nationality == "" {
-		nextAction, nat := /*h.ensureNationality(ctx, userID)*/ "",""
+		nextAction, nat := h.ensureNationality(ctx, userID)
 		if nextAction != "" {
 			response.JSON(w, http.StatusOK, map[string]string{
 				"message": "Please update your nationality to continue.",
@@ -377,7 +377,7 @@ func (h *AuthHandler) HandlePhoneChange(w http.ResponseWriter, r *http.Request) 
 	nationality, err := h.redisClient.Get(ctx, userNatKey).Result()
 	if err != nil || nationality == "" {
 		// not cached → call ensureNationality
-		nextAction, nat := /*h.ensureNationality(ctx, requestedUserID)*/ "",""
+		nextAction, nat := h.ensureNationality(ctx, requestedUserID)
 		if nextAction != "" {
 			response.JSON(w, http.StatusOK, map[string]string{
 				"message": "Please update your nationality to continue.",
