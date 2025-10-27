@@ -196,7 +196,7 @@ document.getElementById("approve").onclick = async () => {
     const data = await res.json();
     log(data);
 
-    if (data.redirect_url) {
+    if (data.data.redirect_url) {
       log("Redirecting to: " + data.data.redirect_url);
       window.location.href = data.data.redirect_url;
     } else {
