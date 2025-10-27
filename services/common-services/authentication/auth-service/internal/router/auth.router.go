@@ -45,6 +45,8 @@ func SetupRoutes(
 		// ---------------- Public ----------------
 		api.Group(func(pub chi.Router) {
 			pub.Get("/auth/health", h.Health)
+			pub.Get("/auth/test", h.TestRouteHandler)
+			
 			pub.Get("/auth/login/ui", h.ServeLoginUI)
 
 			pub.Post("/auth/submit-identifier", h.SubmitIdentifier)
@@ -145,9 +147,8 @@ func SetupRoutes(
 			})
 			g.Delete("/auth/logout", h.LogoutHandler(auth.Client))
 		})
+		SetupOAuth2Routes(api, oauthHandler, auth)
 	})
-
-	
 
 	return r
 }

@@ -21,6 +21,18 @@ func (h *AuthHandler) Health(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *AuthHandler) TestRouteHandler(w http.ResponseWriter, r *http.Request) {
+	response := map[string]interface{}{
+		"message": "Route is working!",
+		"path":    r.URL.Path,
+		"method":  r.Method,
+		"query":   r.URL.Query(),
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
 func (h *AuthHandler) ServeLoginUI(w http.ResponseWriter, r *http.Request) {
     // Build the path to your UI folder
     uiDir := "./ui" // adjust if needed; relative to where binary runs

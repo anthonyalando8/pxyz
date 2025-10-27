@@ -41,9 +41,13 @@ func SetupOAuth2Routes(r chi.Router, oauthHandler *handler.OAuth2Handler, auth *
             })
         })
     })
-	fmt.Println("Registered routes:")
+	// Debug: Print all registered routes
+	fmt.Println("\n=== Registered OAuth2 Routes ===")
 	chi.Walk(r, func(method, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
-		fmt.Printf("%s %s\n", method, route)
+		if len(route) > 0 {
+			fmt.Printf("%s %s\n", method, route)
+		}
 		return nil
 	})
+	fmt.Println("================================")
 }
