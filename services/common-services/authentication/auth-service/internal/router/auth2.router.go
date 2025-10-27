@@ -31,7 +31,7 @@ func SetupOAuth2Routes(r chi.Router, oauthHandler *handler.OAuth2Handler, auth *
         oauth.Group(func(profile chi.Router) {
             profile.Use(mid.ValidateOAuth2Token)
             profile.Use(mid.CheckScope("read"))
-            profile.Post("/userinfo", oauthHandler.UserInfo) // Done
+            profile.Get("/userinfo", oauthHandler.UserInfo) // Done
         })
 
 		oauth.Group(func(client chi.Router) {
