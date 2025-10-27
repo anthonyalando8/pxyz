@@ -166,30 +166,36 @@ func (s *OAuth2Service) ExchangeToken(ctx context.Context, req *domain.OAuth2Tok
 
 func (s *OAuth2Service) exchangeAuthorizationCode(ctx context.Context, req *domain.OAuth2TokenRequest, client *domain.OAuth2Client) (*domain.OAuth2TokenResponse, error) {
 	if req.Code == nil {
+		log.Printf("Authorization code missing in request")
 		return nil, domain.ErrInvalidGrant
 	}
 
 	// Get authorization code
 	authCode, err := s.repo.GetAuthorizationCode(ctx, *req.Code)
 	if err != nil {
+		log.Printf("Error retrieving authorization code: %v", err)
 		return nil, err
 	}
 
 	// Validate authorization code
 	if !authCode.IsValid() {
+		log.Printf("Authorization code is invalid or expired")
 		return nil, domain.ErrInvalidGrant
 	}
 
 	if authCode.ClientID != req.ClientID {
+		log.Printf("Authorization code client_id mismatch: expected %s, got %s", authCode.ClientID, req.ClientID)
 		return nil, domain.ErrInvalidGrant
 	}
 
 	// Validate PKCE if present
 	if authCode.CodeChallenge != nil {
 		if req.CodeVerifier == nil {
+			log.Printf("PKCE code verifier missing in request")
 			return nil, domain.ErrInvalidGrant
 		}
 		if !s.validatePKCE(*authCode.CodeChallenge, *authCode.CodeChallengeMethod, *req.CodeVerifier) {
+			log.Printf("PKCE validation failed for authorization code")
 			return nil, domain.ErrInvalidGrant
 		}
 	}
@@ -335,19 +341,23 @@ func (s *OAuth2Service) RevokeAllUserTokens(ctx context.Context, userID string) 
 func (s *OAuth2Service) validateClientCredentials(ctx context.Context, clientID string, clientSecret *string) (*domain.OAuth2Client, error) {
 	client, err := s.repo.GetOAuth2ClientByClientID(ctx, clientID)
 	if err != nil {
+		log.Printf("Error retrieving client: %v", err)
 		return nil, domain.ErrInvalidClient
 	}
 
 	if !client.IsActive {
+		log.Printf("Client %s is inactive", clientID)
 		return nil, domain.ErrUnauthorizedClient
 	}
 
 	// For confidential clients, verify client secret
 	if client.IsConfidential {
 		if clientSecret == nil || client.ClientSecret == nil {
+			log.Printf("Client secret missing for client %s", clientID)
 			return nil, domain.ErrInvalidClient
 		}
 		if err := bcrypt.CompareHashAndPassword([]byte(*client.ClientSecret), []byte(*clientSecret)); err != nil {
+			log.Printf("Invalid client secret for client %s: %v", clientID, err)
 			return nil, domain.ErrInvalidClient
 		}
 	}
