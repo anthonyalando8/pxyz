@@ -27,6 +27,7 @@ import (
 	notificationclient "x/shared/notification"
 	smsclient "x/shared/sms"
 	urbacservice "x/shared/urbac/utils"
+	oauthmid "auth-service/pkg/middleware"
 
 	"x/shared/utils/cache"
 
@@ -78,6 +79,7 @@ func NewServer(cfg config.AppConfig) *http.Server {
 	userUC := usecase.NewUserUsecase(userRepo, sf, cache, producer, otpSvc)
 
 	oauth2Svc := oauths.NewOAuth2Service(userRepo, cache)
+	oauthMid := oauthmid.NewOAuth2Middleware(oauth2Svc)
 
 	authHandler := handler.NewAuthHandler(
 		userUC,
@@ -219,7 +221,7 @@ func NewServer(cfg config.AppConfig) *http.Server {
 	// Setup HTTP routes
 	r := chi.NewRouter()
 	r = router.SetupRoutes(r, authHandler, oauthHandler, auth, wsHandler, cache, rdb).(*chi.Mux)
-	router.SetupOAuth2Routes(r, oauthHandler, auth)
+	router.SetupOAuth2Routes(r, oauthHandler, auth, oauthMid)
 
 	return &http.Server{
 		Addr:    cfg.HTTPAddr,

@@ -145,6 +145,14 @@ func (h *OAuth2Handler) ServeConsentUI(w http.ResponseWriter, r *http.Request) {
 
 	http.ServeFile(w, r, file)
 }
+func (h *OAuth2Handler) ServeTestUI(w http.ResponseWriter, r *http.Request) {
+	// Build the path to your UI folder
+	uiDir := "/app/ui" // adjust if needed; relative to where binary runs
+	file := filepath.Join(uiDir, "screen/index.html")
+	log.Printf("Serving redirect UI from: %s", file)
+
+	http.ServeFile(w, r, file)
+}
 
 // GrantConsent handles user consent approval
 // POST /oauth2/consent

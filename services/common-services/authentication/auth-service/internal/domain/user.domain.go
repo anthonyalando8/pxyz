@@ -41,6 +41,8 @@ type UserProfile struct {
 	AccountType     string    `json:"account_type"`
 	Email           *string   `json:"email,omitempty"`
 	Phone           *string   `json:"phone,omitempty"`
+	FullName		*string   `json:"full_name,omitempty"`
+	ProfileImageUrl *string   `json:"profile_image_url,omitempty"`
 	IsEmailVerified bool      `json:"is_email_verified"`
 	IsPhoneVerified bool      `json:"is_phone_verified"`
 	CreatedAt       time.Time `json:"created_at"`

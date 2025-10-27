@@ -6,11 +6,12 @@ import (
 	"fmt"
 	"net/http"
 	"x/shared/auth/middleware"
+    oauth2mid "auth-service/pkg/middleware"
 
 	"github.com/go-chi/chi/v5"
 )
 
-func SetupOAuth2Routes(r chi.Router, oauthHandler *handler.OAuth2Handler, auth *middleware.MiddlewareWithClient) {
+func SetupOAuth2Routes(r chi.Router, oauthHandler *handler.OAuth2Handler, auth *middleware.MiddlewareWithClient, mid *oauth2mid.OAuth2Middleware) {
 	r.Route("/api/v1/oauth2", func(oauth chi.Router) {
 		oauth.Get("/authorize", oauthHandler.Authorize) // Done
 		oauth.Post("/token", oauthHandler.Token)
@@ -20,12 +21,18 @@ func SetupOAuth2Routes(r chi.Router, oauthHandler *handler.OAuth2Handler, auth *
         // Auth required for consent and client management (temporary token)
         oauth.Get("/consent", oauthHandler.ShowConsent) // Done
         oauth.Get("/consent-ui", oauthHandler.ServeConsentUI) // Done
+        oauth.Get("/test_redirect", oauthHandler.ServeTestUI)
 
 		oauth.Group(func(consent chi.Router) {
 			consent.Use(auth.Require([]string{"main", "temp"}, nil, nil))
 			consent.Post("/consent", oauthHandler.GrantConsent) // Done
 		})
 
+        oauth.Group(func(profile chi.Router) {
+            profile.Use(mid.ValidateOAuth2Token)
+            profile.Use(mid.CheckScope("read"))
+            profile.Post("/userinfo", oauthHandler.UserInfo) // Done
+        })
 
 		oauth.Group(func(client chi.Router) {
 			client.Use(auth.Require([]string{"main"}, nil, nil))

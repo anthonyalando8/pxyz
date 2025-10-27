@@ -314,3 +314,24 @@ func (h *OAuth2Handler) RevokeAllConsents(w http.ResponseWriter, r *http.Request
 		"message": "All consents revoked successfully",
 	})
 }
+
+func (h *OAuth2Handler) UserInfo(w http.ResponseWriter, r *http.Request) {
+    // Extract user info from context (populated by your middleware)
+    userID, user, authenticated := h.AuthHandler.getUserFromContext(r)
+	if !authenticated {
+		response.Error(w, http.StatusUnauthorized, "Authentication required")
+		return
+	}
+
+    // Example user info response (customize fields)
+    info := map[string]interface{}{
+        "sub":   userID,           // Standard OIDC field for subject ID
+        "email": user.Email,
+        "name":  user.FullName,
+        "phone": user.Phone,
+		"photo_url": user.ProfileImageUrl,
+        "verified": user.IsEmailVerified,
+    }
+
+    response.JSON(w, http.StatusOK, info)
+}
