@@ -196,17 +196,24 @@ document.getElementById("login").onclick = async () => {
     },
     body: JSON.stringify({ password, oauth2_context: oauth2Context })
   });
+
   const data = await res.json();
   log("Login Response:", data);
 
-  if (data.requires_consent) {
+  const responseData = data.data || {};
+
+  if (responseData.requires_consent) {
     console.log("Redirecting to consent UI...");
-    window.location.href = `${baseURL}/oauth2/consent-ui?client_id=${oauth2Context.client_id}&state=${oauth2Context.state}&access_token=${data.access_token}`;
-  } else if (data.redirect_url) {
+    window.location.href =
+      `${baseURL}/oauth2/consent-ui?client_id=${responseData.oauth2_context.client_id}` +
+      `&state=${responseData.oauth2_context.state}` +
+      `&access_token=${responseData.access_token}`;
+  } else if (responseData.redirect_url) {
     console.log("Redirecting to final URL...");
-    window.location.href = data.redirect_url || "/";
+    window.location.href = responseData.redirect_url || "/";
   }
 };
+
 
 /* ---------------------- Google ---------------------- */
 function handleGoogleCredential(response) {
