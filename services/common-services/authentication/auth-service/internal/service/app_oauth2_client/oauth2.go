@@ -12,16 +12,20 @@ import (
 	"log"
 	"strings"
 	"time"
+		"x/shared/utils/cache"
+
 
 	"golang.org/x/crypto/bcrypt"
 )
 
 type OAuth2Service struct {
+	cache   *cache.Cache
+
 	repo *repository.UserRepository
 }
 
-func NewOAuth2Service(repo *repository.UserRepository) *OAuth2Service {
-	return &OAuth2Service{repo: repo}
+func NewOAuth2Service(repo *repository.UserRepository, 	cache *cache.Cache) *OAuth2Service {
+	return &OAuth2Service{repo: repo, cache: cache,}
 }
 
 // ================================
@@ -812,4 +816,26 @@ func (s *OAuth2Service) BuildErrorResponse(redirectURI, errorCode, errorDescript
 		response += "&state=" + state
 	}
 	return response
+}
+
+func (s *OAuth2Service) GenerateTemporaryCode(ctx context.Context, userID string) string {
+	token := s.generateRandomToken(32)
+	// Store in cache with 5 minute expiration
+	s.cache.Set(ctx,"oauth2", "temp_token_"+token, userID, 5*time.Minute)
+	return token
+}
+
+func (s *OAuth2Service) ValidateTemporaryCode(ctx context.Context, token string, delete bool) (string, error) {
+	userID, found := s.cache.Get(ctx,"oauth2", "temp_token_"+token)
+	if found != nil {
+		return "", domain.ErrInvalidGrant
+	}
+	if delete {
+		s.InvalidateTemporaryCode(ctx, token)
+	}
+	return userID, nil
+}
+
+func (s *OAuth2Service) InvalidateTemporaryCode(ctx context.Context, token string) {
+	s.cache.Delete(ctx,"oauth2", "temp_token_"+token)
 }

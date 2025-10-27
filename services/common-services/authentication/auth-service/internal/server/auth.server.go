@@ -77,7 +77,7 @@ func NewServer(cfg config.AppConfig) *http.Server {
 
 	userUC := usecase.NewUserUsecase(userRepo, sf, cache, producer, otpSvc)
 
-	oauth2Svc := oauths.NewOAuth2Service(userRepo)
+	oauth2Svc := oauths.NewOAuth2Service(userRepo, cache)
 
 	authHandler := handler.NewAuthHandler(
 		userUC,

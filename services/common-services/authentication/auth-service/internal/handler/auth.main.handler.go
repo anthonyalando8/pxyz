@@ -53,7 +53,7 @@ func NewAuthHandler(
 	smsClient *smsclient.SMSClient,
 	redisClient *redis.Client,
 	coreClient *coreclient.CoreService,
-	notificationClient *notificationclient.NotificationService, // ✅ added
+	notificationClient *notificationclient.NotificationService, // added
 	urbacservice *urbacservice.Service,
 	sessionClient sessionpb.AuthServiceClient,
 	config *Config,

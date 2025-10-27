@@ -200,9 +200,11 @@ document.getElementById("login").onclick = async () => {
   log("Login Response:", data);
 
   if (data.requires_consent) {
-    window.location.href = `consent.html?client_id=${oauth2Context.client_id}&state=${oauth2Context.state}`;
+    console.log("Redirecting to consent UI...");
+    window.location.href = `${baseURL}/oauth2/consent-ui?client_id=${oauth2Context.client_id}&state=${oauth2Context.state}&access_token=${data.access_token}`;
   } else if (data.redirect_url) {
-    window.location.href = data.redirect_url;
+    console.log("Redirecting to final URL...");
+    window.location.href = data.redirect_url || "/";
   }
 };
 

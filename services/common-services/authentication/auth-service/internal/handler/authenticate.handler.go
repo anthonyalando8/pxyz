@@ -314,8 +314,11 @@ func (h *AuthHandler) handleOAuth2PostAuth(w http.ResponseWriter, r *http.Reques
 	}
 
 	// User needs to grant consent
+	access_token := h.oauth2Svc.GenerateTemporaryCode(ctx, userID)
+
 	response.JSON(w, http.StatusOK, map[string]interface{}{
 		"requires_consent": true,
+		"access_token":    access_token,
 		"consent_info":     consent,
 		"oauth2_context":   oauth2Ctx,
 	})

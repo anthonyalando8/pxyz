@@ -89,12 +89,22 @@ func (h *OAuth2Handler) ShowConsent(w http.ResponseWriter, r *http.Request) {
 	// Get OAuth2 request from session/state
 	clientID := r.URL.Query().Get("client_id")
 	scope := r.URL.Query().Get("scope")
-
-	userID, authenticated := h.getUserFromRequest(r)
-	if !authenticated {
-		response.Error(w, http.StatusUnauthorized, "User not authenticated")
+	access_token := r.URL.Query().Get("access_token")
+	if access_token == "" {
+		http.Error(w, "access_token required", http.StatusBadRequest)
 		return
 	}
+	userID, err := h.oauth2Svc.ValidateTemporaryCode(r.Context(),access_token, true)
+	if err != nil {
+		http.Error(w, "Invalid or expired access token", http.StatusUnauthorized)
+		return
+	}
+
+	// userID, authenticated := h.getUserFromRequest(r)
+	// if !authenticated {
+	// 	response.Error(w, http.StatusUnauthorized, "User not authenticated")
+	// 	return
+	// }
 
 	consentInfo, err := h.oauth2Svc.GetConsentInfo(ctx, clientID, userID, scope)
 	if err != nil {
@@ -105,6 +115,16 @@ func (h *OAuth2Handler) ShowConsent(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, consentInfo)
 }
 func (h *OAuth2Handler) ServeConsentUI(w http.ResponseWriter, r *http.Request) {
+	access_token := r.URL.Query().Get("access_token")
+	if access_token == "" {
+		http.Error(w, "access_token required", http.StatusBadRequest)
+		return
+	}
+	_, err := h.oauth2Svc.ValidateTemporaryCode(r.Context(),access_token, false)
+	if err != nil {
+		http.Error(w, "Invalid or expired access token", http.StatusUnauthorized)
+		return
+	}
 	// Build the path to your UI folder
 	uiDir := "/app/ui" // adjust if needed; relative to where binary runs
 	file := filepath.Join(uiDir, "screen/oauth2_consent.html")

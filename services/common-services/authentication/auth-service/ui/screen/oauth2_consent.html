@@ -97,6 +97,7 @@ const baseURL = "http://212.95.35.81:70/api/v1";
 const params = new URLSearchParams(window.location.search);
 const client_id = params.get("client_id");
 const redirect_uri = params.get("redirect_uri");
+const access_token = params.get("access_token");
 const scope = params.get("scope");
 const state = params.get("state");
 
@@ -108,7 +109,7 @@ function log(msg) {
 async function loadConsent() {
   try {
     log("Fetching consent info...");
-    const res = await fetch(`${baseURL}/oauth2/consent?client_id=${encodeURIComponent(client_id)}&scope=${encodeURIComponent(scope)}`, {
+    const res = await fetch(`${baseURL}/oauth2/consent?client_id=${encodeURIComponent(client_id)}&scope=${encodeURIComponent(scope)}&access_token=${encodeURIComponent(access_token)}`, {
       credentials: "include",
     });
     const data = await res.json();
