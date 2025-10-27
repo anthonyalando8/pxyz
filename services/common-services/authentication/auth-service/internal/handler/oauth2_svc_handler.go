@@ -4,7 +4,9 @@ package handler
 import (
 	"auth-service/internal/domain"
 	service "auth-service/internal/service/app_oauth2_client"
+	"bytes"
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -218,6 +220,9 @@ func (h *OAuth2Handler) GrantConsent(w http.ResponseWriter, r *http.Request) {
 func (h *OAuth2Handler) Token(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	bodyBytes, _ := io.ReadAll(r.Body)
+	log.Println("Raw body:", string(bodyBytes))
+	r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 	// Parse form data
 	if err := r.ParseForm(); err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid_request")
