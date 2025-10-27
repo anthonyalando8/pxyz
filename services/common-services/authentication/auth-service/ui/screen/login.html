@@ -70,14 +70,19 @@ let token = null;
 
 // --- Parse OAuth2 Context ---
 const urlParams = new URLSearchParams(window.location.search);
-const oauth2Context = {
-  client_id: urlParams.get('client_id'),
-  redirect_uri: urlParams.get('redirect_uri'),
-  scope: urlParams.get('scope'),
-  state: urlParams.get('state'),
-  code_challenge: urlParams.get('code_challenge'),
-  code_challenge_method: urlParams.get('code_challenge_method')
-};
+const encodedContext = urlParams.get('oauth2_context');
+
+let oauth2Context = {};
+if (encodedContext) {
+  try {
+    oauth2Context = JSON.parse(decodeURIComponent(encodedContext));
+  } catch (err) {
+    console.error('Failed to parse oauth2_context:', err);
+  }
+}
+
+console.log('Decoded OAuth2 context:', oauth2Context);
+
 
 function log(msg, data) {
   const el = document.getElementById("output");

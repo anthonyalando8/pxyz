@@ -53,39 +53,20 @@
     const pre = document.getElementById('responseArea');
     const btn = document.getElementById('btnPxyz');
 
-    function log(msg) {
-      pre.textContent = msg;
-    }
+    btn.addEventListener('click', () => {
+      // Log starting state
+      pre.textContent = "Redirecting to authorization endpoint...";
 
-    btn.addEventListener('click', async () => {
-      log('Sending /authorize request...');
+      // Build OAuth2 authorization URL
+      const authorizeUrl = new URL("http://212.95.35.81:70/api/v1/oauth2/authorize");
+      authorizeUrl.searchParams.set("response_type", "code");
+      authorizeUrl.searchParams.set("client_id", "client_Bd44cnVfDlk9UKTWfpaYNg==");
+      authorizeUrl.searchParams.set("redirect_uri", "http://127.0.0.1:5500/ui/screen/index.html");
+      authorizeUrl.searchParams.set("scope", "read");
+      authorizeUrl.searchParams.set("state", "xyz123");
 
-      const url = `http://212.95.35.81:70/api/v1/oauth2/authorize?` +
-        `response_type=code&` +
-        `client_id=client_abc123&` +
-        `redirect_uri=http://127.0.0.1:5500/ui/screen/auth2_login.html&` +
-        `scope=read&` +
-        `state=xyz123`;
-
-      try {
-        const res = await fetch(url, { method: 'GET', redirect: 'follow' });
-
-        log(`Status: ${res.status} ${res.statusText}\n\n`);
-
-        const contentType = res.headers.get('content-type');
-        let bodyText = '';
-
-        if (contentType && contentType.includes('application/json')) {
-          const data = await res.json();
-          bodyText = JSON.stringify(data, null, 2);
-        } else {
-          bodyText = await res.text();
-        }
-
-        log(pre.textContent + bodyText);
-      } catch (err) {
-        log(`Error:\n${err.message}`);
-      }
+      // Perform real redirect (browser navigation)
+      window.location.href = authorizeUrl.toString();
     });
   </script>
 
