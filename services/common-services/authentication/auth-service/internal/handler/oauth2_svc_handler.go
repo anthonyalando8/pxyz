@@ -234,6 +234,7 @@ func (h *OAuth2Handler) Token(w http.ResponseWriter, r *http.Request) {
 		Scope:        stringPtrOrNil(r.FormValue("scope")),
 		CodeVerifier: stringPtrOrNil(r.FormValue("code_verifier")),
 	}
+	log.Printf("OAuth2 Token Request: grant_type=%s, client_id=%s", req.GrantType, req.ClientID)
 
 	tokenResp, err := h.oauth2Svc.ExchangeToken(ctx, req)
 	if err != nil {
