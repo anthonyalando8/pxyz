@@ -106,7 +106,7 @@ func (h *OAuth2Handler) ShowConsent(w http.ResponseWriter, r *http.Request) {
 }
 func (h *OAuth2Handler) ServeConsentUI(w http.ResponseWriter, r *http.Request) {
 	// Build the path to your UI folder
-	uiDir := "./ui" // adjust if needed; relative to where binary runs
+	uiDir := "/app/ui" // adjust if needed; relative to where binary runs
 	file := filepath.Join(uiDir, "screen/oauth2_consent.html")
 	log.Printf("Serving consent UI from: %s", file)
 

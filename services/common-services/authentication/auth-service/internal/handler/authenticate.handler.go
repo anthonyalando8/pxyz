@@ -35,7 +35,7 @@ func (h *AuthHandler) TestRouteHandler(w http.ResponseWriter, r *http.Request) {
 
 func (h *AuthHandler) ServeLoginUI(w http.ResponseWriter, r *http.Request) {
     // Build the path to your UI folder
-    uiDir := "./ui" // adjust if needed; relative to where binary runs
+    uiDir := "/app/ui" // adjust if needed; relative to where binary runs
     file := filepath.Join(uiDir, "screen/login.html")
 	log.Printf("Serving login UI from: %s", file)
 
