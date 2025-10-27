@@ -219,7 +219,7 @@ func NewServer(cfg config.AppConfig) *http.Server {
 	// Setup HTTP routes
 	r := chi.NewRouter()
 	r = router.SetupRoutes(r, authHandler, oauthHandler, auth, wsHandler, cache, rdb).(*chi.Mux)
-	//router.SetupOAuth2Routes(r, oauthHandler, auth)
+	router.SetupOAuth2Routes(r, oauthHandler, auth)
 
 	return &http.Server{
 		Addr:    cfg.HTTPAddr,

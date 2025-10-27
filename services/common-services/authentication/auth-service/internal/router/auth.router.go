@@ -147,7 +147,7 @@ func SetupRoutes(
 			})
 			g.Delete("/auth/logout", h.LogoutHandler(auth.Client))
 		})
-		SetupOAuth2Routes(r, oauthHandler, auth)
+		//SetupOAuth2Routes(r, oauthHandler, auth)
 	})
 
 	return r
