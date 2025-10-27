@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"path/filepath"
+	"strings"
 	"x/shared/auth/middleware"
 	"x/shared/response"
 )
@@ -224,9 +225,17 @@ func (h *OAuth2Handler) Token(w http.ResponseWriter, r *http.Request) {
 	log.Println("Raw body:", string(bodyBytes))
 	r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 	// Parse form data
-	if err := r.ParseForm(); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid_request")
-		return
+	contentType := r.Header.Get("Content-Type")
+	if strings.HasPrefix(contentType, "multipart/form-data") {
+		if err := r.ParseMultipartForm(10 << 20); err != nil { // 10MB max memory
+			response.Error(w, http.StatusBadRequest, "invalid multipart request")
+			return
+		}
+	} else {
+		if err := r.ParseForm(); err != nil {
+			response.Error(w, http.StatusBadRequest, "invalid form request")
+			return
+		}
 	}
 
 	req := &domain.OAuth2TokenRequest{
@@ -258,6 +267,19 @@ func (h *OAuth2Handler) Token(w http.ResponseWriter, r *http.Request) {
 // POST /oauth2/introspect
 func (h *OAuth2Handler) Introspect(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+
+	contentType := r.Header.Get("Content-Type")
+	if strings.HasPrefix(contentType, "multipart/form-data") {
+		if err := r.ParseMultipartForm(10 << 20); err != nil { // 10MB max memory
+			response.Error(w, http.StatusBadRequest, "invalid multipart request")
+			return
+		}
+	} else {
+		if err := r.ParseForm(); err != nil {
+			response.Error(w, http.StatusBadRequest, "invalid form request")
+			return
+		}
+	}
 
 	if err := r.ParseForm(); err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid request")
