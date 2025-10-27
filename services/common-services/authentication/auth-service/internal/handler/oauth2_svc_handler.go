@@ -33,7 +33,7 @@ func NewOAuth2Handler(oauth2Svc *service.OAuth2Service, authUC interface{}) *OAu
 // GET /oauth2/authorize?response_type=code&client_id=xxx&redirect_uri=xxx&scope=read&state=xyz
 func (h *OAuth2Handler) Authorize(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	
+
 	// Parse query parameters
 	req := &domain.OAuth2AuthorizationRequest{
 		ResponseType:        r.URL.Query().Get("response_type"),
@@ -53,7 +53,7 @@ func (h *OAuth2Handler) Authorize(w http.ResponseWriter, r *http.Request) {
 
 	// Check if user is authenticated
 	userID, authenticated := h.getUserFromRequest(r)
-	
+
 	if !authenticated {
 		// Redirect to login with OAuth2 context
 		h.redirectToLogin(w, r, req)
@@ -85,11 +85,11 @@ func (h *OAuth2Handler) Authorize(w http.ResponseWriter, r *http.Request) {
 // GET /oauth2/consent
 func (h *OAuth2Handler) ShowConsent(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	
+
 	// Get OAuth2 request from session/state
 	clientID := r.URL.Query().Get("client_id")
 	scope := r.URL.Query().Get("scope")
-	
+
 	userID, authenticated := h.getUserFromRequest(r)
 	if !authenticated {
 		response.Error(w, http.StatusUnauthorized, "User not authenticated")
@@ -105,18 +105,18 @@ func (h *OAuth2Handler) ShowConsent(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, consentInfo)
 }
 func (h *OAuth2Handler) ServeConsentUI(w http.ResponseWriter, r *http.Request) {
-    // Build the path to your UI folder
-    uiDir := "./ui" // adjust if needed; relative to where binary runs
-    file := filepath.Join(uiDir, "screen/oauth2_consent.html")
+	// Build the path to your UI folder
+	uiDir := "./ui" // adjust if needed; relative to where binary runs
+	file := filepath.Join(uiDir, "screen/oauth2_consent.html")
 
-    http.ServeFile(w, r, file)
+	http.ServeFile(w, r, file)
 }
 
 // GrantConsent handles user consent approval
 // POST /oauth2/consent
 func (h *OAuth2Handler) GrantConsent(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	
+
 	var req struct {
 		ClientID    string `json:"client_id"`
 		Scope       string `json:"scope"`
@@ -175,7 +175,7 @@ func (h *OAuth2Handler) GrantConsent(w http.ResponseWriter, r *http.Request) {
 // POST /oauth2/token
 func (h *OAuth2Handler) Token(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	
+
 	// Parse form data
 	if err := r.ParseForm(); err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid_request")
@@ -210,7 +210,7 @@ func (h *OAuth2Handler) Token(w http.ResponseWriter, r *http.Request) {
 // POST /oauth2/introspect
 func (h *OAuth2Handler) Introspect(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	
+
 	if err := r.ParseForm(); err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid request")
 		return
@@ -241,7 +241,7 @@ func (h *OAuth2Handler) Introspect(w http.ResponseWriter, r *http.Request) {
 // POST /oauth2/revoke
 func (h *OAuth2Handler) Revoke(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	
+
 	if err := r.ParseForm(); err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid request")
 		return
@@ -273,7 +273,7 @@ func (h *OAuth2Handler) redirectToLogin(w http.ResponseWriter, r *http.Request, 
 		"scope":        authReq.Scope,
 		"state":        authReq.State,
 	}
-	
+
 	if authReq.CodeChallenge != nil {
 		state["code_challenge"] = *authReq.CodeChallenge
 	}
@@ -283,25 +283,25 @@ func (h *OAuth2Handler) redirectToLogin(w http.ResponseWriter, r *http.Request, 
 
 	// Encode state as query parameter
 	stateJSON, _ := json.Marshal(state)
-	loginURL := "/api/v1/auth/login/ui?oauth2_context=" + url.QueryEscape(string(stateJSON))
-	
+	loginURL := "/api/v1/auth/login-ui?oauth2_context=" + url.QueryEscape(string(stateJSON))
+
 	http.Redirect(w, r, loginURL, http.StatusFound)
 }
 
 func (h *OAuth2Handler) showConsentScreen(w http.ResponseWriter, r *http.Request, authReq *domain.OAuth2AuthorizationRequest, consent *domain.ConsentInfo) {
 	// In a real app, this would render an HTML consent screen
 	// For API, return JSON with consent information
-	consentURL := "/api/v1/oauth2/consent?client_id=" + authReq.ClientID +
+	consentURL := "/api/v1/oauth2/consent-ui?client_id=" + authReq.ClientID +
 		"&scope=" + url.QueryEscape(authReq.Scope) +
 		"&redirect_uri=" + url.QueryEscape(authReq.RedirectURI) +
 		"&state=" + url.QueryEscape(authReq.State)
-	
+
 	http.Redirect(w, r, consentURL, http.StatusFound)
 }
 
 func (h *OAuth2Handler) completeAuthorization(w http.ResponseWriter, r *http.Request, authReq *domain.OAuth2AuthorizationRequest, userID string) {
 	ctx := r.Context()
-	
+
 	code, err := h.oauth2Svc.AuthorizeRequest(ctx, authReq, userID)
 	if err != nil {
 		h.redirectError(w, r, authReq.RedirectURI, "server_error", err.Error(), authReq.State)
@@ -314,7 +314,7 @@ func (h *OAuth2Handler) completeAuthorization(w http.ResponseWriter, r *http.Req
 
 func (h *OAuth2Handler) redirectError(w http.ResponseWriter, r *http.Request, redirectURI, errorCode, description, state string) {
 	if redirectURI == "" {
-		response.Error(w, http.StatusBadRequest, errorCode,/* description*/)
+		response.Error(w, http.StatusBadRequest, errorCode /* description*/)
 		return
 	}
 
@@ -325,13 +325,13 @@ func (h *OAuth2Handler) redirectError(w http.ResponseWriter, r *http.Request, re
 func (h *OAuth2Handler) handleTokenError(w http.ResponseWriter, err error) {
 	switch err {
 	case domain.ErrInvalidClient:
-		response.Error(w, http.StatusUnauthorized, "invalid_client",/* "Client authentication failed" */)
+		response.Error(w, http.StatusUnauthorized, "invalid_client" /* "Client authentication failed" */)
 	case domain.ErrInvalidGrant:
-		response.Error(w, http.StatusBadRequest, "invalid_grant", /*"Invalid authorization code or refresh token" */)
+		response.Error(w, http.StatusBadRequest, "invalid_grant" /*"Invalid authorization code or refresh token" */)
 	case domain.ErrUnsupportedGrantType:
-		response.Error(w, http.StatusBadRequest, "unsupported_grant_type",/* "Grant type not supported" */)
+		response.Error(w, http.StatusBadRequest, "unsupported_grant_type" /* "Grant type not supported" */)
 	default:
-		response.Error(w, http.StatusInternalServerError, "server_error",/* "Internal server error"*/)
+		response.Error(w, http.StatusInternalServerError, "server_error" /* "Internal server error"*/)
 	}
 }
 

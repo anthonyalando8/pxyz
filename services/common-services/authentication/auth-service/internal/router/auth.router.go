@@ -41,13 +41,13 @@ func SetupRoutes(
 
 	r.Route("/api/v1", func(api chi.Router) {
 		api.Use(auth.RateLimit(rdb, 5, 30*time.Second, 30*time.Second, "user_auth"))
-		
+
 		// ---------------- Public ----------------
 		api.Group(func(pub chi.Router) {
 			pub.Get("/auth/health", h.Health)
 			pub.Get("/auth/test", h.TestRouteHandler)
-			
-			pub.Get("/auth/login/ui", h.ServeLoginUI)
+
+			pub.Get("/auth/login-ui", h.ServeLoginUI)
 
 			pub.Post("/auth/submit-identifier", h.SubmitIdentifier)
 			pub.Post("/auth/google", h.GoogleAuthHandler)
@@ -147,7 +147,7 @@ func SetupRoutes(
 			})
 			g.Delete("/auth/logout", h.LogoutHandler(auth.Client))
 		})
-		SetupOAuth2Routes(api, oauthHandler, auth)
+		SetupOAuth2Routes(r, oauthHandler, auth)
 	})
 
 	return r
