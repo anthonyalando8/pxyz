@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 	"x/shared/auth/middleware"
 	xerrors "x/shared/utils/errors"
@@ -322,9 +323,13 @@ func (h *AuthHandler) HandlePhoneChange(w http.ResponseWriter, r *http.Request) 
 	}
 
 	ctx := r.Context()
+	phone := req.NewPhone
+	if after, ok :=strings.CutPrefix(phone, "+"); ok  {
+		phone = after
+	}
 
 	// --- Check if phone already exists ---
-	existingUser, err := h.uc.GetUserByIdentifier(ctx, req.NewPhone)
+	existingUser, err := h.uc.GetUserByIdentifier(ctx, phone)
 	if err == nil && existingUser != nil {
 		if existingUser.User.ID == requestedUserID {
 			response.Error(w, http.StatusBadRequest, "This phone number is already linked to your account")

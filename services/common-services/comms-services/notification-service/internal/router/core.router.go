@@ -48,7 +48,7 @@ func SetupRoutes(
 	// ============================================================
 	// Notifications Routes (all require auth)
 	// ============================================================
-	r.Route("/user/notifications", func(r chi.Router) {
+	r.Route("/api/v1/user/notifications", func(r chi.Router) {
 		r.Use(auth.Middleware)
 
 		// Notification CRUD & prefs

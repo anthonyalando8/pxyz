@@ -6,11 +6,12 @@ import (
 	"auth-service/pkg/utils"
 	"context"
 	"encoding/json"
-	"x/shared/genproto/otppb"
-	"log"
 	"errors"
 	"fmt"
+	"log"
+	"strings"
 	"time"
+	"x/shared/genproto/otppb"
 )
 
 // SubmitIdentifierRequest represents the first step of login
@@ -52,6 +53,12 @@ func (uc *UserUsecase) SubmitIdentifier(ctx context.Context, identifier string) 
 	if identifier == "" {
 		return nil, errors.New("identifier is required")
 	}
+	isEmail := isEmailFormat(identifier)
+	if !isEmail {
+		if after, ok :=strings.CutPrefix(identifier, "+"); ok  {
+			identifier = after
+		}
+	}
 
 	// Try to find existing user
 	userWithCred, err := uc.userRepo.GetUserByIdentifier(ctx, identifier)
@@ -79,7 +86,12 @@ func (uc *UserUsecase) SubmitIdentifier(ctx context.Context, identifier string) 
 func (uc *UserUsecase) handleNewUser(ctx context.Context, identifier string) (*SubmitIdentifierResponse, error) {
 	userID := uc.Sf.Generate()
 	isEmail := isEmailFormat(identifier)
-	_ = isEmail // currently unused, but could be logged or used later
+	_ = isEmail
+	// if !isEmail {
+	// 	if after, ok :=strings.CutPrefix(identifier, "+"); ok  {
+	// 		identifier = after
+	// 	}
+	// }
 
 	cachedData := &CachedUserData{
 		UserID:          userID,

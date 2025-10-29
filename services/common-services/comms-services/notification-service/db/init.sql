@@ -1,10 +1,11 @@
 \c pxyz_user;
+BEGIN;
 -- Main notifications table
 CREATE TABLE notifications (
   id BIGSERIAL PRIMARY KEY,
   request_id UUID UNIQUE,                -- idempotency for producer
   owner_type VARCHAR(20) NOT NULL,       -- 'user', 'partner', 'admin'
-  owner_id TEXT NOT NULL,                -- flexible (BIGINT, UUID, string)
+  owner_id BIGINT REFERENCES users(id) ON DELETE CASCADE, 
   event_type VARCHAR(100) NOT NULL,      -- e.g. 'transaction.completed'
   channel_hint VARCHAR(20)[] NOT NULL,   -- ['sms','email','inapp']
   title TEXT,
@@ -69,3 +70,4 @@ CREATE INDEX idx_deliveries_status
 
 CREATE INDEX idx_preferences_owner 
     ON notification_preferences (owner_type, owner_id);
+COMMIT;

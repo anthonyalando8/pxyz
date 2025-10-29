@@ -49,6 +49,11 @@ func (h *AuthHandler) SubmitIdentifier(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, "invalid request")
 		return
 	}
+	//validate email or phone
+	if !utils.ValidateEmail(req.Identifier) && !utils.ValidatePhone(req.Identifier) {
+		response.Error(w, http.StatusBadRequest, "invalid identifier format")
+		return
+	}
 
 	result, err := h.uc.SubmitIdentifier(r.Context(), req.Identifier)
 	if err != nil {

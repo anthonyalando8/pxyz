@@ -18,6 +18,13 @@ func ValidateEmail(email string) bool {
 	return emailRegex.MatchString(email)
 }
 
+func ValidatePhone(phone string) bool { 
+	e164Regex := regexp.MustCompile(`^\+?[1-9]\d{6,14}$`)
+	if !e164Regex.MatchString(phone) {
+		return false
+	}
+	return true
+}
 // ValidatePhoneWithCountry checks if a phone number is valid and matches the expected country code.
 func ValidatePhoneWithCountry(phone string, countryPhoneCode string) bool {
 	phone = strings.TrimSpace(phone)

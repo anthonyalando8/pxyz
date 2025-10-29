@@ -694,8 +694,8 @@ func (h *AuthHandler) ensureNationality(ctx context.Context, userID string) (str
 		return "", ""
 	}
 	if natResp.HasNationality {
-		return natResp.Nationality, ""
+		return  "", natResp.Nationality
 	} else {
-		return "","set_nationality"
+		return "set_nationality",""
 	}
 }

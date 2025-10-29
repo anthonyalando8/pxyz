@@ -4,7 +4,7 @@
 -- ============================
 BEGIN;
 CREATE TABLE IF NOT EXISTS user_profiles (
-    user_id BIGINT PRIMARY KEY, -- references auth.users(id) logically
+    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE PRIMARY KEY, -- references auth.users(id) logically
     date_of_birth DATE,
     profile_image_url TEXT,
     first_name   VARCHAR(100),
@@ -36,7 +36,7 @@ CREATE INDEX IF NOT EXISTS idx_user_profiles_address_gin ON user_profiles USING 
 -- USER PREFERENCES
 -- ============================
 CREATE TABLE IF NOT EXISTS user_preferences (
-    user_id BIGINT PRIMARY KEY,
+    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE PRIMARY KEY,
     preferences JSONB NOT NULL DEFAULT '{}'::jsonb,
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -51,7 +51,7 @@ CREATE INDEX IF NOT EXISTS idx_user_preferences_gin ON user_preferences USING GI
 -- ============================
 CREATE TABLE IF NOT EXISTS user_twofa (
     id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT NOT NULL,
+    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
     method TEXT NOT NULL,    -- 'totp', 'sms', 'email'
     secret TEXT,             -- base32 secret for TOTP
     is_enabled BOOLEAN DEFAULT FALSE,
