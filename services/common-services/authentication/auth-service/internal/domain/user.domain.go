@@ -37,24 +37,24 @@ type UserWithCredential struct {
 // UserProfile is a view-friendly representation without sensitive data
 type UserProfile struct {
 	ID              string                 `json:"user_id"`
-	Email           *string                `json:"email,omitempty"`
-	Phone           *string                `json:"phone,omitempty"`
+	Email           *string                `json:"email"`
+	Phone           *string                `json:"phone"`
 	AccountType     string                 `json:"account_type"`
 	AccountStatus   string                 `json:"account_status"`
-	IsEmailVerified bool                   `json:"is_email_verified,omitempty"`
-	IsPhoneVerified bool                   `json:"is_phone_verified,omitempty"`
+	IsEmailVerified bool                   `json:"is_email_verified"`
+	IsPhoneVerified bool                   `json:"is_phone_verified"`
 	CreatedAt       time.Time              `json:"created_at"`
 	UpdatedAt       time.Time              `json:"-"`
 
 	// Extended profile fields
-	FirstName       string                 `json:"first_name,omitempty"`
-	LastName        string                 `json:"last_name,omitempty"`
-	Username        string                 `json:"username,omitempty"`
+	FirstName       string                 `json:"first_name"`
+	LastName        string                 `json:"last_name"`
+	Username        string                 `json:"username"`
 	Bio             string                 `json:"bio,omitempty"`
-	Gender          string                 `json:"gender,omitempty"`
-	DateOfBirth     string                 `json:"date_of_birth,omitempty"`
-	ProfileImageUrl string                 `json:"profile_image,omitempty"`
-	Nationality     string                 `json:"nationality,omitempty"`
+	Gender          string                 `json:"gender"`
+	DateOfBirth     string                 `json:"date_of_birth"`
+	ProfileImageUrl string                 `json:"profile_image"`
+	Nationality     string                 `json:"nationality"`
 
 	// Address can be dynamic (JSON object or string fallback)
 	Address         interface{}            `json:"address,omitempty"`
