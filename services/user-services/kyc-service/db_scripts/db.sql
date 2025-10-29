@@ -1,21 +1,41 @@
 -- Switch DB (only works in psql shell, not migrations)
-\c pxyz;
+\c pxyz_user;
 
-CREATE TABLE kyc_submissions (
-    id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT NOT NULL,
-    id_number VARCHAR(100) NOT NULL,
-    nationality VARCHAR(100),
-    document_type VARCHAR(50) NOT NULL DEFAULT 'national_id',
-    document_front_url TEXT NOT NULL,
-    document_back_url TEXT NOT NULL,
-    status VARCHAR(30) NOT NULL DEFAULT 'pending', 
-        -- pending, under_review, approved, rejected
-    rejection_reason TEXT,
-    submitted_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    reviewed_at TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+BEGIN;
+
+-- Table: kyc_submissions
+
+DROP TABLE IF EXISTS kyc_submissions;
+
+CREATE TABLE IF NOT EXISTS kyc_submissions
+(
+    id bigint NOT NULL,
+    user_id bigint NOT NULL,
+    id_number character varying(100) COLLATE pg_catalog."default" NOT NULL,
+    nationality character varying(100) COLLATE pg_catalog."default",
+    document_type character varying(50) COLLATE pg_catalog."default" NOT NULL DEFAULT 'national_id'::character varying,
+    document_front_url text COLLATE pg_catalog."default" NOT NULL,
+    document_back_url text COLLATE pg_catalog."default" NOT NULL,
+    status character varying(30) COLLATE pg_catalog."default" NOT NULL DEFAULT 'pending'::character varying,
+    rejection_reason text COLLATE pg_catalog."default",
+    submitted_at timestamp without time zone NOT NULL DEFAULT now(),
+    reviewed_at timestamp without time zone,
+    updated_at timestamp without time zone NOT NULL DEFAULT now(),
+    selfie_image_url text COLLATE pg_catalog."default",
+    date_of_birth date,
+    consent boolean NOT NULL DEFAULT true,
+    CONSTRAINT kyc_submissions_pkey PRIMARY KEY (id),
+    CONSTRAINT fk_kyc_user FOREIGN KEY (user_id)
+        REFERENCES users (id) MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE CASCADE
 );
+
+DROP INDEX IF EXISTS idx_kyc_status;
+
+
+DROP INDEX IF EXISTS idx_kyc_user;
+
 
 CREATE TABLE kyc_audit_logs (
     id BIGSERIAL PRIMARY KEY,
@@ -42,6 +62,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trg_set_updated_at
-BEFORE UPDATE ON kyc_submissions
-FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+-- DROP TRIGGER IF EXISTS trg_set_updated_at ON kyc_submissions;
+
+CREATE OR REPLACE TRIGGER trg_set_updated_at
+    BEFORE UPDATE 
+    ON kyc_submissions
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+
+COMMIT;

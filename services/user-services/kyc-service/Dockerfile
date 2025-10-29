@@ -37,7 +37,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=builder /app/kyc-service /app/kyc-service
 
 # Create uploads directory for KYC documents
-RUN mkdir -p /app/uploads/kyc_docs
+# RUN mkdir -p /app/uploads/kyc_docs
 
 # Non-root user for security
 RUN set -eux; \
@@ -47,6 +47,11 @@ RUN set -eux; \
     chown -R nonroot:nonroot /app
 
 USER nonroot
+
+RUN mkdir -p /app/uploads/kyc_docs \
+ && chown -R nonroot:nonroot /app \
+ && chmod -R 775 /app/uploads
+
 
 # Expose gRPC/REST port
 EXPOSE 8005
