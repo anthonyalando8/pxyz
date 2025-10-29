@@ -65,6 +65,5 @@ func SetupRoutes(
 		// WebSocket endpoint
 		r.Get("/ws", wsHandler.HandleNotifications)
 	})
-
 	return r
 }
