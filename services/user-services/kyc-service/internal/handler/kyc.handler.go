@@ -16,13 +16,13 @@ import (
 	"kyc-service/internal/service"
 	"x/shared/auth/middleware"
 	emailclient "x/shared/email"
-	"x/shared/genproto/emailpb"
-	notificationpb "x/shared/genproto/shared/notificationpb"
-	notificationclient "x/shared/notification" // ✅ added
-	"x/shared/response"
 
-	"github.com/google/uuid"
-	"google.golang.org/protobuf/types/known/structpb"
+	notificationclient "x/shared/notification" // ✅ added
+	//authpb "x/shared/genproto/authpb"
+	authclient "x/shared/auth"
+	urbacservice "x/shared/urbac/utils"
+
+	"x/shared/response"
 
 	"github.com/go-chi/chi"
 )
@@ -31,11 +31,12 @@ type KYCHandler struct {
 	service     *service.KYCService
 	emailClient *emailclient.EmailClient
 	notificationClient *notificationclient.NotificationService // ✅ added
-
+	authClient *authclient.AuthService
+	urbacservice *urbacservice.Service
 }
 
-func NewKYCHandler(s *service.KYCService, emailClient *emailclient.EmailClient, notificationClient *notificationclient.NotificationService) *KYCHandler {
-	return &KYCHandler{service: s, emailClient: emailClient, notificationClient: notificationClient,}
+func NewKYCHandler(s *service.KYCService, emailClient *emailclient.EmailClient, notificationClient *notificationclient.NotificationService, authClient *authclient.AuthService, urbacservice *urbacservice.Service) *KYCHandler {
+	return &KYCHandler{service: s, emailClient: emailClient, notificationClient: notificationClient,authClient: authClient, urbacservice: urbacservice,}
 }
 
 // UploadKYC handles uploading front and back ID images + face photo + KYC submission.
@@ -163,7 +164,7 @@ func (h *KYCHandler) UploadKYC(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Printf("[INFO] KYC submission stored successfully for userID=%s", userID)
 
-	h.sendKYCSubmissionNotification(userID, "")
+	h.postKYCSubmission(r.Context(),userID)
 
 	// Response
 	response.JSON(w, http.StatusOK, map[string]interface{}{
@@ -186,67 +187,6 @@ func saveFile(src io.Reader, path string) error {
 	return err
 }
 
-func (h *KYCHandler) sendKYCSubmissionNotification(userID, recipientEmail string) {
-	if h.notificationClient == nil{
-		return
-	}
-
-	go func(uid, email string) {
-		ctx := context.Background() // background context for async processing
-
-		_, err := h.notificationClient.Client.CreateNotification(ctx, &notificationpb.CreateNotificationsRequest{
-			Notifications: []*notificationpb.Notification{
-				{
-					RequestId:      uuid.New().String(),
-					OwnerType:      "user",
-					OwnerId:        uid,
-					EventType:      "KYC_SUBMITTED",
-					Title: "KYC Documents Submitted",
-					Body: "Your KYC documents have been submitted awaiting review.",
-					ChannelHint:    []string{"email"},
-					Payload: func() *structpb.Struct {
-						s, _ := structpb.NewStruct(map[string]interface{}{})
-						return s
-					}(),
-					VisibleInApp:   false,
-					RecipientEmail: email,
-					Priority:       "high",
-					Status:         "pending",
-				},
-			},
-		})
-		if err != nil {
-			log.Printf("[WARN] failed to send KYC submission email to %s: %v", email, err)
-		} else {
-			log.Printf("Successfully queued KYC submission notification | Recipient=%s", email)
-		}
-	}(userID, recipientEmail)
-}
-
-
-func (h *KYCHandler) sendKYCReviewResult(userID, recipientEmail, status string) {
-	subject := "Your KYC review is complete"
-	body := fmt.Sprintf(`
-		<!DOCTYPE html>
-		<html><head><meta charset="UTF-8"><title>KYC Review</title></head>
-		<body>
-			<p>Hello,</p>
-			<p>Your KYC review is now complete. Status: <strong>%s</strong></p>
-			<p>Thank you,<br>Pxyz Team</p>
-		</body>
-		</html>`, status)
-
-	_, err := h.emailClient.SendEmail(context.Background(), &emailpb.SendEmailRequest{
-		UserId:         userID,
-		RecipientEmail: recipientEmail,
-		Subject:        subject,
-		Body:           body,
-		Type:           "kyc_review_result",
-	})
-	if err != nil {
-		log.Printf("[WARN] failed to send KYC review result email to %s: %v", recipientEmail, err)
-	}
-}
 
 func (h *KYCHandler) GetKYCStatus(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.ContextUserID).(string)

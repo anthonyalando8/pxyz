@@ -4,9 +4,13 @@ import (
 	"net/http"
 	"strings"
 	"log"
+	"context"
 	//"x/shared/response"
 	"auth-service/internal/domain"
 	"x/shared/auth/middleware"
+		"github.com/google/uuid"
+	"google.golang.org/protobuf/types/known/structpb"
+	"x/shared/genproto/shared/notificationpb"
 )
 
 func toPtr(s string) *string {
@@ -63,4 +67,37 @@ func (h *AuthHandler) getDeviceIDFromContext(r *http.Request) string {
 		return ""
 	}
 	return deviceID
+}
+
+func (h *AuthHandler) sendWelcomeNotification(userID string) {
+	ctx := context.Background()
+
+	_, err := h.notificationClient.Client.CreateNotification(ctx, &notificationpb.CreateNotificationsRequest{
+		Notifications: []*notificationpb.Notification{
+			{
+				RequestId:   uuid.New().String(),
+				OwnerType:   "user",
+				OwnerId:     userID,
+				EventType:   "WELCOME",
+				ChannelHint: []string{"email", "ws"},
+				Title:       "Welcome to Pxyz!",
+				Body:        "Your account has been created successfully. Let's get started 🚀",
+				Priority:    "high",
+				Status:      "pending",
+				VisibleInApp: true,
+				Payload: func() *structpb.Struct {
+					s, _ := structpb.NewStruct(map[string]interface{}{
+						"LoginURL": "https://tradex-frontend-jkxr.vercel.app",
+					})
+					return s
+				}(),
+			},	
+		},
+	})
+
+	if err != nil {
+		log.Printf("⚠️ Failed to create welcome notification for user=%s: %v", userID, err)
+	} else {
+		log.Printf("✅ Welcome notification created for user=%s", userID)
+	}
 }

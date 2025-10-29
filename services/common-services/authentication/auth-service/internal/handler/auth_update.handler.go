@@ -74,38 +74,6 @@ func (h *AuthHandler) HandleResetPassword(w http.ResponseWriter, r *http.Request
 	response.JSON(w, http.StatusOK, map[string]string{"message": "Password reset successful"})
 }
 
-func (h *AuthHandler) sendWelcomeNotification(userID string) {
-	ctx := context.Background()
-
-	_, err := h.notificationClient.Client.CreateNotification(ctx, &notificationpb.CreateNotificationsRequest{
-		Notifications: []*notificationpb.Notification{
-			{
-				RequestId:   uuid.New().String(),
-				OwnerType:   "user",
-				OwnerId:     userID,
-				EventType:   "WELCOME",
-				ChannelHint: []string{"email", "ws"},
-				Title:       "Welcome to Pxyz!",
-				Body:        "Your account has been created successfully. Let's get started 🚀",
-				Priority:    "high",
-				Status:      "pending",
-				VisibleInApp: true,
-				Payload: func() *structpb.Struct {
-					s, _ := structpb.NewStruct(map[string]interface{}{
-						"LoginURL": "https://tradex-frontend-jkxr.vercel.app",
-					})
-					return s
-				}(),
-			},	
-		},
-	})
-
-	if err != nil {
-		log.Printf("⚠️ Failed to create welcome notification for user=%s: %v", userID, err)
-	} else {
-		log.Printf("✅ Welcome notification created for user=%s", userID)
-	}
-}
 
 func (h *AuthHandler) HandleChangeEmail(w http.ResponseWriter, r *http.Request) {
 	requestedUserID, ok := r.Context().Value(middleware.ContextUserID).(string)

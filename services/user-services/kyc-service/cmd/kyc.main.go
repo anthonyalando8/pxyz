@@ -16,6 +16,8 @@ import (
 	"x/shared/auth/middleware"
 	emailclient "x/shared/email"
 	notificationclient "x/shared/notification" // ✅ added
+	authclient "x/shared/auth"
+	urbacservice "x/shared/urbac/utils"
 
 	"x/shared/utils/id"
 
@@ -41,18 +43,26 @@ func main() {
 	})
 	defer rdb.Close()
 
+	auth := middleware.RequireAuth()
+
 	// snowflake
 	sf, err := id.NewSnowflake(10)
 	if err != nil {
 		log.Fatalf("sf: %v", err)
 	}
+	authClient, err := authclient.DialAuthService(authclient.AllAuthServices)
+	if err != nil {
+        log.Fatalf("failed to dial auth service: %v", err)
+    }
 	notificationCli := notificationclient.NewNotificationService() // ✅ create notification client
+	urbacSvc := urbacservice.NewService(auth.RBACClient, rdb)
+
 
 	// repos & service
 	emailCli := emailclient.NewEmailClient()
 	kycRepo := repository.NewKYCRepo(dbpool)
 	kycSvc := service.NewKYCService(kycRepo, sf)
-	kycHandler := handler.NewKYCHandler(kycSvc, emailCli, notificationCli)
+	kycHandler := handler.NewKYCHandler(kycSvc, emailCli, notificationCli, authClient, urbacSvc)
 
 	// chi router
 	r := chi.NewRouter()
@@ -69,7 +79,6 @@ func main() {
 
 	
 
-	auth := middleware.RequireAuth()
 	r.Use(auth.RateLimit(rdb, 100, time.Minute, 10*time.Minute, "global"))
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"*"}, // allow all origins

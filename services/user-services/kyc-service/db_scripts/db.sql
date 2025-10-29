@@ -9,7 +9,7 @@ DROP TABLE IF EXISTS kyc_submissions;
 
 CREATE TABLE IF NOT EXISTS kyc_submissions
 (
-    id bigint NOT NULL,
+    id BIGSERIAL NOT NULL,
     user_id bigint NOT NULL,
     id_number character varying(100) COLLATE pg_catalog."default" NOT NULL,
     nationality character varying(100) COLLATE pg_catalog."default",

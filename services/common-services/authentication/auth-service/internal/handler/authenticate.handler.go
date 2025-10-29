@@ -186,6 +186,8 @@ func (h *AuthHandler) SetPassword(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	go h.sendWelcomeNotification(userID)
+
 
 	h.postAccountCreationTask(userID, currentRole)
 
