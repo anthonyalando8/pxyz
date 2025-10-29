@@ -1,0 +1,13 @@
+# k8s/services/zookeeper-svc.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: zookeeper-service
+  namespace: microservices
+spec:
+  clusterIP: None
+  selector:
+    app: zookeeper
+  ports:
+  - port: 2181
+    targetPort: 2181 

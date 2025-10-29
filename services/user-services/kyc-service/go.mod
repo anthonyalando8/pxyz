@@ -2,7 +2,7 @@ module kyc-service
 
 go 1.24.5
 
-replace x/shared => ../../shared
+replace x/shared => ../../../shared
 
 require (
 	github.com/go-chi/chi/v5 v5.2.2

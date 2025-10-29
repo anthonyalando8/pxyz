@@ -44,7 +44,7 @@ type UserProfile struct {
 	IsEmailVerified bool                   `json:"is_email_verified,omitempty"`
 	IsPhoneVerified bool                   `json:"is_phone_verified,omitempty"`
 	CreatedAt       time.Time              `json:"created_at"`
-	UpdatedAt       time.Time              `json:"updated_at"`
+	UpdatedAt       time.Time              `json:"-"`
 
 	// Extended profile fields
 	FirstName       string                 `json:"first_name,omitempty"`

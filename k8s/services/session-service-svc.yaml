@@ -1,0 +1,12 @@
+# k8s/services/session-service-svc.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: session-service
+  namespace: microservices
+spec:
+  selector:
+    app: session-service
+  ports:
+  - port: 8002
+    targetPort: 8002

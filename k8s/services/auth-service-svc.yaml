@@ -1,0 +1,17 @@
+# k8s/services/auth-service-svc.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: microservices
+  labels:
+    app: auth-service
+spec:
+  type: ClusterIP
+  selector:
+    app: auth-service
+  ports:
+  - port: 8001
+    targetPort: 8001
+    protocol: TCP
+    name: http

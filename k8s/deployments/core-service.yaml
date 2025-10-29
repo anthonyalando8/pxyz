@@ -1,0 +1,55 @@
+# k8s/deployments/core-service.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: core-service
+  namespace: microservices
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: core-service
+  template:
+    metadata:
+      labels:
+        app: core-service
+    spec:
+      containers:
+      - name: core-service
+        image: YOUR_REGISTRY/core-service:latest
+        ports:
+        - containerPort: 8051
+        - containerPort: 8052
+        envFrom:
+        - configMapRef:
+            name: common-config
+        env:
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-secret
+              key: password
+        - name: HTTP_ADDR
+          value: ":8051"
+        - name: GRPC_ADDR
+          value: ":8052"
+        volumeMounts:
+        - name: jwt-keys
+          mountPath: /app/secrets
+          readOnly: true
+        - name: uploads
+          mountPath: /app/uploads
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      volumes:
+      - name: jwt-keys
+        secret:
+          secretName: jwt-secret
+      - name: uploads
+        persistentVolumeClaim:
+          claimName: uploads-pvc

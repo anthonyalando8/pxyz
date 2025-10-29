@@ -81,18 +81,18 @@ func main() {
 	}))
 
 	// Public route - serve uploaded files
-	r.Handle("/kyc/uploads/*", http.StripPrefix("/kyc/uploads/", http.FileServer(http.Dir(uploadDir))))
+	r.Handle("/api/v1/kyc/uploads/*", http.StripPrefix("/api/v1/kyc/uploads/", http.FileServer(http.Dir(uploadDir))))
 
 	// Protected routes
 	r.Group(func(r chi.Router) {
 		r.Use(auth.Require([]string{"main"}, []string{"general", "kyc_review"}, nil))
 		r.Use(auth.RateLimit(rdb, 15, 5*time.Minute, 5*time.Minute, "kyc"))
 
-		r.Post("/kyc/upload", kycHandler.UploadKYC)
-		r.Get("/kyc/status", kycHandler.GetKYCStatus)
-		r.Get("/kyc/submission/get", kycHandler.GetKYCSubmission)
-		r.Post("/kyc/review/{kycID}", kycHandler.ReviewKYC)
-		r.Get("/kyc/audit/{kycID}", kycHandler.GetKYCAuditLogs)
+		r.Post("/api/v1/kyc/upload", kycHandler.UploadKYC)
+		r.Get("/api/v1/kyc/status", kycHandler.GetKYCStatus)
+		r.Get("/api/v1/kyc/submission/get", kycHandler.GetKYCSubmission)
+		r.Post("/api/v1/kyc/review/{kycID}", kycHandler.ReviewKYC)
+		r.Get("/api/v1/kyc/audit/{kycID}", kycHandler.GetKYCAuditLogs)
 	})
 
 

@@ -1,0 +1,16 @@
+# k8s/services/core-service-svc.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: core-service
+  namespace: microservices
+spec:
+  selector:
+    app: core-service
+  ports:
+  - name: http
+    port: 8051
+    targetPort: 8051
+  - name: grpc
+    port: 8052
+    targetPort: 8052

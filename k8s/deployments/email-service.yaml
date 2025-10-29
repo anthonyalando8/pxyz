@@ -1,0 +1,50 @@
+# k8s/deployments/email-service.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: email-service
+  namespace: microservices
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: email-service
+  template:
+    metadata:
+      labels:
+        app: email-service
+    spec:
+      containers:
+      - name: email-service
+        image: YOUR_REGISTRY/email-service:latest
+        ports:
+        - containerPort: 8011
+        envFrom:
+        - configMapRef:
+            name: common-config
+        env:
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-secret
+              key: password
+        - name: GRPCPort
+          value: ":8011"
+        - name: SMTPHost
+          value: "mail.derinance.com"
+        - name: SMTPUser
+          value: "no_reply@derinance.com"
+        - name: SMTPPort
+          value: "465"
+        - name: SMTPPass
+          valueFrom:
+            secretKeyRef:
+              name: smtp-secret
+              key: password
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"

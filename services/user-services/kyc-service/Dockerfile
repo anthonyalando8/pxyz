@@ -5,7 +5,7 @@ FROM golang:1.24 AS builder
 WORKDIR /app
 
 # Copy go.mod and go.sum from kyc-service
-COPY services/kyc-service/go.mod services/kyc-service/go.sum ./
+COPY services/user-services/kyc-service/go.mod services/user-services/kyc-service/go.sum ./
 
 # Copy shared package so deps are resolvable
 COPY shared /shared
@@ -17,10 +17,10 @@ RUN go mod download
 RUN go mod tidy
 
 # Copy secrets (if needed at build time)
-COPY services/kyc-service/secrets ./secrets
+COPY services/user-services/kyc-service/secrets ./secrets
 
 # Copy kyc-service source
-COPY services/kyc-service/ ./
+COPY services/user-services/kyc-service/ ./
 
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \

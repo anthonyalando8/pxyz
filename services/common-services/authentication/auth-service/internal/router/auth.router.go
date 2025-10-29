@@ -54,7 +54,7 @@ func SetupRoutes(
 			pub.Post("/auth/telegram", h.TelegramLogin)
 			pub.Post("/auth/apple", h.AppleAuthHandler)
 			pub.Post("/auth/password/forgot", h.HandleForgotPassword)
-			pub.Handle("/auth/uploads/*", http.StripPrefix("/auth/uploads/", http.FileServer(http.Dir(uploadDir))))
+			pub.Handle("/auth/uploads/*", http.StripPrefix("/api/v1/auth/uploads/", http.FileServer(http.Dir(uploadDir))))
 		})
 
 		// ---------------- Account Initialization ----------------

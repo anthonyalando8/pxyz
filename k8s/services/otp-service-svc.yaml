@@ -1,0 +1,12 @@
+# k8s/services/otp-service-svc.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: otp-service
+  namespace: microservices
+spec:
+  selector:
+    app: otp-service
+  ports:
+  - port: 8003
+    targetPort: 8003

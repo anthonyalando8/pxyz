@@ -427,6 +427,35 @@ services:
     depends_on:
       - redis
       - email-service
+  # 🔹 KYC Service
+  kyc-service:
+    build:
+      context: .
+      dockerfile: services/user-services/kyc-service/Dockerfile
+    container_name: kyc-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.kyc.rule=PathPrefix(`/api/v1/kyc`)"
+      - "traefik.http.services.kyc.loadbalancer.server.port=8005"
+    env_file:
+      - ./services/user-services/kyc-service/.env
+    volumes:
+      - ./services/user-services/kyc-service/secrets:/app/secrets:ro
+      - ./uploads:/app/uploads
+    networks:
+      - micro_net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      HTTP_ADDR: :8005
+      DB_CONN: postgres://postgres:2000@host.docker.internal:5432/pxyz_user
+      REDIS_ADDR: redis:6379
+      REDIS_PASS:
+      EMAIL_SVC_ADDR: email-service:8011
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    depends_on:
+      - redis
+      - email-service
 
 networks:
   micro_net:
