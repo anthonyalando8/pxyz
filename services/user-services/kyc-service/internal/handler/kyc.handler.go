@@ -170,9 +170,9 @@ func (h *KYCHandler) UploadKYC(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, map[string]interface{}{
 		"success":        true,
 		"message":        "KYC submitted successfully",
-		"front_doc_url":  frontURL,
-		"back_doc_url":   backURL,
-		"face_photo_url": faceURL,
+		// "front_doc_url":  frontURL,
+		// "back_doc_url":   backURL,
+		// "face_photo_url": faceURL,
 		"status":         "pending",
 	})
 }
