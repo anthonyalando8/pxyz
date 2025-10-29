@@ -1,20 +1,18 @@
 package handler
 
 import (
-	"auth-service/internal/ws"
-	"encoding/json"
 	"log"
 	"net/http"
+	"time"
 	"x/shared/auth/middleware"
 
 	authpb "x/shared/genproto/sessionpb"
 	"x/shared/response"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/redis/go-redis/v9"
 )
 
-func (h *AuthHandler) LogoutHandler(authClient authpb.AuthServiceClient) http.HandlerFunc {
+func (h *AuthHandler) LogoutHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		token, ok := r.Context().Value(middleware.ContextToken).(string)
 		if !ok || token == "" {
@@ -22,7 +20,7 @@ func (h *AuthHandler) LogoutHandler(authClient authpb.AuthServiceClient) http.Ha
 			return
 		}
 
-		_, err := authClient.DeleteSession(r.Context(), &authpb.DeleteSessionRequest{
+		_, err := h.auth.Client.DeleteSession(r.Context(), &authpb.DeleteSessionRequest{
 			Token: token,
 		})
 		if err != nil {
@@ -35,7 +33,7 @@ func (h *AuthHandler) LogoutHandler(authClient authpb.AuthServiceClient) http.Ha
 	}
 }
 
-func (h *AuthHandler) ListSessionsHandler(authClient authpb.AuthServiceClient) http.HandlerFunc {
+func (h *AuthHandler) ListSessionsHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, ok := r.Context().Value(middleware.ContextUserID).(string)
 		if !ok || userID == "" {
@@ -43,7 +41,7 @@ func (h *AuthHandler) ListSessionsHandler(authClient authpb.AuthServiceClient) h
 			return
 		}
 
-		res, err := authClient.ListSessions(r.Context(), &authpb.ListSessionsRequest{
+		res, err := h.auth.Client.ListSessions(r.Context(), &authpb.ListSessionsRequest{
 			UserId: userID,
 		})
 		if err != nil {
@@ -56,7 +54,7 @@ func (h *AuthHandler) ListSessionsHandler(authClient authpb.AuthServiceClient) h
 	}
 }
 
-func (h *AuthHandler) DeleteSessionByIDHandler(authClient authpb.AuthServiceClient) http.HandlerFunc {
+func (h *AuthHandler) DeleteSessionByIDHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		sessionID := chi.URLParam(r, "id")
 		if sessionID == "" {
@@ -66,7 +64,7 @@ func (h *AuthHandler) DeleteSessionByIDHandler(authClient authpb.AuthServiceClie
 
 		// Optional: check user owns this session first if needed
 
-		_, err := authClient.DeleteSessionByID(r.Context(), &authpb.DeleteSessionByIDRequest{
+		_, err := h.auth.Client.DeleteSessionByID(r.Context(), &authpb.DeleteSessionByIDRequest{
 			SessionId: sessionID,
 		})
 		if err != nil {
@@ -79,7 +77,7 @@ func (h *AuthHandler) DeleteSessionByIDHandler(authClient authpb.AuthServiceClie
 	}
 }
 
-func (h *AuthHandler) LogoutAllHandler(authClient authpb.AuthServiceClient, rdb *redis.Client) http.HandlerFunc {
+func (h *AuthHandler) LogoutAllHandler() http.HandlerFunc {
     return func(w http.ResponseWriter, r *http.Request) {
         userID, ok := r.Context().Value(middleware.ContextUserID).(string)
         if !ok || userID == "" {
@@ -88,7 +86,7 @@ func (h *AuthHandler) LogoutAllHandler(authClient authpb.AuthServiceClient, rdb 
         }
 
         // Step 1: Call gRPC to delete all sessions
-        _, err := authClient.DeleteAllSessions(r.Context(), &authpb.DeleteAllSessionsRequest{
+        _, err := h.auth.Client.DeleteAllSessions(r.Context(), &authpb.DeleteAllSessionsRequest{
             UserId: userID,
         })
         if err != nil {
@@ -97,20 +95,11 @@ func (h *AuthHandler) LogoutAllHandler(authClient authpb.AuthServiceClient, rdb 
             return
         }
 
-        // Step 2: Publish logout event to Redis
-        event := ws.Message{
-            Type:   "logout",
-            UserID: userID,
-            Data: map[string]string{
-                "reason": "All sessions have been invalidated",
-            },
-        }
-		
-        payload, _ := json.Marshal(event)
-
-        if err := rdb.Publish(r.Context(), "auth_events", payload).Err(); err != nil {
-            log.Printf("Failed to publish logout event: %v", err)
-        }
+		h.publisher.Publish(r.Context(), "auth.logout", userID, "", map[string]string{
+			"message": "You logged out from this device",
+			"title": "logout",
+			"timestamp": time.Now().Format(time.RFC3339),
+		})
 
         // Step 3: Respond
         response.JSON(w, http.StatusOK, "Logged out from all sessions")

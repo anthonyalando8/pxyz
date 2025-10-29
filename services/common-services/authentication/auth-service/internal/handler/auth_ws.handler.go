@@ -17,5 +17,6 @@ func NewWSHandler(server *ws.Server) *WSHandler {
 
 func (h *WSHandler) HandleWS(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(middleware.ContextUserID).(string)
-	h.server.ServeWS(w, r, userID)
+	deviceID := r.Context().Value(middleware.ContextDeviceID).(string)
+	h.server.ServeWS(w, r, userID, deviceID)
 }

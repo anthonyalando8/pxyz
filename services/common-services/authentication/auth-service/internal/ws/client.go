@@ -9,14 +9,16 @@ type Client struct {
 	conn   *websocket.Conn
 	send   chan Message
 	UserID string
+	DeviceID string
 }
 
-func NewClient(userID string, conn *websocket.Conn, hub *Hub) *Client {
+func NewClient(userID, deviceID string, conn *websocket.Conn, hub *Hub) *Client {
     return &Client{
         hub:    hub,
         conn:   conn,
         send:   make(chan Message, 256),
         UserID: userID,
+		DeviceID: deviceID,
     }
 }
 

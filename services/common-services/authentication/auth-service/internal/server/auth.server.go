@@ -71,6 +71,8 @@ func NewServer(cfg config.AppConfig) *http.Server {
 	telegramClient := telegramclient.NewTelegramClient(cfg.TelegramBotToken)
 	urbacSvc := urbacservice.NewService(auth.RBACClient, rdb)
 
+	authEvPub := ws.NewAuthEventPublisher(rdb)
+
 	producer, err := kafka.NewUserRegistrationProducer(cfg.KafkaBrokers)
 	if err != nil {
 		log.Fatal("Failed to create Kafka producer:", err)
@@ -96,6 +98,7 @@ func NewServer(cfg config.AppConfig) *http.Server {
 		config,
 		telegramClient,
 		oauth2Svc,
+		authEvPub,
 	)
 
 	grpcAuthHandler := handler.NewGRPCAuthHandler(

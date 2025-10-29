@@ -243,6 +243,14 @@ func (h *AuthHandler) handleNextAction(
 		resp["action"] = "new_email_verified"
 		resp["new_email"] = pendingEmail
 		resp["message"] = "Email changed successfully"
+
+		h.publisher.Publish(r.Context(), "auth.update", userId, "", map[string]string{
+			"message": "Email updated",
+			"title": "email_update",
+			"data": pendingEmail,
+			"timestamp": time.Now().Format(time.RFC3339),
+
+		})
 		h.sendEmailChangeNotifications(ctx, userId, oldEmail, pendingEmail)
 		// Delete old token in background
 		h.logoutSessionBg(ctx)
@@ -369,6 +377,12 @@ func (h *AuthHandler) handleNextAction(
 		// --- Respond ---
 		resp["message"] = "Phone number updated successfully"
 
+		h.publisher.Publish(r.Context(), "auth.update", userId, "", map[string]string{
+			"message": "Phone number updated",
+			"title": "phone_update",
+			"data": phone,
+			"timestamp": time.Now().Format(time.RFC3339),
+		})
 	}
 	
 

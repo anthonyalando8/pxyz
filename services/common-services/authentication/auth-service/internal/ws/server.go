@@ -22,7 +22,7 @@ func (s *Server) Hub() *Hub {
     return s.hub
 }
 
-func (s *Server) ServeWS(w http.ResponseWriter, r *http.Request, userID string) {
+func (s *Server) ServeWS(w http.ResponseWriter, r *http.Request, userID, deviceID string) {
 	upgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool { return true },
 	}
@@ -32,7 +32,7 @@ func (s *Server) ServeWS(w http.ResponseWriter, r *http.Request, userID string) 
 		return
 	}
 
-	client := NewClient(userID, conn, s.hub)
+	client := NewClient(userID, deviceID, conn, s.hub)
 	s.hub.register <- client
 
 	go client.WritePump()

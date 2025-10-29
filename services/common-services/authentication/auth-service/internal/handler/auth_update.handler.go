@@ -46,6 +46,12 @@ func (h *AuthHandler) HandleChangePassword(w http.ResponseWriter, r *http.Reques
 	// Delete old token in background
 	h.logoutSessionBg(r.Context())
 
+	h.publisher.Publish(r.Context(), "auth.update", userID, "", map[string]string{
+		"message": "Password has been updated",
+		"title": "password_update",
+		"timestamp": time.Now().Format(time.RFC3339),
+	})
+
 	response.JSON(w, http.StatusOK, map[string]string{"message": "Password updated"})
 }
 
@@ -71,6 +77,12 @@ func (h *AuthHandler) HandleResetPassword(w http.ResponseWriter, r *http.Request
 	h.sendPasswordChangeNotification(userID, nil)
 	// Delete old token in background
 	h.logoutSessionBg(r.Context())
+
+	h.publisher.Publish(r.Context(), "auth.update", userID, "", map[string]string{
+		"message": "Password has been updated",
+		"title": "password_update",
+		"timestamp": time.Now().Format(time.RFC3339),
+	})
 
 	response.JSON(w, http.StatusOK, map[string]string{"message": "Password reset successful"})
 }
@@ -205,6 +217,13 @@ func (h *AuthHandler) HandleRequestPhoneChange(w http.ResponseWriter, r *http.Re
 				"message": "Please update your nationality to continue.",
 				"next":    nextAction,
 			})
+
+			h.publisher.Publish(r.Context(), "auth.notification", userID, deviceID, map[string]string{
+				"message": "Please update your nationality to update phone.",
+				"title": "notification",
+				"timestamp": time.Now().Format(time.RFC3339),
+			})
+
 			return
 		}
 		nationality = nat
@@ -307,6 +326,7 @@ func (h *AuthHandler) handleRequestChange(
 
 func (h *AuthHandler) HandlePhoneChange(w http.ResponseWriter, r *http.Request) {
 	requestedUserID, ok := r.Context().Value(middleware.ContextUserID).(string)
+	deviceID, _ := r.Context().Value(middleware.ContextDeviceID).(string)
 	if !ok || requestedUserID == "" {
 		response.Error(w, http.StatusUnauthorized, "Unauthorized")
 		return
@@ -356,6 +376,13 @@ func (h *AuthHandler) HandlePhoneChange(w http.ResponseWriter, r *http.Request) 
 				"message": "Please update your nationality to continue.",
 				"next":    nextAction,
 			})
+
+			h.publisher.Publish(r.Context(), "auth.notification", requestedUserID, deviceID, map[string]string{
+				"message": "Please update your nationality to update phone.",
+				"title": "notification",
+				"timestamp": time.Now().Format(time.RFC3339),
+			})
+
 			return
 		}
 		nationality = nat

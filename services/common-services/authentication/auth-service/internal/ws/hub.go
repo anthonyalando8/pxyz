@@ -21,20 +21,32 @@ func (h *Hub) Run() {
 		select {
 		case client := <-h.register:
 			h.clients[client] = true
+
 		case client := <-h.unregister:
 			if _, ok := h.clients[client]; ok {
 				delete(h.clients, client)
 				close(client.send)
 			}
+
 		case message := <-h.broadcast:
 			for client := range h.clients {
-				if message.UserID == "" || client.UserID == message.UserID {
-					select {
-					case client.send <- message:
-					default:
-						close(client.send)
-						delete(h.clients, client)
-					}
+
+				// Match user first
+				if message.UserID != "" && client.UserID != message.UserID {
+					continue
+				}
+
+				// If message has DeviceID, send only to that device
+				// Otherwise, send to all user's devices
+				if message.DeviceID != "" && client.DeviceID != message.DeviceID {
+					continue
+				}
+
+				select {
+				case client.send <- message:
+				default:
+					close(client.send)
+					delete(h.clients, client)
 				}
 			}
 		}

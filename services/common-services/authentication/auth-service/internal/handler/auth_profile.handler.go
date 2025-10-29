@@ -218,6 +218,13 @@ func (h *AuthHandler) HandleUpdateProfile(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	h.publisher.Publish(r.Context(), "auth.update", userID, "", map[string]interface{}{
+		"message": "Profile updated",
+		"title": "profile",
+		"timestamp": time.Now().Format(time.RFC3339),
+		"data": updateReq,
+	})
+
 	response.JSON(w, http.StatusOK, map[string]interface{}{
 		"success": true,
 		"message": "Profile updated successfully",
@@ -304,6 +311,12 @@ func (h *AuthHandler) UploadProfilePicture(w http.ResponseWriter, r *http.Reques
 		"success":           true,
 		"message":           "Profile picture updated",
 		"profile_image_url": imageURL,
+	})
+	h.publisher.Publish(r.Context(), "auth.update", userID, "", map[string]interface{}{
+		"message": "Profile updated",
+		"title": "image_url",
+		"timestamp": time.Now().Format(time.RFC3339),
+		"data": imageURL,
 	})
 }
 
@@ -506,6 +519,12 @@ func (h *AuthHandler) HandleUpdateNationality(w http.ResponseWriter, r *http.Req
 		// Delete old token in background
 		h.logoutSessionBg(ctx)
 	}
+	h.publisher.Publish(r.Context(), "auth.update", userID, "", map[string]interface{}{
+		"message": "Nationality updated",
+		"title": "nationality",
+		"timestamp": time.Now().Format(time.RFC3339),
+		"data": req.Nationality,
+	})
 
 
 	// --- Final response ---
@@ -614,12 +633,19 @@ func (h *AuthHandler) HandleUpdatePreferences(w http.ResponseWriter, r *http.Req
 		UserId:      userID,
 		Preferences: prefs,
 	})
+
 	if err != nil {
 		log.Printf("UpdatePreferences failed for user %s: %v", userID, err)
 		response.Error(w, http.StatusInternalServerError, "Failed to update preferences")
 		return
 	}
 
+	h.publisher.Publish(r.Context(), "auth.update", userID, "", map[string]interface{}{
+		"message": "Preferences updated",
+		"title": "prefs",
+		"timestamp": time.Now().Format(time.RFC3339),
+		"data": prefs,
+	})
 	// --- Success response ---
 	response.JSON(w, http.StatusOK, map[string]interface{}{
 		"message": "Preferences updated successfully",

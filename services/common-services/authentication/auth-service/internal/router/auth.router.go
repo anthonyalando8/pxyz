@@ -141,11 +141,11 @@ func SetupRoutes(
 			})
 
 			g.Route("/auth/sessions", func(r chi.Router) {
-				r.Get("/", h.ListSessionsHandler(auth.Client))
-				r.Delete("/", h.LogoutAllHandler(auth.Client, rdb))
-				r.Delete("/{id}", h.DeleteSessionByIDHandler(auth.Client))
+				r.Get("/", h.ListSessionsHandler())
+				r.Delete("/", h.LogoutAllHandler())
+				r.Delete("/{id}", h.DeleteSessionByIDHandler())
 			})
-			g.Delete("/auth/logout", h.LogoutHandler(auth.Client))
+			g.Delete("/auth/logout", h.LogoutHandler())
 		})
 		//SetupOAuth2Routes(r, oauthHandler, auth)
 	})
