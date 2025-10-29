@@ -140,8 +140,8 @@ func (r *rbacRepo) GetUsersWithoutRolesAndClassify(ctx context.Context) ([]*User
 		u.id::TEXT AS user_id,
 		CASE
 			WHEN 
-				(u.account_type = 'hybrid' AND u.password_hash IS NULL)
-				OR (u.account_type = 'password' AND u.password_hash IS NULL)
+				(u.account_type = 'hybrid' AND uc.password_hash IS NULL)
+				OR (u.account_type = 'password' AND uc.password_hash IS NULL)
 				OR NOT uc.is_email_verified
 				OR up.nationality IS NULL
 			THEN 'any'
