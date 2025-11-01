@@ -12,10 +12,10 @@ services:
     environment:
       - POSTGRESQL_REPLICATION_MODE=master
       - POSTGRESQL_REPLICATION_USER=replicator
-      - POSTGRESQL_REPLICATION_PASSWORD=2000
-      - POSTGRESQL_POSTGRES_PASSWORD=2000
+      - POSTGRESQL_REPLICATION_PASSWORD=Kenya_2025!
+      - POSTGRESQL_POSTGRES_PASSWORD=Kenya_2025!
       - POSTGRESQL_USERNAME=postgres
-      - POSTGRESQL_PASSWORD=2000
+      - POSTGRESQL_PASSWORD=Kenya_2025!
       - POSTGRESQL_DATABASE=pxyz
       
       - REPMGR_PRIMARY_HOST=postgres-master
@@ -24,7 +24,7 @@ services:
       - REPMGR_NODE_NETWORK_NAME=postgres-master
       - REPMGR_PARTNER_NODES=postgres-master,postgres-replica1,postgres-replica2,postgres-replica3
       - REPMGR_USERNAME=repmgr
-      - REPMGR_PASSWORD=2000
+      - REPMGR_PASSWORD=Kenya_2025!
       - REPMGR_DATABASE=repmgr
     volumes:
       - ./pgdata/auth/master:/bitnami/postgresql
@@ -44,15 +44,15 @@ services:
     environment:
       - POSTGRESQL_REPLICATION_MODE=slave
       - POSTGRESQL_REPLICATION_USER=replicator
-      - POSTGRESQL_REPLICATION_PASSWORD=2000
-      - POSTGRESQL_PASSWORD=2000
+      - POSTGRESQL_REPLICATION_PASSWORD=Kenya_2025!
+      - POSTGRESQL_PASSWORD=Kenya_2025!
       - REPMGR_PRIMARY_HOST=postgres-master
       - REPMGR_NODE_ID=2
       - REPMGR_NODE_NAME=node-2
       - REPMGR_NODE_NETWORK_NAME=postgres-replica1
       - REPMGR_PARTNER_NODES=postgres-master,postgres-replica1,postgres-replica2,postgres-replica3
       - REPMGR_USERNAME=repmgr
-      - REPMGR_PASSWORD=2000
+      - REPMGR_PASSWORD=Kenya_2025!
       - REPMGR_DATABASE=repmgr
     volumes:
       - ./pgdata/auth/replica1:/bitnami/postgresql
@@ -76,15 +76,15 @@ services:
     environment:
       - POSTGRESQL_REPLICATION_MODE=slave
       - POSTGRESQL_REPLICATION_USER=replicator
-      - POSTGRESQL_REPLICATION_PASSWORD=2000
-      - POSTGRESQL_PASSWORD=2000
+      - POSTGRESQL_REPLICATION_PASSWORD=Kenya_2025!
+      - POSTGRESQL_PASSWORD=Kenya_2025!
       - REPMGR_PRIMARY_HOST=postgres-master
       - REPMGR_NODE_ID=3
       - REPMGR_NODE_NAME=node-3
       - REPMGR_NODE_NETWORK_NAME=postgres-replica2
       - REPMGR_PARTNER_NODES=postgres-master,postgres-replica1,postgres-replica2,postgres-replica3
       - REPMGR_USERNAME=repmgr
-      - REPMGR_PASSWORD=2000
+      - REPMGR_PASSWORD=Kenya_2025!
       - REPMGR_DATABASE=repmgr
     volumes:
       - ./pgdata/auth/replica2:/bitnami/postgresql
@@ -108,15 +108,15 @@ services:
     environment:
       - POSTGRESQL_REPLICATION_MODE=slave
       - POSTGRESQL_REPLICATION_USER=replicator
-      - POSTGRESQL_REPLICATION_PASSWORD=2000
-      - POSTGRESQL_PASSWORD=2000
+      - POSTGRESQL_REPLICATION_PASSWORD=Kenya_2025!
+      - POSTGRESQL_PASSWORD=Kenya_2025!
       - REPMGR_PRIMARY_HOST=postgres-master
       - REPMGR_NODE_ID=4
       - REPMGR_NODE_NAME=node-4
       - REPMGR_NODE_NETWORK_NAME=postgres-replica3
       - REPMGR_PARTNER_NODES=postgres-master,postgres-replica1,postgres-replica2,postgres-replica3
       - REPMGR_USERNAME=repmgr
-      - REPMGR_PASSWORD=2000
+      - REPMGR_PASSWORD=Kenya_2025!
       - REPMGR_DATABASE=repmgr
     volumes:
       - ./pgdata/auth/replica3:/bitnami/postgresql
@@ -139,11 +139,11 @@ services:
     environment:
       - PGPOOL_BACKEND_NODES=0:postgres-master:5432,1:postgres-replica1:5432,2:postgres-replica2:5432,3:postgres-replica3:5432
       - PGPOOL_SR_CHECK_USER=postgres
-      - PGPOOL_SR_CHECK_PASSWORD=2000
+      - PGPOOL_SR_CHECK_PASSWORD=Kenya_2025!
       - PGPOOL_ADMIN_USERNAME=admin
-      - PGPOOL_ADMIN_PASSWORD=2000
+      - PGPOOL_ADMIN_PASSWORD=Kenya_2025!
       - PGPOOL_POSTGRES_USERNAME=postgres
-      - PGPOOL_POSTGRES_PASSWORD=2000
+      - PGPOOL_POSTGRES_PASSWORD=Kenya_2025!
       - PGPOOL_ENABLE_LOAD_BALANCING=yes
       - PGPOOL_SKIP_PASSWORD_ENCRYPTION=yes
 

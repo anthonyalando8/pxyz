@@ -4,7 +4,7 @@
 -- ============================
 BEGIN;
 CREATE TABLE IF NOT EXISTS user_profiles (
-    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE PRIMARY KEY, -- references auth.users(id) logically
+    user_id BIGINT REFERENCES users(id) ON DELETE CASCADE PRIMARY KEY,
     date_of_birth DATE,
     profile_image_url TEXT,
     first_name   VARCHAR(100),

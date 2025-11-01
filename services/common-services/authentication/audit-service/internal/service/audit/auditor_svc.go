@@ -67,12 +67,19 @@ func (g *maxmindGeoIP) Close() error {
 // ErrInvalidIP is returned when the IP cannot be parsed
 var ErrInvalidIP = fmt.Errorf("invalid IP address")
 
-func NewSecurityAuditService(repo *repository.UserRepository, geoIP GeoIPService) *SecurityAuditService {
+//continuation
+
+func NewSecurityAuditServiceWithConfig(
+	repo *repository.UserRepository,
+	geoIP GeoIPService,
+	maxFailedLogins int,
+	lockoutDuration time.Duration,
+) *SecurityAuditService {
 	return &SecurityAuditService{
 		repo:            repo,
 		geoIPService:    geoIP,
-		maxFailedLogins: 5,
-		lockoutDuration: 30 * time.Minute,
+		maxFailedLogins: maxFailedLogins,
+		lockoutDuration: lockoutDuration,
 	}
 }
 
@@ -644,4 +651,36 @@ type MaintenanceReport struct {
 
 func IsValidIP(ipStr string) bool {
 	return net.ParseIP(ipStr) != nil
+}
+
+
+
+
+// Add batch operations for better performance
+func (s *SecurityAuditService) GetUsersAuditHistory(ctx context.Context, userIDs []string, limit int) (map[string][]*domain.SecurityAuditLog, error) {
+	result := make(map[string][]*domain.SecurityAuditLog)
+	
+	for _, userID := range userIDs {
+		logs, err := s.repo.GetUserAuditHistory(ctx, userID, limit)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get audit history for user %s: %w", userID, err)
+		}
+		result[userID] = logs
+	}
+	
+	return result, nil
+}
+
+func (s *SecurityAuditService) GetUsersRiskScores(ctx context.Context, userIDs []string) (map[string]int, error) {
+	result := make(map[string]int)
+	
+	for _, userID := range userIDs {
+		score, err := s.repo.GetUserRiskScore(ctx, userID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get risk score for user %s: %w", userID, err)
+		}
+		result[userID] = score
+	}
+	
+	return result, nil
 }

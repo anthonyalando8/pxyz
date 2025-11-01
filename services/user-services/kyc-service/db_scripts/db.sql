@@ -31,6 +31,11 @@ CREATE TABLE IF NOT EXISTS kyc_submissions
         ON DELETE CASCADE
 );
 
+CREATE UNIQUE INDEX idx_unique_active_kyc_per_user
+ON kyc_submissions(user_id)
+WHERE status IN ('pending', 'approved', 'under_review');
+
+
 DROP INDEX IF EXISTS idx_kyc_status;
 
 
@@ -47,6 +52,7 @@ CREATE TABLE kyc_audit_logs (
     CONSTRAINT fk_kyc FOREIGN KEY (kyc_id) 
         REFERENCES kyc_submissions(id) ON DELETE CASCADE
 );
+
 
 -- Indexes
 CREATE INDEX idx_kyc_user ON kyc_submissions(user_id);

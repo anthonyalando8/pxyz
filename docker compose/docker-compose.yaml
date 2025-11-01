@@ -69,8 +69,8 @@ services:
     environment:
       DB_HOST: pgpool
       DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: 2000
+      DB_USER: sam
+      DB_PASSWORD: Kenya_2025!
       DB_NAME: pxyz
       REDIS_ADDR: redis:6379
       SYSTEM_ADMIN_PASSWORD: 96211581#Aa
@@ -102,8 +102,8 @@ services:
   #   environment:
   #     DB_HOST: host.docker.internal
   #     DB_PORT: 5432
-  #     DB_USER: postgres
-  #     DB_PASSWORD: 2000
+  #     DB_USER: sam
+  #     DB_PASSWORD: Kenya_2025!
   #     DB_NAME: pxyz
   #     REDIS_ADDR: redis:6379
   #     JWT_PRIVATE_KEY_PATH: /app/secrets/jwt_private.pem
@@ -129,7 +129,7 @@ services:
   #   networks:
   #     - micro_net
   #   environment:
-  #     DB_CONN: postgres://postgres:2000@host.docker.internal:5432/pxyz
+  #     DB_CONN: postgres://sam:Kenya_2025!@host.docker.internal:5432/pxyz
   #     REDIS_ADDR: redis:6379
   #     EMAIL_SVC_ADDR: email-service:8011
   #     GRPC_ADDR: :8004
@@ -157,7 +157,7 @@ services:
   #     - micro_net
   #   environment:
   #     HTTP_ADDR: :8005
-  #     DB_CONN: postgres://postgres:2000@host.docker.internal:5432/pxyz
+  #     DB_CONN: postgres://sam:Kenya_2025!@host.docker.internal:5432/pxyz
   #     REDIS_ADDR: redis:6379
   #     REDIS_PASS:
   #     EMAIL_SVC_ADDR: email-service:8011
@@ -186,8 +186,8 @@ services:
   #     HTTP_ADDR: :8021
   #     DB_HOST: host.docker.internal
   #     DB_PORT: 5432
-  #     DB_USER: postgres
-  #     DB_PASSWORD: 2000
+  #     DB_USER: sam
+  #     DB_PASSWORD: Kenya_2025!
   #     DB_NAME: pxyz
   #     REDIS_ADDR: redis:6379
   #     REDIS_PASS:
@@ -252,8 +252,8 @@ services:
   #   environment:
   #     DB_HOST: host.docker.internal
   #     DB_PORT: 5432
-  #     DB_USER: postgres
-  #     DB_PASSWORD: 2000
+  #     DB_USER: sam
+  #     DB_PASSWORD: Kenya_2025!
   #     DB_NAME: pxyz
   #     REDIS_ADDR: redis:6379
   #     GRPCPort: :8011
@@ -280,7 +280,7 @@ services:
   #   env_file:
   #     - ./common-services/otp-service/.env
   #   environment:
-  #     DB_CONN: postgres://postgres:2000@host.docker.internal:5432/pxyz
+  #     DB_CONN: postgres://sam:Kenya_2025!@host.docker.internal:5432/pxyz
   #     REDIS_ADDR: redis:6379
   #     EMAIL_SVC_ADDR: email-service:8011
   #   networks:
@@ -309,8 +309,8 @@ services:
   #   environment:
   #     DB_HOST: host.docker.internal
   #     DB_PORT: 5432
-  #     DB_USER: postgres
-  #     DB_PASSWORD: 2000
+  #     DB_USER: sam
+  #     DB_PASSWORD: Kenya_2025!
   #     DB_NAME: pxyz
   #     REDIS_ADDR: redis:6379
   #     HTTP_ADDR: :8051
@@ -339,8 +339,8 @@ services:
   #   environment:
   #     DB_HOST: host.docker.internal
   #     DB_PORT: 5432
-  #     DB_USER: postgres
-  #     DB_PASSWORD: 2000
+  #     DB_USER: sam
+  #     DB_PASSWORD: Kenya_2025!
   #     DB_NAME: pxyz
   #     REDIS_ADDR: redis:6379
   #     HTTP_ADDR: :8013
@@ -370,8 +370,8 @@ services:
   #   environment:
   #     DB_HOST: host.docker.internal
   #     DB_PORT: 5432
-  #     DB_USER: postgres
-  #     DB_PASSWORD: 2000
+  #     DB_USER: sam
+  #     DB_PASSWORD: Kenya_2025!
   #     DB_NAME: pxyz
   #     REDIS_ADDR: redis:6379
   #     HTTP_ADDR: :8031
@@ -400,8 +400,8 @@ services:
   #   environment:
   #     DB_HOST: host.docker.internal
   #     DB_PORT: 5432
-  #     DB_USER: postgres
-  #     DB_PASSWORD: 2000
+  #     DB_USER: sam
+  #     DB_PASSWORD: Kenya_2025!
   #     DB_NAME: pxyz_partner
   #     HTTP_ADDR: :7510
   #     GRPC_ADDR: :7511
@@ -427,8 +427,8 @@ services:
   #   environment:
   #     DB_HOST: host.docker.internal
   #     DB_PORT: 5432
-  #     DB_USER: postgres
-  #     DB_PASSWORD: 2000
+  #     DB_USER: sam
+  #     DB_PASSWORD: Kenya_2025!
   #     DB_NAME: pxyz_partner
   #     REDIS_ADDR: redis:6379
   #     SYSTEM_ADMIN_PASSWORD: 96211581#Aa
@@ -459,8 +459,8 @@ services:
   #   environment:
   #     DB_HOST: host.docker.internal
   #     DB_PORT: 5432
-  #     DB_USER: postgres
-  #     DB_PASSWORD: 2000
+  #     DB_USER: sam
+  #     DB_PASSWORD: Kenya_2025!
   #     DB_NAME: pxyz_partner
   #     REDIS_ADDR: redis:6379
   #     JWT_PRIVATE_KEY_PATH: /app/secrets/jwt_private.pem
@@ -487,8 +487,8 @@ services:
   #   environment:
   #     DB_HOST: host.docker.internal
   #     DB_PORT: 5432
-  #     DB_USER: postgres
-  #     DB_PASSWORD: 2000
+  #     DB_USER: sam
+  #     DB_PASSWORD: Kenya_2025!
   #     DB_NAME: pxyz_admin
   #     REDIS_ADDR: redis:6379
   #     SYSTEM_ADMIN_PASSWORD: 96211581#Aa
@@ -519,8 +519,8 @@ services:
   #   environment:
   #     DB_HOST: host.docker.internal
   #     DB_PORT: 5432
-  #     DB_USER: postgres
-  #     DB_PASSWORD: 2000
+  #     DB_USER: sam
+  #     DB_PASSWORD: Kenya_2025!
   #     DB_NAME: pxyz_admin
   #     REDIS_ADDR: redis:6379
   #     JWT_PRIVATE_KEY_PATH: /app/secrets/jwt_private.pem
@@ -547,8 +547,8 @@ services:
   #   environment:
   #     DB_HOST: host.docker.internal
   #     DB_PORT: 5432
-  #     DB_USER: postgres
-  #     DB_PASSWORD: 2000
+  #     DB_USER: sam
+  #     DB_PASSWORD: Kenya_2025!
   #     DB_NAME: pxyz_admin
   #     REDIS_ADDR: redis:6379
   #   networks:
@@ -577,8 +577,8 @@ services:
   #   environment:
   #     DB_HOST: host.docker.internal
   #     DB_PORT: 5432
-  #     DB_USER: postgres
-  #     DB_PASSWORD: 2000
+  #     DB_USER: sam
+  #     DB_PASSWORD: Kenya_2025!
   #     DB_NAME: pxyz_fx
   #     REDIS_ADDR: redis:6379
   #     GRPC_ADDR: :8024
@@ -605,8 +605,8 @@ services:
   #   environment:
   #     DB_HOST: host.docker.internal
   #     DB_PORT: 5432
-  #     DB_USER: postgres
-  #     DB_PASSWORD: 2000
+  #     DB_USER: sam
+  #     DB_PASSWORD: Kenya_2025!
   #     DB_NAME: pxyz_fx
   #     REDIS_ADDR: redis:6379
   #     GRPC_ADDR: :8026

@@ -1,5 +1,7 @@
 \c pxyz_user;
 
+BEGIN;
+
 CREATE TABLE countries (
     id SERIAL PRIMARY KEY,
     iso2 CHAR(2) UNIQUE NOT NULL,
@@ -14,3 +16,4 @@ CREATE TABLE countries (
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );
+COMMIT;

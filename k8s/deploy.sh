@@ -15,7 +15,7 @@ NC='\033[0m' # No Color
 NAMESPACE="microservices"
 REGISTRY="YOUR_DOCKER_REGISTRY"  # Change this
 DB_HOST="YOUR_DB_HOST_IP"        # Change this
-DB_PASSWORD="2000"               # Change this
+DB_PASSWORD="Kenya_2025!"               # Change this
 
 echo -e "${YELLOW}📋 Prerequisites Check...${NC}"
 
@@ -42,7 +42,7 @@ echo -e "${YELLOW}2️⃣ Creating secrets...${NC}"
 
 # Database secret
 kubectl create secret generic db-secret \
-  --from-literal=user=postgres \
+  --from-literal=user=sam \
   --from-literal=password=${DB_PASSWORD} \
   --from-literal=host=${DB_HOST} \
   --namespace=${NAMESPACE} \

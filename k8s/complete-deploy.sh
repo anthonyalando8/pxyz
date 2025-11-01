@@ -14,7 +14,7 @@ NC='\033[0m'
 # Configuration - UPDATE THESE VALUES
 REGISTRY="YOUR_DOCKERHUB_USERNAME"
 DB_HOST="212.95.35.81"
-DB_PASSWORD="2000"
+DB_PASSWORD="Kenya_2025!"
 ADMIN_EMAIL="anthonyalando8@gmail.com"
 ADMIN_PASSWORD="96211581#Aa"
 SMTP_PASSWORD="B-e02G#D-T7O*8Qe"
@@ -96,10 +96,10 @@ print_step "🔐 Step 4: Creating Secrets"
 
 # Database secret
 kubectl create secret generic db-secret \
-  --from-literal=user=postgres \
+  --from-literal=user=sam \
   --from-literal=password=${DB_PASSWORD} \
   --from-literal=host=${DB_HOST} \
-  --from-literal=connection-string="postgres://postgres:${DB_PASSWORD}@${DB_HOST}:5432/pxyz_user" \
+  --from-literal=connection-string="postgres://sam:${DB_PASSWORD}@${DB_HOST}:5432/pxyz_user" \
   --namespace=${NAMESPACE} \
   --dry-run=client -o yaml | kubectl apply -f -
 

@@ -91,8 +91,8 @@ services:
     environment:
       DB_HOST: host.docker.internal
       DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: 2000
+      DB_USER: sam
+      DB_PASSWORD: Kenya_2025!
       DB_NAME: pxyz_user
       HTTP_ADDR: :8008
       GRPC_ADDR: :8007
@@ -107,8 +107,10 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
-      - redis
-      - email-service
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
 
   # 🔹 Auth Service
   auth-service:
@@ -136,8 +138,8 @@ services:
     environment:
       DB_HOST: host.docker.internal
       DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: 2000
+      DB_USER: sam
+      DB_PASSWORD: Kenya_2025!
       DB_NAME: pxyz_user
       KAFKA_BROKERS: kafka:9092
       REDIS_ADDR: redis:6379
@@ -187,8 +189,8 @@ services:
     environment:
       DB_HOST: host.docker.internal
       DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: 2000
+      DB_USER: sam
+      DB_PASSWORD: Kenya_2025!
       DB_NAME: pxyz_user
       REDIS_ADDR: redis:6379
       KAFKA_BROKERS: kafka:9092
@@ -253,8 +255,8 @@ services:
     environment:
       DB_HOST: host.docker.internal
       DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: 2000
+      DB_USER: sam
+      DB_PASSWORD: Kenya_2025!
       DB_NAME: pxyz_user
       KAFKA_BROKERS: kafka:9092
       REDIS_ADDR: redis:6379
@@ -284,7 +286,7 @@ services:
     env_file:
       - ./services/common-services/authentication/otp-service/.env
     environment:
-      DB_CONN: postgres://postgres:2000@host.docker.internal:5432/pxyz_user
+      DB_CONN: postgres://sam:Kenya_2025!@host.docker.internal:5432/pxyz_user
       REDIS_ADDR: redis:6379
       KAFKA_BROKERS: kafka:9092
       EMAIL_SVC_ADDR: email-service:8011
@@ -315,8 +317,8 @@ services:
     environment:
       DB_HOST: host.docker.internal
       DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: 2000
+      DB_USER: sam
+      DB_PASSWORD: Kenya_2025!
       DB_NAME: pxyz_user
       REDIS_ADDR: redis:6379
       KAFKA_BROKERS: kafka:9092
@@ -351,8 +353,8 @@ services:
     environment:
       DB_HOST: host.docker.internal
       DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: 2000
+      DB_USER: sam
+      DB_PASSWORD: Kenya_2025!
       DB_NAME: pxyz_user
       KAFKA_BROKERS: kafka:9092
       REDIS_ADDR: redis:6379
@@ -386,8 +388,8 @@ services:
     environment:
       DB_HOST: host.docker.internal
       DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: 2000
+      DB_USER: sam
+      DB_PASSWORD: Kenya_2025!
       DB_NAME: pxyz_user
       KAFKA_BROKERS: kafka:9092
       REDIS_ADDR: redis:6379
@@ -419,7 +421,7 @@ services:
     extra_hosts:
     - "host.docker.internal:host-gateway"
     environment:
-      DB_CONN: postgres://postgres:2000@host.docker.internal:5432/pxyz_user
+      DB_CONN: postgres://sam:Kenya_2025!@host.docker.internal:5432/pxyz_user
       REDIS_ADDR: redis:6379
       EMAIL_SVC_ADDR: email-service:8011
       GRPC_ADDR: :8004
@@ -448,7 +450,7 @@ services:
       - "host.docker.internal:host-gateway"
     environment:
       HTTP_ADDR: :8005
-      DB_CONN: postgres://postgres:2000@host.docker.internal:5432/pxyz_user
+      DB_CONN: postgres://sam:Kenya_2025!@host.docker.internal:5432/pxyz_user
       REDIS_ADDR: redis:6379
       REDIS_PASS:
       EMAIL_SVC_ADDR: email-service:8011

@@ -17,20 +17,29 @@ import (
 type SecurityAuditWorkers struct {
 	auditService *service.SecurityAuditService
 	notifier     *websocket.SecurityAuditNotifier
+	maintenanceInterval time.Duration
+	suspiciousCheckInterval time.Duration
+	criticalEventInterval time.Duration
 	ctx          context.Context
 	cancel       context.CancelFunc
 }
 
-func NewSecurityAuditWorkers(
+func NewSecurityAuditWorkersWithConfig(
 	auditService *service.SecurityAuditService,
 	notifier *websocket.SecurityAuditNotifier,
+	maintenanceInterval time.Duration,
+	suspiciousCheckInterval time.Duration,
+	criticalEventInterval time.Duration,
 ) *SecurityAuditWorkers {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &SecurityAuditWorkers{
-		auditService: auditService,
-		notifier:     notifier,
-		ctx:          ctx,
-		cancel:       cancel,
+		auditService:            auditService,
+		notifier:                notifier,
+		ctx:                     ctx,
+		cancel:                  cancel,
+		maintenanceInterval:     maintenanceInterval,
+		suspiciousCheckInterval: suspiciousCheckInterval,
+		criticalEventInterval:   criticalEventInterval,
 	}
 }
 
@@ -38,19 +47,10 @@ func NewSecurityAuditWorkers(
 func (w *SecurityAuditWorkers) Start() {
 	log.Println("Starting security audit workers...")
 
-	// Start maintenance worker (runs every hour)
-	go w.runMaintenanceWorker(1 * time.Hour)
-
-	// Start suspicious activity detector (runs every 5 minutes)
-	go w.runSuspiciousActivityDetector(5 * time.Minute)
-
-	// Start auto-resolve worker (runs every 15 minutes)
+	go w.runMaintenanceWorker(w.maintenanceInterval)
+	go w.runSuspiciousActivityDetector(w.suspiciousCheckInterval)
+	go w.runCriticalEventMonitor(w.criticalEventInterval)
 	go w.runAutoResolveWorker(15 * time.Minute)
-
-	// Start critical event monitor (runs every 1 minute)
-	go w.runCriticalEventMonitor(1 * time.Minute)
-
-	// Start high-risk user notifier (runs every 5 minutes)
 	go w.runHighRiskUserNotifier(5 * time.Minute)
 
 	log.Println("All security audit workers started successfully")

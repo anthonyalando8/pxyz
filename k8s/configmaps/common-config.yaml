@@ -16,7 +16,7 @@ data:
   DB_HOST: "YOUR_DB_HOST_IP"  # Replace with your actual DB host
   DB_PORT: "5432"
   DB_NAME: "pxyz_user"
-  DB_USER: "postgres"
+  DB_USER: "sam"
   
   # JWT
   JWT_AUDIENCE: "pxyz-clients"
