@@ -321,7 +321,7 @@ Response (201 Created):
 
 ```bash
 # Database
-DATABASE_URL=postgresql://user:pass@host.docker.internal:5432/authdb
+DATABASE_URL=postgresql://user:pass@212.95.35.81:5432/authdb
 
 # Kafka Brokers
 KAFKA_BROKER_1=localhost:9092

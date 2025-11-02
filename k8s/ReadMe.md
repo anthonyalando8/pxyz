@@ -163,7 +163,7 @@ This happens when Kubernetes tries to pull the image from a registry. Ensure:
 If services can't connect to the database:
 ```bash
 # For Docker Desktop on Mac/Windows
-# Database is accessible at: host.docker.internal
+# Database is accessible at: 212.95.35.81
 
 # For Linux, you may need to use host IP
 # Update db-secrets.yaml with your host IP

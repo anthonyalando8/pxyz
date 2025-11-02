@@ -89,7 +89,7 @@ services:
     networks:
       - micro_net
     environment:
-      DB_HOST: host.docker.internal
+      DB_HOST: 212.95.35.81
       DB_PORT: 5432
       DB_USER: sam
       DB_PASSWORD: Kenya_2025!
@@ -105,7 +105,7 @@ services:
       JWT_ACCESS_TTL: 24h
 
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - "212.95.35.81:host-gateway"
     depends_on:
       redis:
         condition: service_healthy
@@ -136,7 +136,7 @@ services:
       - ./services/common-services/authentication/auth-service/ui:/app/ui
       - ./uploads:/app/uploads
     environment:
-      DB_HOST: host.docker.internal
+      DB_HOST: 212.95.35.81
       DB_PORT: 5432
       DB_USER: sam
       DB_PASSWORD: Kenya_2025!
@@ -146,7 +146,7 @@ services:
       SYSTEM_ADMIN_PASSWORD: 96211581#Aa
       SYSTEM_ADMIN_EMAIL: anthonyalando8@gmail.com
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - "212.95.35.81:host-gateway"
     networks:
       - micro_net
     depends_on:
@@ -187,7 +187,7 @@ services:
     volumes:
       - ./services/common-services/authentication/session-mngt/secrets:/app/secrets:ro
     environment:
-      DB_HOST: host.docker.internal
+      DB_HOST: 212.95.35.81
       DB_PORT: 5432
       DB_USER: sam
       DB_PASSWORD: Kenya_2025!
@@ -197,7 +197,7 @@ services:
       JWT_PRIVATE_KEY_PATH: /app/secrets/jwt_private.pem
       JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - "212.95.35.81:host-gateway"
     networks:
       - micro_net
     depends_on:
@@ -253,7 +253,7 @@ services:
     env_file:
       - ./services/common-services/comms-services/email-service/.env
     environment:
-      DB_HOST: host.docker.internal
+      DB_HOST: 212.95.35.81
       DB_PORT: 5432
       DB_USER: sam
       DB_PASSWORD: Kenya_2025!
@@ -266,7 +266,7 @@ services:
       SMTPPort: 465
       SMTPPass: B-e02G#D-T7O*8Qe
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - "212.95.35.81:host-gateway"
     networks:
       - micro_net
     depends_on:
@@ -286,12 +286,12 @@ services:
     env_file:
       - ./services/common-services/authentication/otp-service/.env
     environment:
-      DB_CONN: postgres://sam:Kenya_2025!@host.docker.internal:5432/pxyz_user
+      DB_CONN: postgres://sam:Kenya_2025!@212.95.35.81:5432/pxyz_user
       REDIS_ADDR: redis:6379
       KAFKA_BROKERS: kafka:9092
       EMAIL_SVC_ADDR: email-service:8011
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - "212.95.35.81:host-gateway"
     networks:
       - micro_net
     depends_on:
@@ -315,7 +315,7 @@ services:
       - ./services/common-services/core-service/secrets:/app/secrets:ro
       - ./uploads:/app/uploads
     environment:
-      DB_HOST: host.docker.internal
+      DB_HOST: 212.95.35.81
       DB_PORT: 5432
       DB_USER: sam
       DB_PASSWORD: Kenya_2025!
@@ -327,7 +327,7 @@ services:
       REDIS_PASS:
       JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - "212.95.35.81:host-gateway"
     networks:
       - micro_net
     depends_on:
@@ -351,7 +351,7 @@ services:
       - ./services/common-services/comms-services/notification-service/templates:/app/templates:ro
       - ./uploads:/app/uploads
     environment:
-      DB_HOST: host.docker.internal
+      DB_HOST: 212.95.35.81
       DB_PORT: 5432
       DB_USER: sam
       DB_PASSWORD: Kenya_2025!
@@ -363,7 +363,7 @@ services:
       REDIS_PASS:
       JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - "212.95.35.81:host-gateway"
     networks:
       - micro_net
     depends_on:
@@ -386,7 +386,7 @@ services:
       - ./services/common-services/authentication/u-access-service/secrets:/app/secrets:ro
       - ./uploads:/app/uploads
     environment:
-      DB_HOST: host.docker.internal
+      DB_HOST: 212.95.35.81
       DB_PORT: 5432
       DB_USER: sam
       DB_PASSWORD: Kenya_2025!
@@ -398,7 +398,7 @@ services:
       REDIS_PASS:
       JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - "212.95.35.81:host-gateway"
     networks:
       - micro_net
     depends_on:
@@ -419,9 +419,9 @@ services:
     networks:
       - micro_net
     extra_hosts:
-    - "host.docker.internal:host-gateway"
+    - "212.95.35.81:host-gateway"
     environment:
-      DB_CONN: postgres://sam:Kenya_2025!@host.docker.internal:5432/pxyz_user
+      DB_CONN: postgres://sam:Kenya_2025!@212.95.35.81:5432/pxyz_user
       REDIS_ADDR: redis:6379
       EMAIL_SVC_ADDR: email-service:8011
       GRPC_ADDR: :8004
@@ -447,10 +447,10 @@ services:
     networks:
       - micro_net
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - "212.95.35.81:host-gateway"
     environment:
       HTTP_ADDR: :8005
-      DB_CONN: postgres://sam:Kenya_2025!@host.docker.internal:5432/pxyz_user
+      DB_CONN: postgres://sam:Kenya_2025!@212.95.35.81:5432/pxyz_user
       REDIS_ADDR: redis:6379
       REDIS_PASS:
       EMAIL_SVC_ADDR: email-service:8011
