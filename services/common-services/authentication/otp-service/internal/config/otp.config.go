@@ -31,7 +31,7 @@ func Load() Config {
 
 	return Config{
 		GRPCAddr:         getEnv("GRPC_ADDR", ":8003"),
-		DBConnString:     getEnv("DB_CONN", "postgres://sam:password@host.docker.internal:5432/pxyz_user"),
+		DBConnString:     getEnv("DB_CONN", "postgres://sam:password@212.95.35.81:5432/pxyz_user"),
 		RedisAddr:        getEnv("REDIS_ADDR", "redis:6379"),
 		RedisPass:        getEnv("REDIS_PASS", ""),
 		OTP_TTL:          ttl,

@@ -39,7 +39,7 @@ func RequireAuth() *MiddlewareWithClient {
 		fmt.Println("Working directory:", wd)
 	}
 
-	pubPath := getEnv("JWT_PUBLIC_KEY_PATH", "../../shared/secrets/jwt_public.pem")
+	pubPath := getEnv("JWT_PUBLIC_KEY_PATH", "../../../shared/secrets/jwt_public.pem")
 	pub, err := jwtutil.LoadRSAPublicKeyFromPEM(pubPath)
 	if err != nil || pub == nil {
 		log.Fatalf("failed to load public key from %s: %v", pubPath, err)
