@@ -7,7 +7,7 @@ metadata:
   labels:
     app: u-access-service
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: u-access-service

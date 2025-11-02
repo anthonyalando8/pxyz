@@ -220,7 +220,7 @@ resources:
 
 Modify HPA settings in `k8s/06-autoscaling/hpa.yaml`:
 ```yaml
-minReplicas: 2
+minReplicas: 1
 maxReplicas: 10
 metrics:
 - type: Resource
