@@ -1,7 +1,7 @@
 #!/bin/bash
 # scripts/build-images.sh
 
-set -e
+set +e
 
 echo "🏗️  Building Docker images locally..."
 
@@ -61,43 +61,51 @@ failed_services=0
 for service in "${!SERVICES[@]}"; do
     dockerfile_path="${SERVICES[$service]}/Dockerfile"
     service_path="${SERVICES[$service]}"
-    
+
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo "📦 Building: $service"
     echo "   Path: $service_path"
     echo "   Dockerfile: $dockerfile_path"
-    
+
     if [ ! -f "$dockerfile_path" ]; then
         echo "❌ Dockerfile not found at: $dockerfile_path"
         ((failed_services++))
         echo ""
         continue
     fi
-    
+
     echo "✅ Dockerfile found"
     echo "🔨 Building image..."
-    
-    # Build with explicit error handling
-    if docker build \
+
+    # Build the image and capture logs in case of failure
+    docker build \
         --file "$dockerfile_path" \
         --tag "$service:$TAG" \
         --build-arg SERVICE_NAME="$service" \
-        . 2>&1; then
-        
-        # Verify the image was actually created
-        if docker images "$service:$TAG" | grep -q "$service"; then
-            echo "✅ $service built successfully"
-            ((built_services++))
-        else
-            echo "❌ Image not found after build: $service:$TAG"
-            ((failed_services++))
-        fi
+        . > >(tee /tmp/build_${service}.log) 2>&1
+    exit_code=$?
+
+    if [ $exit_code -ne 0 ]; then
+        echo "❌ Failed to build $service (exit code $exit_code)"
+        echo "---- Last 20 lines of log ----"
+        tail -n 20 /tmp/build_${service}.log
+        echo "------------------------------"
+        ((failed_services++))
+        continue
+    fi
+
+    # Verify the image exists
+    if docker images "$service:$TAG" | grep -q "$service"; then
+        echo "✅ $service built successfully"
+        ((built_services++))
     else
-        echo "❌ Failed to build $service"
+        echo "❌ Image not found after build: $service:$TAG"
         ((failed_services++))
     fi
+
     echo ""
 done
+
 
 echo "=========================================="
 echo "📊 Build Summary"
