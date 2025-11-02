@@ -3,7 +3,21 @@
 
 set +e
 
-echo "🏗️  Building Docker images locally..."
+echo "🏗️  Building Docker images..."
+
+# Detect if we're using Minikube and switch to its Docker daemon
+USING_MINIKUBE=false
+if command -v minikube &> /dev/null; then
+    if minikube status &> /dev/null 2>&1; then
+        echo "🔧 Detected Minikube - using Minikube's Docker daemon"
+        eval $(minikube docker-env)
+        USING_MINIKUBE=true
+    fi
+fi
+
+if [ "$USING_MINIKUBE" = false ]; then
+    echo "🐳 Using host Docker daemon"
+fi
 
 # Determine project root directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -82,7 +96,7 @@ for service in "${!SERVICES[@]}"; do
         --file "$dockerfile_path" \
         --tag "$service:$TAG" \
         --build-arg SERVICE_NAME="$service" \
-        . > >(tee /tmp/build_${service}.log) 2>&1
+        . > /tmp/build_${service}.log 2>&1
     exit_code=$?
 
     if [ $exit_code -ne 0 ]; then
@@ -106,6 +120,12 @@ for service in "${!SERVICES[@]}"; do
     echo ""
 done
 
+# Return to host Docker if we were using Minikube
+if [ "$USING_MINIKUBE" = true ]; then
+    eval $(minikube docker-env -u)
+    echo "🔧 Returned to host Docker daemon"
+    echo ""
+fi
 
 echo "=========================================="
 echo "📊 Build Summary"
@@ -117,7 +137,14 @@ echo ""
 
 if [ $built_services -gt 0 ]; then
     echo "📋 Built images:"
-    docker images | grep ":$TAG" | head -20
+    if [ "$USING_MINIKUBE" = true ]; then
+        # Show images from Minikube
+        eval $(minikube docker-env)
+        docker images | grep ":$TAG" | head -20
+        eval $(minikube docker-env -u)
+    else
+        docker images | grep ":$TAG" | head -20
+    fi
     echo ""
 fi
 
@@ -132,4 +159,11 @@ if [ $built_services -eq 0 ]; then
 fi
 
 echo "🎉 All $built_services images built successfully!"
+
+if [ "$USING_MINIKUBE" = true ]; then
+    echo ""
+    echo "💡 Images built in Minikube's Docker daemon"
+    echo "   They are ready for deployment!"
+fi
+
 exit 0
