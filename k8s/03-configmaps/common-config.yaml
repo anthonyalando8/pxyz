@@ -1,0 +1,12 @@
+# k8s/03-configmaps/common-config.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: common-config
+  namespace: microservices
+data:
+  ENVIRONMENT: "production"
+  LOG_LEVEL: "info"
+  ENABLE_WEBSOCKET: "true"
+  ENABLE_KAFKA: "true"
+  ENABLE_WORKERS: "true"

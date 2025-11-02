@@ -1,0 +1,104 @@
+# k8s/05-services/session-service.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: session-service
+  namespace: microservices
+  labels:
+    app: session-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: session-service
+  template:
+    metadata:
+      labels:
+        app: session-service
+    spec:
+      containers:
+      - name: session-service
+        image: session-service:local
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8002
+          name: http
+        env:
+        - name: HTTP_ADDR
+          value: ":8002"
+        - name: DB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: DB_HOST
+        - name: DB_PORT
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: DB_PORT
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: DB_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: DB_PASSWORD
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: DB_NAME
+        - name: REDIS_ADDR
+          valueFrom:
+            secretKeyRef:
+              name: redis-secrets
+              key: REDIS_ADDR
+        - name: KAFKA_BROKERS
+          valueFrom:
+            secretKeyRef:
+              name: kafka-secrets
+              key: KAFKA_BROKERS
+        volumeMounts:
+        - name: jwt-secrets
+          mountPath: /app/secrets
+          readOnly: true
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "250m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8002
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8002
+          initialDelaySeconds: 15
+          periodSeconds: 10
+      volumes:
+      - name: jwt-secrets
+        secret:
+          secretName: jwt-secrets
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: session-service
+  namespace: microservices
+spec:
+  selector:
+    app: session-service
+  ports:
+  - port: 8002
+    targetPort: 8002
+    name: http
+  type: ClusterIP

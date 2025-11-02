@@ -1,0 +1,74 @@
+# k8s/05-services/kyc-service.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kyc-service
+  namespace: microservices
+  labels:
+    app: kyc-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: kyc-service
+  template:
+    metadata:
+      labels:
+        app: kyc-service
+    spec:
+      containers:
+      - name: kyc-service
+        image: kyc-service:local
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8005
+          name: http
+        env:
+        - name: HTTP_ADDR
+          value: ":8005"
+        - name: DB_CONN
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: DB_CONN
+        - name: REDIS_ADDR
+          valueFrom:
+            secretKeyRef:
+              name: redis-secrets
+              key: REDIS_ADDR
+        - name: EMAIL_SVC_ADDR
+          value: "email-service:8011"
+        volumeMounts:
+        - name: jwt-secrets
+          mountPath: /app/secrets
+          readOnly: true
+        - name: uploads
+          mountPath: /app/uploads
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "150m"
+      volumes:
+      - name: jwt-secrets
+        secret:
+          secretName: jwt-secrets
+      - name: uploads
+        persistentVolumeClaim:
+          claimName: uploads-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kyc-service
+  namespace: microservices
+spec:
+  selector:
+    app: kyc-service
+  ports:
+  - port: 8005
+    targetPort: 8005
+    name: http
+  type: ClusterIP

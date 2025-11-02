@@ -1,0 +1,29 @@
+# k8s/01-storage/zookeeper-pv.yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: zookeeper-pv
+  namespace: microservices
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-storage
+  hostPath:
+    path: /mnt/k8s-data/zookeeper
+    type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: zookeeper-pvc
+  namespace: microservices
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-storage
+  resources:
+    requests:
+      storage: 5Gi
