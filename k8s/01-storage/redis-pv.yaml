@@ -1,20 +1,4 @@
-# k8s/01-storage/redis-pv.yaml
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: redis-pv
-  namespace: microservices
-spec:
-  capacity:
-    storage: 5Gi
-  accessModes:
-    - ReadWriteOnce
-  persistentVolumeReclaimPolicy: Retain
-  storageClassName: local-storage
-  hostPath:
-    path: /mnt/k8s-data/redis
-    type: DirectoryOrCreate
----
+# k8s/01-storage/redis-pvc.yaml
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -23,7 +7,7 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: local-storage
+  storageClassName: standard  # Use Minikube's default
   resources:
     requests:
       storage: 5Gi

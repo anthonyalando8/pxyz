@@ -24,23 +24,18 @@ spec:
         - sh
         - -c
         - |
+          mkdir -p /var/lib/kafka/data
           chown -R 1000:1000 /var/lib/kafka/data
-          chmod -R 775 /var/lib/kafka/data
+          chmod -R 755 /var/lib/kafka/data
         volumeMounts:
         - name: kafka-data
           mountPath: /var/lib/kafka/data
         securityContext:
-          runAsUser: 0  # Run as root to change permissions
-      
-      securityContext:
-        fsGroup: 1000
+          runAsUser: 0
       
       containers:
       - name: kafka
         image: confluentinc/cp-kafka:7.5.0
-        securityContext:
-          runAsUser: 1000
-          runAsGroup: 1000
         ports:
         - containerPort: 9092
           name: plaintext
@@ -86,15 +81,17 @@ spec:
           initialDelaySeconds: 30
           periodSeconds: 10
           timeoutSeconds: 5
+          failureThreshold: 10
         livenessProbe:
           exec:
             command:
             - sh
             - -c
             - "kafka-broker-api-versions --bootstrap-server localhost:9092"
-          initialDelaySeconds: 45
+          initialDelaySeconds: 60
           periodSeconds: 10
           timeoutSeconds: 5
+          failureThreshold: 10
       volumes:
       - name: kafka-data
         persistentVolumeClaim:

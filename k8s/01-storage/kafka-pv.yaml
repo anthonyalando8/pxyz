@@ -1,20 +1,4 @@
-# k8s/01-storage/kafka-pv.yaml
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: kafka-pv
-  namespace: microservices
-spec:
-  capacity:
-    storage: 10Gi
-  accessModes:
-    - ReadWriteOnce
-  persistentVolumeReclaimPolicy: Retain
-  storageClassName: local-storage
-  hostPath:
-    path: /mnt/k8s-data/kafka
-    type: DirectoryOrCreate
----
+# k8s/01-storage/kafka-pvc.yaml
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -23,7 +7,7 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: local-storage
+  storageClassName: standard  # Use Minikube's default
   resources:
     requests:
       storage: 10Gi
