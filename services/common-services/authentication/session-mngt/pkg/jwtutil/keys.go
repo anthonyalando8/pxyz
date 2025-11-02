@@ -1,4 +1,3 @@
-// internal/token/keys.go
 package jwtutil
 
 import (
@@ -10,9 +9,12 @@ import (
 )
 
 func LoadRSAPrivateKeyFromPEM(path string) (*rsa.PrivateKey, error) {
-	b, err := os.ReadFile(path)
+	// Try to find the key in multiple locations
+	actualPath := findKeyFile(path)
+	
+	b, err := os.ReadFile(actualPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read private key: %w", err)
+		return nil, fmt.Errorf("failed to read private key from %s: %w", actualPath, err)
 	}
 
 	block, _ := pem.Decode(b)
@@ -37,3 +39,27 @@ func LoadRSAPrivateKeyFromPEM(path string) (*rsa.PrivateKey, error) {
 	return x509.ParsePKCS1PrivateKey(block.Bytes)
 }
 
+// findKeyFile tries multiple locations for the key file
+func findKeyFile(originalPath string) string {
+	// List of paths to try (in order)
+	locations := []string{
+		originalPath,                          // Original path (e.g., ../../shared/secrets/jwt_public.pem)
+		"/shared/secrets/jwt_private.pem",    // Init container location (private)
+		"/app/secrets/JWT_PRIVATE_KEY",       // Direct Kubernetes mount (private)
+	}
+	
+	// Try each location
+	for _, path := range locations {
+		if fileExists(path) {
+			return path
+		}
+	}
+	
+	// Return original path (will fail with clear error message)
+	return originalPath
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
