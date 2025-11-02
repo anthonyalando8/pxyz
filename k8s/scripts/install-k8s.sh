@@ -248,7 +248,7 @@ install_minikube() {
     
     # Start minikube
     log_info "Starting Minikube cluster..."
-    minikube start --driver=docker --cpus=4 --memory=8192 --disk-size=20g
+    minikube start --driver=docker --cpus=4 --memory=4096 --disk-size=20g
     
     log_success "Minikube cluster started"
     kubectl cluster-info
