@@ -44,19 +44,19 @@ TAG="${TAG:-local}"
 
 # Array of services to build (paths relative to project root)
 declare -A SERVICES=(
-    ["audit-service"]="services/common-services/authentication/audit-service"
+    #["audit-service"]="services/common-services/authentication/audit-service"
     ["auth-service"]="services/common-services/authentication/auth-service"
-    ["session-service"]="services/common-services/authentication/session-mngt"
-    ["otp-service"]="services/common-services/authentication/otp-service"
-    ["u-access-service"]="services/common-services/authentication/u-access-service"
-    ["email-service"]="services/common-services/comms-services/email-service"
-    ["sms-service"]="services/common-services/comms-services/sms-service"
-    ["notification-service"]="services/common-services/comms-services/notification-service"
-    ["core-service"]="services/common-services/core-service"
-    ["account-service"]="services/user-services/account-service"
-    ["kyc-service"]="services/user-services/kyc-service"
 )
 
+# ["session-service"]="services/common-services/authentication/session-mngt"
+#     ["otp-service"]="services/common-services/authentication/otp-service"
+#     ["u-access-service"]="services/common-services/authentication/u-access-service"
+#     ["email-service"]="services/common-services/comms-services/email-service"
+#     ["sms-service"]="services/common-services/comms-services/sms-service"
+#     ["notification-service"]="services/common-services/comms-services/notification-service"
+#     ["core-service"]="services/common-services/core-service"
+#     ["account-service"]="services/user-services/account-service"
+#     ["kyc-service"]="services/user-services/kyc-service"
 # Change to project root
 cd "$PROJECT_ROOT" || {
     echo "❌ Failed to change to project root: $PROJECT_ROOT"

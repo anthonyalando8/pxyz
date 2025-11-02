@@ -1,0 +1,119 @@
+# k8s/05-services/auth-service.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: microservices
+  labels:
+    app: auth-service
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: auth-service
+  template:
+    metadata:
+      labels:
+        app: auth-service
+    spec:
+      containers:
+      - name: auth-service
+        image: auth-service:local
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8001
+          name: http
+        env:
+        - name: HTTP_ADDR
+          value: ":8001"
+        - name: DB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: DB_HOST
+        - name: DB_PORT
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: DB_PORT
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: DB_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: DB_PASSWORD
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: DB_NAME
+        - name: REDIS_ADDR
+          valueFrom:
+            secretKeyRef:
+              name: redis-secrets
+              key: REDIS_ADDR
+        - name: KAFKA_BROKERS
+          valueFrom:
+            secretKeyRef:
+              name: kafka-secrets
+              key: KAFKA_BROKERS
+        - name: SYSTEM_ADMIN_EMAIL
+          valueFrom:
+            secretKeyRef:
+              name: auth-secrets
+              key: SYSTEM_ADMIN_EMAIL
+        - name: SYSTEM_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: auth-secrets
+              key: SYSTEM_ADMIN_PASSWORD
+        volumeMounts:
+        - name: jwt-secrets
+          mountPath: /app/secrets
+          readOnly: true
+        - name: uploads
+          mountPath: /app/uploads
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8001
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8001
+          initialDelaySeconds: 15
+          periodSeconds: 10
+      volumes:
+      - name: jwt-secrets
+        secret:
+          secretName: jwt-secrets
+      - name: uploads
+        persistentVolumeClaim:
+          claimName: uploads-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: microservices
+spec:
+  selector:
+    app: auth-service
+  ports:
+  - port: 8001
+    targetPort: 8001
+    name: http
+  type: ClusterIP
