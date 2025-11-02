@@ -1,7 +1,7 @@
 #!/bin/bash
 # scripts/setup-kafka-topics.sh
 
-KAFKA_BROKER="kafka:9092"
+KAFKA_BROKER="kafka-service:9092"
 
 echo "Creating Kafka topics for user registration..."
 

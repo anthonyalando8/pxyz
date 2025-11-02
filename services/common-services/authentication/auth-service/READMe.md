@@ -369,7 +369,7 @@ services:
       - kafka
       - postgres
     environment:
-      KAFKA_BROKER_1: kafka:9092
+      KAFKA_BROKER_1: kafka-service:9092
       DATABASE_URL: postgresql://user:pass@postgres:5432/authdb
 ```
 

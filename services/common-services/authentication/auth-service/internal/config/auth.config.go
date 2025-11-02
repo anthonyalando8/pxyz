@@ -32,7 +32,7 @@ func Load() AppConfig {
 		RedisAddr:      getEnv("REDIS_ADDR", "redis:6379"),
 		RedisPass:      getEnv("REDIS_PASS", ""),
 		GoogleClientID: getEnv("GOOGLE_CLIENT_ID", ""),
-		KafkaBrokers:   getEnvSlice("KAFKA_BROKERS", []string{"kafka:9092"}),
+		KafkaBrokers:   getEnvSlice("KAFKA_BROKERS", []string{"kafka-service:9092"}),
 
 		Apple: AppleConfig{
 			TeamID:        getEnv("APPLE_TEAM_ID", ""),

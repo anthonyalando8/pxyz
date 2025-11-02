@@ -325,7 +325,7 @@ services:
     build: .
     environment:
       - DATABASE_URL=postgres://db:5432/auth_db
-      - KAFKA_BROKERS=kafka:9092
+      - KAFKA_BROKERS=kafka-service:9092
     depends_on:
       - db
       - kafka
