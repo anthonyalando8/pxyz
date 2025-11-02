@@ -1,0 +1,66 @@
+# k8s/05-services/otp-service.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otp-service
+  namespace: microservices
+  labels:
+    app: otp-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: otp-service
+  template:
+    metadata:
+      labels:
+        app: otp-service
+    spec:
+      containers:
+      - name: otp-service
+        image: otp-service:local
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8003
+          name: http
+        env:
+        - name: HTTP_ADDR
+          value: ":8003"
+        - name: DB_CONN
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: DB_CONN
+        - name: REDIS_ADDR
+          valueFrom:
+            secretKeyRef:
+              name: redis-secrets
+              key: REDIS_ADDR
+        - name: KAFKA_BROKERS
+          valueFrom:
+            secretKeyRef:
+              name: kafka-secrets
+              key: KAFKA_BROKERS
+        - name: EMAIL_SVC_ADDR
+          value: "email-service:8011"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "150m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: otp-service
+  namespace: microservices
+spec:
+  selector:
+    app: otp-service
+  ports:
+  - port: 8003
+    targetPort: 8003
+    name: http
+  type: ClusterIP

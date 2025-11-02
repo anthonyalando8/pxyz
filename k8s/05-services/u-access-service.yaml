@@ -1,0 +1,104 @@
+# k8s/05-services/u-access-service.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: u-access-service
+  namespace: microservices
+  labels:
+    app: u-access-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: u-access-service
+  template:
+    metadata:
+      labels:
+        app: u-access-service
+    spec:
+      containers:
+      - name: u-access-service
+        image: u-access-service:local
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8031
+          name: http
+        - containerPort: 8032
+          name: grpc
+        env:
+        - name: HTTP_ADDR
+          value: ":8031"
+        - name: GRPC_ADDR
+          value: ":8032"
+        - name: DB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: DB_HOST
+        - name: DB_PORT
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: DB_PORT
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: DB_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: DB_PASSWORD
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: DB_NAME
+        - name: REDIS_ADDR
+          valueFrom:
+            secretKeyRef:
+              name: redis-secrets
+              key: REDIS_ADDR
+        - name: KAFKA_BROKERS
+          valueFrom:
+            secretKeyRef:
+              name: kafka-secrets
+              key: KAFKA_BROKERS
+        volumeMounts:
+        - name: jwt-secrets
+          mountPath: /app/secrets
+          readOnly: true
+        - name: uploads
+          mountPath: /app/uploads
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "250m"
+      volumes:
+      - name: jwt-secrets
+        secret:
+          secretName: jwt-secrets
+      - name: uploads
+        persistentVolumeClaim:
+          claimName: uploads-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: u-access-service
+  namespace: microservices
+spec:
+  selector:
+    app: u-access-service
+  ports:
+  - port: 8031
+    targetPort: 8031
+    name: http
+  - port: 8032
+    targetPort: 8032
+    name: grpc
+  type: ClusterIP

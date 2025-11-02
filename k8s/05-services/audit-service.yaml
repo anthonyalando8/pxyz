@@ -1,0 +1,146 @@
+# k8s/05-services/audit-service.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: audit-service
+  namespace: microservices
+  labels:
+    app: audit-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: audit-service
+  template:
+    metadata:
+      labels:
+        app: audit-service
+    spec:
+      containers:
+      - name: audit-service
+        image: audit-service:local
+        imagePullPolicy: Never  # Use local image
+        ports:
+        - containerPort: 8007
+          name: grpc
+        - containerPort: 8008
+          name: http
+        env:
+        - name: GRPC_ADDR
+          value: ":8007"
+        - name: HTTP_ADDR
+          value: ":8008"
+        - name: DB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: DB_HOST
+        - name: DB_PORT
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: DB_PORT
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: DB_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: DB_PASSWORD
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: DB_NAME
+        - name: REDIS_ADDR
+          valueFrom:
+            secretKeyRef:
+              name: redis-secrets
+              key: REDIS_ADDR
+        - name: REDIS_PASS
+          valueFrom:
+            secretKeyRef:
+              name: redis-secrets
+              key: REDIS_PASSWORD
+        - name: KAFKA_BROKERS
+          valueFrom:
+            secretKeyRef:
+              name: kafka-secrets
+              key: KAFKA_BROKERS
+        - name: JWT_AUDIENCE
+          valueFrom:
+            secretKeyRef:
+              name: auth-secrets
+              key: JWT_AUDIENCE
+        - name: JWT_ISSUER
+          valueFrom:
+            secretKeyRef:
+              name: auth-secrets
+              key: JWT_ISSUER
+        - name: JWT_ACCESS_TTL
+          valueFrom:
+            secretKeyRef:
+              name: auth-secrets
+              key: JWT_ACCESS_TTL
+        - name: ENABLE_WEBSOCKET
+          valueFrom:
+            configMapKeyRef:
+              name: common-config
+              key: ENABLE_WEBSOCKET
+        - name: ENABLE_KAFKA
+          valueFrom:
+            configMapKeyRef:
+              name: common-config
+              key: ENABLE_KAFKA
+        - name: ENABLE_WORKERS
+          valueFrom:
+            configMapKeyRef:
+              name: common-config
+              key: ENABLE_WORKERS
+        volumeMounts:
+        - name: jwt-secrets
+          mountPath: /app/secrets
+          readOnly: true
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 8008
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 8008
+          initialDelaySeconds: 15
+          periodSeconds: 10
+      volumes:
+      - name: jwt-secrets
+        secret:
+          secretName: jwt-secrets
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: audit-service
+  namespace: microservices
+spec:
+  selector:
+    app: audit-service
+  ports:
+  - port: 8007
+    targetPort: 8007
+    name: grpc
+  - port: 8008
+    targetPort: 8008
+    name: http
+  type: ClusterIP

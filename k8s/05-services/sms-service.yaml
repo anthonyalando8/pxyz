@@ -1,0 +1,102 @@
+# k8s/05-services/sms-service.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sms-service
+  namespace: microservices
+  labels:
+    app: sms-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sms-service
+  template:
+    metadata:
+      labels:
+        app: sms-service
+    spec:
+      containers:
+      - name: sms-service
+        image: sms-service:local
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8012
+          name: grpc
+        env:
+        - name: GRPC_ADDR
+          value: ":8012"
+        - name: REDIS_ADDR
+          valueFrom:
+            secretKeyRef:
+              name: redis-secrets
+              key: REDIS_ADDR
+        - name: KAFKA_BROKERS
+          valueFrom:
+            secretKeyRef:
+              name: kafka-secrets
+              key: KAFKA_BROKERS
+        - name: WA_KEY
+          valueFrom:
+            secretKeyRef:
+              name: sms-secrets
+              key: WA_KEY
+        - name: WA_URL
+          valueFrom:
+            secretKeyRef:
+              name: sms-secrets
+              key: WA_URL
+        - name: WA_SENDER
+          valueFrom:
+            secretKeyRef:
+              name: sms-secrets
+              key: WA_SENDER
+        - name: SMS_URL
+          valueFrom:
+            secretKeyRef:
+              name: sms-secrets
+              key: SMS_URL
+        - name: SENDER
+          valueFrom:
+            secretKeyRef:
+              name: sms-secrets
+              key: SMS_SENDER
+        - name: USER_ID
+          valueFrom:
+            secretKeyRef:
+              name: sms-secrets
+              key: SMS_USER_ID
+        - name: PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: sms-secrets
+              key: SMS_PASSWORD
+        volumeMounts:
+        - name: jwt-secrets
+          mountPath: /app/secrets
+          readOnly: true
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "150m"
+      volumes:
+      - name: jwt-secrets
+        secret:
+          secretName: jwt-secrets
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sms-service
+  namespace: microservices
+spec:
+  selector:
+    app: sms-service
+  ports:
+  - port: 8012
+    targetPort: 8012
+    name: grpc
+  type: ClusterIP
