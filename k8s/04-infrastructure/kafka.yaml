@@ -51,7 +51,7 @@ spec:
         - name: KAFKA_LISTENERS
           value: "PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:9093"
         - name: KAFKA_ADVERTISED_LISTENERS
-          value: "PLAINTEXT://kafka-service:9092,PLAINTEXT_HOST://localhost:9093"
+          value: "PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9093"
         - name: KAFKA_INTER_BROKER_LISTENER_NAME
           value: "PLAINTEXT"
         - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
@@ -100,7 +100,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: kafka-service
+  name: kafka
   namespace: microservices
 spec:
   selector:
