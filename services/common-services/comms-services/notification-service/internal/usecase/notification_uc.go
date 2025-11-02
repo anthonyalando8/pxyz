@@ -42,6 +42,7 @@ func (uc *NotificationUsecase) CreateNotification(ctx context.Context, n *domain
 	if err != nil {
 		//return nil, err
 		log.Printf("⚠️ Error creating notification in DB: %v", err)
+		created = n // Proceed with original notification data
 	}
 
 	templateData := make(map[string]any)
