@@ -40,7 +40,8 @@ func (uc *NotificationUsecase) CreateNotification(ctx context.Context, n *domain
 	// 1. Save to DB
 	created, err := uc.repo.CreateNotification(ctx, n)
 	if err != nil {
-		return nil, err
+		//return nil, err
+		log.Printf("⚠️ Error creating notification in DB: %v", err)
 	}
 
 	templateData := make(map[string]any)
