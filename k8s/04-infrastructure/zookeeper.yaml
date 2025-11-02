@@ -16,13 +16,33 @@ spec:
       labels:
         app: zookeeper
     spec:
+      # Init container to fix permissions
+      initContainers:
+      - name: fix-permissions
+        image: busybox:latest
+        command:
+        - sh
+        - -c
+        - |
+          chown -R 1000:1000 /var/lib/zookeeper/data /var/lib/zookeeper/log
+          chmod -R 775 /var/lib/zookeeper/data /var/lib/zookeeper/log
+        volumeMounts:
+        - name: zookeeper-data
+          mountPath: /var/lib/zookeeper/data
+        - name: zookeeper-logs
+          mountPath: /var/lib/zookeeper/log
+        securityContext:
+          runAsUser: 0
+      
       securityContext:
-          fsGroup: 1000
-          runAsUser: 1000
-          runAsGroup: 1000
+        fsGroup: 1000
+      
       containers:
       - name: zookeeper
         image: confluentinc/cp-zookeeper:7.5.0
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
         ports:
         - containerPort: 2181
           name: client
