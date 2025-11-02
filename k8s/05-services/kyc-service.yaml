@@ -17,22 +17,30 @@ spec:
         app: kyc-service
     spec:
       initContainers:
-        - name: setup-jwt-keys
-          image: busybox:1.36
-          command: ['sh', '-c']
-          args:
-            - |
-              mkdir -p /shared/secrets
+      - name: setup-jwt-keys
+        image: busybox:1.36
+        command: ['sh', '-c']
+        args:
+          - |
+            echo "Setting up JWT keys..."
+            mkdir -p /shared/secrets
+            if [ -f /app/secrets/JWT_PRIVATE_KEY ]; then
               cp /app/secrets/JWT_PRIVATE_KEY /shared/secrets/jwt_private.pem
+              echo "✓ Private key copied"
+            fi
+            if [ -f /app/secrets/JWT_PUBLIC_KEY ]; then
               cp /app/secrets/JWT_PUBLIC_KEY /shared/secrets/jwt_public.pem
-              echo "JWT keys copied successfully"
-          volumeMounts:
-          - name: jwt-secrets
-            mountPath: /app/secrets
-            readOnly: true
-          - name: shared-secrets
-            mountPath: /shared
-            
+              echo "✓ Public key copied"
+            fi
+            ls -la /shared/secrets/
+            echo "JWT keys setup complete"
+        volumeMounts:
+        - name: jwt-secrets
+          mountPath: /app/secrets
+          readOnly: true
+        - name: shared-secrets
+          mountPath: /shared
+      
       containers:
       - name: kyc-service
         image: kyc-service:local
@@ -59,6 +67,9 @@ spec:
         - name: jwt-secrets
           mountPath: /app/secrets
           readOnly: true
+        - name: shared-secrets
+          mountPath: /shared
+          readOnly: false
         - name: uploads
           mountPath: /app/uploads
         resources:
@@ -68,21 +79,16 @@ spec:
           limits:
             memory: "256Mi"
             cpu: "150m"
+      
       volumes:
       - name: jwt-secrets
         secret:
           secretName: jwt-secrets
+      - name: shared-secrets
+        emptyDir: {}
       - name: uploads
         persistentVolumeClaim:
           claimName: uploads-pvc
-
-      volumeMounts:
-        - name: jwt-secrets
-          mountPath: /app/secrets
-          readOnly: true
-        - name: shared-secrets
-          mountPath: /shared
-          readOnly: false
 ---
 apiVersion: v1
 kind: Service
