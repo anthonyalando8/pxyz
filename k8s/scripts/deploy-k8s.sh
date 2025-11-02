@@ -27,6 +27,12 @@ kubectl apply -f 00-namespace.yaml
 echo "🔐 Applying secrets..."
 kubectl apply -f 02-secrets/
 
+kubectl create secret generic jwt-secrets \
+  --from-literal=jwt_secret=$(openssl rand -base64 32) \
+  --from-literal=jwt_access_secret=$(openssl rand -base64 32) \
+  --from-literal=jwt_refresh_secret=$(openssl rand -base64 32) \
+  -n microservices --dry-run=client -o yaml | kubectl apply -f -
+
 # Apply configmaps
 echo "⚙️  Applying configmaps..."
 kubectl apply -f 03-configmaps/
