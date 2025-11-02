@@ -6,7 +6,6 @@ set -e
 echo "🏗️  Building Docker images locally..."
 
 # Determine project root directory
-# Since script is in k8s/scripts/, go up two levels to reach pxyz/
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 K8S_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROJECT_ROOT="$(cd "$K8S_DIR/.." && pwd)"
@@ -20,17 +19,6 @@ if [ ! -d "$PROJECT_ROOT/services" ]; then
     echo ""
     echo "❌ Error: Services directory not found"
     echo "   Expected: $PROJECT_ROOT/services"
-    echo ""
-    echo "💡 Current directory structure:"
-    ls -la "$PROJECT_ROOT" 2>/dev/null || echo "   Cannot list $PROJECT_ROOT"
-    echo ""
-    echo "Please ensure your project structure is:"
-    echo "  pxyz/"
-    echo "  ├── services/"
-    echo "  │   ├── common-services/"
-    echo "  │   └── user-services/"
-    echo "  └── k8s/"
-    echo "      └── scripts/"
     exit 1
 fi
 
@@ -81,9 +69,6 @@ for service in "${!SERVICES[@]}"; do
     
     if [ ! -f "$dockerfile_path" ]; then
         echo "❌ Dockerfile not found at: $dockerfile_path"
-        echo ""
-        echo "Looking for Dockerfile in:"
-        ls -la "$service_path" 2>/dev/null || echo "   Directory not found: $service_path"
         ((failed_services++))
         echo ""
         continue
@@ -92,14 +77,21 @@ for service in "${!SERVICES[@]}"; do
     echo "✅ Dockerfile found"
     echo "🔨 Building image..."
     
+    # Build with explicit error handling
     if docker build \
         --file "$dockerfile_path" \
         --tag "$service:$TAG" \
         --build-arg SERVICE_NAME="$service" \
-        . ; then
+        . 2>&1; then
         
-        echo "✅ $service built successfully"
-        ((built_services++))
+        # Verify the image was actually created
+        if docker images "$service:$TAG" | grep -q "$service"; then
+            echo "✅ $service built successfully"
+            ((built_services++))
+        else
+            echo "❌ Image not found after build: $service:$TAG"
+            ((failed_services++))
+        fi
     else
         echo "❌ Failed to build $service"
         ((failed_services++))
@@ -117,13 +109,19 @@ echo ""
 
 if [ $built_services -gt 0 ]; then
     echo "📋 Built images:"
-    docker images | grep ":$TAG"
+    docker images | grep ":$TAG" | head -20
     echo ""
 fi
 
 if [ $failed_services -gt 0 ]; then
-    echo "⚠️  Some services failed to build"
+    echo "⚠️  $failed_services service(s) failed to build"
     exit 1
 fi
 
-echo "🎉 All images built successfully!"
+if [ $built_services -eq 0 ]; then
+    echo "❌ No services were built successfully"
+    exit 1
+fi
+
+echo "🎉 All $built_services images built successfully!"
+exit 0
