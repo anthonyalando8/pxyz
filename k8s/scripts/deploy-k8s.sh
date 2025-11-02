@@ -21,7 +21,7 @@ echo "✅ Connected to Kubernetes cluster"
 
 # Create namespace
 echo "📁 Creating namespace..."
-kubectl apply -f k8s/00-namespace.yaml
+kubectl apply -f 00-namespace.yaml
 
 # Create storage directories on host (for local development)
 echo "💾 Creating storage directories..."
@@ -30,19 +30,19 @@ sudo chmod -R 777 /mnt/k8s-data
 
 # Apply storage configuration
 echo "💾 Applying storage configuration..."
-kubectl apply -f k8s/01-storage/
+kubectl apply -f 01-storage/
 
 # Apply secrets
 echo "🔐 Applying secrets..."
-kubectl apply -f k8s/02-secrets/
+kubectl apply -f 02-secrets/
 
 # Apply configmaps
 echo "⚙️  Applying configmaps..."
-kubectl apply -f k8s/03-configmaps/
+kubectl apply -f 03-configmaps/
 
 # Deploy infrastructure services
 echo "🏗️  Deploying infrastructure services..."
-kubectl apply -f k8s/04-infrastructure/
+kubectl apply -f 04-infrastructure/
 
 # Wait for infrastructure to be ready
 echo "⏳ Waiting for infrastructure services to be ready..."
@@ -52,15 +52,15 @@ kubectl wait --for=condition=ready pod -l app=kafka -n microservices --timeout=3
 
 # Deploy microservices
 echo "🚀 Deploying microservices..."
-kubectl apply -f k8s/05-services/
+kubectl apply -f 05-services/
 
 # Apply autoscaling
 echo "📈 Applying autoscaling configuration..."
-kubectl apply -f k8s/06-autoscaling/
+kubectl apply -f 06-autoscaling/
 
 # Apply ingress
 echo "🌐 Applying ingress configuration..."
-kubectl apply -f k8s/07-ingress/
+kubectl apply -f 07-ingress/
 
 echo ""
 echo "✨ Deployment complete!"
