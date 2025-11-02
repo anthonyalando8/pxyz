@@ -37,6 +37,9 @@ kubectl create secret generic jwt-secrets \
 echo "⚙️  Applying configmaps..."
 kubectl apply -f 03-configmaps/
 
+# Apply storage configuration
+echo "💾 Applying storage configuration..."
+kubectl apply -f 01-storage/
 # Optional: Deploy infrastructure (comment out if skipping)
 DEPLOY_INFRA="${DEPLOY_INFRA:-false}"
 
@@ -48,10 +51,6 @@ if [ "$DEPLOY_INFRA" = "true" ]; then
     echo "💾 Creating storage directories..."
     sudo mkdir -p /mnt/k8s-data/{redis,kafka,zookeeper,uploads} 2>/dev/null || true
     sudo chmod -R 777 /mnt/k8s-data 2>/dev/null || true
-    
-    # Apply storage configuration
-    echo "💾 Applying storage configuration..."
-    kubectl apply -f 01-storage/
     
     # Deploy infrastructure
     kubectl apply -f 04-infrastructure/
