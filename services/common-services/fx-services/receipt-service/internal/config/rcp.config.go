@@ -20,7 +20,7 @@ func Load() AppConfig {
 		GRPCAddr:     getEnv("GRPC_ADDR", ":8024"),
 		RedisAddr:    getEnv("REDIS_ADDR", "redis:6379"),
 		RedisPass:    getEnv("REDIS_PASS", ""),
-		KafkaBrokers: parseCSVEnv("KAFKA_BROKERS", "kafka:9092"),
+		KafkaBrokers: parseCSVEnv("KAFKA_BROKERS", "kafka-service:9092"),
 		KafkaTopic:   getEnv("KAFKA_TOPIC", "receipts"),
 	}
 }
