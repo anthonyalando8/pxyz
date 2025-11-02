@@ -41,7 +41,7 @@ kubectl apply -f 03-configmaps/
 echo "💾 Applying storage configuration..."
 kubectl apply -f 01-storage/
 # Optional: Deploy infrastructure (comment out if skipping)
-DEPLOY_INFRA="${DEPLOY_INFRA:-false}"
+DEPLOY_INFRA="${DEPLOY_INFRA:-true}"
 
 if [ "$DEPLOY_INFRA" = "true" ]; then
     echo ""
