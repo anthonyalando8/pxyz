@@ -55,7 +55,7 @@ services:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:9093
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-service:9092,PLAINTEXT_HOST://localhost:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9093
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
@@ -141,7 +141,7 @@ services:
       DB_USER: sam
       DB_PASSWORD: Kenya_2025!
       DB_NAME: pxyz_user
-      KAFKA_BROKERS: kafka-service:9092
+      KAFKA_BROKERS: kafka:9092
       REDIS_ADDR: redis:6379
       SYSTEM_ADMIN_PASSWORD: 96211581#Aa
       SYSTEM_ADMIN_EMAIL: anthonyalando8@gmail.com
@@ -193,7 +193,7 @@ services:
       DB_PASSWORD: Kenya_2025!
       DB_NAME: pxyz_user
       REDIS_ADDR: redis:6379
-      KAFKA_BROKERS: kafka-service:9092
+      KAFKA_BROKERS: kafka:9092
       JWT_PRIVATE_KEY_PATH: /app/secrets/jwt_private.pem
       JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
     extra_hosts:
@@ -222,7 +222,7 @@ services:
     environment:
       GRPC_ADDR: :8012
       REDIS_PASS:
-      KAFKA_BROKERS: kafka-service:9092
+      KAFKA_BROKERS: kafka:9092
       JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
       WA_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiJieXVmU1hvSnFHY2NPcWNXOW82NXRWMWI4WVdsMEd3aSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzU2NzQ3MjMzfQ.npCbVvXb2i_gAkBr3iXi_spHVbBG4l_ZXgqevm8jfjg
       WA_URL: https://www.whatsupsender.co.ke
@@ -258,7 +258,7 @@ services:
       DB_USER: sam
       DB_PASSWORD: Kenya_2025!
       DB_NAME: pxyz_user
-      KAFKA_BROKERS: kafka-service:9092
+      KAFKA_BROKERS: kafka:9092
       REDIS_ADDR: redis:6379
       GRPCPort: :8011
       SMTPHost: mail.derinance.com
@@ -288,7 +288,7 @@ services:
     environment:
       DB_CONN: postgres://sam:Kenya_2025!@212.95.35.81:5432/pxyz_user
       REDIS_ADDR: redis:6379
-      KAFKA_BROKERS: kafka-service:9092
+      KAFKA_BROKERS: kafka:9092
       EMAIL_SVC_ADDR: email-service:8011
     extra_hosts:
       - "212.95.35.81:host-gateway"
@@ -321,7 +321,7 @@ services:
       DB_PASSWORD: Kenya_2025!
       DB_NAME: pxyz_user
       REDIS_ADDR: redis:6379
-      KAFKA_BROKERS: kafka-service:9092
+      KAFKA_BROKERS: kafka:9092
       HTTP_ADDR: :8051
       GRPC_ADDR: :8052
       REDIS_PASS:
@@ -356,7 +356,7 @@ services:
       DB_USER: sam
       DB_PASSWORD: Kenya_2025!
       DB_NAME: pxyz_user
-      KAFKA_BROKERS: kafka-service:9092
+      KAFKA_BROKERS: kafka:9092
       REDIS_ADDR: redis:6379
       HTTP_ADDR: :8013
       GRPC_ADDR: :8014
@@ -391,7 +391,7 @@ services:
       DB_USER: sam
       DB_PASSWORD: Kenya_2025!
       DB_NAME: pxyz_user
-      KAFKA_BROKERS: kafka-service:9092
+      KAFKA_BROKERS: kafka:9092
       REDIS_ADDR: redis:6379
       HTTP_ADDR: :8031
       GRPC_ADDR: :8032

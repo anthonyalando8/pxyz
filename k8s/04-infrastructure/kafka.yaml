@@ -51,7 +51,7 @@ spec:
         - name: KAFKA_LISTENERS
           value: "PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:9093"
         - name: KAFKA_ADVERTISED_LISTENERS
-          value: "PLAINTEXT://kafka-service:9092,PLAINTEXT_HOST://localhost:9093"
+          value: "PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9093"
         - name: KAFKA_INTER_BROKER_LISTENER_NAME
           value: "PLAINTEXT"
         - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
@@ -62,6 +62,28 @@ spec:
           value: "1"
         - name: KAFKA_AUTO_CREATE_TOPICS_ENABLE
           value: "true"
+        # Additional critical configuration
+        - name: KAFKA_LOG_DIRS
+          value: "/var/lib/kafka/data"
+        - name: KAFKA_NUM_PARTITIONS
+          value: "1"
+        - name: KAFKA_DEFAULT_REPLICATION_FACTOR
+          value: "1"
+        - name: KAFKA_MIN_INSYNC_REPLICAS
+          value: "1"
+        - name: KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS
+          value: "0"
+        - name: KAFKA_LOG_RETENTION_HOURS
+          value: "168"
+        - name: KAFKA_LOG_SEGMENT_BYTES
+          value: "1073741824"
+        - name: KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS
+          value: "300000"
+        # JVM settings for better stability
+        - name: KAFKA_HEAP_OPTS
+          value: "-Xmx512M -Xms512M"
+        - name: KAFKA_JVM_PERFORMANCE_OPTS
+          value: "-XX:+UseG1GC -XX:MaxGCPauseMillis=20 -XX:InitiatingHeapOccupancyPercent=35 -XX:G1HeapRegionSize=16M"
         volumeMounts:
         - name: kafka-data
           mountPath: /var/lib/kafka/data
@@ -72,26 +94,28 @@ spec:
           limits:
             memory: "1Gi"
             cpu: "500m"
+        # More lenient startup probes
+        startupProbe:
+          tcpSocket:
+            port: 9092
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30
         readinessProbe:
-          exec:
-            command:
-            - sh
-            - -c
-            - "kafka-broker-api-versions --bootstrap-server localhost:9092"
-          initialDelaySeconds: 45
-          periodSeconds: 15
-          timeoutSeconds: 15
-          failureThreshold: 10
+          tcpSocket:
+            port: 9092
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 6
         livenessProbe:
-          exec:
-            command:
-            - sh
-            - -c
-            - "kafka-broker-api-versions --bootstrap-server localhost:9092"
-          initialDelaySeconds: 90
-          periodSeconds: 15
-          timeoutSeconds: 15
-          failureThreshold: 10
+          tcpSocket:
+            port: 9092
+          initialDelaySeconds: 60
+          periodSeconds: 20
+          timeoutSeconds: 10
+          failureThreshold: 6
       volumes:
       - name: kafka-data
         persistentVolumeClaim:
