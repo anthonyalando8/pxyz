@@ -78,9 +78,9 @@ spec:
             - sh
             - -c
             - "kafka-broker-api-versions --bootstrap-server localhost:9092"
-          initialDelaySeconds: 30
-          periodSeconds: 10
-          timeoutSeconds: 5
+          initialDelaySeconds: 45
+          periodSeconds: 15
+          timeoutSeconds: 15
           failureThreshold: 10
         livenessProbe:
           exec:
@@ -88,9 +88,9 @@ spec:
             - sh
             - -c
             - "kafka-broker-api-versions --bootstrap-server localhost:9092"
-          initialDelaySeconds: 60
-          periodSeconds: 10
-          timeoutSeconds: 5
+          initialDelaySeconds: 90
+          periodSeconds: 15
+          timeoutSeconds: 15
           failureThreshold: 10
       volumes:
       - name: kafka-data
