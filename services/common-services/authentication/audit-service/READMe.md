@@ -312,8 +312,8 @@ for _, status := range resp.Statuses {
 ### Environment Variables
 ```bash
 DATABASE_URL=postgres://localhost/auth_db
-GRPC_ADDRESS=:50051
-HTTP_ADDRESS=:8080
+GRPC_ADDRESS=:8007
+HTTP_ADDRESS=:8008
 KAFKA_BROKERS=localhost:9092,localhost:9093
 ```
 
@@ -779,8 +779,8 @@ type Config struct {
 func loadConfig() Config {
 	return Config{
 		DatabaseURL:  getEnv("DATABASE_URL", "postgres://localhost/auth_db"),
-		GRPCAddress:  getEnv("GRPC_ADDRESS", ":50051"),
-		HTTPAddress:  getEnv("HTTP_ADDRESS", ":8080"),
+		GRPCAddress:  getEnv("GRPC_ADDRESS", ":8007"),
+		HTTPAddress:  getEnv("HTTP_ADDRESS", ":8008"),
 		KafkaBrokers: getEnvSlice("KAFKA_BROKERS", []string{"localhost:9092"}),
 	}
 }
