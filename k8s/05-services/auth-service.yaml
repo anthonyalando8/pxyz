@@ -23,6 +23,8 @@ spec:
         ports:
         - containerPort: 8001
           name: http
+        - containerPort: 8006
+          name: grpc
         env:
         - name: HTTP_ADDR
           value: ":8001"
@@ -84,18 +86,32 @@ spec:
           limits:
             memory: "1Gi"
             cpu: "500m"
+        # Use the correct health endpoint path from your logs
         readinessProbe:
           httpGet:
-            path: /health
-            port: 8001
-          initialDelaySeconds: 10
-          periodSeconds: 5
-        livenessProbe:
-          httpGet:
-            path: /health
+            path: /api/v1/auth/health
             port: 8001
           initialDelaySeconds: 15
           periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /api/v1/auth/health
+            port: 8001
+          initialDelaySeconds: 30
+          periodSeconds: 15
+          timeoutSeconds: 5
+          failureThreshold: 3
+        # Add startup probe for slower initial startup
+        startupProbe:
+          httpGet:
+            path: /api/v1/auth/health
+            port: 8001
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 30
       volumes:
       - name: jwt-secrets
         secret:
