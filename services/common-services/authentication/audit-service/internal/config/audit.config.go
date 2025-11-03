@@ -48,8 +48,8 @@ type AppConfig struct {
 func Load() AppConfig {
 	return AppConfig{
 		// Server
-		GRPCAddress: getEnv("GRPC_ADDRESS", ":50051"),
-		HTTPAddress: getEnv("HTTP_ADDRESS", ":8080"),
+		GRPCAddress: getEnv("GRPC_ADDRESS", ":8007"),
+		HTTPAddress: getEnv("HTTP_ADDRESS", ":8008"),
 		Environment: getEnv("ENVIRONMENT", "development"),
 
 		// Kafka
