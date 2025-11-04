@@ -1,6 +1,6 @@
 # Makefile for Kubernetes deployment
 
-.PHONY: help install-k8s check-k8s build deploy status logs clean restart port-forward scale all watch resources describe setup-and-deploy quick-start
+.PHONY: help install-k8s uninstall-k8s check-k8s build deploy status logs clean restart port-forward scale all watch resources describe setup-and-deploy quick-start
 
 help:
 	@echo "Available commands:"
@@ -41,6 +41,11 @@ install-k8s:
 	@echo "🚀 Installing Kubernetes..."
 	@chmod +x scripts/install-k8s.sh
 	@./scripts/install-k8s.sh
+
+uninstall-k8s:
+	@echo "🧹 Uninstalling Kubernetes..."
+	@chmod +x scripts/uninstall.sh
+	@./scripts/uninstall.sh
 
 check-k8s:
 	@chmod +x scripts/check-k8s-requirements.sh
