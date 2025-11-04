@@ -5,9 +5,25 @@ set +e
 
 echo "🏗️  Building Docker images..."
 
-# Detect if we're using Minikube and switch to its Docker daemon
+# Detect which Kubernetes environment is running
 USING_MINIKUBE=false
-if command -v minikube &> /dev/null; then
+USING_KIND=false
+K8S_CLUSTER_NAME="kind"  # Default Kind cluster name
+
+# Check for Kind
+if command -v kind &> /dev/null; then
+    if kind get clusters 2>/dev/null | grep -q .; then
+        KIND_CLUSTER=$(kind get clusters 2>/dev/null | head -n 1)
+        if [ -n "$KIND_CLUSTER" ]; then
+            echo "🎯 Detected Kind cluster: $KIND_CLUSTER"
+            USING_KIND=true
+            K8S_CLUSTER_NAME="$KIND_CLUSTER"
+        fi
+    fi
+fi
+
+# Check for Minikube (if Kind not found)
+if [ "$USING_KIND" = false ] && command -v minikube &> /dev/null; then
     if minikube status &> /dev/null 2>&1; then
         echo "🔧 Detected Minikube - using Minikube's Docker daemon"
         eval $(minikube docker-env)
@@ -15,8 +31,9 @@ if command -v minikube &> /dev/null; then
     fi
 fi
 
-if [ "$USING_MINIKUBE" = false ]; then
+if [ "$USING_MINIKUBE" = false ] && [ "$USING_KIND" = false ]; then
     echo "🐳 Using host Docker daemon"
+    echo "⚠️  Note: If using Kind, you'll need to manually load images with 'kind load docker-image'"
 fi
 
 # Determine project root directory
@@ -71,11 +88,13 @@ echo ""
 total_services=${#SERVICES[@]}
 built_services=0
 failed_services=0
+declare -a BUILT_IMAGES=()
 
 # Build each service
 for service in "${!SERVICES[@]}"; do
     dockerfile_path="${SERVICES[$service]}/Dockerfile"
     service_path="${SERVICES[$service]}"
+    image_name="$service:$TAG"
 
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo "📦 Building: $service"
@@ -95,7 +114,7 @@ for service in "${!SERVICES[@]}"; do
     # Build the image and capture logs in case of failure
     docker build \
         --file "$dockerfile_path" \
-        --tag "$service:$TAG" \
+        --tag "$image_name" \
         --build-arg SERVICE_NAME="$service" \
         . > /tmp/build_${service}.log 2>&1
     exit_code=$?
@@ -110,11 +129,23 @@ for service in "${!SERVICES[@]}"; do
     fi
 
     # Verify the image exists
-    if docker images "$service:$TAG" | grep -q "$service"; then
+    if docker images "$image_name" | grep -q "$service"; then
         echo "✅ $service built successfully"
         ((built_services++))
+        BUILT_IMAGES+=("$image_name")
+        
+        # If using Kind, load image immediately after building
+        if [ "$USING_KIND" = true ]; then
+            echo "📥 Loading image into Kind cluster: $K8S_CLUSTER_NAME"
+            if kind load docker-image "$image_name" --name "$K8S_CLUSTER_NAME" 2>&1 | tee /tmp/kind_load_${service}.log; then
+                echo "✅ Image loaded into Kind cluster"
+            else
+                echo "⚠️  Warning: Failed to load image into Kind cluster"
+                echo "   You can manually load it with: kind load docker-image $image_name --name $K8S_CLUSTER_NAME"
+            fi
+        fi
     else
-        echo "❌ Image not found after build: $service:$TAG"
+        echo "❌ Image not found after build: $image_name"
         ((failed_services++))
     fi
 
@@ -165,6 +196,32 @@ if [ "$USING_MINIKUBE" = true ]; then
     echo ""
     echo "💡 Images built in Minikube's Docker daemon"
     echo "   They are ready for deployment!"
+elif [ "$USING_KIND" = true ]; then
+    echo ""
+    echo "💡 Images built and loaded into Kind cluster: $K8S_CLUSTER_NAME"
+    echo "   They are ready for deployment!"
+    echo ""
+    echo "📝 To verify images in Kind cluster:"
+    echo "   docker exec -it ${K8S_CLUSTER_NAME}-control-plane crictl images | grep ':$TAG'"
+else
+    echo ""
+    echo "⚠️  Images built on host Docker daemon"
+    echo ""
+    if command -v kind &> /dev/null; then
+        echo "💡 To load images into Kind, run:"
+        echo "   for image in ${BUILT_IMAGES[@]}; do"
+        echo "     kind load docker-image \$image"
+        echo "   done"
+        echo ""
+    fi
+fi
+
+# Create a quick reference file with all built images
+if [ $built_services -gt 0 ]; then
+    echo "# Built images - $(date)" > /tmp/built-images.txt
+    printf '%s\n' "${BUILT_IMAGES[@]}" >> /tmp/built-images.txt
+    echo ""
+    echo "📄 Built images list saved to: /tmp/built-images.txt"
 fi
 
 exit 0
