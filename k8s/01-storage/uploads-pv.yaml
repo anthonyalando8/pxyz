@@ -1,4 +1,5 @@
 # k8s/01-storage/uploads-pvc.yaml
+# Fixed for Kind - using ReadWriteOnce instead of ReadWriteMany
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -6,8 +7,8 @@ metadata:
   namespace: microservices
 spec:
   accessModes:
-    - ReadWriteMany
-  storageClassName: standard  # Use Minikube's default
+    - ReadWriteOnce  # Kind's local-path provisioner only supports ReadWriteOnce
+  storageClassName: standard
   resources:
     requests:
       storage: 20Gi
