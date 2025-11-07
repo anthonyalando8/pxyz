@@ -459,6 +459,95 @@ services:
       - redis
       - email-service
 
+  admin-auth-service:
+    build:
+      context: .
+      dockerfile: admin-services/admin-auth-service/Dockerfile
+    container_name: admin-auth-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.admin-auth.rule=PathPrefix(`/admin/auth`)"
+      - "traefik.http.services.admin-auth.loadbalancer.server.port=7000"
+    env_file:
+      - ./admin-services/admin-auth-service/.env
+    volumes:
+      - ./admin-services/admin-auth-service/secrets:/app/secrets:ro
+      - ./uploads:/app/uploads
+    environment:
+      DB_HOST: 212.95.35.81
+      DB_PORT: 5432
+      DB_USER: sam
+      DB_PASSWORD: Kenya_2025!
+      DB_NAME: pxyz_admin
+      REDIS_ADDR: redis:6379
+      SYSTEM_ADMIN_PASSWORD: 96211581#Aa
+      SYSTEM_ADMIN_EMAIL: anthonyalando8@gmail.com
+    networks:
+      - micro_net
+    depends_on:
+      - redis
+      - core-service
+      - admin-session-service
+      - email-service
+      - otp-service
+
+  # 🔹 Session Service
+  admin-session-service:
+    build:
+      context: .
+      dockerfile: admin-services/admin-session-mngt/Dockerfile
+    container_name: admin-session-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.admin-session.rule=PathPrefix(`/admin/session`)"
+      - "traefik.http.services.admin-session.loadbalancer.server.port=7003"
+    env_file:
+      - ./admin-services/admin-session-mngt/.env
+    volumes:
+      - ./admin-services/admin-session-mngt/secrets:/app/secrets:ro
+    environment:
+      DB_HOST: 212.95.35.81
+      DB_PORT: 5432
+      DB_USER: sam
+      DB_PASSWORD: Kenya_2025!
+      DB_NAME: pxyz_admin
+      REDIS_ADDR: redis:6379
+      JWT_PRIVATE_KEY_PATH: /app/secrets/jwt_private.pem
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    networks:
+      - micro_net
+    depends_on:
+      - redis
+
+  admin-service:
+    build:
+      context: .
+      dockerfile: admin-services/admin-service/Dockerfile
+    container_name: admin-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.admin-svc.rule=PathPrefix(`/admin/svc`)"
+      - "traefik.http.services.admin-svc.loadbalancer.server.port=7010"
+    env_file:
+      - ./admin-services/admin-service/.env
+    volumes:
+      - ./admin-services/admin-service/secrets:/app/secrets:ro
+      - ./uploads:/app/uploads
+    environment:
+      DB_HOST: 212.95.35.81
+      DB_PORT: 5432
+      DB_USER: sam
+      DB_PASSWORD: Kenya_2025!
+      DB_NAME: pxyz_admin
+      REDIS_ADDR: redis:6379
+    networks:
+      - micro_net
+    depends_on:
+      - redis
+      - core-service
+      - admin-session-service
+      - email-service
+
 networks:
   micro_net:
     driver: bridge

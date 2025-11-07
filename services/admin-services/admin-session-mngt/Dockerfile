@@ -24,12 +24,23 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
 
 # -------- Stage 2: Minimal Runtime --------
 FROM debian:bookworm-slim
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates passwd \
+ && rm -rf /var/lib/apt/lists/
 
 # Copy only the binary from builder stage
 COPY --from=builder /app/admin-session-service /admin-session-service
 
 # Use non-root user for security
-USER nonroot:nonroot
+RUN set -eux; \
+    if ! id -u nonroot >/dev/null 2>&1; then \
+        adduser --system --uid 10001 --group --no-create-home nonroot; \
+    fi; \
+    chown -R nonroot:nonroot /app
+
+USER nonroot
 
 # Expose gRPC port
 EXPOSE 7003

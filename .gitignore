@@ -74,6 +74,10 @@
 /services/admin-services/admin-service/secrets/
 /services/admin-services/admin-service/secrets/*
 
+/services/admin-services/admin-session-mngt/.env
+/services/admin-services/admin-session-mngt/secrets/
+/services/admin-services/admin-session-mngt/secrets/*
+
 /services/admin-services/ptn-session-mngt/.env
 /services/admin-services/ptn-session-mngt/secrets/
 /services/admin-services/ptn-session-mngt/secrets/*

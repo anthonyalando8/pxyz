@@ -24,9 +24,7 @@ type AuthHandler struct {
 	coreClient		*coreclient.CoreService
 	sessionClient sessionpb.AdminSessionServiceClient
 	notificationClient *notificationclient.NotificationService // ✅ added
-
 }
-
 
 func NewAuthHandler(
 	uc *usecase.UserUsecase,

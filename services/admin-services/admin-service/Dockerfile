@@ -29,14 +29,18 @@ FROM debian:bookworm-slim
 
 WORKDIR /app
 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates passwd \
+ && rm -rf /var/lib/apt/lists/*
+
 # Copy only the binary from builder stage
 COPY --from=builder /app/admin-service /app/admin-service
 
 # Non-root user for security
-RUN apt-get update && apt-get install -y --no-install-recommends passwd && \
-    rm -rf /var/lib/apt/lists/*
-
-RUN id -u nonroot &>/dev/null || adduser --uid 10001 --disabled-password --gecos "" nonroot && \
+RUN set -eux; \
+    if ! id -u nonroot >/dev/null 2>&1; then \
+        adduser --system --uid 10001 --group --no-create-home nonroot; \
+    fi; \
     chown -R nonroot:nonroot /app
 
 USER nonroot

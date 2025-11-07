@@ -163,9 +163,6 @@ func (h *AuthHandler) HandleChangeEmail(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
-
-
-
 func (h *AuthHandler) HandleUpdateName(w http.ResponseWriter, r *http.Request) {
 	requestedUserID, ok := r.Context().Value(middleware.ContextUserID).(string)
 	if !ok || requestedUserID == "" {
@@ -268,8 +265,6 @@ func (h *AuthHandler) HandleRequestPhoneChange(w http.ResponseWriter, r *http.Re
 	h.handleRequestChange(ctx, w, userID, recipient, channel, "request_phone_change", masked)
 }
 
-
-
 func (h *AuthHandler) HandleRequestPasswordChange(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.ContextUserID).(string)
 	deviceID, ok2 := r.Context().Value(middleware.ContextDeviceID).(string)
@@ -339,8 +334,6 @@ func (h *AuthHandler) handleRequestChange(
 		log.Printf("[handleRequestChange] ✅ OTP sent successfully to %s for userID=%v", recipient, userID)
 	}()
 }
-
-
 
 func (h *AuthHandler) HandlePhoneChange(w http.ResponseWriter, r *http.Request) {
 	requestedUserID, ok := r.Context().Value(middleware.ContextUserID).(string)
@@ -457,38 +450,6 @@ func (h *AuthHandler) HandlePhoneChange(w http.ResponseWriter, r *http.Request) 
 	}()
 }
 
-// verify 2fa enabled
-	// _2faRes, err := h.accountClient.Client.GetTwoFAStatus(r.Context(), &accountpb.GetTwoFAStatusRequest{
-	// 	UserId: requestedUserID,
-	// })
-	// if err != nil{
-	// 	response.Error(w, http.StatusInternalServerError, "Failed to check 2fa status")
-	// 	return
-	// }
-	// if !_2faRes.IsEnabled{
-	// 	response.Error(w, http.StatusUnauthorized, "2FA should be enabled to proceed")
-	// 	return
-	// }
-	// var req RequestEmailChange
-	// if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-	// 	response.Error(w, http.StatusBadRequest, "Invalid JSON payload")
-	// 	return
-	// }
-	// resp, err := h.accountClient.Client.VerifyTwoFA(r.Context(), &accountpb.VerifyTwoFARequest{
-	// 	UserId:     requestedUserID,
-	// 	Code:       req.TOTP,
-	// 	Method:     "totp",
-	// })
-	// if err != nil {
-	// 	response.Error(w, http.StatusInternalServerError, err.Error())
-	// 	return
-	// }
-	// if !resp.Success {
-	// 	response.Error(w, http.StatusUnauthorized, "Verification failed. Invalid code.")
-	// 	return
-	// }
-
-
 func (h *AuthHandler) HandleForgotPassword(w http.ResponseWriter, r *http.Request) {
 	var req ForgotPasswordRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -572,6 +533,7 @@ func (h *AuthHandler) HandleForgotPassword(w http.ResponseWriter, r *http.Reques
 		log.Printf("[ForgotPassword] ✅ OTP sent successfully to %s for userID=%v", *u.Email, u.ID)
 	}(user)
 }
+
 func (h *AuthHandler) sendPasswordChangeNotification(userID string, deviceInfo map[string]string) {
 	if h.notificationClient == nil {
 		return
@@ -593,22 +555,24 @@ func (h *AuthHandler) sendPasswordChangeNotification(userID string, deviceInfo m
 			"DeviceDetails": deviceDetails,
 		}
 
-		_, err := h.notificationClient.Client.CreateNotification(ctx, &notificationpb.CreateNotificationRequest{
-			Notification: &notificationpb.Notification{
-				RequestId:      uuid.New().String(),
-				OwnerType:      "admin",
-				OwnerId:        uid,
-				EventType:      "PASSWORD_UPDATE",
-				Title: "Password Changed",
-				Body: "Your password was recently changed! If it was you take no action else consider securing your account.",
-				ChannelHint:    []string{"email"},
-				Payload: func() *structpb.Struct {
-					s, _ := structpb.NewStruct(payload)
-					return s
-				}(),
-				VisibleInApp:   false,
-				Priority:       "high",
-				Status:         "pending",
+		_, err := h.notificationClient.Client.CreateNotification(ctx, &notificationpb.CreateNotificationsRequest{
+			Notifications: []*notificationpb.Notification{
+				{
+					RequestId:      uuid.New().String(),
+					OwnerType:      "admin",
+					OwnerId:        uid,
+					EventType:      "PASSWORD_UPDATE",
+					Title: "Password Changed",
+					Body: "Your password was recently changed! If it was you take no action else consider securing your account.",
+					ChannelHint:    []string{"email"},
+					Payload: func() *structpb.Struct {
+						s, _ := structpb.NewStruct(payload)
+						return s
+					}(),
+					VisibleInApp:   false,
+					Priority:       "high",
+					Status:         "pending",
+				},
 			},
 		})
 		if err != nil {
@@ -616,7 +580,6 @@ func (h *AuthHandler) sendPasswordChangeNotification(userID string, deviceInfo m
 		}
 	}(userID, deviceInfo)
 }
-
 
 // --- Email verification request ---
 func (h *AuthHandler) HandleRequestEmailVerification(w http.ResponseWriter, r *http.Request) {
