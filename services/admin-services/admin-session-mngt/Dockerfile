@@ -5,7 +5,7 @@ FROM golang:1.24 AS builder
 WORKDIR /app
 
 # Copy go.mod and go.sum from repo root
-COPY admin-services/admin-session-mngt/go.mod admin-services/admin-session-mngt/go.sum ./
+COPY services/admin-services/admin-session-mngt/go.mod services/admin-services/admin-session-mngt/go.sum ./
 
 # Copy shared package so deps are resolvable
 COPY shared /shared
@@ -14,9 +14,9 @@ COPY shared /shared
 RUN go mod download
 RUN go mod tidy
 # Copy secrets (if needed at build time)
-COPY admin-services/admin-session-mngt/secrets ./secrets
+COPY services/admin-services/admin-session-mngt/secrets ./secrets
 # Copy admin-session-mngt service source
-COPY admin-services/admin-session-mngt/ .
+COPY services/admin-services/admin-session-mngt/ .
 
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \

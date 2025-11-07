@@ -462,16 +462,16 @@ services:
   admin-auth-service:
     build:
       context: .
-      dockerfile: admin-services/admin-auth-service/Dockerfile
+      dockerfile: services/admin-services/admin-auth-service/Dockerfile
     container_name: admin-auth-service
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.admin-auth.rule=PathPrefix(`/admin/auth`)"
       - "traefik.http.services.admin-auth.loadbalancer.server.port=7000"
     env_file:
-      - ./admin-services/admin-auth-service/.env
+      - ./services/admin-services/admin-auth-service/.env
     volumes:
-      - ./admin-services/admin-auth-service/secrets:/app/secrets:ro
+      - ./services/admin-services/admin-auth-service/secrets:/app/secrets:ro
       - ./uploads:/app/uploads
     environment:
       DB_HOST: 212.95.35.81
@@ -495,16 +495,16 @@ services:
   admin-session-service:
     build:
       context: .
-      dockerfile: admin-services/admin-session-mngt/Dockerfile
+      dockerfile: services/admin-services/admin-session-mngt/Dockerfile
     container_name: admin-session-service
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.admin-session.rule=PathPrefix(`/admin/session`)"
       - "traefik.http.services.admin-session.loadbalancer.server.port=7003"
     env_file:
-      - ./admin-services/admin-session-mngt/.env
+      - ./services/admin-services/admin-session-mngt/.env
     volumes:
-      - ./admin-services/admin-session-mngt/secrets:/app/secrets:ro
+      - ./services/admin-services/admin-session-mngt/secrets:/app/secrets:ro
     environment:
       DB_HOST: 212.95.35.81
       DB_PORT: 5432
@@ -522,16 +522,16 @@ services:
   admin-service:
     build:
       context: .
-      dockerfile: admin-services/admin-service/Dockerfile
+      dockerfile: services/admin-services/admin-service/Dockerfile
     container_name: admin-service
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.admin-svc.rule=PathPrefix(`/admin/svc`)"
       - "traefik.http.services.admin-svc.loadbalancer.server.port=7010"
     env_file:
-      - ./admin-services/admin-service/.env
+      - ./services/admin-services/admin-service/.env
     volumes:
-      - ./admin-services/admin-service/secrets:/app/secrets:ro
+      - ./services/admin-services/admin-service/secrets:/app/secrets:ro
       - ./uploads:/app/uploads
     environment:
       DB_HOST: 212.95.35.81
