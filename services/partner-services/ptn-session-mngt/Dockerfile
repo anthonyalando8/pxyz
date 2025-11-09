@@ -5,7 +5,7 @@ FROM golang:1.24 AS builder
 WORKDIR /app
 
 # Copy go.mod and go.sum from repo root
-COPY partner-services/ptn-session-mngt/go.mod partner-services/ptn-session-mngt/go.sum ./
+COPY services/partner-services/ptn-session-mngt/go.mod services/partner-services/ptn-session-mngt/go.sum ./
 
 # Copy shared package so deps are resolvable
 COPY shared /shared
@@ -14,9 +14,9 @@ COPY shared /shared
 RUN go mod download
 RUN go mod tidy
 # Copy secrets (if needed at build time)
-COPY partner-services/ptn-session-mngt/secrets ./secrets
+COPY services/partner-services/ptn-session-mngt/secrets ./secrets
 # Copy ptn-session-mngt service source
-COPY partner-services/ptn-session-mngt/ .
+COPY services/partner-services/ptn-session-mngt/ .
 
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
@@ -25,11 +25,23 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
 # -------- Stage 2: Minimal Runtime --------
 FROM debian:bookworm-slim
 
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates passwd \
+ && rm -rf /var/lib/apt/lists/*
+
 # Copy only the binary from builder stage
 COPY --from=builder /app/ptn-session-service /ptn-session-service
 
 # Use non-root user for security
-USER nonroot:nonroot
+RUN set -eux; \
+    if ! id -u nonroot >/dev/null 2>&1; then \
+        adduser --system --uid 10001 --group --no-create-home nonroot; \
+    fi; \
+    chown -R nonroot:nonroot /app
+
+USER nonroot
 
 # Expose gRPC port
 EXPOSE 7503
