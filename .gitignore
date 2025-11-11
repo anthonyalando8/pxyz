@@ -53,19 +53,6 @@
 /services/common-services/authentication/u-access-service/secrets/
 /services/common-services/authentication/u-access-service/secrets/*
 
-
-/services/partner-services/partner-service/.env
-/services/partner-services/partner-service/secrets/
-/services/partner-services/partner-service/secrets/*
-
-/services/partner-services/ptn-auth-service/.env
-/partner-services/ptn-auth-service/secrets/
-/partner-services/ptn-auth-service/secrets/*
-
-/services/partner-services/ptn-session-mngt/.env
-/services/partner-services/ptn-session-mngt/secrets/
-/services/partner-services/ptn-session-mngt/secrets/*
-
 /services/admin-services/admin-auth-service/.env
 /services/admin-services/admin-auth-service/secrets/
 /services/admin-services/admin-auth-service/secrets/*
@@ -78,10 +65,25 @@
 /services/admin-services/admin-session-mngt/secrets/
 /services/admin-services/admin-session-mngt/secrets/*
 
-/services/admin-services/ptn-session-mngt/.env
-/services/admin-services/ptn-session-mngt/secrets/
-/services/admin-services/ptn-session-mngt/secrets/*
+/services/admin-services/u-access-service/.env
+/services/admin-services/u-access-service/secrets/
+/services/admin-services/u-access-service/secrets/*
 
+/services/partner-services/partner-service/.env
+/services/partner-services/partner-service/secrets/
+/services/partner-services/partner-service/secrets/*
+
+/services/partner-services/ptn-auth-service/.env
+/services/partner-services/ptn-auth-service/secrets/
+/services/partner-services/ptn-auth-service/secrets/*
+
+/services/partner-services/ptn-session-mngt/.env
+/services/partner-services/ptn-session-mngt/secrets/
+/services/partner-services/ptn-session-mngt/secrets/*
+
+/services/partner-services/u-access-service/.env
+/services/partner-services/u-access-service/secrets/
+/services/partner-services/u-access-service/secrets/*
 
 /services/common-services/fx-services/accounting-service/.env
 /services/common-services/fx-services/accounting-service/secrets/

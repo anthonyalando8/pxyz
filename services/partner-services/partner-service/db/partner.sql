@@ -1,4 +1,4 @@
-\c pxyz;
+\c pxyz_partner;
 
 BEGIN;
 -- Enums

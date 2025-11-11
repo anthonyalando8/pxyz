@@ -1,4 +1,6 @@
 \c pxyz_partner
+
+BEGIN;
 --------------------------
 -- TRIGGER: set_updated_at
 --------------------------
@@ -23,6 +25,8 @@ CREATE TABLE partners (
   contact_email TEXT,
   contact_phone TEXT,
   status        partner_status_enum NOT NULL DEFAULT 'active',
+  service       TEXT,               -- new field: type of service the partner offers
+  currency      TEXT,               -- new field: default currency for the partner
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -63,7 +67,7 @@ CREATE INDEX idx_audit_logs_actor ON partner_audit_logs (actor_type, actor_id);
 CREATE INDEX idx_audit_logs_action ON partner_audit_logs (action);
 
 
-CREATE TABLE IF NOT EXISTS public.users
+CREATE TABLE IF NOT EXISTS users
 (
     id bigint NOT NULL,
     partner_id TEXT NOT NULL,  -- new column
@@ -102,69 +106,69 @@ CREATE TABLE IF NOT EXISTS public.users
 
 TABLESPACE pg_default;
 
-ALTER TABLE IF EXISTS public.users
+ALTER TABLE IF EXISTS users
     OWNER to postgres;
 
-COMMENT ON COLUMN public.users.consent
+COMMENT ON COLUMN users.consent
     IS 'User agrees to terms and conditions';
 
-COMMENT ON COLUMN public.users.changed_emails
+COMMENT ON COLUMN users.changed_emails
     IS 'changed user emails';
 -- Index: idx_users_account_status
 
--- DROP INDEX IF EXISTS public.idx_users_account_status;
+-- DROP INDEX IF EXISTS idx_users_account_status;
 
 CREATE INDEX IF NOT EXISTS idx_users_account_status
-    ON public.users USING btree
+    ON users USING btree
     (account_status COLLATE pg_catalog."default" ASC NULLS LAST)
     TABLESPACE pg_default;
 -- Index: idx_users_account_type
 
--- DROP INDEX IF EXISTS public.idx_users_account_type;
+-- DROP INDEX IF EXISTS idx_users_account_type;
 
 CREATE INDEX IF NOT EXISTS idx_users_account_type
-    ON public.users USING btree
+    ON users USING btree
     (account_type COLLATE pg_catalog."default" ASC NULLS LAST)
     TABLESPACE pg_default;
 -- Index: idx_users_created_at
 
--- DROP INDEX IF EXISTS public.idx_users_created_at;
+-- DROP INDEX IF EXISTS idx_users_created_at;
 
 CREATE INDEX IF NOT EXISTS idx_users_created_at
-    ON public.users USING btree
+    ON users USING btree
     (created_at ASC NULLS LAST)
     TABLESPACE pg_default;
 -- Index: idx_users_email
 
--- DROP INDEX IF EXISTS public.idx_users_email;
+-- DROP INDEX IF EXISTS idx_users_email;
 
 CREATE INDEX IF NOT EXISTS idx_users_email
-    ON public.users USING btree
+    ON users USING btree
     (email COLLATE pg_catalog."default" ASC NULLS LAST)
     TABLESPACE pg_default;
 -- Index: idx_users_phone
 
--- DROP INDEX IF EXISTS public.idx_users_phone;
+-- DROP INDEX IF EXISTS idx_users_phone;
 
 CREATE INDEX IF NOT EXISTS idx_users_phone
-    ON public.users USING btree
+    ON users USING btree
     (phone COLLATE pg_catalog."default" ASC NULLS LAST)
     TABLESPACE pg_default;
 
 -- Trigger: trg_users_set_updated_at
 
--- DROP TRIGGER IF EXISTS trg_users_set_updated_at ON public.users;
+-- DROP TRIGGER IF EXISTS trg_users_set_updated_at ON users;
 
 CREATE OR REPLACE TRIGGER trg_users_set_updated_at
     BEFORE UPDATE 
-    ON public.users
+    ON users
     FOR EACH ROW
-    EXECUTE FUNCTION public.set_updated_at();
--- Table: public.sessions
+    EXECUTE FUNCTION set_updated_at();
+-- Table: sessions
 
--- DROP TABLE IF EXISTS public.sessions;
+-- DROP TABLE IF EXISTS sessions;
 
-CREATE TABLE IF NOT EXISTS public.sessions
+CREATE TABLE IF NOT EXISTS sessions
 (
     id bigint NOT NULL,
     user_id bigint,
@@ -186,58 +190,58 @@ CREATE TABLE IF NOT EXISTS public.sessions
     CONSTRAINT sessions_pkey PRIMARY KEY (id),
     CONSTRAINT unique_user_device_type UNIQUE (user_id, device_id, is_temp),
     CONSTRAINT sessions_user_id_fkey FOREIGN KEY (user_id)
-        REFERENCES public.users (id) MATCH SIMPLE
+        REFERENCES users (id) MATCH SIMPLE
         ON UPDATE NO ACTION
         ON DELETE CASCADE
 )
 
 TABLESPACE pg_default;
 
-ALTER TABLE IF EXISTS public.sessions
+ALTER TABLE IF EXISTS sessions
     OWNER to postgres;
 -- Index: idx_sessions_is_active
 
--- DROP INDEX IF EXISTS public.idx_sessions_is_active;
+-- DROP INDEX IF EXISTS idx_sessions_is_active;
 
 CREATE INDEX IF NOT EXISTS idx_sessions_is_active
-    ON public.sessions USING btree
+    ON sessions USING btree
     (is_active ASC NULLS LAST)
     TABLESPACE pg_default;
 -- Index: idx_sessions_token
 
--- DROP INDEX IF EXISTS public.idx_sessions_token;
+-- DROP INDEX IF EXISTS idx_sessions_token;
 
 CREATE INDEX IF NOT EXISTS idx_sessions_token
-    ON public.sessions USING btree
+    ON sessions USING btree
     (auth_token COLLATE pg_catalog."default" ASC NULLS LAST)
     TABLESPACE pg_default;
 -- Index: idx_sessions_user_id
 
--- DROP INDEX IF EXISTS public.idx_sessions_user_id;
+-- DROP INDEX IF EXISTS idx_sessions_user_id;
 
 CREATE INDEX IF NOT EXISTS idx_sessions_user_id
-    ON public.sessions USING btree
+    ON sessions USING btree
     (user_id ASC NULLS LAST)
     TABLESPACE pg_default;
 
 -- Trigger: trg_sessions_set_updated_at
 
--- DROP TRIGGER IF EXISTS trg_sessions_set_updated_at ON public.sessions;
+-- DROP TRIGGER IF EXISTS trg_sessions_set_updated_at ON sessions;
 
 CREATE OR REPLACE TRIGGER trg_sessions_set_updated_at
     BEFORE UPDATE 
-    ON public.sessions
+    ON sessions
     FOR EACH ROW
-    EXECUTE FUNCTION public.set_updated_at();
+    EXECUTE FUNCTION set_updated_at();
 
--- Table: public.user_twofa
+-- Table: user_twofa
 
--- DROP TABLE IF EXISTS public.user_twofa;
+-- DROP TABLE IF EXISTS user_twofa;
 
 CREATE SEQUENCE user_twofa_id_seq;
 CREATE SEQUENCE user_twofa_backup_codes_id_seq;
 
-CREATE TABLE IF NOT EXISTS public.user_twofa
+CREATE TABLE IF NOT EXISTS user_twofa
 (
     id bigint NOT NULL DEFAULT nextval('user_twofa_id_seq'::regclass),
     user_id bigint NOT NULL,
@@ -249,38 +253,38 @@ CREATE TABLE IF NOT EXISTS public.user_twofa
     CONSTRAINT user_twofa_pkey PRIMARY KEY (id),
     CONSTRAINT unique_user_method UNIQUE (user_id, method),
     CONSTRAINT fk_user_twofa_user FOREIGN KEY (user_id)
-        REFERENCES public.users (id) MATCH SIMPLE
+        REFERENCES users (id) MATCH SIMPLE
         ON UPDATE NO ACTION
         ON DELETE CASCADE
 )
 
 TABLESPACE pg_default;
 
-ALTER TABLE IF EXISTS public.user_twofa
+ALTER TABLE IF EXISTS user_twofa
     OWNER to postgres;
 -- Index: idx_user_twofa_method
 
--- DROP INDEX IF EXISTS public.idx_user_twofa_method;
+-- DROP INDEX IF EXISTS idx_user_twofa_method;
 
 CREATE INDEX IF NOT EXISTS idx_user_twofa_method
-    ON public.user_twofa USING btree
+    ON user_twofa USING btree
     (method COLLATE pg_catalog."default" ASC NULLS LAST)
     TABLESPACE pg_default;
 -- Index: idx_user_twofa_user_id
 
--- DROP INDEX IF EXISTS public.idx_user_twofa_user_id;
+-- DROP INDEX IF EXISTS idx_user_twofa_user_id;
 
 CREATE INDEX IF NOT EXISTS idx_user_twofa_user_id
-    ON public.user_twofa USING btree
+    ON user_twofa USING btree
     (user_id ASC NULLS LAST)
     TABLESPACE pg_default;
 
 
--- Table: public.user_twofa_backup_codes
+-- Table: user_twofa_backup_codes
 
--- DROP TABLE IF EXISTS public.user_twofa_backup_codes;
+-- DROP TABLE IF EXISTS user_twofa_backup_codes;
 
-CREATE TABLE IF NOT EXISTS public.user_twofa_backup_codes
+CREATE TABLE IF NOT EXISTS user_twofa_backup_codes
 (
     id bigint NOT NULL DEFAULT nextval('user_twofa_backup_codes_id_seq'::regclass),
     twofa_id bigint NOT NULL,
@@ -290,28 +294,43 @@ CREATE TABLE IF NOT EXISTS public.user_twofa_backup_codes
     used_at timestamp with time zone,
     CONSTRAINT user_twofa_backup_codes_pkey PRIMARY KEY (id),
     CONSTRAINT user_twofa_backup_codes_twofa_id_fkey FOREIGN KEY (twofa_id)
-        REFERENCES public.user_twofa (id) MATCH SIMPLE
+        REFERENCES user_twofa (id) MATCH SIMPLE
         ON UPDATE NO ACTION
         ON DELETE CASCADE
 )
 
 TABLESPACE pg_default;
 
-ALTER TABLE IF EXISTS public.user_twofa_backup_codes
+ALTER TABLE IF EXISTS user_twofa_backup_codes
     OWNER to postgres;
 -- Index: idx_backup_codes_is_used
 
--- DROP INDEX IF EXISTS public.idx_backup_codes_is_used;
+-- DROP INDEX IF EXISTS idx_backup_codes_is_used;
 
 CREATE INDEX IF NOT EXISTS idx_backup_codes_is_used
-    ON public.user_twofa_backup_codes USING btree
+    ON user_twofa_backup_codes USING btree
     (is_used ASC NULLS LAST)
     TABLESPACE pg_default;
 -- Index: idx_backup_codes_twofa_id
 
--- DROP INDEX IF EXISTS public.idx_backup_codes_twofa_id;
+-- DROP INDEX IF EXISTS idx_backup_codes_twofa_id;
 
 CREATE INDEX IF NOT EXISTS idx_backup_codes_twofa_id
-    ON public.user_twofa_backup_codes USING btree
+    ON user_twofa_backup_codes USING btree
     (twofa_id ASC NULLS LAST)
     TABLESPACE pg_default;
+
+-- Partner users
+CREATE TABLE partner_users (
+  id         TEXT PRIMARY KEY,
+  partner_id TEXT NOT NULL REFERENCES partners(id) ON DELETE CASCADE,
+  role       VARCHAR(16) NOT NULL CHECK (role IN ('partner_admin','partner_user')),
+  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  is_active  BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (partner_id, user_id)
+);
+CREATE INDEX idx_partner_users_partner_id ON partner_users (partner_id);
+
+COMMIT;

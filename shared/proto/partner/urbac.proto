@@ -1,0 +1,416 @@
+syntax = "proto3";
+
+package ptn.rbac;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+
+option go_package = "genproto/partner/ptnrbacpb;ptnrbacpb";
+
+
+service RBACService {
+  // ----------------------
+  // MODULES
+  // ----------------------
+  rpc CreateModule(CreateModuleRequest) returns (ModuleResponse);
+  rpc UpdateModule(UpdateModuleRequest) returns (ModuleResponse);
+  rpc DeactivateModule(DeactivateModuleRequest) returns (google.protobuf.Empty);
+  rpc DeleteModule(DeleteModuleRequest) returns (google.protobuf.Empty);
+  rpc ListModules(ListModulesRequest) returns (ListModulesResponse);
+
+  // ----------------------
+  // SUBMODULES
+  // ----------------------
+  rpc CreateSubmodule(CreateSubmoduleRequest) returns (SubmoduleResponse);
+  rpc UpdateSubmodule(UpdateSubmoduleRequest) returns (SubmoduleResponse);
+  rpc DeactivateSubmodule(DeactivateSubmoduleRequest) returns (google.protobuf.Empty);
+  rpc DeleteSubmodule(DeleteSubmoduleRequest) returns (google.protobuf.Empty);
+  rpc ListSubmodules(ListSubmodulesRequest) returns (ListSubmodulesResponse);
+
+  // ----------------------
+  // PERMISSION TYPES
+  // ----------------------
+  rpc CreatePermissionType(CreatePermissionTypeRequest) returns (PermissionTypeResponse);
+  rpc UpdatePermissionType(UpdatePermissionTypeRequest) returns (PermissionTypeResponse);
+  rpc DeactivatePermissionType(DeactivatePermissionTypeRequest) returns (google.protobuf.Empty);
+  rpc ListPermissionTypes(google.protobuf.Empty) returns (ListPermissionTypesResponse);
+
+  // ----------------------
+  // ROLES
+  // ----------------------
+  rpc CreateRole(CreateRoleRequest) returns (RoleResponse);
+  rpc UpdateRole(UpdateRoleRequest) returns (RoleResponse);
+  rpc DeactivateRole(DeactivateRoleRequest) returns (google.protobuf.Empty);
+  rpc DeleteRole(DeleteRoleRequest) returns (google.protobuf.Empty);
+  rpc ListRoles(google.protobuf.Empty) returns (ListRolesResponse);
+
+  rpc AssignRolePermission(AssignRolePermissionRequest) returns (google.protobuf.Empty);
+  rpc RevokeRolePermission(RevokeRolePermissionRequest) returns (google.protobuf.Empty);
+  rpc ListRolePermissions(ListRolePermissionsRequest) returns (ListRolePermissionsResponse);
+
+  // ----------------------
+  // USER ROLES
+  // ----------------------
+  rpc AssignUserRole(AssignUserRoleRequest) returns (google.protobuf.Empty);
+  rpc RemoveUserRole(RemoveUserRoleRequest) returns (google.protobuf.Empty);
+  rpc ListUserRoles(ListUserRolesRequest) returns (ListUserRolesResponse);
+  rpc UpgradeUserRole(UpgradeUserRoleRequest) returns (UserRoleResponse);
+
+
+  // ----------------------
+  // USER PERMISSION OVERRIDES
+  // ----------------------
+  rpc AssignUserPermissionOverride(AssignUserPermissionOverrideRequest) returns (google.protobuf.Empty);
+  rpc RevokeUserPermissionOverride(RevokeUserPermissionOverrideRequest) returns (google.protobuf.Empty);
+  rpc ListUserPermissionOverrides(ListUserPermissionOverridesRequest) returns (ListUserPermissionOverridesResponse);
+
+  // ----------------------
+  // PERMISSION QUERIES
+  // ----------------------
+  rpc GetEffectiveUserPermissions(GetEffectiveUserPermissionsRequest) returns (GetEffectiveUserPermissionsResponse);
+  rpc CheckUserPermission(CheckUserPermissionRequest) returns (CheckUserPermissionResponse);
+
+  // ----------------------
+  // AUDIT LOGS
+  // ----------------------
+  rpc ListPermissionAuditEvents(ListPermissionAuditEventsRequest) returns (ListPermissionAuditEventsResponse);
+}
+
+//
+// ---------- ENTITIES ----------
+//
+
+message Module {
+  int64 id = 1;
+  string code = 2;
+  string name = 3;
+  int64 parent_id = 4;
+  google.protobuf.Struct meta = 5;  // JSONB
+  bool is_active = 6;
+  google.protobuf.Timestamp created_at = 7;
+  int64 created_by = 8;
+  google.protobuf.Timestamp updated_at = 9;
+  int64 updated_by = 10;
+}
+
+
+
+message Submodule {
+  int64 id = 1;
+  int64 module_id = 2;
+  string code = 3;
+  string name = 4;
+  bool is_active = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+message PermissionType {
+  int64 id = 1;
+  string code = 2;
+  string description = 3;
+  bool is_active = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}
+
+message Role {
+  int64 id = 1;
+  string name = 2;
+  string description = 3;
+  bool is_active = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}
+
+message RolePermission {
+  int64 id = 1;
+  int64 role_id = 2;
+
+  // Module
+  int64 module_id = 3;
+  string module_code = 9;
+  string module_name = 10;
+
+  // Submodule (nullable)
+  int64 submodule_id = 4;
+  string submodule_code = 11;
+  string submodule_name = 12;
+
+  // Permission type
+  int64 permission_type_id = 5;
+  string permission_code = 13;
+  string permission_name = 14;
+
+  bool allow = 6;
+
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+
+message UserRole {
+  int64 id = 1;
+  string user_id = 2; // match DB (BIGINT)
+  int64 role_id = 3;
+  int64 assigned_by = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+  int64 updated_by = 7;
+  string role_name = 8;
+}
+
+
+message UserPermissionOverride {
+  int64 id = 1;
+  string user_id = 2;
+  int64 module_id = 3;
+  int64 submodule_id = 4;
+  int64 permission_type_id = 5;
+  bool allow = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+message AuditEvent {
+  int64 id = 1;
+  int64 actor_id = 2;
+  string object_type = 3;
+  int64 object_id = 4;
+  string action = 5;
+  google.protobuf.Struct payload = 6; // JSONB
+  google.protobuf.Timestamp created_at = 7;
+}
+
+
+//
+// ---------- REQUESTS / RESPONSES ----------
+//
+
+// Modules
+message CreateModuleRequest {
+  string code = 1;
+  string name = 2;
+  int64 parent_id = 3;
+  google.protobuf.Struct meta = 4;
+  bool is_active = 5; // optional, default true
+  int64 created_by = 6; // who created
+}
+
+
+message UpdateModuleRequest {
+  int64 id = 1;
+  string code = 2;
+  string name = 3;
+  int64 parent_id = 4;
+}
+
+message DeactivateModuleRequest { int64 id = 1; }
+message DeleteModuleRequest { int64 id = 1; }
+
+message ListModulesRequest { bool include_inactive = 1; }
+message ListModulesResponse { repeated Module modules = 1; }
+message ModuleResponse { Module module = 1; }
+
+// Submodules
+message CreateSubmoduleRequest {
+  int64 module_id = 1;
+  string code = 2;
+  string name = 3;
+  google.protobuf.Struct meta = 4;
+  bool is_active = 5;
+  int64 created_by = 6;
+}
+
+
+message UpdateSubmoduleRequest {
+  int64 id = 1;
+  string code = 2;
+  string name = 3;
+}
+
+message DeactivateSubmoduleRequest { int64 id = 1; }
+message DeleteSubmoduleRequest { int64 id = 1; }
+
+message ListSubmodulesRequest { int64 module_id = 1; bool include_inactive = 2; }
+message ListSubmodulesResponse { repeated Submodule submodules = 1; }
+message SubmoduleResponse { Submodule submodule = 1; }
+
+// Permission Types
+message CreatePermissionTypeRequest {
+  string code = 1;
+  string description = 2;
+  bool is_active = 3;
+  int64 created_by = 4;
+}
+
+
+message UpdatePermissionTypeRequest {
+  int64 id = 1;
+  string code = 2;
+  string description = 3;
+}
+
+message DeactivatePermissionTypeRequest { int64 id = 1; }
+
+message ListPermissionTypesResponse { repeated PermissionType permission_types = 1; }
+message PermissionTypeResponse { PermissionType permission_type = 1; }
+
+// Roles
+message CreateRoleRequest {
+  string name = 1;
+  string description = 2;
+  bool is_active = 3;
+  int64 created_by = 4;
+}
+
+
+message UpdateRoleRequest {
+  int64 id = 1;
+  string name = 2;
+  string description = 3;
+}
+
+message DeactivateRoleRequest { int64 id = 1; }
+message DeleteRoleRequest { int64 id = 1; }
+
+message ListRolesResponse { repeated Role roles = 1; }
+message RoleResponse { Role role = 1; }
+
+// Role Permissions
+message AssignRolePermissionRequest {
+  int64 role_id = 1;
+  int64 module_id = 2;
+  int64 submodule_id = 3;
+  int64 permission_type_id = 4;
+  bool allow = 5;
+}
+
+message RevokeRolePermissionRequest {
+  int64 role_id = 1;
+  int64 module_id = 2;
+  int64 submodule_id = 3;
+  int64 permission_type_id = 4;
+}
+
+message ListRolePermissionsRequest { int64 role_id = 1; }
+message ListRolePermissionsResponse { repeated RolePermission role_permissions = 1; }
+
+// User Roles
+message AssignUserRoleRequest {
+  string user_id = 1;
+  int64 role_id = 2;
+  int64 assigned_by = 3;
+}
+
+
+message RemoveUserRoleRequest {
+  string user_id = 1;
+  int64 role_id = 2;
+}
+
+message ListUserRolesRequest { string user_id = 1; }
+message ListUserRolesResponse { repeated UserRole roles = 1; }
+
+// User Permission Overrides
+message AssignUserPermissionOverrideRequest {
+  string user_id = 1;
+  int64 module_id = 2;
+  int64 submodule_id = 3;
+  int64 permission_type_id = 4;
+  bool allow = 5;
+  int64 created_by = 6;
+}
+
+
+message RevokeUserPermissionOverrideRequest {
+  string user_id = 1;
+  int64 module_id = 2;
+  int64 submodule_id = 3;
+  int64 permission_type_id = 4;
+}
+
+message ListUserPermissionOverridesRequest { string user_id = 1; }
+message ListUserPermissionOverridesResponse { repeated UserPermissionOverride overrides = 1; }
+
+// Permission Queries
+message GetUserPermissionsRequest { string user_id = 1; }
+message GetUserPermissionsResponse { repeated RolePermission permissions = 1; }
+
+message GetUserModulePermissionsRequest {
+  string user_id = 1;
+  int64 module_id = 2;
+}
+message GetUserModulePermissionsResponse { repeated RolePermission permissions = 1; }
+
+message GetUserSubmodulePermissionsRequest {
+  string user_id = 1;
+  int64 submodule_id = 2;
+}
+message GetUserSubmodulePermissionsResponse { repeated RolePermission permissions = 1; }
+
+message CheckUserPermissionRequest {
+  string user_id = 1;
+  int64 module_id = 2;
+  int64 submodule_id = 3;
+  int64 permission_type_id = 4;
+}
+message CheckUserPermissionResponse { bool allowed = 1; }
+
+// Audit Logs
+message ListPermissionAuditEventsRequest {
+  string user_id = 1;
+  int64 module_id = 2;
+  int64 submodule_id = 3;
+  int64 role_id = 4;
+}
+message ListPermissionAuditEventsResponse { repeated AuditEvent events = 1; }
+
+message UpgradeUserRoleRequest {
+  string user_id = 1;
+  int64 new_role_id = 2;
+  int64 assigned_by = 3;
+}
+
+message UserRoleResponse {
+  UserRole role = 1;
+}
+
+message GetEffectiveUserPermissionsRequest {
+  string user_id = 1;
+  string module_code = 2;     // optional
+  string submodule_code = 3;  // optional
+}
+
+message PermissionInfo {
+  int64 id = 1;
+  string code = 2;
+  string name = 3;
+  bool allowed = 4;
+  int64 role_id = 5; // optional
+  string user_id = 6;
+}
+
+message SubmoduleWithPermissions {
+  int64 id = 1;
+  string code = 2;
+  string name = 3;
+  bool is_active = 4;
+  repeated PermissionInfo permissions = 5;
+}
+
+message ModuleWithPermissions {
+  int64 id = 1;
+  string code = 2;
+  string name = 3;
+  bool is_active = 4;
+  repeated PermissionInfo permissions = 5; // module-level perms
+  repeated SubmoduleWithPermissions submodules = 6;
+}
+
+message GetEffectiveUserPermissionsResponse {
+  string user_id = 1;
+  repeated ModuleWithPermissions modules = 2;
+}

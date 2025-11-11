@@ -466,8 +466,12 @@ services:
     container_name: admin-auth-service
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.admin-auth.rule=PathPrefix(`/admin/auth`)"
+      - "traefik.http.routers.admin-auth.rule=PathPrefix(`/api/v1/admin/auth`)"
       - "traefik.http.services.admin-auth.loadbalancer.server.port=7000"
+
+      # 🔸 Strip the `/api/v1` prefix
+      - "traefik.http.middlewares.admin-auth-stripprefix.stripprefix.prefixes=/api/v1"
+      - "traefik.http.routers.admin-auth.middlewares=ptnaccess-stripprefix"
     env_file:
       - ./services/admin-services/admin-auth-service/.env
     volumes:
@@ -499,8 +503,12 @@ services:
     container_name: admin-session-service
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.admin-session.rule=PathPrefix(`/admin/session`)"
+      - "traefik.http.routers.admin-session.rule=PathPrefix(`/api/v1/admin/session`)"
       - "traefik.http.services.admin-session.loadbalancer.server.port=7003"
+
+      # 🔸 Strip the `/api/v1` prefix
+      - "traefik.http.middlewares.admin-session-stripprefix.stripprefix.prefixes=/api/v1"
+      - "traefik.http.routers.admin-session.middlewares=ptnaccess-stripprefix"
     env_file:
       - ./services/admin-services/admin-session-mngt/.env
     volumes:
@@ -526,8 +534,12 @@ services:
     container_name: admin-service
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.admin-svc.rule=PathPrefix(`/admin/svc`)"
+      - "traefik.http.routers.admin-svc.rule=PathPrefix(`/api/v1/admin/svc`)"
       - "traefik.http.services.admin-svc.loadbalancer.server.port=7010"
+
+      # 🔸 Strip the `/api/v1` prefix
+      - "traefik.http.middlewares.admin-svc-stripprefix.stripprefix.prefixes=/api/v1"
+      - "traefik.http.routers.admin-svc.middlewares=ptnaccess-stripprefix"
     env_file:
       - ./services/admin-services/admin-service/.env
     volumes:
@@ -547,6 +559,44 @@ services:
       - core-service
       - admin-session-service
       - email-service
+  # 🔹 Ptn Access Service
+  admin-access-service:
+    build:
+      context: .
+      dockerfile: services/admin-services/u-access-service/Dockerfile
+    container_name: admin-access-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.adminaccess.rule=PathPrefix(`/api/v1/admin/urbac`)"
+      - "traefik.http.routers.adminaccess.entrypoints=web"
+      - "traefik.http.services.adminaccess.loadbalancer.server.port=7004"
+
+      # 🔸 Strip the `/api/v1` prefix
+      - "traefik.http.middlewares.adminaccess-stripprefix.stripprefix.prefixes=/api/v1"
+      - "traefik.http.routers.adminaccess.middlewares=ptnaccess-stripprefix"
+    env_file:
+      - ./services/admin-services/u-access-service/.env
+    volumes:
+      - ./services/admin-services/u-access-service/secrets:/app/secrets:ro
+      - ./uploads:/app/uploads
+    environment:
+      DB_HOST: 212.95.35.81
+      DB_PORT: 5432
+      DB_USER: sam
+      DB_PASSWORD: Kenya_2025!
+      DB_NAME: pxyz_user
+      KAFKA_BROKERS: kafka:9092
+      REDIS_ADDR: redis:6379
+      HTTP_ADDR: :7504
+      GRPC_ADDR: :7505
+      REDIS_PASS:
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    extra_hosts:
+      - "212.95.35.81:host-gateway"
+    networks:
+      - micro_net
+    depends_on:
+      - redis
 
   # 🔹 Partner Service
   partner-service:
@@ -558,6 +608,10 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.partner-svc.rule=PathPrefix(`/partner/svc`)"
       - "traefik.http.services.partner-svc.loadbalancer.server.port=7510"
+
+      # 🔸 Strip the `/api/v1` prefix
+      - "traefik.http.middlewares.partner-svc-stripprefix.stripprefix.prefixes=/api/v1"
+      - "traefik.http.routers.partner-svc.middlewares=ptnaccess-stripprefix"
     env_file:
       - ./services/partner-services/partner-service/.env
     volumes:
@@ -586,8 +640,12 @@ services:
     container_name: ptn-auth-service
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.partner-auth.rule=PathPrefix(`/partner/auth`)"
+      - "traefik.http.routers.partner-auth.rule=PathPrefix(`/api/v1/partner/auth`)"
       - "traefik.http.services.partner-auth.loadbalancer.server.port=7500"
+
+      # 🔸 Strip the `/api/v1` prefix
+      - "traefik.http.middlewares.partner-auth-stripprefix.stripprefix.prefixes=/api/v1"
+      - "traefik.http.routers.partner-auth.middlewares=ptnaccess-stripprefix"
     env_file:
       - ./services/partner-services/ptn-auth-service/.env
     volumes:
@@ -617,8 +675,12 @@ services:
     container_name: ptn-session-service
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.partner-session.rule=PathPrefix(`/partner/session`)"
+      - "traefik.http.routers.partner-session.rule=PathPrefix(`/api/v1/partner/session`)"
       - "traefik.http.services.partner-session.loadbalancer.server.port=7503"
+
+      # 🔸 Strip the `/api/v1` prefix
+      - "traefik.http.middlewares.partner-session-stripprefix.stripprefix.prefixes=/api/v1"
+      - "traefik.http.routers.partner-session.middlewares=ptnaccess-stripprefix"
     env_file:
       - ./services/partner-services/ptn-session-mngt/.env
     volumes:
@@ -632,6 +694,45 @@ services:
       REDIS_ADDR: redis:6379
       JWT_PRIVATE_KEY_PATH: /app/secrets/jwt_private.pem
       JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    networks:
+      - micro_net
+    depends_on:
+      - redis
+
+  # 🔹 Ptn Access Service
+  ptn-access-service:
+    build:
+      context: .
+      dockerfile: services/partner-services/u-access-service/Dockerfile
+    container_name: ptn-access-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ptnaccess.rule=PathPrefix(`/api/v1/partner/urbac`)"
+      - "traefik.http.routers.ptnaccess.entrypoints=web"
+      - "traefik.http.services.ptnaccess.loadbalancer.server.port=7504"
+
+      # 🔸 Strip the `/api/v1` prefix
+      - "traefik.http.middlewares.ptnaccess-stripprefix.stripprefix.prefixes=/api/v1"
+      - "traefik.http.routers.ptnaccess.middlewares=ptnaccess-stripprefix"
+    env_file:
+      - ./services/partner-services/u-access-service/.env
+    volumes:
+      - ./services/partner-services/u-access-service/secrets:/app/secrets:ro
+      - ./uploads:/app/uploads
+    environment:
+      DB_HOST: 212.95.35.81
+      DB_PORT: 5432
+      DB_USER: sam
+      DB_PASSWORD: Kenya_2025!
+      DB_NAME: pxyz_user
+      KAFKA_BROKERS: kafka:9092
+      REDIS_ADDR: redis:6379
+      HTTP_ADDR: :7504
+      GRPC_ADDR: :7505
+      REDIS_PASS:
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    extra_hosts:
+      - "212.95.35.81:host-gateway"
     networks:
       - micro_net
     depends_on:
