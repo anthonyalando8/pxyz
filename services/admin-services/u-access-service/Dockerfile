@@ -48,7 +48,7 @@ RUN set -eux; \
 USER nonroot
 
 # Expose REST & gRPC ports (customize if RBAC uses diff ports)
-EXPOSE 8031 8032
+EXPOSE 7004 7005
 
 # Run the service
 ENTRYPOINT ["/app/admin-access-service"]
