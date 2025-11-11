@@ -13,8 +13,8 @@ type AppConfig struct {
 
 func Load() AppConfig {
 	return AppConfig{
-		HTTPAddr:  getEnv("HTTP_ADDR", ":8031"),
-		GRPCAddr:  getEnv("GRPC_ADDR", ":8032"),
+		HTTPAddr:  getEnv("HTTP_ADDR", ":7504"),
+		GRPCAddr:  getEnv("GRPC_ADDR", ":7505"),
 		RedisAddr: getEnv("REDIS_ADDR", "redis:6379"),
 		RedisPass: getEnv("REDIS_PASS", ""),
 	}
