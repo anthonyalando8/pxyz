@@ -22,7 +22,7 @@ COPY services/partner-services/u-access-service/ ./
 
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-    go build -o u-access-service ./cmd/u_access.main.go
+    go build -o ptn-access-service ./cmd/u_access.main.go
 
 # -------- Stage 2: Runtime --------
 FROM debian:bookworm-slim

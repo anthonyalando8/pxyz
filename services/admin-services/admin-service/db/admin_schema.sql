@@ -46,8 +46,6 @@ CREATE TABLE IF NOT EXISTS users
 
 TABLESPACE pg_default;
 
-ALTER TABLE IF EXISTS users
-    OWNER to postgres;
 
 COMMENT ON COLUMN users.consent
     IS 'User agrees to terms and conditions';
@@ -137,8 +135,6 @@ CREATE TABLE IF NOT EXISTS sessions
 
 TABLESPACE pg_default;
 
-ALTER TABLE IF EXISTS sessions
-    OWNER to postgres;
 -- Index: idx_sessions_is_active
 
 -- DROP INDEX IF EXISTS idx_sessions_is_active;
@@ -197,8 +193,6 @@ CREATE TABLE IF NOT EXISTS user_twofa
 
 TABLESPACE pg_default;
 
-ALTER TABLE IF EXISTS user_twofa
-    OWNER to postgres;
 -- Index: idx_user_twofa_method
 
 -- DROP INDEX IF EXISTS idx_user_twofa_method;
@@ -238,8 +232,6 @@ CREATE TABLE IF NOT EXISTS user_twofa_backup_codes
 
 TABLESPACE pg_default;
 
-ALTER TABLE IF EXISTS user_twofa_backup_codes
-    OWNER to postgres;
 -- Index: idx_backup_codes_is_used
 
 -- DROP INDEX IF EXISTS idx_backup_codes_is_used;
