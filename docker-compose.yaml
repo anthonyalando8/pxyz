@@ -587,8 +587,8 @@ services:
       DB_NAME: pxyz_user
       KAFKA_BROKERS: kafka:9092
       REDIS_ADDR: redis:6379
-      HTTP_ADDR: :7504
-      GRPC_ADDR: :7505
+      HTTP_ADDR: :7004
+      GRPC_ADDR: :7005
       REDIS_PASS:
       JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
     extra_hosts:
