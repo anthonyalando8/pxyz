@@ -34,7 +34,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && rm -rf /var/lib/apt/lists/*
 
 # Copy only the binary from builder stage
-COPY --from=builder /app/admin-access-service /app/admin-access-service
+COPY --from=builder /app/ptn-access-service /app/ptn-access-service
 
 # Create uploads directory (if needed for RBAC service)
 RUN mkdir -p /app/uploads
