@@ -46,6 +46,7 @@ func (h *AuthHandler) ListSessionsHandler(authClient authpb.AuthServiceClient) h
 		res, err := authClient.ListSessions(r.Context(), &authpb.ListSessionsRequest{
 			UserId: userID,
 		})
+		log.Printf("GRPC response: %v", res)
 		if err != nil {
 			log.Printf("Failed to list sessions: %v", err)
 			response.Error(w, http.StatusInternalServerError, "Could not fetch sessions")
