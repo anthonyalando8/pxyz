@@ -53,7 +53,9 @@ func (h *AuthHandler) parseLoginRequest(r *http.Request) (*LoginRequest, error) 
 func (h *AuthHandler) handleAuthError(w http.ResponseWriter, err error) {
 	if errors.Is(err, xerrors.ErrUserNotFound) {
 		response.Error(w, http.StatusUnauthorized, "invalid credentials")
-	} else {
+	}else if errors.Is(err, xerrors.ErrInvalidPassword) {
+		response.Error(w, http.StatusUnauthorized, "invalid password")
+	}else {
 		response.Error(w, http.StatusInternalServerError, "unexpected error occurred")
 	}
 }

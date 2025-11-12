@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"ptn-auth-service/internal/domain"
+	"ptn-auth-service/pkg/utils"
 
 	xerrors "x/shared/utils/errors"
 )
@@ -14,8 +15,16 @@ func (uc *UserUsecase) LoginUser(ctx context.Context, identifier, password strin
 	if identifier == "" || password == "" {
 		return nil, errors.New("identifier and password required")
 	}
+	user, err := uc.userRepo.GetUserByIdentifier(ctx, identifier)
+	if err != nil {
+		return nil, err
+	}
 
-	return uc.userRepo.GetUserByIdentifier(ctx, identifier)
+	if !utils.CheckPasswordHash(password, *user.PasswordHash) {
+		return nil, xerrors.ErrInvalidPassword
+	}
+
+	return user, nil
 }
 
 func (uc *UserUsecase) UserExists(ctx context.Context, identifier string) (bool, error) {
