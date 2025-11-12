@@ -584,7 +584,7 @@ services:
       DB_PORT: 5432
       DB_USER: sam
       DB_PASSWORD: Kenya_2025!
-      DB_NAME: pxyz_user
+      DB_NAME: pxyz_admin
       KAFKA_BROKERS: kafka:9092
       REDIS_ADDR: redis:6379
       HTTP_ADDR: :7004
@@ -724,7 +724,7 @@ services:
       DB_PORT: 5432
       DB_USER: sam
       DB_PASSWORD: Kenya_2025!
-      DB_NAME: pxyz_user
+      DB_NAME: pxyz_partner
       KAFKA_BROKERS: kafka:9092
       REDIS_ADDR: redis:6379
       HTTP_ADDR: :7504

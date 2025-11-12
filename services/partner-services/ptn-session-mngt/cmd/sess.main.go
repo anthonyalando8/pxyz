@@ -11,12 +11,17 @@ import (
 	"ptn-session-service/internal/usecase"
 	"ptn-session-service/pkg/jwtutil"
 	authclient "x/shared/auth"
+	urbacservice "x/shared/factory/partner/urbac/utils"
 	pb "x/shared/genproto/partner/sessionpb"
+	"x/shared/utils/cache"
+	urbac "x/shared/factory/partner/urbac"
+
 
 	"syscall"
 	"x/shared/utils/id"
 
 	//"github.com/redis/go-redis/v9"
+	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 )
 
@@ -29,11 +34,13 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
-	// rdb := redis.NewClient(&redis.Options{
-	// 	Addr:     cfg.RedisAddr,
-	// 	Password: cfg.RedisPass,
-	// 	DB:       0,
-	// })
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     cfg.RedisAddr,
+		Password: cfg.RedisPass,
+		DB:       0,
+	})
+	cache := cache.NewCache([]string{cfg.RedisAddr}, cfg.RedisPass, false)
+
 	// Initialize Snowflake ID generator
 	sf, err := id.NewSnowflake(6)
 	if err != nil {
@@ -47,10 +54,12 @@ func main() {
         log.Fatalf("failed to dial auth service: %v", err)
     }
     defer authClient.Close()
+	urbacCli := urbac.NewRBACService()
+	urbacSvc :=	urbacservice.NewService(urbacCli.Client, rdb)
 
 	// Initialize session repository and gRPC handler
 	sessionRepo := repository.NewSessionRepository(db)
-	sessionUC := usecase.NewSessionUsecase(sessionRepo, sf, jwtGen, authClient)
+	sessionUC := usecase.NewSessionUsecase(sessionRepo, sf, jwtGen, authClient, urbacSvc, cache)
 	authHandler := handler.NewAuthHandler(sessionUC)
 
 	// Create a gRPC server

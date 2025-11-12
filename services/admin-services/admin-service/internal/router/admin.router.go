@@ -35,9 +35,8 @@ func SetupRoutes(
 	// ============================================================
 	r.Route("/admin/svc", func(pr chi.Router) {
 		// Require role "super_admin"
-		pr.Use(auth.Require([]string{"main"}, nil, []string{"super_admin"}))
+		pr.Use(auth.Require([]string{"main"}, nil, nil))
 
-		// ---------------- Partner Management ----------------
 		// ---------------- Partner Management ----------------
 		pr.Route("/partners", func(p chi.Router) {
 			p.Post("/create", h.CreatePartner)

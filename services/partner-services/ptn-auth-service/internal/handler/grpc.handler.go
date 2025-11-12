@@ -20,6 +20,7 @@ type GRPCAuthHandler struct {
 	otp         *otpclient.OTPService
 	emailClient *emailclient.EmailClient
 	smsClient   *smsclient.SMSClient
+	authHandler  *AuthHandler
 }
 
 func NewGRPCAuthHandler(
@@ -27,12 +28,14 @@ func NewGRPCAuthHandler(
 	otp *otpclient.OTPService,
 	emailClient *emailclient.EmailClient,
 	smsClient *smsclient.SMSClient,
+	authHandler  *AuthHandler,
 ) *GRPCAuthHandler {
 	return &GRPCAuthHandler{
 		uc:          uc,
 		otp:         otp,
 		emailClient: emailClient,
 		smsClient:   smsClient,
+		authHandler:  authHandler,
 	}
 }
 
@@ -57,6 +60,11 @@ func (h *GRPCAuthHandler) RegisterUser(ctx context.Context, req *authpb.Register
 		}, nil
 	}
 
+	err = h.authHandler.HandleRoleUpgrade(ctx, user.ID, req.Role)
+	if err != nil {
+		log.Printf("failed to assign role %s to user %s: %v", req.Role, user.ID, err)
+	}
+	
 	return &authpb.RegisterUserResponse{
 		Ok:     true,
 		UserId: user.ID,

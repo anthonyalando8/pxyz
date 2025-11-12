@@ -29,11 +29,8 @@ func GetDefaultModules() ([]*Module, []*Submodule, error) {
 	modules := []*Module{
 		{Code: "account", Name: "Account", IsActive: true, CreatedAt: now, CreatedBy: createdBy, Meta: marshalMeta(nil, nil)},
 		{Code: "auth", Name: "Auth", IsActive: true, CreatedAt: now, CreatedBy: createdBy, Meta: marshalMeta(nil, nil)},
-		{Code: "cashier", Name: "Cashier", IsActive: true, CreatedAt: now, CreatedBy: createdBy, Meta: marshalMeta(nil, nil)},
-		{Code: "wallet", Name: "Wallet", IsActive: true, CreatedAt: now, CreatedBy: createdBy, Meta: marshalMeta(nil, nil)},
 		{Code: "core", Name: "Core", IsActive: true, CreatedAt: now, CreatedBy: createdBy, Meta: marshalMeta(nil, nil)},
 		{Code: "email", Name: "Email", IsActive: true, CreatedAt: now, CreatedBy: createdBy, Meta: marshalMeta(nil, nil)},
-		{Code: "kyc", Name: "KYC", IsActive: true, CreatedAt: now, CreatedBy: createdBy, Meta: marshalMeta(nil, nil)},
 		{Code: "otp", Name: "OTP", IsActive: true, CreatedAt: now, CreatedBy: createdBy, Meta: marshalMeta(nil, nil)},
 		{Code: "session", Name: "Session", IsActive: true, CreatedAt: now, CreatedBy: createdBy, Meta: marshalMeta(nil, nil)},
 		{Code: "notification", Name: "Notification", IsActive: true, CreatedAt: now, CreatedBy: createdBy, Meta: marshalMeta(nil, nil)},
@@ -44,7 +41,6 @@ func GetDefaultModules() ([]*Module, []*Submodule, error) {
 	submodules := []*Submodule{}
 	defaultSubs := map[string][]string{
 		"auth":         {"login", "register", "change_password", "change_email", "change_phone"},
-		"cashier":      {"wallet"},
 		"notification": {"sms", "email"},
 	}
 
@@ -91,8 +87,8 @@ func GetDefaultRolesAndPermissions() ([]*PermissionType, []*Role, []*RolePermiss
 	}
 
 	roles := []*Role{
-		{Name: "trader", Description: "A fully registered trader", IsActive: true, CreatedAt: now, CreatedBy: createdBy},
-		{Name: "kyc_unverified", Description: "User who has not completed KYC", IsActive: true, CreatedAt: now, CreatedBy: createdBy},
+		{Name: "partner_admin", Description: "Admin", IsActive: true, CreatedAt: now, CreatedBy: createdBy},
+		{Name: "partner_user", Description: "User", IsActive: true, CreatedAt: now, CreatedBy: createdBy},
 		{Name: "any", Description: "A registering user (account creation)", IsActive: true, CreatedAt: now, CreatedBy: createdBy},
 	}
 
@@ -108,7 +104,7 @@ func GetDefaultRolesAndPermissions() ([]*PermissionType, []*Role, []*RolePermiss
 		for _, m := range modules {
 			assign := false
 			switch r.Name {
-			case "trader":
+			case "partner_admin": case "partner_user":
 				assign = true
 			case "any":
 				if m.Code == "auth" {

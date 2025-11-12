@@ -137,36 +137,17 @@ func (r *rbacRepo) BatchAssignRolesToUsers(
 func (r *rbacRepo) GetUsersWithoutRolesAndClassify(ctx context.Context) ([]*UserRoleAssignment, error) {
 	query := `
 		SELECT 
-		u.id::TEXT AS user_id,
-		CASE
-			WHEN 
-				(u.account_type = 'hybrid' AND uc.password_hash IS NULL)
-				OR (u.account_type = 'password' AND uc.password_hash IS NULL)
-				OR NOT uc.is_email_verified
-				OR up.nationality IS NULL
-			THEN 'any'
-
-			WHEN ks.status IS DISTINCT FROM 'approved'
-			THEN 'kyc_unverified'
-
-			ELSE 'trader'
-		END AS role_name
-	FROM users u
-	LEFT JOIN user_credentials uc ON uc.user_id = u.id
-	LEFT JOIN rbac_user_roles rur ON rur.user_id = u.id
-	LEFT JOIN (
-		SELECT DISTINCT ON (user_id) *
-		FROM kyc_submissions
-		ORDER BY user_id, submitted_at DESC
-	) ks ON ks.user_id = u.id
-	LEFT JOIN user_profiles up ON up.user_id = u.id
-	WHERE rur.user_id IS NULL
-	AND u.account_status != 'deleted';
+			u.id::TEXT AS user_id,
+			u.role AS role_name
+		FROM users u
+		LEFT JOIN rbac_user_roles rur ON rur.user_id = u.id
+		WHERE rur.user_id IS NULL
+		  AND u.account_status != 'deleted';
 	`
 
 	rows, err := r.db.Query(ctx, query)
 	if err != nil {
-		return nil, fmt.Errorf("failed to classify users: %w", err)
+		return nil, fmt.Errorf("failed to fetch partner users without roles: %w", err)
 	}
 	defer rows.Close()
 
@@ -185,6 +166,7 @@ func (r *rbacRepo) GetUsersWithoutRolesAndClassify(ctx context.Context) ([]*User
 
 	return result, nil
 }
+
 
 // UpgradeUserRole replaces a user's current role with a new role
 func (r *rbacRepo) UpgradeUserRole(ctx context.Context, userID string, newRoleID, assignedBy int64) (*domain.UserRole, error) {

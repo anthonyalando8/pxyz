@@ -2,10 +2,11 @@ package handler
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 
-	"admin-auth-service/pkg/utils"
 	"admin-auth-service/internal/service/email"
+	"admin-auth-service/pkg/utils"
 	"x/shared/response"
 )
 
@@ -32,11 +33,17 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Register user with "super_admin" role
-	user, err := h.uc.RegisterUser(r.Context(), req.Email, req.Password, req.FirstName, req.LastName, "super_admin")
+	// Register user with "admin" role
+	user, err := h.uc.RegisterUser(r.Context(), req.Email, req.Password, req.FirstName, req.LastName, "admin")
 	if err != nil {
 		response.Error(w, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	// assign role
+	err = h.HandleRoleUpgrade(r.Context(), user.ID, "admin")
+	if err != nil {
+		log.Printf("failed to assign admin role to user %s: %v", user.ID, err)
 	}
 
 	// Send welcome email in background
@@ -51,4 +58,3 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		"user":    user,
 	})
 }
-

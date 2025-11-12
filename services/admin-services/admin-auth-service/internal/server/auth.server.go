@@ -21,7 +21,8 @@ import (
 	smsclient "x/shared/sms"
 	coreclient "x/shared/core"
 	notificationclient "x/shared/notification" // ✅ added
-
+	urbacservice "x/shared/factory/admin/urbac/utils"
+	urbac "x/shared/factory/admin/urbac"
 	"x/shared/utils/id"
 	"x/shared/utils/errors"
 
@@ -50,12 +51,10 @@ func NewServer(cfg config.AppConfig) *http.Server {
 
 	userUC := usecase.NewUserUsecase(userRepo, sf)
 
+	urbacCli := urbac.NewRBACService()
+	urbacSvc :=	urbacservice.NewService(urbacCli.Client, rdb)
+
 	ctx := context.Background()
-	if err := seedSystemAdmin(ctx, userUC, cfg); err != nil {
-		log.Printf("Warning: failed to seed system admin: %v", err)
-	} else {
-		log.Println("System admin seeding complete")
-	}
 
 
 	auth := middleware.RequireAuth()
@@ -66,8 +65,14 @@ func NewServer(cfg config.AppConfig) *http.Server {
 	notificationCli := notificationclient.NewNotificationService() // ✅ create notification client
 
 	authHandler := handler.NewAuthHandler(
-		userUC, auth, otpSvc, emailCli, smsCli, rdb, coreClient,auth.AdminClient, notificationCli,
+		userUC, auth, otpSvc, emailCli, smsCli, rdb, coreClient,auth.AdminClient, notificationCli,urbacSvc,
 	)
+	// Seed system admin user
+	if err := seedSystemAdmin(ctx, authHandler, userUC, cfg); err != nil {
+		log.Printf("Warning: failed to seed system admin: %v", err)
+	} else {
+		log.Println("System admin seeding complete")
+	}
 
 	// gRPC handler
 	grpcAuthHandler := handler.NewGRPCAuthHandler(
@@ -114,7 +119,7 @@ func NewServer(cfg config.AppConfig) *http.Server {
 }
 
 
-func seedSystemAdmin(ctx context.Context, uc *usecase.UserUsecase, cfg config.AppConfig) error {
+func seedSystemAdmin(ctx context.Context, h *handler.AuthHandler, uc *usecase.UserUsecase, cfg config.AppConfig) error {
 	adminEmail := cfg.SystemAdminEmail
 	adminPassword := cfg.SystemAdminPassword
 	if adminEmail == "" || adminPassword == "" {
@@ -138,6 +143,11 @@ func seedSystemAdmin(ctx context.Context, uc *usecase.UserUsecase, cfg config.Ap
 	user, err := uc.RegisterUser(ctx, adminEmail, adminPassword, "System", "Admin", "system_admin")
 	if err != nil {
 		return fmt.Errorf("failed to create system admin: %w", err)
+	}
+	// Assign super_admin role
+	err = h.HandleRoleUpgrade(ctx, user.ID, "super_admin")
+	if err != nil {
+		log.Printf("failed to assign admin role to user %s: %v", user.ID, err)
 	}
 
 	log.Printf("Seeded system admin: %s (id=%s)\n", adminEmail, user.ID)

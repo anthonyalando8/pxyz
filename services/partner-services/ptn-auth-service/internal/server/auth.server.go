@@ -13,7 +13,8 @@ import (
 	"ptn-auth-service/internal/usecase"
 	"ptn-auth-service/internal/ws"
 	notificationclient "x/shared/notification" // ✅ added
-
+	urbacservice "x/shared/factory/partner/urbac/utils"
+	urbac "x/shared/factory/partner/urbac"
 
 	//authclient "x/shared/auth"
 	"x/shared/auth/middleware"
@@ -49,6 +50,9 @@ func NewServer(cfg config.AppConfig) *http.Server {
 
 	userUC := usecase.NewUserUsecase(userRepo, sf)
 
+	urbacCli := urbac.NewRBACService()
+	urbacSvc :=	urbacservice.NewService(urbacCli.Client, rdb)
+
 	//ctx := context.Background()
 	
 
@@ -60,12 +64,12 @@ func NewServer(cfg config.AppConfig) *http.Server {
 	notificationCli := notificationclient.NewNotificationService() // ✅ create notification client
 
 	authHandler := handler.NewAuthHandler(
-		userUC, auth, otpSvc, emailCli, smsCli, rdb, coreClient, auth.PartnerClient, notificationCli,
+		userUC, auth, otpSvc, emailCli, smsCli, rdb, coreClient, auth.PartnerClient, notificationCli,urbacSvc,
 	)
 
 	// gRPC handler
 	grpcAuthHandler := handler.NewGRPCAuthHandler(
-		userUC, otpSvc, emailCli, smsCli,
+		userUC, otpSvc, emailCli, smsCli, authHandler,
 	)
 
 	// start gRPC server in background

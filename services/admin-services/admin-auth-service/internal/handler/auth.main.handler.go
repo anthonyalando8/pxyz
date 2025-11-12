@@ -10,6 +10,8 @@ import (
 	"github.com/redis/go-redis/v9"
 	sessionpb "x/shared/genproto/admin/sessionpb"
 	notificationclient "x/shared/notification" // ✅ added
+	urbacservice "x/shared/factory/admin/urbac/utils"
+
 	//"x/shared/genproto/emailpb"
 )
 
@@ -24,6 +26,8 @@ type AuthHandler struct {
 	coreClient		*coreclient.CoreService
 	sessionClient sessionpb.AdminSessionServiceClient
 	notificationClient *notificationclient.NotificationService // ✅ added
+	urbacservice  *urbacservice.Service
+
 }
 
 func NewAuthHandler(
@@ -36,6 +40,7 @@ func NewAuthHandler(
 	coreClient		*coreclient.CoreService,
 	sessionClient sessionpb.AdminSessionServiceClient,
 	notificationClient *notificationclient.NotificationService, // ✅ added
+	urbacservice *urbacservice.Service,
 
 ) *AuthHandler {
 	return &AuthHandler{
@@ -48,6 +53,7 @@ func NewAuthHandler(
 		coreClient:		coreClient,
 		sessionClient: sessionClient,
 		notificationClient: notificationClient, // ✅ assigned
+		urbacservice:  urbacservice,
 	}
 }
 

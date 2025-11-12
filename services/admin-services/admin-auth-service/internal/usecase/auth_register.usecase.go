@@ -53,7 +53,6 @@ func (uc *UserUsecase) RegisterUser(ctx context.Context, email, password, firstN
 		return nil, err
 	}
 
-
 	return createdUser, nil
 }
 

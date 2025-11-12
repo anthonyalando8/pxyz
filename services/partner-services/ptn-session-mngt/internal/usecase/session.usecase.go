@@ -10,7 +10,9 @@ import (
 	"ptn-session-service/pkg/jwtutil"
 	"time"
 	authclient "x/shared/auth"
-	authpb "x/shared/genproto/partner/authpb"
+	//authpb "x/shared/genproto/partner/authpb"
+	urbacservice "x/shared/factory/partner/urbac/utils"
+	"x/shared/utils/cache"
 
 	//"x/shared/genproto/authpb"
 	sessionpb "x/shared/genproto/partner/sessionpb"
@@ -23,14 +25,18 @@ type SessionUsecase struct {
 	Sf           *id.Snowflake
 	jwtGen       *jwtutil.Generator
 	authClient   *authclient.AuthService
+	urbacservice  *urbacservice.Service
+	cache 	*cache.Cache
 }
 
-func NewSessionUsecase(sessionRepo *repository.SessionRepository, sf *id.Snowflake, jwtGen *jwtutil.Generator, authClient *authclient.AuthService) *SessionUsecase {
+func NewSessionUsecase(sessionRepo *repository.SessionRepository, sf *id.Snowflake, jwtGen *jwtutil.Generator, authClient *authclient.AuthService, urbacservice  *urbacservice.Service, cache 	*cache.Cache,) *SessionUsecase {
 	return &SessionUsecase{
 		SessionRepo:  sessionRepo,
 		Sf:           sf,
 		jwtGen:       jwtGen,
 		authClient:   authClient,
+		urbacservice: urbacservice,
+		cache: cache,
 	}
 }
 
@@ -49,15 +55,58 @@ func (u *SessionUsecase) CreateSession(ctx context.Context, req *sessionpb.Creat
 	if ipAddress == "" {
 		ipAddress = "unknown"
 	}
-	role := "temp" // fallback if something fails
+	role := "any" // fallback if something fails
 
-	profileRes, err := u.authClient.PartnerClient.GetUserProfile(ctx, &authpb.GetUserProfileRequest{
-		UserId: req.UserId,
-	})
-	if err != nil {
-		log.Printf("Failed to fetch profile for user %s: %v", req.UserId, err)
-	} else if profileRes.User != nil && profileRes.User.Role != "" {
-		role = profileRes.User.Role
+	// Try to get role from cache first
+	var rolesFromCache bool
+	cacheKey := fmt.Sprintf("user:%s:role", req.UserId)
+	if u.cache != nil {
+		cachedRole, err := u.cache.Get(ctx, "user_roles", cacheKey)
+		if err == nil && cachedRole != "" {
+			role = cachedRole
+			rolesFromCache = true
+			log.Printf("[CACHE HIT] Retrieved role for user %s from cache: %s", req.UserId, role)
+		}
+	}
+
+	// If not in cache, fetch from urbac service
+	if !rolesFromCache && u.urbacservice != nil && req.UserId != "" {
+		rolesRes, err := u.urbacservice.GetUserRoles(ctx, req.UserId)
+		if err != nil {
+			log.Printf("[WARN] failed to fetch roles for user %s: %v", req.UserId, err)
+		} else if len(rolesRes) > 0 {
+			// Define priority: lower number = higher priority
+			rolePriority := map[string]int{
+				"any":            1,
+				"partner_user": 2,
+				"partner_admin":         3,
+			}
+
+			// Start with lowest
+			highest := "any"
+			highestRank := rolePriority[highest]
+
+			for _, r := range rolesRes {
+				roleName := r.GetRoleName()
+				if rank, ok := rolePriority[roleName]; ok && rank > highestRank {
+					highest = roleName
+					highestRank = rank
+				}
+			}
+
+			role = highest
+			
+			// Cache the role for 1 hour
+			if u.cache != nil {
+				if err := u.cache.Set(ctx, "user_roles", cacheKey, role, time.Hour); err != nil {
+					log.Printf("[WARN] failed to cache role for user %s: %v", req.UserId, err)
+				} else {
+					log.Printf("[CACHE SET] Cached role for user %s: %s", req.UserId, role)
+				}
+			}
+		} else {
+			log.Printf("[INFO] user %s has no roles assigned", req.UserId)
+		}
 	}
 
 	log.Printf("User %s has role: %s", req.UserId, role)

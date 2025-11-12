@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS users
     updated_at timestamp with time zone DEFAULT now(),
     consent boolean NOT NULL DEFAULT true,
     is_temp_pass boolean NOT NULL DEFAULT false,
-    role text COLLATE pg_catalog."default" DEFAULT 'user'::text,
+    role text COLLATE pg_catalog."default" DEFAULT 'partner_user'::text,
     changed_emails jsonb,
     changed_phones jsonb,
     CONSTRAINT users_pkey PRIMARY KEY (id),

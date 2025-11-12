@@ -21,6 +21,10 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
+func (h *AuthHandler) HandleRoleUpgrade(ctx context.Context, userID,newRole string)error{
+	return h.urbacservice.AssignRoleByName(ctx, userID, newRole, 0)
+}
+
 // GetFullUserProfile fetches and merges user + account-service profile into a map
 func (h *AuthHandler) GetFullUserProfile(ctx context.Context, userID string) (map[string]interface{}, error) {
 	// Get user (from user table)

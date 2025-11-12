@@ -12,4 +12,3 @@ type PartnerRepo struct {
 func NewPartnerRepo(db *pgxpool.Pool) *PartnerRepo {
 	return &PartnerRepo{db: db}
 }
-

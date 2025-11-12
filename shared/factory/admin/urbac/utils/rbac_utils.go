@@ -327,6 +327,7 @@ func (s *Service) GetUserRoles(ctx context.Context, userID string) ([]*rbacpb.Us
 	resp, err := s.Client.ListUserRoles(ctx, &rbacpb.ListUserRolesRequest{
 		UserId: userID,
 	})
+	
 	if err != nil {
 		return nil, fmt.Errorf("failed to list user roles for user %s: %w", userID, err)
 	}
