@@ -7,14 +7,14 @@ import (
 	"ptn-auth-service/internal/ws"
 	"x/shared/auth/middleware"
 
-	authpb "x/shared/genproto/sessionpb"
+	authpb "x/shared/genproto/partner/sessionpb"
 	"x/shared/response"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/redis/go-redis/v9"
 )
 
-func (h *AuthHandler) LogoutHandler(authClient authpb.AuthServiceClient) http.HandlerFunc {
+func (h *AuthHandler) LogoutHandler(authClient authpb.PartnerSessionServiceClient) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		token, ok := r.Context().Value(middleware.ContextToken).(string)
 		if !ok || token == "" {
@@ -35,7 +35,7 @@ func (h *AuthHandler) LogoutHandler(authClient authpb.AuthServiceClient) http.Ha
 	}
 }
 
-func (h *AuthHandler) ListSessionsHandler(authClient authpb.AuthServiceClient) http.HandlerFunc {
+func (h *AuthHandler) ListSessionsHandler(authClient authpb.PartnerSessionServiceClient) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, ok := r.Context().Value(middleware.ContextUserID).(string)
 		if !ok || userID == "" {
@@ -56,7 +56,7 @@ func (h *AuthHandler) ListSessionsHandler(authClient authpb.AuthServiceClient) h
 	}
 }
 
-func (h *AuthHandler) DeleteSessionByIDHandler(authClient authpb.AuthServiceClient) http.HandlerFunc {
+func (h *AuthHandler) DeleteSessionByIDHandler(authClient authpb.PartnerSessionServiceClient) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		sessionID := chi.URLParam(r, "id")
 		if sessionID == "" {
@@ -79,7 +79,7 @@ func (h *AuthHandler) DeleteSessionByIDHandler(authClient authpb.AuthServiceClie
 	}
 }
 
-func (h *AuthHandler) LogoutAllHandler(authClient authpb.AuthServiceClient, rdb *redis.Client) http.HandlerFunc {
+func (h *AuthHandler) LogoutAllHandler(authClient authpb.PartnerSessionServiceClient, rdb *redis.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, ok := r.Context().Value(middleware.ContextUserID).(string)
 		if !ok || userID == "" {

@@ -112,10 +112,10 @@ func SetupRoutes(
 			pr.Get("/email/request-verification", h.HandleRequestEmailVerification)
 
 			// Sessions
-			pr.Get("/sessions", h.ListSessionsHandler(auth.Client))
-			pr.Delete("/logout", h.LogoutHandler(auth.Client))
-			pr.Delete("/sessions", h.LogoutAllHandler(auth.Client, rdb))
-			pr.Delete("/sessions/{id}", h.DeleteSessionByIDHandler(auth.Client))
+			pr.Get("/sessions", h.ListSessionsHandler(auth.AdminClient))
+			pr.Delete("/logout", h.LogoutHandler(auth.AdminClient))
+			pr.Delete("/sessions", h.LogoutAllHandler(auth.AdminClient, rdb))
+			pr.Delete("/sessions/{id}", h.DeleteSessionByIDHandler(auth.AdminClient))
 		})
 	})
 
