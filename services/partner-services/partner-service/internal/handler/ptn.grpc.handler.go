@@ -67,8 +67,8 @@ func (h *GRPCPartnerHandler) CreatePartner(
 		ContactEmail: req.ContactEmail,
 		ContactPhone: req.ContactPhone,
 		Status:       domain.PartnerStatusActive,
-		Service:      req.Service,   // new field from proto
-		Currency:     req.Currency,  // new field from proto
+		Service:      req.Service,
+		Currency:     req.Currency,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
@@ -86,21 +86,31 @@ func (h *GRPCPartnerHandler) CreatePartner(
 		return nil, status.Errorf(codes.Internal, "failed to generate admin password")
 	}
 
-	// --- 4. Create default admin user in Auth service ---
+	// --- 4. Create default admin user in Auth service (async, resilient) ---
 	go func(p *domain.Partner, pwd string) {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[PANIC RECOVERED] Auth goroutine crashed for partner=%s: %v", p.ID, r)
+			}
+		}()
+
 		ctxBg, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
 		userResp, err := h.authClient.PartnerClient.RegisterUser(ctxBg, &partnerauthpb.RegisterUserRequest{
-			Email:     p.ContactEmail, // default admin uses partner contact email
+			Email:     p.ContactEmail,
 			Password:  pwd,
 			FirstName: p.Name,
 			LastName:  "Admin",
 			Role:      "partner_admin",
 			PartnerId: p.ID,
 		})
-		if err != nil || userResp == nil {
+		if err != nil {
 			log.Printf("[ERROR] Failed to create default partner admin for partner=%s: %v", p.ID, err)
+			return
+		}
+		if userResp == nil {
+			log.Printf("[ERROR] Nil response from Auth service for partner=%s", p.ID)
 			return
 		}
 		if !userResp.Ok {
@@ -108,14 +118,21 @@ func (h *GRPCPartnerHandler) CreatePartner(
 			return
 		}
 
-		// --- Send notification email ---
+		// Send notification email
 		sendPartnerCreatedEmail(h.uc, h.emailClient, p, pwd)
+		
 
 		log.Printf("[INFO] Default partner admin created + email sent for partner=%s", p.ID)
 	}(partner, password)
 
-	// --- 6. Create default account in Accounting service (async) ---
-	go func() {
+	// --- 5. Create default account in Accounting service (async, resilient) ---
+	go func(p *domain.Partner) {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[PANIC RECOVERED] Accounting goroutine crashed for partner=%s: %v", p.ID, r)
+			}
+		}()
+
 		ctxBg, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
 
@@ -123,10 +140,10 @@ func (h *GRPCPartnerHandler) CreatePartner(
 			Accounts: []*accountingpb.Account{
 				{
 					OwnerType:   accountingpb.OwnerType_PARTNER,
-					OwnerId:     partner.ID,
-					Currency:    partner.Currency, // use partner's currency
+					OwnerId:     p.ID,
+					Currency:    p.Currency,
 					Purpose:     "wallet",
-					AccountType: "real", // or "demo" if applicable
+					AccountType: "real",
 					IsActive:    true,
 				},
 			},
@@ -134,23 +151,32 @@ func (h *GRPCPartnerHandler) CreatePartner(
 
 		resp, err := h.accountingClient.Client.CreateAccounts(ctxBg, reqAcc)
 		if err != nil {
-			log.Printf("[ERROR] Failed to create default account for partner=%s: %v", partner.ID, err)
-			//return
+			log.Printf("[ERROR] Failed to create default account for partner=%s: %v", p.ID, err)
+			return
+		}
+		if resp == nil {
+			log.Printf("[ERROR] Nil response from Accounting service for partner=%s", p.ID)
+			return
 		}
 
 		if len(resp.Errors) > 0 {
-			log.Printf("[WARN] Errors creating account(s) for partner=%s: %+v", partner.ID, resp.Errors)
-		} else {
-			log.Printf("[INFO] Created default account for partner=%s accountId=%d", partner.ID, resp.Accounts[0].Id)
+			log.Printf("[WARN] Errors creating account(s) for partner=%s: %+v", p.ID, resp.Errors)
+			return
 		}
-	}()
+		if len(resp.Accounts) == 0 {
+			log.Printf("[WARN] Accounting service returned no accounts for partner=%s", p.ID)
+			return
+		}
 
+		log.Printf("[INFO] Created default account for partner=%s accountId=%d",
+			p.ID, resp.Accounts[0].Id)
+	}(partner)
+
+	// --- 6. Respond immediately ---
 	return &partnersvcpb.PartnerResponse{
 		Partner: partner.ToProto(),
 	}, nil
 }
-
-
 
 
 
