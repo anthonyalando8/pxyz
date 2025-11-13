@@ -135,7 +135,7 @@ func (h *GRPCPartnerHandler) CreatePartner(
 		resp, err := h.accountingClient.Client.CreateAccounts(ctxBg, reqAcc)
 		if err != nil {
 			log.Printf("[ERROR] Failed to create default account for partner=%s: %v", partner.ID, err)
-			return
+			//return
 		}
 
 		if len(resp.Errors) > 0 {
