@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	rbacpb "x/shared/genproto/partner/ptnrbacpb"
+	rbacpb "x/shared/genproto/admin/adminrbacpb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )

@@ -10,7 +10,7 @@ import (
 
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	rbacpb "x/shared/genproto/partner/ptnrbacpb"
+	rbacpb "x/shared/genproto/admin/adminrbacpb"
 
 	"github.com/redis/go-redis/v9"
 )
