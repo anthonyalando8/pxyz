@@ -186,4 +186,3 @@ func sendPartnerCreatedEmail(
 		}
 	}(p, adminPassword)
 }
-

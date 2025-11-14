@@ -100,6 +100,7 @@ func (am *AuthMiddleware) validateSession(ctx context.Context, token, tokenType 
 	}
 
 	if err != nil {
+		log.Printf("Session validation error for token type %s: %v", tokenType, err)
 		switch {
 		case errors.Is(err, xerrors.ErrNotFound):
 			response.Error(w, http.StatusUnauthorized, "Session not found")
