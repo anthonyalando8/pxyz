@@ -43,6 +43,7 @@ func (h *AuthHandler) ServeLoginUI(w http.ResponseWriter, r *http.Request) {
 
     http.ServeFile(w, r, file)
 }
+
 func (h *AuthHandler) SubmitIdentifier(w http.ResponseWriter, r *http.Request) {
 	var req SubmitIdentifierRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -191,6 +192,7 @@ func (h *AuthHandler) SetPassword(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	
 	go h.sendWelcomeNotification(userID)
 
 

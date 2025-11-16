@@ -12,125 +12,134 @@ import (
 	"x/shared/utils/errors"
 
 	authclient "x/shared/auth"
-	authpb "x/shared/genproto/authpb"
-	adminauthpb "x/shared/genproto/admin/authpb"
-	patnerauthpb "x/shared/genproto/partner/authpb"
+	// authpb "x/shared/genproto/authpb"
+	// adminauthpb "x/shared/genproto/admin/authpb"
+	// patnerauthpb "x/shared/genproto/partner/authpb"
+	"notification-service/internal/helpers"
 )
 
 type NotificationUsecase struct {
-	repo     repository.Repository
-	notifier *notifier.Notifier
-	authClient *authclient.AuthService
+	repo               repository.Repository
+	notifier           *notifier.Notifier
+	authClient         *authclient.AuthService
+	profileFetcher     *helpers.ProfileFetcher
+	notificationBuilder *helpers.NotificationBuilder
 }
 
-// NewNotificationUsecase creates a new NotificationUsecase with repo + notifier
-func NewNotificationUsecase(r repository.Repository, n *notifier.Notifier, authClient *authclient.AuthService) *NotificationUsecase {
+// NewNotificationUsecase creates a new NotificationUsecase with dependencies
+func NewNotificationUsecase(
+	r repository.Repository,
+	n *notifier.Notifier,
+	authClient *authclient.AuthService,
+) *NotificationUsecase {
+	// Initialize helpers
+	profileFetcher := helpers.NewProfileFetcher(authClient)
+	notificationBuilder := helpers.NewNotificationBuilder(profileFetcher)
+
 	return &NotificationUsecase{
-		repo:     r,
-		notifier: n,
-		authClient: authClient,
+		repo:                r,
+		notifier:            n,
+		authClient:          authClient,
+		profileFetcher:      profileFetcher,
+		notificationBuilder: notificationBuilder,
 	}
 }
 
-
-// -----------------------------
-// Notifications
-// -----------------------------
+// CreateNotification creates and dispatches a notification
 func (uc *NotificationUsecase) CreateNotification(ctx context.Context, n *domain.Notification) (*domain.Notification, error) {
-	// 1. Save to DB
-	created, err := uc.repo.CreateNotification(ctx, n)
+	if n == nil {
+		return nil, fmt.Errorf("notification is nil")
+	}
+
+	notificationID := n.ID
+	if notificationID == 0 {
+		notificationID = -1 // indicate new notification
+	}
+
+	log.Printf("[NOTIFICATION CREATE] Starting creation for ID: %v, OwnerID: %s, Type: %s, Channels: %v",
+		notificationID, n.OwnerID, n.EventType, n.ChannelHint)
+
+	startTime := time.Now()
+
+	// 1. Persist to database (non-blocking on failure)
+	created := uc.persistNotification(ctx, n)
+
+	// 2. Build message with enriched data
+	msg, err := uc.notificationBuilder.BuildMessage(ctx, created)
 	if err != nil {
-		//return nil, err
-		log.Printf("⚠️ Error creating notification in DB: %v", err)
-		created = n // Proceed with original notification data
+		log.Printf("[NOTIFICATION CREATE ERROR] Failed to build message for ID %v: %v", notificationID, err)
+		return created, fmt.Errorf("failed to build notification message: %w", err)
 	}
 
-	templateData := make(map[string]any)
-	for k, v := range created.Payload {
-		templateData[k] = v
-	}
+	// 3. Dispatch notification asynchronously
+	uc.dispatchNotification(msg, notificationID)
 
-	msgRecipients := map[string]string{}
-
-	// ✅ Start with provided recipient info
-	if n.RecipientEmail != "" {
-		msgRecipients["email"] = n.RecipientEmail
-	}
-	if n.RecipientPhone != "" {
-		msgRecipients["phone"] = n.RecipientPhone
-	}
-	if n.RecipientName != "" {
-		templateData["UserName"] = n.RecipientName
-	}
-
-	// Fallback to profile service if needed
-	needEmail := contains(created.ChannelHint, "email") && n.RecipientEmail == ""
-	needPhone := (contains(created.ChannelHint, "sms") || contains(created.ChannelHint, "whatsapp")) && n.RecipientPhone == ""
-
-	if needEmail || needPhone {
-		email, phone, firstName, lastName, resolvedOwnerType, err := uc.fetchProfile(ctx, created.OwnerType, created.OwnerID)
-		if err != nil {
-			log.Printf("⚠️ Could not fetch profile for notification: %v", err)
-		} else {
-			// Update recipients
-			if needEmail && email != "" {
-				msgRecipients["email"] = email
-			}
-			if needPhone && phone != "" {
-				msgRecipients["phone"] = phone
-			}
-			// Update template data
-			if templateData["UserName"] == nil || templateData["UserName"] == "" {
-				templateData["UserName"] = fmt.Sprintf("%s %s", firstName, lastName)
-			}
-			templateData["UserEmail"] = email
-			templateData["UserPhone"] = phone
-
-			// Update OwnerType in case it was empty before
-			if created.OwnerType == "" && resolvedOwnerType != "" {
-				created.OwnerType = resolvedOwnerType
-			}
-		}
-	}
-
-	templateData["Year"] = time.Now().Year()
-
-	// Pick a primary recipient (optional, for backward compatibility)
-	var recipient string
-	if e, ok := msgRecipients["email"]; ok {
-		recipient = e
-	} else if p, ok := msgRecipients["phone"]; ok {
-		recipient = p
-	}
-
-	// 3. Build notifier.Message
-	msg := &domain.Message{
-		OwnerID:    created.OwnerID,
-		OwnerType:  created.OwnerType,
-		Recipient:  recipient,
-		Recipients: msgRecipients,
-		Title:      created.Title,
-		Body:       created.Body,
-		Metadata:   created.Metadata,
-		Channels:   created.ChannelHint,
-		Type:       domain.NotificationType(created.EventType),
-		Data:       templateData,
-		Ctx:        ctx,
-	}
-
-	// 4. Dispatch asynchronously
-	go func(m *domain.Message) {
-		defer func() {
-			if r := recover(); r != nil {
-				log.Printf("⚠️ Panic recovered in notifier.Notify: %v", r)
-			}
-		}()
-		uc.notifier.Notify(m)
-	}(msg)
+	duration := time.Since(startTime)
+	log.Printf("[NOTIFICATION CREATE SUCCESS] Notification ID %v created and dispatched (took %v)",
+		notificationID, duration)
 
 	return created, nil
 }
 
+// persistNotification saves notification to database with error resilience
+func (uc *NotificationUsecase) persistNotification(ctx context.Context, n *domain.Notification) *domain.Notification {
+	notificationID := n.ID
+	if notificationID == 0 {
+		notificationID = -1 // indicate new notification
+	}
+
+	log.Printf("[DB SAVE] Attempting to persist notification ID: %v", notificationID)
+
+	// Add timeout for DB operation
+	dbCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	created, err := uc.repo.CreateNotification(dbCtx, n)
+	if err != nil {
+		log.Printf("[DB SAVE ERROR] Failed to persist notification ID %v: %v. Proceeding with original data.",
+			notificationID, err)
+		
+		// Return original notification on DB failure
+		// The notification will still be dispatched
+		return n
+	}
+
+	log.Printf("[DB SAVE SUCCESS] Notification ID %d persisted successfully", created.ID)
+	return created
+}
+
+// dispatchNotification sends the notification asynchronously
+func (uc *NotificationUsecase) dispatchNotification(msg *domain.Message, notificationID interface{}) {
+	log.Printf("[DISPATCH] Queuing notification ID %s for async dispatch", notificationID)
+
+	go func(m *domain.Message, id interface{}) {
+		// Panic recovery
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[DISPATCH PANIC] Recovered from panic while dispatching notification ID %s: %v",
+					id, r)
+			}
+		}()
+
+		dispatchStart := time.Now()
+		log.Printf("[DISPATCH START] Dispatching notification ID %s via notifier", id)
+
+		// Create independent context for background operation
+		dispatchCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		// Update message context
+		m.Ctx = dispatchCtx
+
+		// Dispatch
+		uc.notifier.Notify(m)
+
+		duration := time.Since(dispatchStart)
+		log.Printf("[DISPATCH COMPLETE] Notification ID %s dispatched (took %v)", id, duration)
+	}(msg, notificationID)
+}
+
+// Backward compatibility helper function
 func contains(slice []string, item string) bool {
 	for _, s := range slice {
 		if s == item {
@@ -139,85 +148,6 @@ func contains(slice []string, item string) bool {
 	}
 	return false
 }
-
-
-
-// fetchProfile attempts to retrieve a profile from the appropriate auth service based on ownerType
-func (uc *NotificationUsecase) fetchProfile(ctx context.Context, ownerType, ownerID string) (email, phone, firstName, lastName string, resolvedOwnerType string, err error) {
-	if uc.authClient == nil {
-		return "", "", "", "", "", fmt.Errorf("auth client not initialized")
-	}
-
-	type result struct {
-		email, phone, firstName, lastName, ownerType string
-		ok                                           bool
-	}
-
-	tryFetch := func(clientType string) result {
-		switch clientType {
-		case "user":
-			if uc.authClient.UserClient == nil {
-				return result{}
-			}
-			resp, e := uc.authClient.UserClient.GetUserProfile(ctx, &authpb.GetUserProfileRequest{UserId: ownerID})
-			if e != nil || resp == nil || !resp.Ok || resp.User == nil {
-				return result{}
-			}
-			return result{resp.User.Email, resp.User.Phone, resp.User.FirstName, resp.User.LastName, "user", true}
-
-		case "partner":
-			if uc.authClient.PartnerClient == nil {
-				return result{}
-			}
-			resp, e := uc.authClient.PartnerClient.GetUserProfile(ctx, &patnerauthpb.GetUserProfileRequest{UserId: ownerID})
-			if e != nil || resp == nil || !resp.Ok || resp.User == nil {
-				return result{}
-			}
-			return result{resp.User.Email, resp.User.Phone, resp.User.FirstName, resp.User.LastName, "partner", true}
-
-		case "admin":
-			if uc.authClient.AdminClient == nil {
-				return result{}
-			}
-			resp, e := uc.authClient.AdminClient.GetUserProfile(ctx, &adminauthpb.GetUserProfileRequest{UserId: ownerID})
-			if e != nil || resp == nil || !resp.Ok || resp.User == nil {
-				return result{}
-			}
-			return result{resp.User.Email, resp.User.Phone, resp.User.FirstName, resp.User.LastName, "admin", true}
-		}
-		return result{}
-	}
-
-	// If ownerType is known, fetch directly
-	if ownerType != "" {
-		res := tryFetch(ownerType)
-		if !res.ok {
-			return "", "", "", "", "", fmt.Errorf("failed to fetch profile for type: %s", ownerType)
-		}
-		return res.email, res.phone, res.firstName, res.lastName, res.ownerType, nil
-	}
-
-	// ownerType unknown → concurrent fetch
-	types := []string{"user", "partner", "admin"}
-	ch := make(chan result, len(types))
-
-	for _, t := range types {
-		go func(t string) {
-			ch <- tryFetch(t)
-		}(t)
-	}
-
-	for i := 0; i < len(types); i++ {
-		res := <-ch
-		if res.ok {
-			return res.email, res.phone, res.firstName, res.lastName, res.ownerType, nil
-		}
-	}
-
-	return "", "", "", "", "", fmt.Errorf("profile not found for ownerID: %s", ownerID)
-}
-
-
 
 
 func (uc *NotificationUsecase) GetNotificationByID(ctx context.Context, id int64) (*domain.Notification, error) {
