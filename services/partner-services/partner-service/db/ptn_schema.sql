@@ -27,10 +27,17 @@ CREATE TABLE partners (
   status        partner_status_enum NOT NULL DEFAULT 'active',
   service       TEXT,               -- new field: type of service the partner offers
   currency      TEXT,               -- new field: default currency for the partner
+  api_key_hash    TEXT,                           -- Hashed API key
+  webhook_url     TEXT,                           -- For callbacks
+  commission_rate NUMERIC(5,4) DEFAULT 0,         -- Partner commission (e.g., 0.0050 = 0.5%)
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX idx_partners_name ON partners (name);
+
+CREATE INDEX IF NOT EXISTS idx_partners_active ON partners (is_active) WHERE is_active = true;
+
+COMMENT ON TABLE partners IS 'Partner entities that facilitate user transactions';
 
 CREATE TABLE partner_kyc (
   partner_id TEXT PRIMARY KEY REFERENCES partners(id) ON DELETE CASCADE,
