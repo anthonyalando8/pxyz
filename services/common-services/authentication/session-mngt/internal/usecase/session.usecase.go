@@ -10,32 +10,30 @@ import (
 	"session-service/pkg/jwtutil"
 	"time"
 	authclient "x/shared/auth"
-	//"x/shared/genproto/authpb"
 	sessionpb "x/shared/genproto/sessionpb"
 	urbacservice "x/shared/urbac/utils"
 	urbacpb "x/shared/genproto/urbacpb"
 	"x/shared/utils/cache"
-
 	"x/shared/utils/id"
 )
 
 type SessionUsecase struct {
-	SessionRepo *repository.SessionRepository
-	Sf		  *id.Snowflake
-	jwtGen *jwtutil.Generator
-	authClient *authclient.AuthService
-	urbacservice  *urbacservice.Service
-	cache 	*cache.Cache
+	SessionRepo  *repository.SessionRepository
+	Sf           *id.Snowflake
+	jwtGen       *jwtutil.Generator
+	authClient   *authclient.AuthService
+	urbacservice *urbacservice.Service
+	cache        *cache.Cache
 }
 
-func NewSessionUsecase(sessionRepo *repository.SessionRepository, sf *id.Snowflake, jwtGen *jwtutil.Generator, authClient *authclient.AuthService, 	urbacservice  *urbacservice.Service, cache *cache.Cache) *SessionUsecase {
+func NewSessionUsecase(sessionRepo *repository.SessionRepository, sf *id.Snowflake, jwtGen *jwtutil.Generator, authClient *authclient.AuthService, urbacservice *urbacservice.Service, cache *cache.Cache) *SessionUsecase {
 	return &SessionUsecase{
-		SessionRepo: sessionRepo,
-		Sf:          sf,
-		jwtGen: jwtGen,
-		authClient: authClient,
+		SessionRepo:  sessionRepo,
+		Sf:           sf,
+		jwtGen:       jwtGen,
+		authClient:   authClient,
 		urbacservice: urbacservice,
-		cache: cache,
+		cache:        cache,
 	}
 }
 
@@ -44,6 +42,8 @@ func (u *SessionUsecase) CreateSession(ctx context.Context, req *sessionpb.Creat
 	if req.UserId == "" {
 		return nil, errors.New("user ID required")
 	}
+
+	log.Printf("[SESSION CREATE] Starting session creation for user %s", req.UserId)
 
 	// Normalize input
 	deviceID := normalizeDeviceID(req.DeviceId)
@@ -62,10 +62,12 @@ func (u *SessionUsecase) CreateSession(ctx context.Context, req *sessionpb.Creat
 	session := u.buildSession(req, token, deviceID, ipAddress)
 
 	// Cache operations in background (fire and forget)
-	go u.cacheSessionData(context.Background(), session, token, role, deviceID)
+	go u.cacheSessionDataAsync(session, token, role, deviceID)
 
-	// DB write in background (with retry)
-	go u.persistSessionToDB(context.Background(), session)
+	// DB write in background (with retry and FK check)
+	go u.persistSessionToDBAsync(session, req.UserId)
+
+	log.Printf("[SESSION CREATE SUCCESS] Session %s created for user %s", session.ID, req.UserId)
 
 	// Return immediately
 	return &sessionpb.CreateSessionResponse{
@@ -100,9 +102,9 @@ func (u *SessionUsecase) getUserRole(ctx context.Context, userID string) string 
 
 	// Fetch from urbac service
 	role := u.getRoleFromService(ctx, userID)
-	
+
 	// Cache the result in background
-	go u.cacheUserRole(context.Background(), userID, role)
+	go u.cacheUserRoleAsync(userID, role)
 
 	return role
 }
@@ -114,20 +116,31 @@ func (u *SessionUsecase) getRoleFromCache(ctx context.Context, userID string) st
 	}
 
 	cacheKey := fmt.Sprintf("user:%s:role", userID)
+	
+	// Add timeout for cache read
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	
 	cachedRole, err := u.cache.Get(ctx, "user_roles", cacheKey)
 	if err == nil && cachedRole != "" {
 		log.Printf("[CACHE HIT] Retrieved role for user %s from cache: %s", userID, cachedRole)
 		return cachedRole
 	}
 
+	log.Printf("[CACHE MISS] Role not in cache for user %s", userID)
 	return ""
 }
 
 // getRoleFromService fetches role from urbac service with fallback
 func (u *SessionUsecase) getRoleFromService(ctx context.Context, userID string) string {
 	if u.urbacservice == nil {
+		log.Printf("[WARN] urbac service not available, using default role")
 		return "temp"
 	}
+
+	// Add timeout for service call
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
 
 	rolesRes, err := u.urbacservice.GetUserRoles(ctx, userID)
 	if err != nil {
@@ -140,7 +153,9 @@ func (u *SessionUsecase) getRoleFromService(ctx context.Context, userID string) 
 		return "temp"
 	}
 
-	return u.selectHighestPriorityRole(rolesRes)
+	role := u.selectHighestPriorityRole(rolesRes)
+	log.Printf("[INFO] Selected role '%s' for user %s", role, userID)
+	return role
 }
 
 // selectHighestPriorityRole picks the highest priority role from a list
@@ -166,19 +181,19 @@ func (u *SessionUsecase) selectHighestPriorityRole(roles []*urbacpb.UserRole) st
 	return highest
 }
 
-// cacheUserRole caches user role in background
-func (u *SessionUsecase) cacheUserRole(ctx context.Context, userID, role string) {
+// cacheUserRoleAsync caches user role in background with independent context
+func (u *SessionUsecase) cacheUserRoleAsync(userID, role string) {
 	if u.cache == nil {
 		return
 	}
 
-	// Create context with timeout
-	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	// Create INDEPENDENT context for background operation
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	cacheKey := fmt.Sprintf("user:%s:role", userID)
 	if err := u.cache.Set(ctx, "user_roles", cacheKey, role, time.Hour); err != nil {
-		log.Printf("[WARN] failed to cache role for user %s: %v", userID, err)
+		log.Printf("[CACHE ERROR] failed to cache role for user %s: %v", userID, err)
 	} else {
 		log.Printf("[CACHE SET] Cached role for user %s: %s", userID, role)
 	}
@@ -207,47 +222,62 @@ func (u *SessionUsecase) buildSession(req *sessionpb.CreateSessionRequest, token
 	}
 }
 
-// cacheSessionData caches all session-related data in background
-func (u *SessionUsecase) cacheSessionData(ctx context.Context, session *domain.Session, token, role, deviceID string) {
+// cacheSessionDataAsync caches all session-related data in background with independent context
+func (u *SessionUsecase) cacheSessionDataAsync(session *domain.Session, token, role, deviceID string) {
 	if u.cache == nil {
 		return
 	}
 
-	// Create context with timeout for all cache operations
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	// Create INDEPENDENT context - THIS IS THE FIX!
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Cache operations can run in parallel
-	errChan := make(chan error, 4)
+	log.Printf("[CACHE ASYNC] Starting async cache operations for session %s", session.ID)
 
-	// 1. Cache token for user:device combination
+	// Run cache operations in parallel with error collection
+	type cacheResult struct {
+		operation string
+		err       error
+	}
+	
+	resultChan := make(chan cacheResult, 4)
+
+	// 1. Cache token
 	go func() {
-		errChan <- u.cacheSessionToken(ctx, session.UserID, deviceID, token)
+		err := u.cacheSessionToken(ctx, session.UserID, deviceID, token)
+		resultChan <- cacheResult{"token", err}
 	}()
 
-	// 2. Cache session ID mapping
+	// 2. Cache session mapping
 	go func() {
-		errChan <- u.cacheSessionMapping(ctx, session.ID, token)
+		err := u.cacheSessionMapping(ctx, session.ID, token)
+		resultChan <- cacheResult{"session", err}
 	}()
 
 	// 3. Cache user info
 	go func() {
-		errChan <- u.cacheUserInfo(ctx, session.UserID, role, session.CreatedAt)
+		err := u.cacheUserInfo(ctx, session.UserID, role, session.CreatedAt)
+		resultChan <- cacheResult{"userInfo", err}
 	}()
 
-	// 4. Cache device list
+	// 4. Cache device
 	go func() {
-		errChan <- u.cacheUserDevice(ctx, session.UserID, deviceID)
+		err := u.cacheUserDevice(ctx, session.UserID, deviceID)
+		resultChan <- cacheResult{"device", err}
 	}()
 
-	// Collect errors (non-blocking, just for logging)
-	go func() {
-		for i := 0; i < 4; i++ {
-			if err := <-errChan; err != nil {
-				log.Printf("[CACHE ERROR] %v", err)
-			}
+	// Collect results
+	successCount := 0
+	for i := 0; i < 4; i++ {
+		result := <-resultChan
+		if result.err != nil {
+			log.Printf("[CACHE ERROR] Failed to cache %s: %v", result.operation, result.err)
+		} else {
+			successCount++
 		}
-	}()
+	}
+
+	log.Printf("[CACHE ASYNC COMPLETE] Completed %d/4 cache operations for session %s", successCount, session.ID)
 }
 
 // cacheSessionToken caches the session token
@@ -275,7 +305,7 @@ func (u *SessionUsecase) cacheUserInfo(ctx context.Context, userID, role string,
 	userInfoKey := fmt.Sprintf("user:%s:info", userID)
 	userInfo := fmt.Sprintf(`{"user_id":"%s","role":"%s","last_login":"%s"}`,
 		userID, role, lastLogin.Format(time.RFC3339))
-	
+
 	if err := u.cache.Set(ctx, "user_info", userInfoKey, userInfo, 24*time.Hour); err != nil {
 		return fmt.Errorf("failed to cache user info for %s: %w", userID, err)
 	}
@@ -293,30 +323,46 @@ func (u *SessionUsecase) cacheUserDevice(ctx context.Context, userID, deviceID s
 	return nil
 }
 
-// persistSessionToDB writes session to database with retry logic
-func (u *SessionUsecase) persistSessionToDB(ctx context.Context, session *domain.Session) {
+// persistSessionToDBAsync writes session to database with retry logic and FK check
+func (u *SessionUsecase) persistSessionToDBAsync(session *domain.Session, userID string) {
+	// Create INDEPENDENT context
+	ctx := context.Background()
+	
 	const maxRetries = 3
 	backoff := time.Second
 
+	log.Printf("[DB ASYNC] Starting async DB write for session %s", session.ID)
+
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		// Create new context for each attempt
+		// Create new context with timeout for each attempt
 		dbCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-		
+
 		err := u.SessionRepo.CreateOrUpdateSession(dbCtx, session, u.jwtGen.Ttl)
 		cancel()
 
 		if err == nil {
-			log.Printf("[DB WRITE] Successfully persisted session %s for user %s", session.ID, session.UserID)
+			log.Printf("[DB WRITE SUCCESS] Persisted session %s for user %s (attempt %d)", 
+				session.ID, session.UserID, attempt)
+			return
+		}
+
+		// Check if it's a foreign key constraint error
+		if isForeignKeyError(err) {
+			log.Printf("[DB ERROR] Foreign key constraint violation for user %s: User does not exist in database. Session %s will not be persisted.", 
+				userID, session.ID)
+			log.Printf("[DB WARN] This usually means the user was not created in the database. Check your user registration flow.")
+			// Don't retry FK errors - they won't be fixed by retrying
 			return
 		}
 
 		// Log the error
-		log.Printf("[DB ERROR] Attempt %d/%d failed to persist session %s: %v", 
+		log.Printf("[DB ERROR] Attempt %d/%d failed to persist session %s: %v",
 			attempt, maxRetries, session.ID, err)
 
 		// Don't retry if it's the last attempt
 		if attempt == maxRetries {
-			log.Printf("[DB FATAL] Failed to persist session %s after %d attempts", session.ID, maxRetries)
+			log.Printf("[DB FATAL] Failed to persist session %s after %d attempts. Error: %v",
+				session.ID, maxRetries, err)
 			// TODO: Send to dead letter queue or alerting system
 			return
 		}
@@ -327,14 +373,51 @@ func (u *SessionUsecase) persistSessionToDB(ctx context.Context, session *domain
 	}
 }
 
+// isForeignKeyError checks if error is a foreign key constraint violation
+func isForeignKeyError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errMsg := err.Error()
+	return contains(errMsg, "foreign key constraint") || 
+	       contains(errMsg, "SQLSTATE 23503") ||
+	       contains(errMsg, "violates foreign key")
+}
+
+// contains checks if a string contains a substring
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && 
+	       (s == substr || len(s) > len(substr) && 
+	        (hasSubstr(s, substr)))
+}
+
+func hasSubstr(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
 
 // Helper method to get cached token
 func (u *SessionUsecase) GetCachedToken(ctx context.Context, userID, deviceID string) (string, error) {
 	if u.cache == nil {
 		return "", errors.New("cache not available")
 	}
+	
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	
 	tokenKey := fmt.Sprintf("%s:%s", userID, deviceID)
-	return u.cache.Get(ctx, "session_tokens", tokenKey)
+	token, err := u.cache.Get(ctx, "session_tokens", tokenKey)
+	if err != nil {
+		log.Printf("[CACHE MISS] Token not found for user %s device %s", userID, deviceID)
+		return "", err
+	}
+	
+	log.Printf("[CACHE HIT] Retrieved token for user %s device %s", userID, deviceID)
+	return token, nil
 }
 
 // Helper method to invalidate cached token
@@ -342,8 +425,18 @@ func (u *SessionUsecase) InvalidateCachedToken(ctx context.Context, userID, devi
 	if u.cache == nil {
 		return nil
 	}
+	
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	
 	tokenKey := fmt.Sprintf("%s:%s", userID, deviceID)
-	return u.cache.Delete(ctx, "session_tokens", tokenKey)
+	if err := u.cache.Delete(ctx, "session_tokens", tokenKey); err != nil {
+		log.Printf("[CACHE ERROR] Failed to invalidate token for user %s device %s: %v", userID, deviceID, err)
+		return err
+	}
+	
+	log.Printf("[CACHE DELETE] Invalidated token for user %s device %s", userID, deviceID)
+	return nil
 }
 
 // Helper method to invalidate all user caches
@@ -351,28 +444,33 @@ func (u *SessionUsecase) InvalidateUserCache(ctx context.Context, userID string)
 	if u.cache == nil {
 		return nil
 	}
-	
+
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
 	var errs []error
-	
+
 	// Delete role cache
 	if err := u.cache.Delete(ctx, "user_roles", fmt.Sprintf("user:%s:role", userID)); err != nil {
 		errs = append(errs, fmt.Errorf("failed to delete role cache: %w", err))
 	}
-	
+
 	// Delete user info cache
 	if err := u.cache.Delete(ctx, "user_info", fmt.Sprintf("user:%s:info", userID)); err != nil {
 		errs = append(errs, fmt.Errorf("failed to delete user info cache: %w", err))
 	}
-	
+
 	// Delete devices cache
 	if err := u.cache.Delete(ctx, "user_devices", fmt.Sprintf("user:%s:devices", userID)); err != nil {
 		errs = append(errs, fmt.Errorf("failed to delete devices cache: %w", err))
 	}
-	
+
 	if len(errs) > 0 {
+		log.Printf("[CACHE ERROR] Cache invalidation errors for user %s: %v", userID, errs)
 		return fmt.Errorf("cache invalidation errors: %v", errs)
 	}
-	
+
+	log.Printf("[CACHE DELETE] Invalidated all caches for user %s", userID)
 	return nil
 }
 
@@ -383,7 +481,6 @@ func strPtr(s string) *string {
 	return &s
 }
 
-// since DeviceMeta in domain is *any, you may want to store it as string in proto
 func strPtrAny(s string) *any {
 	if s == "" {
 		return nil
@@ -405,10 +502,10 @@ func domainToProtoSession(s *domain.Session) *sessionpb.Session {
 		IsActive:       s.IsActive,
 		LastSeenAt:     formatTime(s.LastSeenAt),
 		CreatedAt:      s.CreatedAt.Format(time.RFC3339),
-		IsSingleUse: s.IsSingleUse,
-		IsUsed: s.IsUsed,
-		Purpose: s.Purpose,
-		IsTemp: s.IsTemp,
+		IsSingleUse:    s.IsSingleUse,
+		IsUsed:         s.IsUsed,
+		Purpose:        s.Purpose,
+		IsTemp:         s.IsTemp,
 	}
 }
 
@@ -436,9 +533,8 @@ func formatTime(t *time.Time) string {
 	return t.Format(time.RFC3339)
 }
 
-
 func (uc *SessionUsecase) GetSessionsByUserID(ctx context.Context, userID string) ([]*domain.Session, error) {
-	return uc.SessionRepo.GetSessionsByUserID(ctx,userID, false)
+	return uc.SessionRepo.GetSessionsByUserID(ctx, userID, false)
 }
 
 func (u *SessionUsecase) DeleteSession(ctx context.Context, token string) error {
