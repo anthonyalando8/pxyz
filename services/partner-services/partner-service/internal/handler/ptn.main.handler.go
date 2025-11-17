@@ -283,76 +283,6 @@ func (h *PartnerHandler) CreatePartnerUser(w http.ResponseWriter, r *http.Reques
 }
 
 
-func (h *PartnerHandler) UpdatePartnerUser(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	paramID := chi.URLParam(r, "id")
-	ctxID, _ := ctx.Value(middleware.ContextUserID).(string)
-	ctxRole, _ := ctx.Value(middleware.ContextRole).(string)
-
-	// --- Step 1: Resolve target user ID ---
-	var targetID string
-	if paramID == "" {
-		// no param → user is updating their own account
-		if ctxID == "" {
-			response.Error(w, http.StatusUnauthorized, "missing user ID in context")
-			return
-		}
-		targetID = ctxID
-	} else if paramID != ctxID {
-		// param exists and does not match context ID → check if caller is admin
-		if ctxRole != string(domain.PartnerUserRoleAdmin) {
-			response.Error(w, http.StatusForbidden, "not allowed to update another user account")
-			return
-		}
-		targetID = paramID
-	} else {
-		// param exists and equals context ID
-		targetID = ctxID
-	}
-
-	// --- Step 2: Parse request body ---
-	var req struct {
-		Role     string `json:"role"`      // expecting "partner_admin" | "partner_user"
-		IsActive bool   `json:"is_active"`
-	}
-	if err := decodeJSON(r, &req); err != nil {
-		response.Error(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	// --- Step 2a: Protect role changes (server-side) ---
-	if req.Role != "" {
-		// Only partner_admin may change roles
-		if ctxRole != string(domain.PartnerUserRoleAdmin) {
-			response.Error(w, http.StatusForbidden, "only partner_admin can change roles")
-			return
-		}
-		// Validate the role value
-		if req.Role != string(domain.PartnerUserRoleAdmin) && req.Role != string(domain.PartnerUserRoleUser) {
-			response.Error(w, http.StatusBadRequest, "invalid role value")
-			return
-		}
-	}
-
-	// --- Step 3: Build domain object (partial update semantics expected in usecase) ---
-	partnerUser := &domain.PartnerUser{
-		ID:       targetID,
-		Role:     domain.PartnerUserRole(req.Role), // empty string means "no change" (usecase should handle)
-		IsActive: req.IsActive,
-	}
-
-	// --- Step 4: Perform update ---
-	if err := h.uc.UpdatePartnerUser(ctx, partnerUser); err != nil {
-		response.Error(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	// --- Step 5: Notifications & Response ---
-	sendPartnerUpdatedNotification(ctx, partnerUser.ID)
-	response.JSON(w, http.StatusOK, partnerUser)
-}
-
 func (h *PartnerHandler) DeletePartnerUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -378,6 +308,7 @@ func (h *PartnerHandler) DeletePartnerUser(w http.ResponseWriter, r *http.Reques
 		response.Error(w, http.StatusInternalServerError, "failed to fetch user profile: "+err.Error())
 		return
 	}
+
 	if profileResp == nil || !profileResp.Ok || profileResp.User == nil {
 		response.Error(w, http.StatusNotFound, "partner_user not found in auth service")
 		return
@@ -411,5 +342,433 @@ func (h *PartnerHandler) DeletePartnerUser(w http.ResponseWriter, r *http.Reques
 
 	response.JSON(w, http.StatusOK, map[string]string{
 		"deleted_id": id,
+	})
+}
+
+
+// handler/partner_handler.go - ADD THESE NEW METHODS
+
+// GetPartnerUserStats returns statistics about users under the current partner
+func (h *PartnerHandler) GetPartnerUserStats(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	userID, ok := ctx.Value(middleware.ContextUserID).(string)
+	if !ok || userID == "" {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid user ID")
+		return
+	}
+
+	profileResp, err := h.authClient.PartnerClient.GetUserProfile(ctx, &authpb.GetUserProfileRequest{
+		UserId: userID,
+	})
+	if err != nil || profileResp == nil || profileResp.User == nil {
+		response.Error(w, http.StatusInternalServerError, "failed to fetch user profile from auth service")
+		return
+	}
+	partnerID := profileResp.User.PartnerId
+	if partnerID == "" {
+		response.Error(w, http.StatusForbidden, "your account is not linked to a partner")
+		return
+	}
+
+	statsResp, err := h.authClient.PartnerClient.GetPartnerUserStats(ctx, &authpb.GetPartnerUserStatsRequest{
+		PartnerId: partnerID,
+	})
+	if err != nil || statsResp == nil || !statsResp.Ok {
+		msg := "unknown error"
+		if err != nil {
+			msg = err.Error()
+		} else if statsResp != nil {
+			msg = statsResp.Error
+		}
+		response.Error(w, http.StatusInternalServerError, "failed to fetch partner stats: "+msg)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, statsResp.Stats)
+}
+
+// ListPartnerUsers returns paginated list of users under the current partner
+func (h *PartnerHandler) ListPartnerUsers(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	userID, ok := ctx.Value(middleware.ContextUserID).(string)
+	if !ok || userID == "" {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid user ID")
+		return
+	}
+
+	profileResp, err := h.authClient.PartnerClient.GetUserProfile(ctx, &authpb.GetUserProfileRequest{
+		UserId: userID,
+	})
+	if err != nil || profileResp == nil || profileResp.User == nil {
+		response.Error(w, http.StatusInternalServerError, "failed to fetch user profile from auth service")
+		return
+	}
+	partnerID := profileResp.User.PartnerId
+	if partnerID == "" {
+		response.Error(w, http.StatusForbidden, "your account is not linked to a partner")
+		return
+	}
+
+	var req struct {
+		Limit  int32 `json:"limit"`
+		Offset int32 `json:"offset"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		response.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if req.Limit <= 0 {
+		req.Limit = 20
+	}
+	if req.Offset < 0 {
+		req.Offset = 0
+	}
+
+	usersResp, err := h.authClient.PartnerClient.GetUsersByPartnerPaginated(ctx, &authpb.GetUsersByPartnerPaginatedRequest{
+		PartnerId: partnerID,
+		Limit:     req.Limit,
+		Offset:    req.Offset,
+	})
+	if err != nil || usersResp == nil || !usersResp.Ok {
+		msg := "unknown error"
+		if err != nil {
+			msg = err.Error()
+		} else if usersResp != nil {
+			msg = usersResp.Error
+		}
+		response.Error(w, http.StatusInternalServerError, "failed to fetch users: "+msg)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"users":       usersResp.Users,
+		"total_count": usersResp.TotalCount,
+		"limit":       req.Limit,
+		"offset":      req.Offset,
+	})
+}
+
+// UpdatePartnerUserStatus allows admin to change user status (active/suspended)
+func (h *PartnerHandler) UpdatePartnerUserStatus(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	targetID := chi.URLParam(r, "id")
+	if targetID == "" {
+		response.Error(w, http.StatusBadRequest, "missing user id")
+		return
+	}
+
+	userID, ok := ctx.Value(middleware.ContextUserID).(string)
+	if !ok || userID == "" {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid user ID")
+		return
+	}
+
+	profileResp, err := h.authClient.PartnerClient.GetUserProfile(ctx, &authpb.GetUserProfileRequest{
+		UserId: userID,
+	})
+	if err != nil || profileResp == nil || profileResp.User == nil {
+		response.Error(w, http.StatusInternalServerError, "failed to fetch user profile from auth service")
+		return
+	}
+	partnerID := profileResp.User.PartnerId
+	if partnerID == "" {
+		response.Error(w, http.StatusForbidden, "your account is not linked to a partner")
+		return
+	}
+
+	var req struct {
+		Status string `json:"status"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		response.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	validStatuses := map[string]bool{"active": true, "suspended": true, "inactive": true}
+	if !validStatuses[req.Status] {
+		response.Error(w, http.StatusBadRequest, "invalid status, must be: active, suspended, or inactive")
+		return
+	}
+
+	statusResp, err := h.authClient.PartnerClient.UpdateUserStatus(ctx, &authpb.UpdateUserStatusRequest{
+		UserId:    targetID,
+		PartnerId: partnerID,
+		Status:    req.Status,
+	})
+	if err != nil || statusResp == nil || !statusResp.Ok {
+		msg := "unknown error"
+		if err != nil {
+			msg = err.Error()
+		} else if statusResp != nil {
+			msg = statusResp.Error
+		}
+		response.Error(w, http.StatusInternalServerError, "failed to update user status: "+msg)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{
+		"user_id": targetID,
+		"status":  req.Status,
+		"message": "user status updated successfully",
+	})
+}
+
+// UpdatePartnerUserRole allows admin to change user role (admin/user)
+func (h *PartnerHandler) UpdatePartnerUserRole(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	targetID := chi.URLParam(r, "id")
+	if targetID == "" {
+		response.Error(w, http.StatusBadRequest, "missing user id")
+		return
+	}
+
+	userID, ok := ctx.Value(middleware.ContextUserID).(string)
+	if !ok || userID == "" {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid user ID")
+		return
+	}
+
+	profileResp, err := h.authClient.PartnerClient.GetUserProfile(ctx, &authpb.GetUserProfileRequest{
+		UserId: userID,
+	})
+	if err != nil || profileResp == nil || profileResp.User == nil {
+		response.Error(w, http.StatusInternalServerError, "failed to fetch user profile from auth service")
+		return
+	}
+	partnerID := profileResp.User.PartnerId
+	if partnerID == "" {
+		response.Error(w, http.StatusForbidden, "your account is not linked to a partner")
+		return
+	}
+
+	var req struct {
+		Role string `json:"role"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		response.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	validRoles := map[string]bool{"partner_admin": true, "partner_user": true}
+	if !validRoles[req.Role] {
+		response.Error(w, http.StatusBadRequest, "invalid role, must be: partner_admin or partner_user")
+		return
+	}
+
+	roleResp, err := h.authClient.PartnerClient.UpdateUserRole(ctx, &authpb.UpdateUserRoleRequest{
+		UserId:    targetID,
+		PartnerId: partnerID,
+		Role:      req.Role,
+	})
+	if err != nil || roleResp == nil || !roleResp.Ok {
+		msg := "unknown error"
+		if err != nil {
+			msg = err.Error()
+		} else if roleResp != nil {
+			msg = roleResp.Error
+		}
+		response.Error(w, http.StatusInternalServerError, "failed to update user role: "+msg)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]string{
+		"user_id": targetID,
+		"role":    req.Role,
+		"message": "user role updated successfully",
+	})
+}
+
+// SearchPartnerUsers searches users within partner by email/phone/name
+func (h *PartnerHandler) SearchPartnerUsers(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	userID, ok := ctx.Value(middleware.ContextUserID).(string)
+	if !ok || userID == "" {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid user ID")
+		return
+	}
+
+	profileResp, err := h.authClient.PartnerClient.GetUserProfile(ctx, &authpb.GetUserProfileRequest{
+		UserId: userID,
+	})
+	if err != nil || profileResp == nil || profileResp.User == nil {
+		response.Error(w, http.StatusInternalServerError, "failed to fetch user profile from auth service")
+		return
+	}
+	partnerID := profileResp.User.PartnerId
+	if partnerID == "" {
+		response.Error(w, http.StatusForbidden, "your account is not linked to a partner")
+		return
+	}
+
+	var req struct {
+		SearchTerm string `json:"search_term"`
+		Limit      int32  `json:"limit"`
+		Offset     int32  `json:"offset"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		response.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if req.SearchTerm == "" {
+		response.Error(w, http.StatusBadRequest, "search_term is required")
+		return
+	}
+
+	if req.Limit <= 0 {
+		req.Limit = 20
+	}
+	if req.Offset < 0 {
+		req.Offset = 0
+	}
+
+	searchResp, err := h.authClient.PartnerClient.SearchPartnerUsers(ctx, &authpb.SearchPartnerUsersRequest{
+		PartnerId:  partnerID,
+		SearchTerm: req.SearchTerm,
+		Limit:      req.Limit,
+		Offset:     req.Offset,
+	})
+	if err != nil || searchResp == nil || !searchResp.Ok {
+		msg := "unknown error"
+		if err != nil {
+			msg = err.Error()
+		} else if searchResp != nil {
+			msg = searchResp.Error
+		}
+		response.Error(w, http.StatusInternalServerError, "failed to search users: "+msg)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"users":       searchResp.Users,
+		"search_term": req.SearchTerm,
+		"limit":       req.Limit,
+		"offset":      req.Offset,
+	})
+}
+
+// GetPartnerUserByEmail retrieves a specific user by email within partner
+func (h *PartnerHandler) GetPartnerUserByEmail(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	userID, ok := ctx.Value(middleware.ContextUserID).(string)
+	if !ok || userID == "" {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid user ID")
+		return
+	}
+
+	profileResp, err := h.authClient.PartnerClient.GetUserProfile(ctx, &authpb.GetUserProfileRequest{
+		UserId: userID,
+	})
+	if err != nil || profileResp == nil || profileResp.User == nil {
+		response.Error(w, http.StatusInternalServerError, "failed to fetch user profile from auth service")
+		return
+	}
+	partnerID := profileResp.User.PartnerId
+	if partnerID == "" {
+		response.Error(w, http.StatusForbidden, "your account is not linked to a partner")
+		return
+	}
+
+	var req struct {
+		Email string `json:"email"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		response.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if req.Email == "" {
+		response.Error(w, http.StatusBadRequest, "email is required")
+		return
+	}
+
+	emailResp, err := h.authClient.PartnerClient.GetPartnerUserByEmail(ctx, &authpb.GetPartnerUserByEmailRequest{
+		PartnerId: partnerID,
+		Email:     req.Email,
+	})
+	if err != nil || emailResp == nil || !emailResp.Ok {
+		msg := "unknown error"
+		if err != nil {
+			msg = err.Error()
+		} else if emailResp != nil {
+			msg = emailResp.Error
+		}
+		response.Error(w, http.StatusNotFound, "user not found: "+msg)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, emailResp.User)
+}
+
+// BulkUpdateUserStatus allows admin to update status for multiple users at once
+func (h *PartnerHandler) BulkUpdateUserStatus(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	userID, ok := ctx.Value(middleware.ContextUserID).(string)
+	if !ok || userID == "" {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid user ID")
+		return
+	}
+
+	profileResp, err := h.authClient.PartnerClient.GetUserProfile(ctx, &authpb.GetUserProfileRequest{
+		UserId: userID,
+	})
+	if err != nil || profileResp == nil || profileResp.User == nil {
+		response.Error(w, http.StatusInternalServerError, "failed to fetch user profile from auth service")
+		return
+	}
+	partnerID := profileResp.User.PartnerId
+	if partnerID == "" {
+		response.Error(w, http.StatusForbidden, "your account is not linked to a partner")
+		return
+	}
+
+	var req struct {
+		UserIDs []string `json:"user_ids"`
+		Status  string   `json:"status"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		response.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if len(req.UserIDs) == 0 {
+		response.Error(w, http.StatusBadRequest, "user_ids is required and must not be empty")
+		return
+	}
+
+	validStatuses := map[string]bool{"active": true, "suspended": true, "inactive": true}
+	if !validStatuses[req.Status] {
+		response.Error(w, http.StatusBadRequest, "invalid status, must be: active, suspended, or inactive")
+		return
+	}
+
+	bulkResp, err := h.authClient.PartnerClient.BulkUpdateUserStatus(ctx, &authpb.BulkUpdateUserStatusRequest{
+		PartnerId: partnerID,
+		UserIds:   req.UserIDs,
+		Status:    req.Status,
+	})
+	if err != nil || bulkResp == nil || !bulkResp.Ok {
+		msg := "unknown error"
+		if err != nil {
+			msg = err.Error()
+		} else if bulkResp != nil {
+			msg = bulkResp.Error
+		}
+		response.Error(w, http.StatusInternalServerError, "failed to bulk update users: "+msg)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"updated_count": len(req.UserIDs),
+		"status":        req.Status,
+		"message":       "users updated successfully",
 	})
 }

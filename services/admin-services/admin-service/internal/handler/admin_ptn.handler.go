@@ -76,21 +76,6 @@ func (h *AdminHandler) CreatePartnerUser(w http.ResponseWriter, r *http.Request)
 	response.JSON(w, http.StatusOK, resp)
 }
 
-// PUT /partners/users/{id}
-func (h *AdminHandler) UpdatePartnerUser(w http.ResponseWriter, r *http.Request) {
-	var req partnersvcpb.UpdatePartnerUserRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	resp, err := h.partnerClient.Client.UpdatePartnerUser(r.Context(), &req)
-	if err != nil {
-		response.Error(w, http.StatusInternalServerError, "failed to update partner user: "+err.Error())
-		return
-	}
-	response.JSON(w, http.StatusOK, resp)
-}
 
 // DELETE /partners/{partnerId}/users
 func (h *AdminHandler) DeletePartnerUsers(w http.ResponseWriter, r *http.Request) {

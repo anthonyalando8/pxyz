@@ -1,49 +1,118 @@
+// domain/partner.go
 package domain
 
 import (
 	"time"
-
-	"x/shared/genproto/partner/svcpb"
+	partnersvcpb "x/shared/genproto/partner/svcpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
-
 type PartnerStatus string
 
 const (
-	PartnerStatusActive    PartnerStatus = "active"
+	PartnerStatusActive   PartnerStatus = "active"
+	PartnerStatusInactive PartnerStatus = "inactive"
 	PartnerStatusSuspended PartnerStatus = "suspended"
 )
+
 type Partner struct {
-	ID           string         `json:"id"`
-	Name         string         `json:"name"`
-	Country      string         `json:"country,omitempty"`
-	ContactEmail string         `json:"contact_email,omitempty"`
-	ContactPhone string         `json:"contact_phone,omitempty"`
-	Status       PartnerStatus  `json:"status"`
-	Service      string         `json:"service,omitempty"`   // new field
-	Currency     string         `json:"currency,omitempty"`  // new field
-	CreatedAt    time.Time      `json:"created_at"`
-	UpdatedAt    time.Time      `json:"updated_at"`
+	ID              string
+	Name            string
+	Country         string
+	ContactEmail    string
+	ContactPhone    string
+	Status          PartnerStatus
+	Service         string
+	Currency        string
+	
+	// API Integration fields
+	APIKey          *string
+	APISecretHash   *string
+	PlainAPISecret  *string // Temporary, for notification purposes only
+	WebhookURL      *string
+	WebhookSecret   *string
+	CallbackURL     *string
+	IsAPIEnabled    bool
+	APIRateLimit    int
+	AllowedIPs      []string
+	Metadata        map[string]interface{}
+	
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
-// ToProto converts domain.Partner to gRPC Partner message
-func (p *Partner) ToProto() *partnersvcpb.Partner {
-	if p == nil {
-		return nil
-	}
+type PartnerAPILog struct {
+	ID            int64
+	PartnerID     string
+	Endpoint      string
+	Method        string
+	RequestBody   map[string]interface{}
+	ResponseBody  map[string]interface{}
+	StatusCode    int
+	IPAddress     string
+	UserAgent     string
+	LatencyMs     int
+	ErrorMessage  *string
+	CreatedAt     time.Time
+}
 
-	return &partnersvcpb.Partner{
+type PartnerWebhook struct {
+	ID             int64
+	PartnerID      string
+	EventType      string
+	Payload        map[string]interface{}
+	Status         string
+	Attempts       int
+	MaxAttempts    int
+	LastAttemptAt  *time.Time
+	NextRetryAt    *time.Time
+	ResponseStatus *int
+	ResponseBody   *string
+	ErrorMessage   *string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+type PartnerTransaction struct {
+	ID             int64
+	PartnerID      string
+	TransactionRef string
+	UserID         string
+	Amount         float64
+	Currency       string
+	Status         string
+	PaymentMethod  *string
+	ExternalRef    *string
+	Metadata       map[string]interface{}
+	ProcessedAt    *time.Time
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+func (p *Partner) ToProto() *partnersvcpb.Partner {
+	proto := &partnersvcpb.Partner{
 		Id:           p.ID,
 		Name:         p.Name,
 		Country:      p.Country,
 		ContactEmail: p.ContactEmail,
 		ContactPhone: p.ContactPhone,
-		Status:       string(p.Status), // convert enum type to string
-		Service:      p.Service,        // new field
-		Currency:     p.Currency,       // new field
+		Status:       string(p.Status),
+		Service:      p.Service,
+		Currency:     p.Currency,
+		IsApiEnabled: p.IsAPIEnabled,
+		ApiRateLimit: int32(p.APIRateLimit),
 		CreatedAt:    timestamppb.New(p.CreatedAt),
 		UpdatedAt:    timestamppb.New(p.UpdatedAt),
 	}
+	
+	if p.WebhookURL != nil {
+		proto.WebhookUrl = *p.WebhookURL
+	}
+	if p.CallbackURL != nil {
+		proto.CallbackUrl = *p.CallbackURL
+	}
+	if len(p.AllowedIPs) > 0 {
+		proto.AllowedIps = p.AllowedIPs
+	}
+	
+	return proto
 }
-
-

@@ -15,8 +15,107 @@ service PartnerAuthService {
   rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
 
   rpc GetUsersByPartner(GetUsersByPartnerRequest) returns (GetUsersByPartnerResponse);
+
+  rpc GetPartnerUserStats(GetPartnerUserStatsRequest) returns (GetPartnerUserStatsResponse);
+  rpc GetUsersByPartnerPaginated(GetUsersByPartnerPaginatedRequest) returns (GetUsersByPartnerPaginatedResponse);
+  rpc UpdateUserStatus(UpdateUserStatusRequest) returns (UpdateUserStatusResponse);
+  rpc UpdateUserRole(UpdateUserRoleRequest) returns (UpdateUserRoleResponse);
+  rpc SearchPartnerUsers(SearchPartnerUsersRequest) returns (SearchPartnerUsersResponse);
+  rpc GetPartnerUserByEmail(GetPartnerUserByEmailRequest) returns (GetPartnerUserByEmailResponse);
+  rpc BulkUpdateUserStatus(BulkUpdateUserStatusRequest) returns (BulkUpdateUserStatusResponse);
 }
 // -------------------- Messages --------------------
+
+message PartnerUserStats {
+  string partner_id = 1;
+  int64 total_users = 2;
+  int64 active_users = 3;
+  int64 suspended_users = 4;
+  int64 verified_users = 5;
+  int64 admin_users = 6;
+  int64 regular_users = 7;
+}
+
+message GetPartnerUserStatsRequest {
+  string partner_id = 1;
+}
+
+message GetPartnerUserStatsResponse {
+  bool ok = 1;
+  string error = 2;
+  PartnerUserStats stats = 3;
+}
+
+message GetUsersByPartnerPaginatedRequest {
+  string partner_id = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+}
+
+message GetUsersByPartnerPaginatedResponse {
+  bool ok = 1;
+  string error = 2;
+  repeated User users = 3;
+  int64 total_count = 4;
+}
+
+message UpdateUserStatusRequest {
+  string user_id = 1;
+  string partner_id = 2;
+  string status = 3; // active, suspended, inactive
+}
+
+message UpdateUserStatusResponse {
+  bool ok = 1;
+  string error = 2;
+}
+
+message UpdateUserRoleRequest {
+  string user_id = 1;
+  string partner_id = 2;
+  string role = 3; // partner_admin, partner_user
+}
+
+message UpdateUserRoleResponse {
+  bool ok = 1;
+  string error = 2;
+}
+
+message SearchPartnerUsersRequest {
+  string partner_id = 1;
+  string search_term = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+}
+
+message SearchPartnerUsersResponse {
+  bool ok = 1;
+  string error = 2;
+  repeated User users = 3;
+}
+
+message GetPartnerUserByEmailRequest {
+  string partner_id = 1;
+  string email = 2;
+}
+
+message GetPartnerUserByEmailResponse {
+  bool ok = 1;
+  string error = 2;
+  User user = 3;
+}
+
+message BulkUpdateUserStatusRequest {
+  string partner_id = 1;
+  repeated string user_ids = 2;
+  string status = 3;
+}
+
+message BulkUpdateUserStatusResponse {
+  bool ok = 1;
+  string error = 2;
+}
+
 
 // Delete User
 message DeleteUserRequest {

@@ -184,3 +184,177 @@ func getString(ptr *string) string {
 	}
 	return ""
 }
+
+
+// handler/grpc_auth_handler.go - ADD THESE NEW METHODS
+
+func (h *GRPCAuthHandler) GetPartnerUserStats(ctx context.Context, req *authpb.GetPartnerUserStatsRequest) (*authpb.GetPartnerUserStatsResponse, error) {
+	if req.PartnerId == "" {
+		return &authpb.GetPartnerUserStatsResponse{
+			Ok:    false,
+			Error: "partner_id is required",
+		}, nil
+	}
+
+	stats, err := h.uc.GetPartnerUserStats(ctx, req.PartnerId)
+	if err != nil {
+		log.Printf("[ERROR] GetPartnerUserStats failed for partner_id=%s: %v", req.PartnerId, err)
+		return &authpb.GetPartnerUserStatsResponse{
+			Ok:    false,
+			Error: err.Error(),
+		}, nil
+	}
+
+	return &authpb.GetPartnerUserStatsResponse{
+		Ok: true,
+		Stats: &authpb.PartnerUserStats{
+			PartnerId:      stats.PartnerID,
+			TotalUsers:     stats.TotalUsers,
+			ActiveUsers:    stats.ActiveUsers,
+			SuspendedUsers: stats.SuspendedUsers,
+			VerifiedUsers:  stats.VerifiedUsers,
+			AdminUsers:     stats.AdminUsers,
+			RegularUsers:   stats.RegularUsers,
+		},
+	}, nil
+}
+
+func (h *GRPCAuthHandler) GetUsersByPartnerPaginated(ctx context.Context, req *authpb.GetUsersByPartnerPaginatedRequest) (*authpb.GetUsersByPartnerPaginatedResponse, error) {
+	if req.PartnerId == "" {
+		return &authpb.GetUsersByPartnerPaginatedResponse{
+			Ok:    false,
+			Error: "partner_id is required",
+		}, nil
+	}
+
+	users, total, err := h.uc.GetUsersByPartnerIDPaginated(ctx, req.PartnerId, int(req.Limit), int(req.Offset))
+	if err != nil {
+		log.Printf("[ERROR] GetUsersByPartnerPaginated failed: %v", err)
+		return &authpb.GetUsersByPartnerPaginatedResponse{
+			Ok:    false,
+			Error: err.Error(),
+		}, nil
+	}
+
+	respUsers := make([]*authpb.User, 0, len(users))
+	for _, u := range users {
+		respUsers = append(respUsers, toProtoUser(&u))
+	}
+
+	return &authpb.GetUsersByPartnerPaginatedResponse{
+		Ok:         true,
+		Users:      respUsers,
+		TotalCount: total,
+	}, nil
+}
+
+func (h *GRPCAuthHandler) UpdateUserStatus(ctx context.Context, req *authpb.UpdateUserStatusRequest) (*authpb.UpdateUserStatusResponse, error) {
+	if req.UserId == "" || req.PartnerId == "" || req.Status == "" {
+		return &authpb.UpdateUserStatusResponse{
+			Ok:    false,
+			Error: "user_id, partner_id and status are required",
+		}, nil
+	}
+
+	err := h.uc.UpdateUserStatus(ctx, req.UserId, req.PartnerId, req.Status)
+	if err != nil {
+		log.Printf("[ERROR] UpdateUserStatus failed: %v", err)
+		return &authpb.UpdateUserStatusResponse{
+			Ok:    false,
+			Error: err.Error(),
+		}, nil
+	}
+
+	return &authpb.UpdateUserStatusResponse{Ok: true}, nil
+}
+
+func (h *GRPCAuthHandler) UpdateUserRole(ctx context.Context, req *authpb.UpdateUserRoleRequest) (*authpb.UpdateUserRoleResponse, error) {
+	if req.UserId == "" || req.PartnerId == "" || req.Role == "" {
+		return &authpb.UpdateUserRoleResponse{
+			Ok:    false,
+			Error: "user_id, partner_id and role are required",
+		}, nil
+	}
+
+	err := h.uc.UpdateUserRole(ctx, req.UserId, req.PartnerId, req.Role)
+	if err != nil {
+		log.Printf("[ERROR] UpdateUserRole failed: %v", err)
+		return &authpb.UpdateUserRoleResponse{
+			Ok:    false,
+			Error: err.Error(),
+		}, nil
+	}
+
+	return &authpb.UpdateUserRoleResponse{Ok: true}, nil
+}
+
+func (h *GRPCAuthHandler) SearchPartnerUsers(ctx context.Context, req *authpb.SearchPartnerUsersRequest) (*authpb.SearchPartnerUsersResponse, error) {
+	if req.PartnerId == "" || req.SearchTerm == "" {
+		return &authpb.SearchPartnerUsersResponse{
+			Ok:    false,
+			Error: "partner_id and search_term are required",
+		}, nil
+	}
+
+	users, err := h.uc.SearchPartnerUsers(ctx, req.PartnerId, req.SearchTerm, int(req.Limit), int(req.Offset))
+	if err != nil {
+		log.Printf("[ERROR] SearchPartnerUsers failed: %v", err)
+		return &authpb.SearchPartnerUsersResponse{
+			Ok:    false,
+			Error: err.Error(),
+		}, nil
+	}
+
+	respUsers := make([]*authpb.User, 0, len(users))
+	for _, u := range users {
+		respUsers = append(respUsers, toProtoUser(&u))
+	}
+
+	return &authpb.SearchPartnerUsersResponse{
+		Ok:    true,
+		Users: respUsers,
+	}, nil
+}
+
+func (h *GRPCAuthHandler) GetPartnerUserByEmail(ctx context.Context, req *authpb.GetPartnerUserByEmailRequest) (*authpb.GetPartnerUserByEmailResponse, error) {
+	if req.PartnerId == "" || req.Email == "" {
+		return &authpb.GetPartnerUserByEmailResponse{
+			Ok:    false,
+			Error: "partner_id and email are required",
+		}, nil
+	}
+
+	user, err := h.uc.GetPartnerUserByEmail(ctx, req.PartnerId, req.Email)
+	if err != nil {
+		log.Printf("[ERROR] GetPartnerUserByEmail failed: %v", err)
+		return &authpb.GetPartnerUserByEmailResponse{
+			Ok:    false,
+			Error: err.Error(),
+		}, nil
+	}
+
+	return &authpb.GetPartnerUserByEmailResponse{
+		Ok:   true,
+		User: toProtoUser(user),
+	}, nil
+}
+
+func (h *GRPCAuthHandler) BulkUpdateUserStatus(ctx context.Context, req *authpb.BulkUpdateUserStatusRequest) (*authpb.BulkUpdateUserStatusResponse, error) {
+	if req.PartnerId == "" || len(req.UserIds) == 0 || req.Status == "" {
+		return &authpb.BulkUpdateUserStatusResponse{
+			Ok:    false,
+			Error: "partner_id, user_ids and status are required",
+		}, nil
+	}
+
+	err := h.uc.BulkUpdateUserStatus(ctx, req.PartnerId, req.UserIds, req.Status)
+	if err != nil {
+		log.Printf("[ERROR] BulkUpdateUserStatus failed: %v", err)
+		return &authpb.BulkUpdateUserStatusResponse{
+			Ok:    false,
+			Error: err.Error(),
+		}, nil
+	}
+
+	return &authpb.BulkUpdateUserStatusResponse{Ok: true}, nil
+}

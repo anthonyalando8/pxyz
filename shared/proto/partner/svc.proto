@@ -6,30 +6,38 @@ option go_package = "genproto/partner/svcpb;partnersvcpb";
 
 import "google/protobuf/timestamp.proto";
 
-// -------------------- Partner service --------------------
 service PartnerService {
   rpc CreatePartner(CreatePartnerRequest) returns (PartnerResponse);
   rpc UpdatePartner(UpdatePartnerRequest) returns (PartnerResponse);
   rpc DeletePartner(DeletePartnerRequest) returns (DeletePartnerResponse);
-
-  // Partner User management
+  
+  // API Management
+  rpc GenerateAPICredentials(GenerateAPICredentialsRequest) returns (APICredentialsResponse);
+  rpc RevokeAPICredentials(RevokeAPICredentialsRequest) returns (RevokeAPICredentialsResponse);
+  rpc RotateAPISecret(RotateAPISecretRequest) returns (APICredentialsResponse);
+  rpc UpdateAPISettings(UpdateAPISettingsRequest) returns (PartnerResponse);
+  
+  // Transaction Management
+  rpc InitiateDeposit(InitiateDepositRequest) returns (InitiateDepositResponse);
+  rpc GetTransactionStatus(GetTransactionStatusRequest) returns (TransactionStatusResponse);
+  rpc ListTransactions(ListTransactionsRequest) returns (ListTransactionsResponse);
+  
+  // Webhook Management
+  rpc UpdateWebhookConfig(UpdateWebhookConfigRequest) returns (WebhookConfigResponse);
+  rpc TestWebhook(TestWebhookRequest) returns (TestWebhookResponse);
+  rpc ListWebhookLogs(ListWebhookLogsRequest) returns (ListWebhookLogsResponse);
+  
+  // Existing methods
   rpc CreatePartnerUser(CreatePartnerUserRequest) returns (PartnerUserResponse);
   rpc UpdatePartnerUser(UpdatePartnerUserRequest) returns (PartnerUserResponse);
-
-  // Bulk delete partner users
   rpc DeletePartnerUsers(DeletePartnerUsersRequest) returns (DeletePartnerUsersResponse);
-
-  // Fetch partners (optionally filtered by IDs)
   rpc GetPartners(GetPartnersRequest) returns (GetPartnersResponse);
-
-  // Fetch users under a specific partner
   rpc GetPartnerUsers(GetPartnerUsersRequest) returns (GetPartnerUsersResponse);
-
-  // NEW: Fetch partners who provide a specific service
   rpc GetPartnersByService(GetPartnersByServiceRequest) returns (GetPartnersResponse);
 }
 
 // -------------------- Entities --------------------
+
 message Partner {
   string id = 1;
   string name = 2;
@@ -37,10 +45,191 @@ message Partner {
   string contact_email = 4;
   string contact_phone = 5;
   string status = 6;
-  string service = 7;       // e.g., type of service the partner offers
-  string currency = 8;      // default currency for the partner
-  google.protobuf.Timestamp created_at = 9;
-  google.protobuf.Timestamp updated_at = 10;
+  string service = 7;
+  string currency = 8;
+  
+  // API fields
+  bool is_api_enabled = 9;
+  string webhook_url = 10;
+  string callback_url = 11;
+  int32 api_rate_limit = 12;
+  repeated string allowed_ips = 13;
+  
+  google.protobuf.Timestamp created_at = 14;
+  google.protobuf.Timestamp updated_at = 15;
+}
+
+message PartnerTransaction {
+  int64 id = 1;
+  string partner_id = 2;
+  string transaction_ref = 3;
+  string user_id = 4;
+  double amount = 5;
+  string currency = 6;
+  string status = 7;
+  string payment_method = 8;
+  string external_ref = 9;
+  google.protobuf.Timestamp processed_at = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
+}
+
+// -------------------- API Credentials --------------------
+
+message GenerateAPICredentialsRequest {
+  string partner_id = 1;
+}
+
+message APICredentialsResponse {
+  string api_key = 1;
+  string api_secret = 2; // Only returned once during generation
+  string partner_id = 3;
+  google.protobuf.Timestamp expires_at = 4;
+}
+
+message RevokeAPICredentialsRequest {
+  string partner_id = 1;
+}
+
+message RevokeAPICredentialsResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message RotateAPISecretRequest {
+  string partner_id = 1;
+}
+
+message UpdateAPISettingsRequest {
+  string partner_id = 1;
+  bool is_api_enabled = 2;
+  int32 api_rate_limit = 3;
+  repeated string allowed_ips = 4;
+}
+
+// -------------------- Transactions --------------------
+
+message InitiateDepositRequest {
+  string partner_id = 1;
+  string transaction_ref = 2; // Partner's unique reference
+  string user_id = 3;
+  double amount = 4;
+  string currency = 5;
+  string payment_method = 6;
+  string external_ref = 7;
+  map<string, string> metadata = 8;
+}
+
+message InitiateDepositResponse {
+  bool success = 1;
+  string transaction_id = 2;
+  string status = 3;
+  string message = 4;
+}
+
+message GetTransactionStatusRequest {
+  string partner_id = 1;
+  string transaction_ref = 2;
+}
+
+message TransactionStatusResponse {
+  PartnerTransaction transaction = 1;
+}
+
+message ListTransactionsRequest {
+  string partner_id = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+  string status = 4; // optional filter
+  google.protobuf.Timestamp from = 5;
+  google.protobuf.Timestamp to = 6;
+}
+
+message ListTransactionsResponse {
+  repeated PartnerTransaction transactions = 1;
+  int64 total_count = 2;
+}
+
+// -------------------- Webhooks --------------------
+
+message UpdateWebhookConfigRequest {
+  string partner_id = 1;
+  string webhook_url = 2;
+  string webhook_secret = 3;
+  string callback_url = 4;
+}
+
+message WebhookConfigResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message TestWebhookRequest {
+  string partner_id = 1;
+}
+
+message TestWebhookResponse {
+  bool success = 1;
+  int32 status_code = 2;
+  string message = 3;
+}
+
+message ListWebhookLogsRequest {
+  string partner_id = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+}
+
+message ListWebhookLogsResponse {
+  repeated WebhookLog logs = 1;
+  int64 total_count = 2;
+}
+
+message WebhookLog {
+  int64 id = 1;
+  string partner_id = 2;
+  string event_type = 3;
+  string status = 4;
+  int32 attempts = 5;
+  int32 response_status = 6;
+  string error_message = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp last_attempt_at = 9;
+}
+
+// -------------------- Existing Messages --------------------
+
+message CreatePartnerRequest {
+  string name = 1;
+  string country = 2;
+  string contact_email = 3;
+  string contact_phone = 4;
+  string service = 5;
+  string currency = 6;
+  bool enable_api = 7;
+}
+
+message UpdatePartnerRequest {
+  string id = 1;
+  string name = 2;
+  string country = 3;
+  string contact_email = 4;
+  string contact_phone = 5;
+  string status = 6;
+  string service = 7;
+  string currency = 8;
+}
+
+message DeletePartnerRequest {
+  string id = 1;
+}
+
+message PartnerResponse {
+  Partner partner = 1;
+}
+
+message DeletePartnerResponse {
+  bool success = 1;
 }
 
 message PartnerUser {
@@ -50,52 +239,21 @@ message PartnerUser {
   string phone = 4;
   string first_name = 5;
   string last_name = 6;
-  string role = 7;  // "partner_admin" or "partner_user"
+  string role = 7;
   string account_status = 8;
   google.protobuf.Timestamp created_at = 9;
   google.protobuf.Timestamp updated_at = 10;
 }
 
-// -------------------- Requests / Responses --------------------
-
-// Partner management
-message CreatePartnerRequest {
-  string name = 1;
-  string country = 2;
-  string contact_email = 3;
-  string contact_phone = 4;
-  string service = 5;
-  string currency = 6; 
-}
-message UpdatePartnerRequest {
-  string id = 1;
-  string name = 2;
-  string country = 3;
-  string contact_email = 4;
-  string contact_phone = 5;
-  string status = 6;
-  string service = 7;
-  string currency = 8; 
-}
-message DeletePartnerRequest {
-  string id = 1;
-}
-message PartnerResponse {
-  Partner partner = 1;
-}
-message DeletePartnerResponse {
-  bool success = 1;
-}
-
-// Partner user management
 message CreatePartnerUserRequest {
   string partner_id = 1;
   string email = 2;
   string phone = 3;
   string first_name = 4;
   string last_name = 5;
-  string role = 6; // "partner_admin" or "partner_user"
+  string role = 6;
 }
+
 message UpdatePartnerUserRequest {
   string id = 1;
   string email = 2;
@@ -105,41 +263,42 @@ message UpdatePartnerUserRequest {
   string role = 6;
   string account_status = 7;
 }
+
 message PartnerUserResponse {
   PartnerUser user = 1;
 }
 
-// Bulk delete partner users
 message DeletePartnerUsersRequest {
   string partner_id = 1;
-  repeated string user_ids = 2; // multiple IDs in one call
-}
-message DeletePartnerUsersResponse {
-  repeated string deleted_ids = 1; // which ones succeeded
-  repeated FailedUserDeletion failed_users = 2; // failed IDs with reasons
-}
-message FailedUserDeletion {
-  string user_id = 1;
-  string reason = 2; // e.g., "user not found", "cannot delete partner_admin"
+  repeated string user_ids = 2;
 }
 
-// Fetch partners
-message GetPartnersRequest {
-  repeated string partner_ids = 1; // optional filter; if empty, returns all
+message DeletePartnerUsersResponse {
+  repeated string deleted_ids = 1;
+  repeated FailedUserDeletion failed_users = 2;
 }
+
+message FailedUserDeletion {
+  string user_id = 1;
+  string reason = 2;
+}
+
+message GetPartnersRequest {
+  repeated string partner_ids = 1;
+}
+
 message GetPartnersResponse {
   repeated Partner partners = 1;
 }
 
-// Fetch partner users
 message GetPartnerUsersRequest {
-  string partner_id = 1; // required
+  string partner_id = 1;
 }
+
 message GetPartnerUsersResponse {
   repeated PartnerUser users = 1;
 }
 
-// Fetch partners by service
 message GetPartnersByServiceRequest {
-  string service = 1; // required
+  string service = 1;
 }

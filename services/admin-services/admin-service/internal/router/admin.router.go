@@ -46,7 +46,6 @@ func SetupRoutes(
 			// ---------------- Partner User Management ----------------
 			p.Route("/users", func(u chi.Router) {
 				u.Post("/create", h.CreatePartnerUser)
-				u.Put("/update", h.UpdatePartnerUser)
 				u.Delete("/delete", h.DeletePartnerUsers)
 			})
 		})

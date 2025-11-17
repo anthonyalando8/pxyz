@@ -19,36 +19,53 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	PartnerService_CreatePartner_FullMethodName        = "/partner.svc.PartnerService/CreatePartner"
-	PartnerService_UpdatePartner_FullMethodName        = "/partner.svc.PartnerService/UpdatePartner"
-	PartnerService_DeletePartner_FullMethodName        = "/partner.svc.PartnerService/DeletePartner"
-	PartnerService_CreatePartnerUser_FullMethodName    = "/partner.svc.PartnerService/CreatePartnerUser"
-	PartnerService_UpdatePartnerUser_FullMethodName    = "/partner.svc.PartnerService/UpdatePartnerUser"
-	PartnerService_DeletePartnerUsers_FullMethodName   = "/partner.svc.PartnerService/DeletePartnerUsers"
-	PartnerService_GetPartners_FullMethodName          = "/partner.svc.PartnerService/GetPartners"
-	PartnerService_GetPartnerUsers_FullMethodName      = "/partner.svc.PartnerService/GetPartnerUsers"
-	PartnerService_GetPartnersByService_FullMethodName = "/partner.svc.PartnerService/GetPartnersByService"
+	PartnerService_CreatePartner_FullMethodName          = "/partner.svc.PartnerService/CreatePartner"
+	PartnerService_UpdatePartner_FullMethodName          = "/partner.svc.PartnerService/UpdatePartner"
+	PartnerService_DeletePartner_FullMethodName          = "/partner.svc.PartnerService/DeletePartner"
+	PartnerService_GenerateAPICredentials_FullMethodName = "/partner.svc.PartnerService/GenerateAPICredentials"
+	PartnerService_RevokeAPICredentials_FullMethodName   = "/partner.svc.PartnerService/RevokeAPICredentials"
+	PartnerService_RotateAPISecret_FullMethodName        = "/partner.svc.PartnerService/RotateAPISecret"
+	PartnerService_UpdateAPISettings_FullMethodName      = "/partner.svc.PartnerService/UpdateAPISettings"
+	PartnerService_InitiateDeposit_FullMethodName        = "/partner.svc.PartnerService/InitiateDeposit"
+	PartnerService_GetTransactionStatus_FullMethodName   = "/partner.svc.PartnerService/GetTransactionStatus"
+	PartnerService_ListTransactions_FullMethodName       = "/partner.svc.PartnerService/ListTransactions"
+	PartnerService_UpdateWebhookConfig_FullMethodName    = "/partner.svc.PartnerService/UpdateWebhookConfig"
+	PartnerService_TestWebhook_FullMethodName            = "/partner.svc.PartnerService/TestWebhook"
+	PartnerService_ListWebhookLogs_FullMethodName        = "/partner.svc.PartnerService/ListWebhookLogs"
+	PartnerService_CreatePartnerUser_FullMethodName      = "/partner.svc.PartnerService/CreatePartnerUser"
+	PartnerService_UpdatePartnerUser_FullMethodName      = "/partner.svc.PartnerService/UpdatePartnerUser"
+	PartnerService_DeletePartnerUsers_FullMethodName     = "/partner.svc.PartnerService/DeletePartnerUsers"
+	PartnerService_GetPartners_FullMethodName            = "/partner.svc.PartnerService/GetPartners"
+	PartnerService_GetPartnerUsers_FullMethodName        = "/partner.svc.PartnerService/GetPartnerUsers"
+	PartnerService_GetPartnersByService_FullMethodName   = "/partner.svc.PartnerService/GetPartnersByService"
 )
 
 // PartnerServiceClient is the client API for PartnerService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-//
-// -------------------- Partner service --------------------
 type PartnerServiceClient interface {
 	CreatePartner(ctx context.Context, in *CreatePartnerRequest, opts ...grpc.CallOption) (*PartnerResponse, error)
 	UpdatePartner(ctx context.Context, in *UpdatePartnerRequest, opts ...grpc.CallOption) (*PartnerResponse, error)
 	DeletePartner(ctx context.Context, in *DeletePartnerRequest, opts ...grpc.CallOption) (*DeletePartnerResponse, error)
-	// Partner User management
+	// API Management
+	GenerateAPICredentials(ctx context.Context, in *GenerateAPICredentialsRequest, opts ...grpc.CallOption) (*APICredentialsResponse, error)
+	RevokeAPICredentials(ctx context.Context, in *RevokeAPICredentialsRequest, opts ...grpc.CallOption) (*RevokeAPICredentialsResponse, error)
+	RotateAPISecret(ctx context.Context, in *RotateAPISecretRequest, opts ...grpc.CallOption) (*APICredentialsResponse, error)
+	UpdateAPISettings(ctx context.Context, in *UpdateAPISettingsRequest, opts ...grpc.CallOption) (*PartnerResponse, error)
+	// Transaction Management
+	InitiateDeposit(ctx context.Context, in *InitiateDepositRequest, opts ...grpc.CallOption) (*InitiateDepositResponse, error)
+	GetTransactionStatus(ctx context.Context, in *GetTransactionStatusRequest, opts ...grpc.CallOption) (*TransactionStatusResponse, error)
+	ListTransactions(ctx context.Context, in *ListTransactionsRequest, opts ...grpc.CallOption) (*ListTransactionsResponse, error)
+	// Webhook Management
+	UpdateWebhookConfig(ctx context.Context, in *UpdateWebhookConfigRequest, opts ...grpc.CallOption) (*WebhookConfigResponse, error)
+	TestWebhook(ctx context.Context, in *TestWebhookRequest, opts ...grpc.CallOption) (*TestWebhookResponse, error)
+	ListWebhookLogs(ctx context.Context, in *ListWebhookLogsRequest, opts ...grpc.CallOption) (*ListWebhookLogsResponse, error)
+	// Existing methods
 	CreatePartnerUser(ctx context.Context, in *CreatePartnerUserRequest, opts ...grpc.CallOption) (*PartnerUserResponse, error)
 	UpdatePartnerUser(ctx context.Context, in *UpdatePartnerUserRequest, opts ...grpc.CallOption) (*PartnerUserResponse, error)
-	// Bulk delete partner users
 	DeletePartnerUsers(ctx context.Context, in *DeletePartnerUsersRequest, opts ...grpc.CallOption) (*DeletePartnerUsersResponse, error)
-	// Fetch partners (optionally filtered by IDs)
 	GetPartners(ctx context.Context, in *GetPartnersRequest, opts ...grpc.CallOption) (*GetPartnersResponse, error)
-	// Fetch users under a specific partner
 	GetPartnerUsers(ctx context.Context, in *GetPartnerUsersRequest, opts ...grpc.CallOption) (*GetPartnerUsersResponse, error)
-	// NEW: Fetch partners who provide a specific service
 	GetPartnersByService(ctx context.Context, in *GetPartnersByServiceRequest, opts ...grpc.CallOption) (*GetPartnersResponse, error)
 }
 
@@ -84,6 +101,106 @@ func (c *partnerServiceClient) DeletePartner(ctx context.Context, in *DeletePart
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(DeletePartnerResponse)
 	err := c.cc.Invoke(ctx, PartnerService_DeletePartner_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *partnerServiceClient) GenerateAPICredentials(ctx context.Context, in *GenerateAPICredentialsRequest, opts ...grpc.CallOption) (*APICredentialsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(APICredentialsResponse)
+	err := c.cc.Invoke(ctx, PartnerService_GenerateAPICredentials_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *partnerServiceClient) RevokeAPICredentials(ctx context.Context, in *RevokeAPICredentialsRequest, opts ...grpc.CallOption) (*RevokeAPICredentialsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RevokeAPICredentialsResponse)
+	err := c.cc.Invoke(ctx, PartnerService_RevokeAPICredentials_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *partnerServiceClient) RotateAPISecret(ctx context.Context, in *RotateAPISecretRequest, opts ...grpc.CallOption) (*APICredentialsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(APICredentialsResponse)
+	err := c.cc.Invoke(ctx, PartnerService_RotateAPISecret_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *partnerServiceClient) UpdateAPISettings(ctx context.Context, in *UpdateAPISettingsRequest, opts ...grpc.CallOption) (*PartnerResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PartnerResponse)
+	err := c.cc.Invoke(ctx, PartnerService_UpdateAPISettings_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *partnerServiceClient) InitiateDeposit(ctx context.Context, in *InitiateDepositRequest, opts ...grpc.CallOption) (*InitiateDepositResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(InitiateDepositResponse)
+	err := c.cc.Invoke(ctx, PartnerService_InitiateDeposit_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *partnerServiceClient) GetTransactionStatus(ctx context.Context, in *GetTransactionStatusRequest, opts ...grpc.CallOption) (*TransactionStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TransactionStatusResponse)
+	err := c.cc.Invoke(ctx, PartnerService_GetTransactionStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *partnerServiceClient) ListTransactions(ctx context.Context, in *ListTransactionsRequest, opts ...grpc.CallOption) (*ListTransactionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListTransactionsResponse)
+	err := c.cc.Invoke(ctx, PartnerService_ListTransactions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *partnerServiceClient) UpdateWebhookConfig(ctx context.Context, in *UpdateWebhookConfigRequest, opts ...grpc.CallOption) (*WebhookConfigResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(WebhookConfigResponse)
+	err := c.cc.Invoke(ctx, PartnerService_UpdateWebhookConfig_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *partnerServiceClient) TestWebhook(ctx context.Context, in *TestWebhookRequest, opts ...grpc.CallOption) (*TestWebhookResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TestWebhookResponse)
+	err := c.cc.Invoke(ctx, PartnerService_TestWebhook_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *partnerServiceClient) ListWebhookLogs(ctx context.Context, in *ListWebhookLogsRequest, opts ...grpc.CallOption) (*ListWebhookLogsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListWebhookLogsResponse)
+	err := c.cc.Invoke(ctx, PartnerService_ListWebhookLogs_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -153,22 +270,29 @@ func (c *partnerServiceClient) GetPartnersByService(ctx context.Context, in *Get
 // PartnerServiceServer is the server API for PartnerService service.
 // All implementations must embed UnimplementedPartnerServiceServer
 // for forward compatibility.
-//
-// -------------------- Partner service --------------------
 type PartnerServiceServer interface {
 	CreatePartner(context.Context, *CreatePartnerRequest) (*PartnerResponse, error)
 	UpdatePartner(context.Context, *UpdatePartnerRequest) (*PartnerResponse, error)
 	DeletePartner(context.Context, *DeletePartnerRequest) (*DeletePartnerResponse, error)
-	// Partner User management
+	// API Management
+	GenerateAPICredentials(context.Context, *GenerateAPICredentialsRequest) (*APICredentialsResponse, error)
+	RevokeAPICredentials(context.Context, *RevokeAPICredentialsRequest) (*RevokeAPICredentialsResponse, error)
+	RotateAPISecret(context.Context, *RotateAPISecretRequest) (*APICredentialsResponse, error)
+	UpdateAPISettings(context.Context, *UpdateAPISettingsRequest) (*PartnerResponse, error)
+	// Transaction Management
+	InitiateDeposit(context.Context, *InitiateDepositRequest) (*InitiateDepositResponse, error)
+	GetTransactionStatus(context.Context, *GetTransactionStatusRequest) (*TransactionStatusResponse, error)
+	ListTransactions(context.Context, *ListTransactionsRequest) (*ListTransactionsResponse, error)
+	// Webhook Management
+	UpdateWebhookConfig(context.Context, *UpdateWebhookConfigRequest) (*WebhookConfigResponse, error)
+	TestWebhook(context.Context, *TestWebhookRequest) (*TestWebhookResponse, error)
+	ListWebhookLogs(context.Context, *ListWebhookLogsRequest) (*ListWebhookLogsResponse, error)
+	// Existing methods
 	CreatePartnerUser(context.Context, *CreatePartnerUserRequest) (*PartnerUserResponse, error)
 	UpdatePartnerUser(context.Context, *UpdatePartnerUserRequest) (*PartnerUserResponse, error)
-	// Bulk delete partner users
 	DeletePartnerUsers(context.Context, *DeletePartnerUsersRequest) (*DeletePartnerUsersResponse, error)
-	// Fetch partners (optionally filtered by IDs)
 	GetPartners(context.Context, *GetPartnersRequest) (*GetPartnersResponse, error)
-	// Fetch users under a specific partner
 	GetPartnerUsers(context.Context, *GetPartnerUsersRequest) (*GetPartnerUsersResponse, error)
-	// NEW: Fetch partners who provide a specific service
 	GetPartnersByService(context.Context, *GetPartnersByServiceRequest) (*GetPartnersResponse, error)
 	mustEmbedUnimplementedPartnerServiceServer()
 }
@@ -188,6 +312,36 @@ func (UnimplementedPartnerServiceServer) UpdatePartner(context.Context, *UpdateP
 }
 func (UnimplementedPartnerServiceServer) DeletePartner(context.Context, *DeletePartnerRequest) (*DeletePartnerResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeletePartner not implemented")
+}
+func (UnimplementedPartnerServiceServer) GenerateAPICredentials(context.Context, *GenerateAPICredentialsRequest) (*APICredentialsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GenerateAPICredentials not implemented")
+}
+func (UnimplementedPartnerServiceServer) RevokeAPICredentials(context.Context, *RevokeAPICredentialsRequest) (*RevokeAPICredentialsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RevokeAPICredentials not implemented")
+}
+func (UnimplementedPartnerServiceServer) RotateAPISecret(context.Context, *RotateAPISecretRequest) (*APICredentialsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RotateAPISecret not implemented")
+}
+func (UnimplementedPartnerServiceServer) UpdateAPISettings(context.Context, *UpdateAPISettingsRequest) (*PartnerResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateAPISettings not implemented")
+}
+func (UnimplementedPartnerServiceServer) InitiateDeposit(context.Context, *InitiateDepositRequest) (*InitiateDepositResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method InitiateDeposit not implemented")
+}
+func (UnimplementedPartnerServiceServer) GetTransactionStatus(context.Context, *GetTransactionStatusRequest) (*TransactionStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetTransactionStatus not implemented")
+}
+func (UnimplementedPartnerServiceServer) ListTransactions(context.Context, *ListTransactionsRequest) (*ListTransactionsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListTransactions not implemented")
+}
+func (UnimplementedPartnerServiceServer) UpdateWebhookConfig(context.Context, *UpdateWebhookConfigRequest) (*WebhookConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateWebhookConfig not implemented")
+}
+func (UnimplementedPartnerServiceServer) TestWebhook(context.Context, *TestWebhookRequest) (*TestWebhookResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method TestWebhook not implemented")
+}
+func (UnimplementedPartnerServiceServer) ListWebhookLogs(context.Context, *ListWebhookLogsRequest) (*ListWebhookLogsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListWebhookLogs not implemented")
 }
 func (UnimplementedPartnerServiceServer) CreatePartnerUser(context.Context, *CreatePartnerUserRequest) (*PartnerUserResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreatePartnerUser not implemented")
@@ -278,6 +432,186 @@ func _PartnerService_DeletePartner_Handler(srv interface{}, ctx context.Context,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PartnerServiceServer).DeletePartner(ctx, req.(*DeletePartnerRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PartnerService_GenerateAPICredentials_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GenerateAPICredentialsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PartnerServiceServer).GenerateAPICredentials(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PartnerService_GenerateAPICredentials_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PartnerServiceServer).GenerateAPICredentials(ctx, req.(*GenerateAPICredentialsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PartnerService_RevokeAPICredentials_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RevokeAPICredentialsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PartnerServiceServer).RevokeAPICredentials(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PartnerService_RevokeAPICredentials_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PartnerServiceServer).RevokeAPICredentials(ctx, req.(*RevokeAPICredentialsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PartnerService_RotateAPISecret_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RotateAPISecretRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PartnerServiceServer).RotateAPISecret(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PartnerService_RotateAPISecret_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PartnerServiceServer).RotateAPISecret(ctx, req.(*RotateAPISecretRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PartnerService_UpdateAPISettings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateAPISettingsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PartnerServiceServer).UpdateAPISettings(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PartnerService_UpdateAPISettings_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PartnerServiceServer).UpdateAPISettings(ctx, req.(*UpdateAPISettingsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PartnerService_InitiateDeposit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InitiateDepositRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PartnerServiceServer).InitiateDeposit(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PartnerService_InitiateDeposit_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PartnerServiceServer).InitiateDeposit(ctx, req.(*InitiateDepositRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PartnerService_GetTransactionStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTransactionStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PartnerServiceServer).GetTransactionStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PartnerService_GetTransactionStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PartnerServiceServer).GetTransactionStatus(ctx, req.(*GetTransactionStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PartnerService_ListTransactions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListTransactionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PartnerServiceServer).ListTransactions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PartnerService_ListTransactions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PartnerServiceServer).ListTransactions(ctx, req.(*ListTransactionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PartnerService_UpdateWebhookConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateWebhookConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PartnerServiceServer).UpdateWebhookConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PartnerService_UpdateWebhookConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PartnerServiceServer).UpdateWebhookConfig(ctx, req.(*UpdateWebhookConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PartnerService_TestWebhook_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TestWebhookRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PartnerServiceServer).TestWebhook(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PartnerService_TestWebhook_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PartnerServiceServer).TestWebhook(ctx, req.(*TestWebhookRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PartnerService_ListWebhookLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListWebhookLogsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PartnerServiceServer).ListWebhookLogs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PartnerService_ListWebhookLogs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PartnerServiceServer).ListWebhookLogs(ctx, req.(*ListWebhookLogsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -408,6 +742,46 @@ var PartnerService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeletePartner",
 			Handler:    _PartnerService_DeletePartner_Handler,
+		},
+		{
+			MethodName: "GenerateAPICredentials",
+			Handler:    _PartnerService_GenerateAPICredentials_Handler,
+		},
+		{
+			MethodName: "RevokeAPICredentials",
+			Handler:    _PartnerService_RevokeAPICredentials_Handler,
+		},
+		{
+			MethodName: "RotateAPISecret",
+			Handler:    _PartnerService_RotateAPISecret_Handler,
+		},
+		{
+			MethodName: "UpdateAPISettings",
+			Handler:    _PartnerService_UpdateAPISettings_Handler,
+		},
+		{
+			MethodName: "InitiateDeposit",
+			Handler:    _PartnerService_InitiateDeposit_Handler,
+		},
+		{
+			MethodName: "GetTransactionStatus",
+			Handler:    _PartnerService_GetTransactionStatus_Handler,
+		},
+		{
+			MethodName: "ListTransactions",
+			Handler:    _PartnerService_ListTransactions_Handler,
+		},
+		{
+			MethodName: "UpdateWebhookConfig",
+			Handler:    _PartnerService_UpdateWebhookConfig_Handler,
+		},
+		{
+			MethodName: "TestWebhook",
+			Handler:    _PartnerService_TestWebhook_Handler,
+		},
+		{
+			MethodName: "ListWebhookLogs",
+			Handler:    _PartnerService_ListWebhookLogs_Handler,
 		},
 		{
 			MethodName: "CreatePartnerUser",

@@ -55,6 +55,7 @@ func NewGRPCPartnerHandler(
 		accountingClient: accountingClient,
 	}
 }
+
 func (h *GRPCPartnerHandler) CreatePartner(
 	ctx context.Context,
 	req *partnersvcpb.CreatePartnerRequest,
@@ -352,33 +353,6 @@ func (h *GRPCPartnerHandler) GetPartners(
 		Partners: protoPartners,
 	}, nil
 }
-
-// // GetPartnerUsers handles fetching all users under a specific partner
-// func (h *GRPCPartnerHandler) GetPartnerUsers(
-// 	ctx context.Context,
-// 	req *partnersvcpb.GetPartnerUsersRequest,
-// ) (*partnersvcpb.GetPartnerUsersResponse, error) {
-// 	partnerID := req.GetPartnerId()
-// 	if partnerID == "" {
-// 		return nil, status.Errorf(codes.InvalidArgument, "partner_id is required")
-// 	}
-
-// 	users, err := h.uc.GetPartnerUsers(ctx, partnerID)
-// 	if err != nil {
-// 		log.Printf("[ERROR] GetPartnerUsers failed for partner=%s: %v", partnerID, err)
-// 		return nil, status.Errorf(codes.Internal, "failed to fetch partner users")
-// 	}
-
-// 	// Convert domain users to proto
-// 	protoUsers := make([]*partnersvcpb.PartnerUser, 0, len(users))
-// 	for _, u := range users {
-// 		protoUsers = append(protoUsers, u.ToProto())
-// 	}
-
-// 	return &partnersvcpb.GetPartnerUsersResponse{
-// 		Users: protoUsers,
-// 	}, nil
-// }
 
 
 func (h *GRPCPartnerHandler) GetPartnersByService(

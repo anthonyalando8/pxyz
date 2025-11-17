@@ -27,15 +27,15 @@ CREATE TABLE partners (
   status        partner_status_enum NOT NULL DEFAULT 'active',
   service       TEXT,               -- new field: type of service the partner offers
   currency      TEXT,               -- new field: default currency for the partner
-  api_key_hash    TEXT,                           -- Hashed API key
-  webhook_url     TEXT,                           -- For callbacks
+--   api_key_hash    TEXT,                           -- Hashed API key
+--   webhook_url     TEXT,                           -- For callbacks
   commission_rate NUMERIC(5,4) DEFAULT 0,         -- Partner commission (e.g., 0.0050 = 0.5%)
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX idx_partners_name ON partners (name);
 
-CREATE INDEX IF NOT EXISTS idx_partners_active ON partners (is_active) WHERE is_active = true;
+-- CREATE INDEX IF NOT EXISTS idx_partners_active ON partners (is_active) WHERE is_active = true;
 
 COMMENT ON TABLE partners IS 'Partner entities that facilitate user transactions';
 
@@ -315,16 +315,103 @@ CREATE INDEX IF NOT EXISTS idx_backup_codes_twofa_id
     TABLESPACE pg_default;
 
 -- Partner users
-CREATE TABLE partner_users (
-  id         TEXT PRIMARY KEY,
+-- CREATE TABLE partner_users (
+--   id         TEXT PRIMARY KEY,
+--   partner_id TEXT NOT NULL REFERENCES partners(id) ON DELETE CASCADE,
+--   role       VARCHAR(16) NOT NULL CHECK (role IN ('partner_admin','partner_user')),
+--   user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+--   is_active  BOOLEAN NOT NULL DEFAULT true,
+--   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+--   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+--   UNIQUE (partner_id, user_id)
+-- );
+-- CREATE INDEX idx_partner_users_partner_id ON partner_users (partner_id);
+
+-- Add new columns to partners table
+ALTER TABLE partners 
+ADD COLUMN IF NOT EXISTS api_key TEXT UNIQUE,
+ADD COLUMN IF NOT EXISTS api_secret_hash TEXT,
+ADD COLUMN IF NOT EXISTS webhook_url TEXT,
+ADD COLUMN IF NOT EXISTS webhook_secret TEXT,
+ADD COLUMN IF NOT EXISTS callback_url TEXT,
+ADD COLUMN IF NOT EXISTS is_api_enabled BOOLEAN DEFAULT false,
+ADD COLUMN IF NOT EXISTS api_rate_limit INTEGER DEFAULT 1000,
+ADD COLUMN IF NOT EXISTS allowed_ips JSONB,
+ADD COLUMN IF NOT EXISTS metadata JSONB;
+
+-- Create index for API key lookups
+CREATE INDEX IF NOT EXISTS idx_partners_api_key ON partners(api_key) WHERE api_key IS NOT NULL;
+
+-- Partner API logs table
+CREATE TABLE IF NOT EXISTS partner_api_logs (
+  id BIGSERIAL PRIMARY KEY,
   partner_id TEXT NOT NULL REFERENCES partners(id) ON DELETE CASCADE,
-  role       VARCHAR(16) NOT NULL CHECK (role IN ('partner_admin','partner_user')),
-  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  is_active  BOOLEAN NOT NULL DEFAULT true,
+  endpoint TEXT NOT NULL,
+  method TEXT NOT NULL,
+  request_body JSONB,
+  response_body JSONB,
+  status_code INTEGER,
+  ip_address TEXT,
+  user_agent TEXT,
+  latency_ms INTEGER,
+  error_message TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_api_logs_partner ON partner_api_logs(partner_id, created_at DESC);
+CREATE INDEX idx_api_logs_endpoint ON partner_api_logs(endpoint);
+
+-- Partner webhooks table (for outgoing webhooks to partner)
+CREATE TABLE IF NOT EXISTS partner_webhooks (
+  id BIGSERIAL PRIMARY KEY,
+  partner_id TEXT NOT NULL REFERENCES partners(id) ON DELETE CASCADE,
+  event_type TEXT NOT NULL, -- 'deposit_received', 'wallet_funded', etc
+  payload JSONB NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending', -- pending, sent, failed, retrying
+  attempts INTEGER DEFAULT 0,
+  max_attempts INTEGER DEFAULT 3,
+  last_attempt_at TIMESTAMPTZ,
+  next_retry_at TIMESTAMPTZ,
+  response_status INTEGER,
+  response_body TEXT,
+  error_message TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_webhooks_partner_status ON partner_webhooks(partner_id, status);
+CREATE INDEX idx_webhooks_retry ON partner_webhooks(next_retry_at) WHERE status = 'retrying';
+
+-- Partner transactions table (partner-initiated deposits)
+CREATE TABLE IF NOT EXISTS partner_transactions (
+  id BIGSERIAL PRIMARY KEY,
+  partner_id TEXT NOT NULL REFERENCES partners(id) ON DELETE CASCADE,
+  transaction_ref TEXT NOT NULL, -- partner's reference
+  user_id BIGINT NOT NULL,
+  amount NUMERIC(20,2) NOT NULL,
+  currency TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending', -- pending, processing, completed, failed
+  payment_method TEXT,
+  external_ref TEXT, -- external payment reference
+  metadata JSONB,
+  processed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (partner_id, user_id)
+  UNIQUE(partner_id, transaction_ref)
 );
-CREATE INDEX idx_partner_users_partner_id ON partner_users (partner_id);
+CREATE INDEX idx_partner_transactions_partner ON partner_transactions(partner_id, created_at DESC);
+CREATE INDEX idx_partner_transactions_user ON partner_transactions(user_id, created_at DESC);
+CREATE INDEX idx_partner_transactions_status ON partner_transactions(status);
+CREATE INDEX idx_partner_transactions_ref ON partner_transactions(transaction_ref);
+
+-- Trigger for partner_webhooks
+CREATE TRIGGER trg_partner_webhooks_set_updated_at
+    BEFORE UPDATE ON partner_webhooks
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+
+-- Trigger for partner_transactions
+CREATE TRIGGER trg_partner_transactions_set_updated_at
+    BEFORE UPDATE ON partner_transactions
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
 
 COMMIT;

@@ -1,3 +1,5 @@
+// router/router.go - UPDATED VERSION
+
 package router
 
 import (
@@ -21,22 +23,22 @@ func SetupRoutes(
 ) chi.Router {
 	// ---- Global Middleware ----
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"*"}, // allow all origins
+		AllowedOrigins:   []string{"*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "ngrok-skip-browser-warning"},
 		ExposedHeaders:   []string{"Link"},
-		AllowCredentials: false, // must be false when using "*"
+		AllowCredentials: false,
 		MaxAge:           300,
 	}))
 	r.Use(auth.RateLimit(rdb, 100, time.Minute, 10*time.Minute, "global"))
 
-		uploadDir := "/app/uploads"
-		if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
-			os.MkdirAll(uploadDir, 0755)
-		}
+	uploadDir := "/app/uploads"
+	if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
+		os.MkdirAll(uploadDir, 0755)
+	}
 
-		// ---- Mount all routes under /partner/svc ----
-		r.Route("/partner/svc", func(pr chi.Router) {
+	// ---- Mount all routes under /partner/svc ----
+	r.Route("/partner/svc", func(pr chi.Router) {
 
 		// ---- Public routes ----
 		pr.Group(func(pub chi.Router) {
@@ -46,27 +48,61 @@ func SetupRoutes(
 			})
 		})
 
-		// ---- Authenticated routes ----
-		pr.Group(func(priv chi.Router) {
-			// --- All routes require partner_admin by default ---
-			priv.Use(auth.Require([]string{"main"}, nil, []string{"partner_admin"}))
+		// ---- Admin-only routes ----
+		pr.Group(func(admin chi.Router) {
+			admin.Use(auth.Require([]string{"main"}, nil, []string{"partner_admin"}))
 
-			priv.Handle("/uploads/*", http.StripPrefix("/partner/svc/uploads/", http.FileServer(http.Dir(uploadDir))))
-			priv.Delete("/users/delete/{id}", h.DeletePartnerUser)
+			admin.Handle("/uploads/*", http.StripPrefix("/partner/svc/uploads/", http.FileServer(http.Dir(uploadDir))))
+			
+			// User management (admin only)
+			admin.Post("/users/create", h.CreatePartnerUser)
+			admin.Delete("/users/delete/{id}", h.DeletePartnerUser)
+			admin.Put("/users/{id}/status", h.UpdatePartnerUserStatus)
+			admin.Put("/users/{id}/role", h.UpdatePartnerUserRole)
+			admin.Post("/users/bulk/status", h.BulkUpdateUserStatus)
+			
+			// User listing and search (admin only)
+			admin.Get("/users/stats", h.GetPartnerUserStats)
+			admin.Post("/users/list", h.ListPartnerUsers)
+			admin.Post("/users/search", h.SearchPartnerUsers)
+			admin.Post("/users/email", h.GetPartnerUserByEmail)
 
-			// Partner user management
-			priv.Post("/users/create", h.CreatePartnerUser)
+			// ---- API Credentials Management (admin only) ----
+			admin.Route("/api", func(api chi.Router) {
+				api.Post("/credentials/generate", h.GenerateAPICredentials)
+				api.Delete("/credentials/revoke", h.RevokeAPICredentials)
+				api.Post("/credentials/rotate", h.RotateAPISecret)
+				api.Get("/settings", h.GetAPISettings)
+				api.Put("/settings", h.UpdateAPISettings)
+			})
 
-			// --- Update can be accessed by both partner_admin and partner_user ---
-			priv.With(auth.Require([]string{"main"}, nil, []string{"partner_admin", "partner_user"})).
-				Put("/users/update/{id}", h.UpdatePartnerUser)
+			// ---- Webhook Management (admin only) ----
+			admin.Route("/webhooks", func(wh chi.Router) {
+				wh.Put("/config", h.UpdateWebhookConfig)
+				wh.Post("/test", h.TestWebhook)
+				wh.Get("/logs", h.ListWebhookLogs)
+				wh.Post("/{id}/retry", h.RetryFailedWebhook)
+			})
+
+			// ---- API Logs & Analytics (admin only) ----
+			admin.Get("/api/logs", h.GetAPILogs)
+			admin.Post("/api/usage", h.GetAPIUsageStats)
 		})
 
-		// ---- Accounting routes (admin or user) ----
-		pr.Group(func(acc chi.Router) {
-			acc.Use(auth.Require([]string{"main"}, nil, []string{"partner_admin", "partner_user"}))
+		// ---- Admin + User routes ----
+		pr.Group(func(shared chi.Router) {
+			shared.Use(auth.Require([]string{"main"}, nil, []string{"partner_admin", "partner_user"}))
 
-			acc.Route("/accounting", func(a chi.Router) {
+			// ---- Transaction Management (admin + user) ----
+			shared.Route("/transactions", func(txn chi.Router) {
+				txn.Post("/deposit", h.InitiateDeposit)
+				txn.Get("/{ref}", h.GetTransactionStatus)
+				txn.Get("/", h.ListTransactions)
+				txn.Post("/search", h.GetTransactionsByDateRange)
+			})
+
+			// Accounting routes
+			shared.Route("/accounting", func(a chi.Router) {
 				a.Get("/accounts/get", h.GetUserAccounts)
 				a.Post("/account/statement", h.GetAccountStatement)
 				a.Post("/owner/statement", h.GetOwnerStatement)
@@ -74,9 +110,5 @@ func SetupRoutes(
 		})
 	})
 
-
 	return r
 }
-
-
-

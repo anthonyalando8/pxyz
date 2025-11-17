@@ -19,10 +19,17 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	PartnerAuthService_RegisterUser_FullMethodName      = "/partner.auth.PartnerAuthService/RegisterUser"
-	PartnerAuthService_GetUserProfile_FullMethodName    = "/partner.auth.PartnerAuthService/GetUserProfile"
-	PartnerAuthService_DeleteUser_FullMethodName        = "/partner.auth.PartnerAuthService/DeleteUser"
-	PartnerAuthService_GetUsersByPartner_FullMethodName = "/partner.auth.PartnerAuthService/GetUsersByPartner"
+	PartnerAuthService_RegisterUser_FullMethodName               = "/partner.auth.PartnerAuthService/RegisterUser"
+	PartnerAuthService_GetUserProfile_FullMethodName             = "/partner.auth.PartnerAuthService/GetUserProfile"
+	PartnerAuthService_DeleteUser_FullMethodName                 = "/partner.auth.PartnerAuthService/DeleteUser"
+	PartnerAuthService_GetUsersByPartner_FullMethodName          = "/partner.auth.PartnerAuthService/GetUsersByPartner"
+	PartnerAuthService_GetPartnerUserStats_FullMethodName        = "/partner.auth.PartnerAuthService/GetPartnerUserStats"
+	PartnerAuthService_GetUsersByPartnerPaginated_FullMethodName = "/partner.auth.PartnerAuthService/GetUsersByPartnerPaginated"
+	PartnerAuthService_UpdateUserStatus_FullMethodName           = "/partner.auth.PartnerAuthService/UpdateUserStatus"
+	PartnerAuthService_UpdateUserRole_FullMethodName             = "/partner.auth.PartnerAuthService/UpdateUserRole"
+	PartnerAuthService_SearchPartnerUsers_FullMethodName         = "/partner.auth.PartnerAuthService/SearchPartnerUsers"
+	PartnerAuthService_GetPartnerUserByEmail_FullMethodName      = "/partner.auth.PartnerAuthService/GetPartnerUserByEmail"
+	PartnerAuthService_BulkUpdateUserStatus_FullMethodName       = "/partner.auth.PartnerAuthService/BulkUpdateUserStatus"
 )
 
 // PartnerAuthServiceClient is the client API for PartnerAuthService service.
@@ -36,6 +43,13 @@ type PartnerAuthServiceClient interface {
 	// Delete a user and all associated auth records
 	DeleteUser(ctx context.Context, in *DeleteUserRequest, opts ...grpc.CallOption) (*DeleteUserResponse, error)
 	GetUsersByPartner(ctx context.Context, in *GetUsersByPartnerRequest, opts ...grpc.CallOption) (*GetUsersByPartnerResponse, error)
+	GetPartnerUserStats(ctx context.Context, in *GetPartnerUserStatsRequest, opts ...grpc.CallOption) (*GetPartnerUserStatsResponse, error)
+	GetUsersByPartnerPaginated(ctx context.Context, in *GetUsersByPartnerPaginatedRequest, opts ...grpc.CallOption) (*GetUsersByPartnerPaginatedResponse, error)
+	UpdateUserStatus(ctx context.Context, in *UpdateUserStatusRequest, opts ...grpc.CallOption) (*UpdateUserStatusResponse, error)
+	UpdateUserRole(ctx context.Context, in *UpdateUserRoleRequest, opts ...grpc.CallOption) (*UpdateUserRoleResponse, error)
+	SearchPartnerUsers(ctx context.Context, in *SearchPartnerUsersRequest, opts ...grpc.CallOption) (*SearchPartnerUsersResponse, error)
+	GetPartnerUserByEmail(ctx context.Context, in *GetPartnerUserByEmailRequest, opts ...grpc.CallOption) (*GetPartnerUserByEmailResponse, error)
+	BulkUpdateUserStatus(ctx context.Context, in *BulkUpdateUserStatusRequest, opts ...grpc.CallOption) (*BulkUpdateUserStatusResponse, error)
 }
 
 type partnerAuthServiceClient struct {
@@ -86,6 +100,76 @@ func (c *partnerAuthServiceClient) GetUsersByPartner(ctx context.Context, in *Ge
 	return out, nil
 }
 
+func (c *partnerAuthServiceClient) GetPartnerUserStats(ctx context.Context, in *GetPartnerUserStatsRequest, opts ...grpc.CallOption) (*GetPartnerUserStatsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetPartnerUserStatsResponse)
+	err := c.cc.Invoke(ctx, PartnerAuthService_GetPartnerUserStats_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *partnerAuthServiceClient) GetUsersByPartnerPaginated(ctx context.Context, in *GetUsersByPartnerPaginatedRequest, opts ...grpc.CallOption) (*GetUsersByPartnerPaginatedResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetUsersByPartnerPaginatedResponse)
+	err := c.cc.Invoke(ctx, PartnerAuthService_GetUsersByPartnerPaginated_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *partnerAuthServiceClient) UpdateUserStatus(ctx context.Context, in *UpdateUserStatusRequest, opts ...grpc.CallOption) (*UpdateUserStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateUserStatusResponse)
+	err := c.cc.Invoke(ctx, PartnerAuthService_UpdateUserStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *partnerAuthServiceClient) UpdateUserRole(ctx context.Context, in *UpdateUserRoleRequest, opts ...grpc.CallOption) (*UpdateUserRoleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateUserRoleResponse)
+	err := c.cc.Invoke(ctx, PartnerAuthService_UpdateUserRole_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *partnerAuthServiceClient) SearchPartnerUsers(ctx context.Context, in *SearchPartnerUsersRequest, opts ...grpc.CallOption) (*SearchPartnerUsersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SearchPartnerUsersResponse)
+	err := c.cc.Invoke(ctx, PartnerAuthService_SearchPartnerUsers_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *partnerAuthServiceClient) GetPartnerUserByEmail(ctx context.Context, in *GetPartnerUserByEmailRequest, opts ...grpc.CallOption) (*GetPartnerUserByEmailResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetPartnerUserByEmailResponse)
+	err := c.cc.Invoke(ctx, PartnerAuthService_GetPartnerUserByEmail_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *partnerAuthServiceClient) BulkUpdateUserStatus(ctx context.Context, in *BulkUpdateUserStatusRequest, opts ...grpc.CallOption) (*BulkUpdateUserStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BulkUpdateUserStatusResponse)
+	err := c.cc.Invoke(ctx, PartnerAuthService_BulkUpdateUserStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // PartnerAuthServiceServer is the server API for PartnerAuthService service.
 // All implementations must embed UnimplementedPartnerAuthServiceServer
 // for forward compatibility.
@@ -97,6 +181,13 @@ type PartnerAuthServiceServer interface {
 	// Delete a user and all associated auth records
 	DeleteUser(context.Context, *DeleteUserRequest) (*DeleteUserResponse, error)
 	GetUsersByPartner(context.Context, *GetUsersByPartnerRequest) (*GetUsersByPartnerResponse, error)
+	GetPartnerUserStats(context.Context, *GetPartnerUserStatsRequest) (*GetPartnerUserStatsResponse, error)
+	GetUsersByPartnerPaginated(context.Context, *GetUsersByPartnerPaginatedRequest) (*GetUsersByPartnerPaginatedResponse, error)
+	UpdateUserStatus(context.Context, *UpdateUserStatusRequest) (*UpdateUserStatusResponse, error)
+	UpdateUserRole(context.Context, *UpdateUserRoleRequest) (*UpdateUserRoleResponse, error)
+	SearchPartnerUsers(context.Context, *SearchPartnerUsersRequest) (*SearchPartnerUsersResponse, error)
+	GetPartnerUserByEmail(context.Context, *GetPartnerUserByEmailRequest) (*GetPartnerUserByEmailResponse, error)
+	BulkUpdateUserStatus(context.Context, *BulkUpdateUserStatusRequest) (*BulkUpdateUserStatusResponse, error)
 	mustEmbedUnimplementedPartnerAuthServiceServer()
 }
 
@@ -118,6 +209,27 @@ func (UnimplementedPartnerAuthServiceServer) DeleteUser(context.Context, *Delete
 }
 func (UnimplementedPartnerAuthServiceServer) GetUsersByPartner(context.Context, *GetUsersByPartnerRequest) (*GetUsersByPartnerResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetUsersByPartner not implemented")
+}
+func (UnimplementedPartnerAuthServiceServer) GetPartnerUserStats(context.Context, *GetPartnerUserStatsRequest) (*GetPartnerUserStatsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetPartnerUserStats not implemented")
+}
+func (UnimplementedPartnerAuthServiceServer) GetUsersByPartnerPaginated(context.Context, *GetUsersByPartnerPaginatedRequest) (*GetUsersByPartnerPaginatedResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetUsersByPartnerPaginated not implemented")
+}
+func (UnimplementedPartnerAuthServiceServer) UpdateUserStatus(context.Context, *UpdateUserStatusRequest) (*UpdateUserStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateUserStatus not implemented")
+}
+func (UnimplementedPartnerAuthServiceServer) UpdateUserRole(context.Context, *UpdateUserRoleRequest) (*UpdateUserRoleResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateUserRole not implemented")
+}
+func (UnimplementedPartnerAuthServiceServer) SearchPartnerUsers(context.Context, *SearchPartnerUsersRequest) (*SearchPartnerUsersResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SearchPartnerUsers not implemented")
+}
+func (UnimplementedPartnerAuthServiceServer) GetPartnerUserByEmail(context.Context, *GetPartnerUserByEmailRequest) (*GetPartnerUserByEmailResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetPartnerUserByEmail not implemented")
+}
+func (UnimplementedPartnerAuthServiceServer) BulkUpdateUserStatus(context.Context, *BulkUpdateUserStatusRequest) (*BulkUpdateUserStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BulkUpdateUserStatus not implemented")
 }
 func (UnimplementedPartnerAuthServiceServer) mustEmbedUnimplementedPartnerAuthServiceServer() {}
 func (UnimplementedPartnerAuthServiceServer) testEmbeddedByValue()                            {}
@@ -212,6 +324,132 @@ func _PartnerAuthService_GetUsersByPartner_Handler(srv interface{}, ctx context.
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PartnerAuthService_GetPartnerUserStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetPartnerUserStatsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PartnerAuthServiceServer).GetPartnerUserStats(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PartnerAuthService_GetPartnerUserStats_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PartnerAuthServiceServer).GetPartnerUserStats(ctx, req.(*GetPartnerUserStatsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PartnerAuthService_GetUsersByPartnerPaginated_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUsersByPartnerPaginatedRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PartnerAuthServiceServer).GetUsersByPartnerPaginated(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PartnerAuthService_GetUsersByPartnerPaginated_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PartnerAuthServiceServer).GetUsersByPartnerPaginated(ctx, req.(*GetUsersByPartnerPaginatedRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PartnerAuthService_UpdateUserStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateUserStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PartnerAuthServiceServer).UpdateUserStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PartnerAuthService_UpdateUserStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PartnerAuthServiceServer).UpdateUserStatus(ctx, req.(*UpdateUserStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PartnerAuthService_UpdateUserRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateUserRoleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PartnerAuthServiceServer).UpdateUserRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PartnerAuthService_UpdateUserRole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PartnerAuthServiceServer).UpdateUserRole(ctx, req.(*UpdateUserRoleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PartnerAuthService_SearchPartnerUsers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SearchPartnerUsersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PartnerAuthServiceServer).SearchPartnerUsers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PartnerAuthService_SearchPartnerUsers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PartnerAuthServiceServer).SearchPartnerUsers(ctx, req.(*SearchPartnerUsersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PartnerAuthService_GetPartnerUserByEmail_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetPartnerUserByEmailRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PartnerAuthServiceServer).GetPartnerUserByEmail(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PartnerAuthService_GetPartnerUserByEmail_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PartnerAuthServiceServer).GetPartnerUserByEmail(ctx, req.(*GetPartnerUserByEmailRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PartnerAuthService_BulkUpdateUserStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BulkUpdateUserStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PartnerAuthServiceServer).BulkUpdateUserStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PartnerAuthService_BulkUpdateUserStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PartnerAuthServiceServer).BulkUpdateUserStatus(ctx, req.(*BulkUpdateUserStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // PartnerAuthService_ServiceDesc is the grpc.ServiceDesc for PartnerAuthService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -234,6 +472,34 @@ var PartnerAuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetUsersByPartner",
 			Handler:    _PartnerAuthService_GetUsersByPartner_Handler,
+		},
+		{
+			MethodName: "GetPartnerUserStats",
+			Handler:    _PartnerAuthService_GetPartnerUserStats_Handler,
+		},
+		{
+			MethodName: "GetUsersByPartnerPaginated",
+			Handler:    _PartnerAuthService_GetUsersByPartnerPaginated_Handler,
+		},
+		{
+			MethodName: "UpdateUserStatus",
+			Handler:    _PartnerAuthService_UpdateUserStatus_Handler,
+		},
+		{
+			MethodName: "UpdateUserRole",
+			Handler:    _PartnerAuthService_UpdateUserRole_Handler,
+		},
+		{
+			MethodName: "SearchPartnerUsers",
+			Handler:    _PartnerAuthService_SearchPartnerUsers_Handler,
+		},
+		{
+			MethodName: "GetPartnerUserByEmail",
+			Handler:    _PartnerAuthService_GetPartnerUserByEmail_Handler,
+		},
+		{
+			MethodName: "BulkUpdateUserStatus",
+			Handler:    _PartnerAuthService_BulkUpdateUserStatus_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
