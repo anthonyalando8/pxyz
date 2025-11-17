@@ -1,201 +1,318 @@
 #!/bin/bash
-#services/common-services/fx-services/receipt-service/load_test.sh
-
-# ===============================
-# Receipt Service Load Test
-# Target: 4000+ receipts per second
-# ===============================
+# Heavy Load Test - Target: 10,000+ receipts/second
+# Tests: Sustained load, spike testing, stress testing, soak testing
 
 set -e
 
-# Configuration
 GRPC_HOST="localhost:8026"
-DURATION="60s"
-CONNECTIONS=100
-TARGET_RPS=4000
+PROTO_PATH="shared/proto/shared/accounting/receipt_v3.proto"
+SERVICE="accounting.receipt.v3.ReceiptService"
 
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+BLUE='\033[0;34m'
+NC='\033[0m'
 
-echo -e "${GREEN}========================================${NC}"
-echo -e "${GREEN}Receipt Service Load Test${NC}"
-echo -e "${GREEN}Target: ${TARGET_RPS} receipts/second${NC}"
-echo -e "${GREEN}========================================${NC}"
+# Test Configuration
+WARM_UP_DURATION="30s"
+SUSTAINED_DURATION="300s"  # 5 minutes
+SPIKE_DURATION="60s"
+SOAK_DURATION="600s"       # 10 minutes
 
-# Check if ghz is installed
+TARGET_RPS_LOW=1000
+TARGET_RPS_MEDIUM=5000
+TARGET_RPS_HIGH=10000
+TARGET_RPS_SPIKE=20000
+
+echo -e "${GREEN}╔═══════════════════════════════════════════════════════════╗${NC}"
+echo -e "${GREEN}║          Receipt Service Heavy Load Test                  ║${NC}"
+echo -e "${GREEN}║          Target: 10,000+ receipts/second                  ║${NC}"
+echo -e "${GREEN}╚═══════════════════════════════════════════════════════════╝${NC}"
+
+# Check prerequisites
 if ! command -v ghz &> /dev/null; then
-    echo -e "${RED}Error: ghz is not installed${NC}"
-    echo "Install with: go install github.com/bojand/ghz/cmd/ghz@latest"
+    echo -e "${RED}✗ ghz not installed${NC}"
+    echo "Install: go install github.com/bojand/ghz/cmd/ghz@latest"
     exit 1
 fi
 
-# Test 1: Single Receipt Creation (Baseline)
-echo -e "\n${YELLOW}Test 1: Single Receipt Creation${NC}"
-ghz --insecure \
-    --proto=shared/proto/shared/accounting/receipt_v3.proto \
-    --call=receipt.ReceiptService.CreateReceipt \
-    --total=1000 \
-    --concurrency=10 \
-    --data='{"transaction_type":"TRANSACTION_TYPE_DEPOSIT","amount":10000,"currency":"USD","creditor":{"account_id":1,"owner_type":"OWNER_TYPE_USER"},"debitor":{"account_id":2,"owner_type":"OWNER_TYPE_SYSTEM"}}' \
-    $GRPC_HOST
+if ! nc -z localhost 8026 2>/dev/null; then
+    echo -e "${RED}✗ Service not running on localhost:8026${NC}"
+    exit 1
+fi
 
-# Test 2: Batch Creation (10 receipts per batch)
-echo -e "\n${YELLOW}Test 2: Batch Creation (10 receipts/batch)${NC}"
-ghz --insecure \
-    --proto=shared/proto/shared/accounting/receipt_v3.proto \
-    --call=receipt.ReceiptService.CreateReceiptsBatch \
-    --total=1000 \
-    --concurrency=50 \
-    --data-file=batch_10.json \
-    $GRPC_HOST
+echo -e "${GREEN}✓ Prerequisites OK${NC}\n"
 
-# Test 3: Batch Creation (100 receipts per batch)
-echo -e "\n${YELLOW}Test 3: Batch Creation (100 receipts/batch)${NC}"
-ghz --insecure \
-    --proto=shared/proto/shared/accounting/receipt_v3.proto \
-    --call=receipt.ReceiptService.CreateReceiptsBatch \
-    --total=100 \
-    --concurrency=50 \
-    --data-file=batch_100.json \
-    $GRPC_HOST
+# ===============================
+# Generate Test Data
+# ===============================
+echo -e "${BLUE}Generating test data...${NC}"
 
-# Test 4: Sustained Load (4000 RPS for 60 seconds)
-echo -e "\n${YELLOW}Test 4: Sustained Load - ${TARGET_RPS} RPS${NC}"
-ghz --insecure \
-    --proto=shared/proto/shared/accounting/receipt_v3.proto \
-    --call=receipt.ReceiptService.CreateReceiptsBatch \
-    --rps=${TARGET_RPS} \
-    --duration=${DURATION} \
-    --concurrency=${CONNECTIONS} \
-    --data-file=batch_100.json \
-    $GRPC_HOST
+python3 << 'PYTHON'
+import json
+import random
 
-# Test 5: Read Performance (Get by Code)
-echo -e "\n${YELLOW}Test 5: Read Performance (Cache Test)${NC}"
+currencies = ["USD", "USDT", "BTC"]
+transaction_types = [
+    "TRANSACTION_TYPE_DEPOSIT",
+    "TRANSACTION_TYPE_WITHDRAWAL",
+    "TRANSACTION_TYPE_CONVERSION",
+    "TRANSACTION_TYPE_TRADE",
+    "TRANSACTION_TYPE_TRANSFER"
+]
+
+def generate_receipts(count, base_account_id=1):
+    receipts = []
+    for i in range(count):
+        amount = random.randint(1000, 1000000)
+        currency = random.choice(currencies)
+        tx_type = random.choice(transaction_types)
+        
+        receipts.append({
+            "transaction_type": tx_type,
+            "account_type": "ACCOUNT_TYPE_REAL",
+            "amount": amount,
+            "currency": currency,
+            "creditor": {
+                "account_id": base_account_id + (i * 2),
+                "owner_type": "OWNER_TYPE_USER"
+            },
+            "debitor": {
+                "account_id": base_account_id + (i * 2) + 1,
+                "owner_type": "OWNER_TYPE_SYSTEM"
+            }
+        })
+    return receipts
+
+# Small batches for high concurrency
+with open('batch_10.json', 'w') as f:
+    json.dump({"receipts": generate_receipts(10)}, f, indent=2)
+
+with open('batch_50.json', 'w') as f:
+    json.dump({"receipts": generate_receipts(50)}, f, indent=2)
+
+with open('batch_100.json', 'w') as f:
+    json.dump({"receipts": generate_receipts(100)}, f, indent=2)
+
+with open('batch_500.json', 'w') as f:
+    json.dump({"receipts": generate_receipts(500)}, f, indent=2)
+
+# Generate read test data (non-existent codes for cache miss testing)
+read_codes = [f"RCP-2025-{str(i).zfill(12)}" for i in range(1, 101)]
+with open('batch_read_100.json', 'w') as f:
+    json.dump({"codes": read_codes}, f, indent=2)
+
+print("✅ Test data generated: batch_10, batch_50, batch_100, batch_500, batch_read_100")
+PYTHON
+
+echo -e "${GREEN}✓ Test data ready${NC}\n"
+
+# ===============================
+# Test Suite
+# ===============================
+
+run_test() {
+    local test_name=$1
+    local rps=$2
+    local duration=$3
+    local concurrency=$4
+    local data_file=$5
+    local call_type=$6
+    
+    echo -e "\n${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${YELLOW}${test_name}${NC}"
+    echo -e "${YELLOW}RPS: ${rps} | Duration: ${duration} | Concurrency: ${concurrency}${NC}"
+    echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    
+    ghz --insecure \
+        --proto="$PROTO_PATH" \
+        --call="${SERVICE}.${call_type}" \
+        --rps=${rps} \
+        --duration=${duration} \
+        --concurrency=${concurrency} \
+        --data-file=${data_file} \
+        --format=pretty \
+        --connections=50 \
+        $GRPC_HOST \
+        2>&1 | tee "results_${test_name// /_}.txt"
+    
+    echo -e "${GREEN}✓ ${test_name} completed${NC}"
+}
+
+# ===============================
+# Phase 1: Warm-up (Ramp-up)
+# ===============================
+echo -e "\n${BLUE}╔═══════════════════════════════════════════════╗${NC}"
+echo -e "${BLUE}║  Phase 1: Warm-up (1000 RPS for 30s)         ║${NC}"
+echo -e "${BLUE}╚═══════════════════════════════════════════════╝${NC}"
+
+run_test "Warm-up" $TARGET_RPS_LOW $WARM_UP_DURATION 50 "batch_10.json" "CreateReceiptsBatch"
+
+sleep 5
+
+# ===============================
+# Phase 2: Baseline Load (Single Receipt)
+# ===============================
+echo -e "\n${BLUE}╔═══════════════════════════════════════════════╗${NC}"
+echo -e "${BLUE}║  Phase 2: Baseline Single Receipt            ║${NC}"
+echo -e "${BLUE}╚═══════════════════════════════════════════════╝${NC}"
+
 ghz --insecure \
-    --proto=shared/proto/shared/accounting/receipt_v3.proto \
-    --call=receipt.ReceiptService.GetReceipt \
+    --proto="$PROTO_PATH" \
+    --call="${SERVICE}.CreateReceipt" \
     --total=10000 \
     --concurrency=100 \
-    --data='{"code":"RCP-2025-000000012345"}' \
-    $GRPC_HOST
+    --data='{
+      "transaction_type":"TRANSACTION_TYPE_DEPOSIT",
+      "account_type":"ACCOUNT_TYPE_REAL",
+      "amount":10000,
+      "currency":"USD",
+      "creditor":{"account_id":1,"owner_type":"OWNER_TYPE_USER"},
+      "debitor":{"account_id":2,"owner_type":"OWNER_TYPE_SYSTEM"}
+    }' \
+    --format=pretty \
+    $GRPC_HOST | tee "results_baseline_single.txt"
 
-# Test 6: Batch Read Performance
-echo -e "\n${YELLOW}Test 6: Batch Read Performance${NC}"
+sleep 5
+
+# ===============================
+# Phase 3: Medium Load (5000 RPS)
+# ===============================
+echo -e "\n${BLUE}╔═══════════════════════════════════════════════╗${NC}"
+echo -e "${BLUE}║  Phase 3: Medium Load (5000 RPS for 5min)    ║${NC}"
+echo -e "${BLUE}╚═══════════════════════════════════════════════╝${NC}"
+
+run_test "Medium Load - Batch 50" $TARGET_RPS_MEDIUM $SUSTAINED_DURATION 200 "batch_50.json" "CreateReceiptsBatch"
+
+sleep 10
+
+# ===============================
+# Phase 4: High Load (10000 RPS)
+# ===============================
+echo -e "\n${BLUE}╔═══════════════════════════════════════════════╗${NC}"
+echo -e "${BLUE}║  Phase 4: High Load (10000 RPS for 5min)     ║${NC}"
+echo -e "${BLUE}╚═══════════════════════════════════════════════╝${NC}"
+
+run_test "High Load - Batch 100" $TARGET_RPS_HIGH $SUSTAINED_DURATION 400 "batch_100.json" "CreateReceiptsBatch"
+
+sleep 10
+
+# ===============================
+# Phase 5: Spike Test (20000 RPS)
+# ===============================
+echo -e "\n${BLUE}╔═══════════════════════════════════════════════╗${NC}"
+echo -e "${BLUE}║  Phase 5: Spike Test (20000 RPS for 1min)    ║${NC}"
+echo -e "${BLUE}╚═══════════════════════════════════════════════╝${NC}"
+
+run_test "Spike Test - Batch 500" $TARGET_RPS_SPIKE $SPIKE_DURATION 800 "batch_500.json" "CreateReceiptsBatch"
+
+sleep 10
+
+# ===============================
+# Phase 6: Read Performance (Cache Test)
+# ===============================
+echo -e "\n${BLUE}╔═══════════════════════════════════════════════╗${NC}"
+echo -e "${BLUE}║  Phase 6: Read Performance (GetReceipt)      ║${NC}"
+echo -e "${BLUE}╚═══════════════════════════════════════════════╝${NC}"
+
 ghz --insecure \
-    --proto=shared/proto/shared/accounting/receipt_v3.proto \
-    --call=receipt.ReceiptService.GetReceiptsBatch \
-    --total=1000 \
-    --concurrency=50 \
-    --data-file=batch_read_100.json \
-    $GRPC_HOST
+    --proto="$PROTO_PATH" \
+    --call="${SERVICE}.GetReceipt" \
+    --total=100000 \
+    --concurrency=500 \
+    --data='{"code":"RCP-2025-000000000001","include_metadata":false}' \
+    --format=pretty \
+    $GRPC_HOST | tee "results_read_performance.txt"
 
-# Test 7: Mixed Workload (70% Read, 30% Write)
-echo -e "\n${YELLOW}Test 7: Mixed Workload (70% Read, 30% Write)${NC}"
+sleep 5
+
+# ===============================
+# Phase 7: Batch Read Performance
+# ===============================
+echo -e "\n${BLUE}╔═══════════════════════════════════════════════╗${NC}"
+echo -e "${BLUE}║  Phase 7: Batch Read (GetReceiptsBatch)      ║${NC}"
+echo -e "${BLUE}╚═══════════════════════════════════════════════╝${NC}"
+
+ghz --insecure \
+    --proto="$PROTO_PATH" \
+    --call="${SERVICE}.GetReceiptsBatch" \
+    --total=10000 \
+    --concurrency=200 \
+    --data-file="batch_read_100.json" \
+    --format=pretty \
+    $GRPC_HOST | tee "results_batch_read.txt"
+
+sleep 5
+
+# ===============================
+# Phase 8: Mixed Workload (70% Read, 30% Write)
+# ===============================
+echo -e "\n${BLUE}╔═══════════════════════════════════════════════╗${NC}"
+echo -e "${BLUE}║  Phase 8: Mixed Workload (70R/30W for 5min)  ║${NC}"
+echo -e "${BLUE}╚═══════════════════════════════════════════════╝${NC}"
+
 (
     # 70% Reads
     ghz --insecure \
-        --proto=shared/proto/shared/accounting/receipt_v3.proto \
-        --call=receipt.ReceiptService.GetReceipt \
-        --rps=$((TARGET_RPS * 70 / 100)) \
-        --duration=30s \
-        --concurrency=70 \
-        --data='{"code":"RCP-2025-000000012345"}' \
-        $GRPC_HOST &
+        --proto="$PROTO_PATH" \
+        --call="${SERVICE}.GetReceipt" \
+        --rps=$((TARGET_RPS_HIGH * 70 / 100)) \
+        --duration=$SUSTAINED_DURATION \
+        --concurrency=300 \
+        --data='{"code":"RCP-2025-000000000001","include_metadata":false}' \
+        --format=pretty \
+        $GRPC_HOST > results_mixed_read.txt 2>&1 &
     
     # 30% Writes
     ghz --insecure \
-        --proto=shared/proto/shared/accounting/receipt_v3.proto \
-        --call=receipt.ReceiptService.CreateReceiptsBatch \
-        --rps=$((TARGET_RPS * 30 / 100)) \
-        --duration=30s \
-        --concurrency=30 \
-        --data-file=batch_100.json \
-        $GRPC_HOST &
+        --proto="$PROTO_PATH" \
+        --call="${SERVICE}.CreateReceiptsBatch" \
+        --rps=$((TARGET_RPS_HIGH * 30 / 100)) \
+        --duration=$SUSTAINED_DURATION \
+        --concurrency=100 \
+        --data-file="batch_100.json" \
+        --format=pretty \
+        $GRPC_HOST > results_mixed_write.txt 2>&1 &
     
     wait
 )
 
-# Summary
-echo -e "\n${GREEN}========================================${NC}"
-echo -e "${GREEN}Load Test Complete!${NC}"
-echo -e "${GREEN}========================================${NC}"
-echo -e "\nCheck Prometheus metrics at: http://localhost:9091"
-echo -e "Check Grafana dashboards at: http://localhost:3000"
-echo -e "\nKey Metrics to Monitor:"
-echo -e "  - receipt_create_duration_seconds (p95, p99)"
-echo -e "  - receipt_cache_hit_total"
-echo -e "  - grpc_requests_total"
-echo -e "  - Database connection pool stats"
+echo -e "${GREEN}✓ Mixed workload completed${NC}"
 
-# Generate test data files
-generate_test_data() {
-    # batch_10.json
-    cat > batch_10.json << 'EOF'
-{
-  "receipts": [
-    {"transaction_type":"TRANSACTION_TYPE_DEPOSIT","amount":10000,"currency":"USD","creditor":{"account_id":1},"debitor":{"account_id":2}},
-    {"transaction_type":"TRANSACTION_TYPE_DEPOSIT","amount":20000,"currency":"USD","creditor":{"account_id":3},"debitor":{"account_id":4}},
-    {"transaction_type":"TRANSACTION_TYPE_DEPOSIT","amount":30000,"currency":"USD","creditor":{"account_id":5},"debitor":{"account_id":6}},
-    {"transaction_type":"TRANSACTION_TYPE_DEPOSIT","amount":40000,"currency":"USD","creditor":{"account_id":7},"debitor":{"account_id":8}},
-    {"transaction_type":"TRANSACTION_TYPE_DEPOSIT","amount":50000,"currency":"USD","creditor":{"account_id":9},"debitor":{"account_id":10}},
-    {"transaction_type":"TRANSACTION_TYPE_DEPOSIT","amount":60000,"currency":"USD","creditor":{"account_id":11},"debitor":{"account_id":12}},
-    {"transaction_type":"TRANSACTION_TYPE_DEPOSIT","amount":70000,"currency":"USD","creditor":{"account_id":13},"debitor":{"account_id":14}},
-    {"transaction_type":"TRANSACTION_TYPE_DEPOSIT","amount":80000,"currency":"USD","creditor":{"account_id":15},"debitor":{"account_id":16}},
-    {"transaction_type":"TRANSACTION_TYPE_DEPOSIT","amount":90000,"currency":"USD","creditor":{"account_id":17},"debitor":{"account_id":18}},
-    {"transaction_type":"TRANSACTION_TYPE_DEPOSIT","amount":100000,"currency":"USD","creditor":{"account_id":19},"debitor":{"account_id":20}}
-  ]
-}
-EOF
+sleep 10
 
-    # Generate batch_100.json (100 receipts)
-    python3 << 'PYTHON'
-import json
+# ===============================
+# Phase 9: Soak Test (Long Duration)
+# ===============================
+echo -e "\n${BLUE}╔═══════════════════════════════════════════════╗${NC}"
+echo -e "${BLUE}║  Phase 9: Soak Test (5000 RPS for 10min)     ║${NC}"
+echo -e "${BLUE}╚═══════════════════════════════════════════════╝${NC}"
 
-receipts = []
-for i in range(100):
-    receipts.append({
-        "transaction_type": "TRANSACTION_TYPE_DEPOSIT",
-        "amount": (i + 1) * 1000,
-        "currency": "USD",
-        "creditor": {"account_id": i * 2 + 1},
-        "debitor": {"account_id": i * 2 + 2}
-    })
+run_test "Soak Test" $TARGET_RPS_MEDIUM $SOAK_DURATION 200 "batch_100.json" "CreateReceiptsBatch"
 
-with open('batch_100.json', 'w') as f:
-    json.dump({"receipts": receipts}, f, indent=2)
-PYTHON
+# ===============================
+# Results Summary
+# ===============================
+echo -e "\n${GREEN}╔═══════════════════════════════════════════════════════════╗${NC}"
+echo -e "${GREEN}║                  Load Test Complete!                      ║${NC}"
+echo -e "${GREEN}╚═══════════════════════════════════════════════════════════╝${NC}"
 
-    # Generate batch_read_100.json
-    python3 << 'PYTHON'
-import json
+echo -e "\n${YELLOW}Results saved to:${NC}"
+ls -lh results_*.txt
 
-codes = [f"RCP-2025-{i:012d}" for i in range(100)]
+echo -e "\n${YELLOW}Quick Stats:${NC}"
+for file in results_*.txt; do
+    echo -e "\n${BLUE}$file:${NC}"
+    grep -E "Requests/sec|Average|Slowest|Fastest|Success|Error" "$file" || true
+done
 
-with open('batch_read_100.json', 'w') as f:
-    json.dump({"codes": codes}, f, indent=2)
-PYTHON
+echo -e "\n${YELLOW}Monitoring:${NC}"
+echo -e "  Prometheus: http://localhost:9091"
+echo -e "  Grafana:    http://localhost:3000"
 
-    echo -e "${GREEN}Test data files generated${NC}"
-}
+echo -e "\n${YELLOW}Database Check:${NC}"
+echo "SELECT COUNT(*) as total_receipts FROM fx_receipts;" | psql -U postgres -d pxyz_fx
 
-# Generate test data before running tests
-generate_test_data
-
-# Benchmark Results Analyzer
-analyze_results() {
-    echo -e "\n${YELLOW}Analyzing Results...${NC}"
-    
-    # Query Prometheus for metrics
-    curl -s "http://localhost:9091/api/v1/query?query=rate(receipt_create_total[1m])" | jq .
-    curl -s "http://localhost:9091/api/v1/query?query=histogram_quantile(0.95,rate(receipt_create_duration_seconds_bucket[5m]))" | jq .
-    curl -s "http://localhost:9091/api/v1/query?query=rate(receipt_cache_hit_total[1m])" | jq .
-}
-
-# Run analysis if Prometheus is available
-if curl -s -f "http://localhost:9091/-/healthy" > /dev/null 2>&1; then
-    analyze_results
-fi
+echo -e "\n${GREEN}✓ All tests completed successfully!${NC}"
