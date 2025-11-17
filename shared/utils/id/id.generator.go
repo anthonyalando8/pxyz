@@ -147,31 +147,36 @@ func randomBase36(n int) string {
 	return string(out)
 }
 
-const (
-	lowercase = "abcdefghijklmnopqrstuvwxyz"
-	uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	digits    = "0123456789"
-	symbols   = "!@#$%^&*()-_=+[]{}<>?"
-	allChars  = lowercase + uppercase + digits + symbols
-)
 
-// GeneratePassword generates a strong random password of length 8-10 chars
-func GeneratePassword() (string, error) {
-	length, err := rand.Int(rand.Reader, big.NewInt(3)) // random 0,1,2
-	if err != nil {
-		return "", err
-	}
-	passLen := 8 + int(length.Int64()) // 8, 9, or 10
+// password usage example
 
-	password := make([]byte, passLen)
-	for i := 0; i < passLen; i++ {
-		idx, err := rand.Int(rand.Reader, big.NewInt(int64(len(allChars))))
-		if err != nil {
-			return "", err
-		}
-		password[i] = allChars[idx.Int64()]
-	}
+// // For partner admin accounts (default)
+// password, _ := id.GeneratePassword()
+// // Output: BrightTiger42!, QuickEagle87@, BoldDragon23#
 
-	return string(password), nil
-}
+// // For high-security accounts
+// password, _ := id.GenerateStrongPassword()
+// // Output: SwiftPhoenix7294!@x, BraveWolf4567#$p
 
+// // For simple cases
+// password, _ := id.GenerateSimplePassword()
+// // Output: tiger42!, eagle87@
+
+// // For passphrases
+// passphrase, _ := id.GeneratePassphrase()
+// // Output: Quick-Bright-Tiger-42, Swift-Bold-Eagle-87
+
+// // With custom policy
+// policy := id.PasswordPolicy{
+// 	MinLength:      12,
+// 	RequireUpper:   true,
+// 	RequireLower:   true,
+// 	RequireDigit:   true,
+// 	RequireSpecial: true,
+// 	UseWords:       true,
+// }
+// password, _ := id.GeneratePasswordWithPolicy(policy)
+
+// // Validate password strength
+// strong, score, feedback := id.ValidatePasswordStrength("BrightTiger42!")
+// // strong: true, score: 7, feedback: []
