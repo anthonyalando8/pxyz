@@ -5,7 +5,7 @@ FROM golang:1.24 AS builder
 WORKDIR /app
 
 # Copy go.mod and go.sum for receipt-service
-COPY services/common-services/receipt-service/go.mod services/common-services/receipt-service/go.sum ./
+COPY services/common-services/fx-services/receipt-service/go.mod services/common-services/fx-services/receipt-service/go.sum ./
 
 # Copy shared package for dependency resolution
 COPY shared /shared
@@ -15,7 +15,7 @@ RUN go mod download
 RUN go mod tidy
 
 # Copy receipt-service source
-COPY services/common-services/receipt-service/ ./ 
+COPY services/common-services/fx-services/receipt-service/ ./ 
 
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
