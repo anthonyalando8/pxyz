@@ -1,4 +1,5 @@
 #!/bin/bash
+#services/common-services/fx-services/receipt-service/load_test.sh
 
 # ===============================
 # Receipt Service Load Test
@@ -8,7 +9,7 @@
 set -e
 
 # Configuration
-GRPC_HOST="localhost:50051"
+GRPC_HOST="localhost:8026"
 DURATION="60s"
 CONNECTIONS=100
 TARGET_RPS=4000
@@ -34,7 +35,7 @@ fi
 # Test 1: Single Receipt Creation (Baseline)
 echo -e "\n${YELLOW}Test 1: Single Receipt Creation${NC}"
 ghz --insecure \
-    --proto=receipt.proto \
+    --proto=shared/proto/shared/accounting/receipt_v3.proto o \
     --call=receipt.ReceiptService.CreateReceipt \
     --total=1000 \
     --concurrency=10 \
@@ -44,7 +45,7 @@ ghz --insecure \
 # Test 2: Batch Creation (10 receipts per batch)
 echo -e "\n${YELLOW}Test 2: Batch Creation (10 receipts/batch)${NC}"
 ghz --insecure \
-    --proto=receipt.proto \
+    --proto=shared/proto/shared/accounting/receipt_v3.proto \
     --call=receipt.ReceiptService.CreateReceiptsBatch \
     --total=1000 \
     --concurrency=50 \
@@ -54,7 +55,7 @@ ghz --insecure \
 # Test 3: Batch Creation (100 receipts per batch)
 echo -e "\n${YELLOW}Test 3: Batch Creation (100 receipts/batch)${NC}"
 ghz --insecure \
-    --proto=receipt.proto \
+    --proto=shared/proto/shared/accounting/receipt_v3.proto \
     --call=receipt.ReceiptService.CreateReceiptsBatch \
     --total=100 \
     --concurrency=50 \
@@ -64,7 +65,7 @@ ghz --insecure \
 # Test 4: Sustained Load (4000 RPS for 60 seconds)
 echo -e "\n${YELLOW}Test 4: Sustained Load - ${TARGET_RPS} RPS${NC}"
 ghz --insecure \
-    --proto=receipt.proto \
+    --proto=shared/proto/shared/accounting/receipt_v3.proto \
     --call=receipt.ReceiptService.CreateReceiptsBatch \
     --rps=${TARGET_RPS} \
     --duration=${DURATION} \
@@ -75,7 +76,7 @@ ghz --insecure \
 # Test 5: Read Performance (Get by Code)
 echo -e "\n${YELLOW}Test 5: Read Performance (Cache Test)${NC}"
 ghz --insecure \
-    --proto=receipt.proto \
+    --proto=shared/proto/shared/accounting/receipt_v3.proto \
     --call=receipt.ReceiptService.GetReceipt \
     --total=10000 \
     --concurrency=100 \
@@ -85,7 +86,7 @@ ghz --insecure \
 # Test 6: Batch Read Performance
 echo -e "\n${YELLOW}Test 6: Batch Read Performance${NC}"
 ghz --insecure \
-    --proto=receipt.proto \
+    --proto=shared/proto/shared/accounting/receipt_v3.proto \
     --call=receipt.ReceiptService.GetReceiptsBatch \
     --total=1000 \
     --concurrency=50 \
@@ -97,7 +98,7 @@ echo -e "\n${YELLOW}Test 7: Mixed Workload (70% Read, 30% Write)${NC}"
 (
     # 70% Reads
     ghz --insecure \
-        --proto=receipt.proto \
+        --proto=shared/proto/shared/accounting/receipt_v3.proto \
         --call=receipt.ReceiptService.GetReceipt \
         --rps=$((TARGET_RPS * 70 / 100)) \
         --duration=30s \
@@ -107,7 +108,7 @@ echo -e "\n${YELLOW}Test 7: Mixed Workload (70% Read, 30% Write)${NC}"
     
     # 30% Writes
     ghz --insecure \
-        --proto=receipt.proto \
+        --proto=shared/proto/shared/accounting/receipt_v3.proto \
         --call=receipt.ReceiptService.CreateReceiptsBatch \
         --rps=$((TARGET_RPS * 30 / 100)) \
         --duration=30s \
