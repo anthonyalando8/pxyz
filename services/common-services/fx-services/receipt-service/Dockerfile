@@ -5,7 +5,7 @@ FROM golang:1.24 AS builder
 WORKDIR /app
 
 # Copy go.mod and go.sum for receipt-service
-COPY common-services/receipt-service/go.mod common-services/receipt-service/go.sum ./
+COPY services/common-services/receipt-service/go.mod services/common-services/receipt-service/go.sum ./
 
 # Copy shared package for dependency resolution
 COPY shared /shared
@@ -15,7 +15,7 @@ RUN go mod download
 RUN go mod tidy
 
 # Copy receipt-service source
-COPY common-services/receipt-service/ ./ 
+COPY services/common-services/receipt-service/ ./ 
 
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
@@ -26,21 +26,19 @@ FROM debian:bookworm-slim
 
 WORKDIR /app
 
-# Install CA certificates for HTTPS
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && \
-    rm -rf /var/lib/apt/lists/*
-
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates passwd \
+ && rm -rf /var/lib/apt/lists/*
 # Copy the binary from builder
 COPY --from=builder /app/receipt-service /app/receipt-service
 
 # Create uploads directory (optional)
 RUN mkdir -p /app/uploads
 
-# Non-root user for security
-RUN apt-get update && apt-get install -y --no-install-recommends passwd && \
-    rm -rf /var/lib/apt/lists/*
-
-RUN id -u nonroot &>/dev/null || adduser --uid 10001 --disabled-password --gecos "" nonroot && \
+RUN set -eux; \
+    if ! id -u nonroot >/dev/null 2>&1; then \
+        adduser --system --uid 10001 --group --no-create-home nonroot; \
+    fi; \
     chown -R nonroot:nonroot /app
 
 USER nonroot

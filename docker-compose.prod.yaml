@@ -33,8 +33,14 @@ services:
     container_name: redis
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
     networks:
       - micro_net
+
     # No port exposure needed - only accessed by other containers
 
   # 🔹 Zookeeper
@@ -55,7 +61,7 @@ services:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:9093
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-service:9092,PLAINTEXT_HOST://localhost:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9093
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
@@ -71,6 +77,48 @@ services:
       interval: 10s
       timeout: 10s
       retries: 10
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: receipt-prometheus
+    ports:
+      - "9091:9090"  # External:Internal (avoid conflict with receipt-service:9090)
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro  # ✅ Read-only
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'  #  ADDED: Allow config reload
+    networks:
+      - micro_net  #  ADDED: Must be on same network as receipt-service
+    restart: unless-stopped  #  ADDED: Auto-restart
+    healthcheck:  #  ADDED: Health check
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Grafana (for visualization)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: receipt-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: false
+      GF_INSTALL_PLUGINS: grafana-piechart-panel  #  ADDED: Useful plugins
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro  #  ADDED: Auto-load dashboards
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources:ro  #  ADDED: Auto-configure datasource
+    networks:
+      - micro_net  #  ADDED: Must be on same network
+    restart: unless-stopped  #  ADDED: Auto-restart
+    depends_on:
+      - prometheus
 
   # 🔹 Audit Service
   audit-service:
@@ -107,8 +155,10 @@ services:
     extra_hosts:
       - "212.95.35.81:host-gateway"
     depends_on:
-      - redis
-      - email-service
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
 
   # 🔹 Auth Service
   auth-service:
@@ -139,7 +189,7 @@ services:
       DB_USER: sam
       DB_PASSWORD: Kenya_2025!
       DB_NAME: pxyz_user
-      KAFKA_BROKERS: kafka-service:9092
+      KAFKA_BROKERS: kafka:9092
       REDIS_ADDR: redis:6379
       SYSTEM_ADMIN_PASSWORD: 96211581#Aa
       SYSTEM_ADMIN_EMAIL: anthonyalando8@gmail.com
@@ -191,7 +241,7 @@ services:
       DB_PASSWORD: Kenya_2025!
       DB_NAME: pxyz_user
       REDIS_ADDR: redis:6379
-      KAFKA_BROKERS: kafka-service:9092
+      KAFKA_BROKERS: kafka:9092
       JWT_PRIVATE_KEY_PATH: /app/secrets/jwt_private.pem
       JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
     extra_hosts:
@@ -220,7 +270,7 @@ services:
     environment:
       GRPC_ADDR: :8012
       REDIS_PASS:
-      KAFKA_BROKERS: kafka-service:9092
+      KAFKA_BROKERS: kafka:9092
       JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
       WA_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiJieXVmU1hvSnFHY2NPcWNXOW82NXRWMWI4WVdsMEd3aSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzU2NzQ3MjMzfQ.npCbVvXb2i_gAkBr3iXi_spHVbBG4l_ZXgqevm8jfjg
       WA_URL: https://www.whatsupsender.co.ke
@@ -256,7 +306,7 @@ services:
       DB_USER: sam
       DB_PASSWORD: Kenya_2025!
       DB_NAME: pxyz_user
-      KAFKA_BROKERS: kafka-service:9092
+      KAFKA_BROKERS: kafka:9092
       REDIS_ADDR: redis:6379
       GRPCPort: :8011
       SMTPHost: mail.derinance.com
@@ -286,7 +336,7 @@ services:
     environment:
       DB_CONN: postgres://sam:Kenya_2025!@212.95.35.81:5432/pxyz_user
       REDIS_ADDR: redis:6379
-      KAFKA_BROKERS: kafka-service:9092
+      KAFKA_BROKERS: kafka:9092
       EMAIL_SVC_ADDR: email-service:8011
     extra_hosts:
       - "212.95.35.81:host-gateway"
@@ -319,7 +369,7 @@ services:
       DB_PASSWORD: Kenya_2025!
       DB_NAME: pxyz_user
       REDIS_ADDR: redis:6379
-      KAFKA_BROKERS: kafka-service:9092
+      KAFKA_BROKERS: kafka:9092
       HTTP_ADDR: :8051
       GRPC_ADDR: :8052
       REDIS_PASS:
@@ -354,7 +404,7 @@ services:
       DB_USER: sam
       DB_PASSWORD: Kenya_2025!
       DB_NAME: pxyz_user
-      KAFKA_BROKERS: kafka-service:9092
+      KAFKA_BROKERS: kafka:9092
       REDIS_ADDR: redis:6379
       HTTP_ADDR: :8013
       GRPC_ADDR: :8014
@@ -389,7 +439,7 @@ services:
       DB_USER: sam
       DB_PASSWORD: Kenya_2025!
       DB_NAME: pxyz_user
-      KAFKA_BROKERS: kafka-service:9092
+      KAFKA_BROKERS: kafka:9092
       REDIS_ADDR: redis:6379
       HTTP_ADDR: :8031
       GRPC_ADDR: :8032
@@ -427,6 +477,401 @@ services:
     depends_on:
       - redis
       - email-service
+  # 🔹 KYC Service
+  kyc-service:
+    build:
+      context: .
+      dockerfile: services/user-services/kyc-service/Dockerfile
+    container_name: kyc-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.kyc.rule=PathPrefix(`/api/v1/kyc`)"
+      - "traefik.http.services.kyc.loadbalancer.server.port=8005"
+    env_file:
+      - ./services/user-services/kyc-service/.env
+    volumes:
+      - ./services/user-services/kyc-service/secrets:/app/secrets:ro
+      - ./uploads:/app/uploads
+    networks:
+      - micro_net
+    extra_hosts:
+      - "212.95.35.81:host-gateway"
+    environment:
+      HTTP_ADDR: :8005
+      DB_CONN: postgres://sam:Kenya_2025!@212.95.35.81:5432/pxyz_user
+      REDIS_ADDR: redis:6379
+      REDIS_PASS:
+      EMAIL_SVC_ADDR: email-service:8011
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    depends_on:
+      - redis
+      - email-service
+
+  admin-auth-service:
+    build:
+      context: .
+      dockerfile: services/admin-services/admin-auth-service/Dockerfile
+    container_name: admin-auth-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.admin-auth.rule=PathPrefix(`/api/v1/admin/auth`)"
+      - "traefik.http.services.admin-auth.loadbalancer.server.port=7000"
+
+      # 🔸 Strip the `/api/v1` prefix
+      - "traefik.http.middlewares.admin-auth-stripprefix.stripprefix.prefixes=/api/v1"
+      - "traefik.http.routers.admin-auth.middlewares=ptnaccess-stripprefix"
+    env_file:
+      - ./services/admin-services/admin-auth-service/.env
+    volumes:
+      - ./services/admin-services/admin-auth-service/secrets:/app/secrets:ro
+      - ./uploads:/app/uploads
+    environment:
+      DB_HOST: 212.95.35.81
+      DB_PORT: 5432
+      DB_USER: sam
+      DB_PASSWORD: Kenya_2025!
+      DB_NAME: pxyz_admin
+      REDIS_ADDR: redis:6379
+      SYSTEM_ADMIN_PASSWORD: 96211581#Aa
+      SYSTEM_ADMIN_EMAIL: anthonyalando8@gmail.com
+    networks:
+      - micro_net
+    depends_on:
+      - redis
+      - core-service
+      - admin-session-service
+      - email-service
+      - otp-service
+
+  # 🔹 Session Service
+  admin-session-service:
+    build:
+      context: .
+      dockerfile: services/admin-services/admin-session-mngt/Dockerfile
+    container_name: admin-session-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.admin-session.rule=PathPrefix(`/api/v1/admin/session`)"
+      - "traefik.http.services.admin-session.loadbalancer.server.port=7003"
+
+      # 🔸 Strip the `/api/v1` prefix
+      - "traefik.http.middlewares.admin-session-stripprefix.stripprefix.prefixes=/api/v1"
+      - "traefik.http.routers.admin-session.middlewares=ptnaccess-stripprefix"
+    env_file:
+      - ./services/admin-services/admin-session-mngt/.env
+    volumes:
+      - ./services/admin-services/admin-session-mngt/secrets:/app/secrets:ro
+    environment:
+      DB_HOST: 212.95.35.81
+      DB_PORT: 5432
+      DB_USER: sam
+      DB_PASSWORD: Kenya_2025!
+      DB_NAME: pxyz_admin
+      REDIS_ADDR: redis:6379
+      JWT_PRIVATE_KEY_PATH: /app/secrets/jwt_private.pem
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    networks:
+      - micro_net
+    depends_on:
+      - redis
+
+  admin-service:
+    build:
+      context: .
+      dockerfile: services/admin-services/admin-service/Dockerfile
+    container_name: admin-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.admin-svc.rule=PathPrefix(`/api/v1/admin/svc`)"
+      - "traefik.http.services.admin-svc.loadbalancer.server.port=7010"
+
+      # 🔸 Strip the `/api/v1` prefix
+      - "traefik.http.middlewares.admin-svc-stripprefix.stripprefix.prefixes=/api/v1"
+      - "traefik.http.routers.admin-svc.middlewares=ptnaccess-stripprefix"
+    env_file:
+      - ./services/admin-services/admin-service/.env
+    volumes:
+      - ./services/admin-services/admin-service/secrets:/app/secrets:ro
+      - ./uploads:/app/uploads
+    environment:
+      DB_HOST: 212.95.35.81
+      DB_PORT: 5432
+      DB_USER: sam
+      DB_PASSWORD: Kenya_2025!
+      DB_NAME: pxyz_admin
+      REDIS_ADDR: redis:6379
+    networks:
+      - micro_net
+    depends_on:
+      - redis
+      - core-service
+      - admin-session-service
+      - email-service
+  # 🔹 Ptn Access Service
+  admin-access-service:
+    build:
+      context: .
+      dockerfile: services/admin-services/u-access-service/Dockerfile
+    container_name: admin-access-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.adminaccess.rule=PathPrefix(`/api/v1/admin/urbac`)"
+      - "traefik.http.routers.adminaccess.entrypoints=web"
+      - "traefik.http.services.adminaccess.loadbalancer.server.port=7004"
+
+      # 🔸 Strip the `/api/v1` prefix
+      - "traefik.http.middlewares.adminaccess-stripprefix.stripprefix.prefixes=/api/v1"
+      - "traefik.http.routers.adminaccess.middlewares=ptnaccess-stripprefix"
+    env_file:
+      - ./services/admin-services/u-access-service/.env
+    volumes:
+      - ./services/admin-services/u-access-service/secrets:/app/secrets:ro
+      - ./uploads:/app/uploads
+    environment:
+      DB_HOST: 212.95.35.81
+      DB_PORT: 5432
+      DB_USER: sam
+      DB_PASSWORD: Kenya_2025!
+      DB_NAME: pxyz_admin
+      KAFKA_BROKERS: kafka:9092
+      REDIS_ADDR: redis:6379
+      HTTP_ADDR: :7004
+      GRPC_ADDR: :7005
+      REDIS_PASS:
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    extra_hosts:
+      - "212.95.35.81:host-gateway"
+    networks:
+      - micro_net
+    depends_on:
+      - redis
+
+  # 🔹 Partner Service
+  partner-service:
+    build:
+      context: .
+      dockerfile: services/partner-services/partner-service/Dockerfile
+    container_name: partner-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.partner-svc.rule=PathPrefix(`/api/v1/partner/svc`)"
+      - "traefik.http.services.partner-svc.loadbalancer.server.port=7510"
+
+      # 🔸 Strip the `/api/v1` prefix
+      - "traefik.http.middlewares.partner-svc-stripprefix.stripprefix.prefixes=/api/v1"
+      - "traefik.http.routers.partner-svc.middlewares=ptnaccess-stripprefix"
+    env_file:
+      - ./services/partner-services/partner-service/.env
+    volumes:
+      - ./services/partner-services/partner-service/secrets:/app/secrets:ro
+    networks:
+      - micro_net
+    environment:
+      DB_HOST: 212.95.35.81
+      DB_PORT: 5432
+      DB_USER: sam
+      DB_PASSWORD: Kenya_2025!
+      DB_NAME: pxyz_partner
+      HTTP_ADDR: :7510
+      GRPC_ADDR: :7511
+      REDIS_ADDR: redis:6379
+      REDIS_PASS: ""
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    depends_on:
+      - redis
+
+  # 🔹Ptn Auth Service
+  ptn-auth-service:
+    build:
+      context: .
+      dockerfile: services/partner-services/ptn-auth-service/Dockerfile
+    container_name: ptn-auth-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.partner-auth.rule=PathPrefix(`/api/v1/partner/auth`)"
+      - "traefik.http.services.partner-auth.loadbalancer.server.port=7500"
+
+      # 🔸 Strip the `/api/v1` prefix
+      - "traefik.http.middlewares.partner-auth-stripprefix.stripprefix.prefixes=/api/v1"
+      - "traefik.http.routers.partner-auth.middlewares=ptnaccess-stripprefix"
+    env_file:
+      - ./services/partner-services/ptn-auth-service/.env
+    volumes:
+      - ./services/partner-services/ptn-auth-service/secrets:/app/secrets:ro
+      - ./uploads:/app/uploads
+    environment:
+      DB_HOST: 212.95.35.81
+      DB_PORT: 5432
+      DB_USER: sam
+      DB_PASSWORD: Kenya_2025!
+      DB_NAME: pxyz_partner
+      REDIS_ADDR: redis:6379
+    networks:
+      - micro_net
+    depends_on:
+      - redis
+      - core-service
+      - ptn-session-service
+      - email-service
+      - otp-service
+
+  # 🔹 Ptn Session Service
+  ptn-session-service:
+    build:
+      context: .
+      dockerfile: services/partner-services/ptn-session-mngt/Dockerfile
+    container_name: ptn-session-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.partner-session.rule=PathPrefix(`/api/v1/partner/session`)"
+      - "traefik.http.services.partner-session.loadbalancer.server.port=7503"
+
+      # 🔸 Strip the `/api/v1` prefix
+      - "traefik.http.middlewares.partner-session-stripprefix.stripprefix.prefixes=/api/v1"
+      - "traefik.http.routers.partner-session.middlewares=ptnaccess-stripprefix"
+    env_file:
+      - ./services/partner-services/ptn-session-mngt/.env
+    volumes:
+      - ./services/partner-services/ptn-session-mngt/secrets:/app/secrets:ro
+    environment:
+      DB_HOST: 212.95.35.81
+      DB_PORT: 5432
+      DB_USER: sam
+      DB_PASSWORD: Kenya_2025!
+      DB_NAME: pxyz_partner
+      REDIS_ADDR: redis:6379
+      JWT_PRIVATE_KEY_PATH: /app/secrets/jwt_private.pem
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    networks:
+      - micro_net
+    depends_on:
+      - redis
+
+  # 🔹 Ptn Access Service
+  ptn-access-service:
+    build:
+      context: .
+      dockerfile: services/partner-services/u-access-service/Dockerfile
+    container_name: ptn-access-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ptnaccess.rule=PathPrefix(`/api/v1/partner/urbac`)"
+      - "traefik.http.routers.ptnaccess.entrypoints=web"
+      - "traefik.http.services.ptnaccess.loadbalancer.server.port=7504"
+
+      # 🔸 Strip the `/api/v1` prefix
+      - "traefik.http.middlewares.ptnaccess-stripprefix.stripprefix.prefixes=/api/v1"
+      - "traefik.http.routers.ptnaccess.middlewares=ptnaccess-stripprefix"
+    env_file:
+      - ./services/partner-services/u-access-service/.env
+    volumes:
+      - ./services/partner-services/u-access-service/secrets:/app/secrets:ro
+      - ./uploads:/app/uploads
+    environment:
+      DB_HOST: 212.95.35.81
+      DB_PORT: 5432
+      DB_USER: sam
+      DB_PASSWORD: Kenya_2025!
+      DB_NAME: pxyz_partner
+      KAFKA_BROKERS: kafka:9092
+      REDIS_ADDR: redis:6379
+      HTTP_ADDR: :7504
+      GRPC_ADDR: :7505
+      REDIS_PASS:
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    extra_hosts:
+      - "212.95.35.81:host-gateway"
+    networks:
+      - micro_net
+    depends_on:
+      - redis
+  receipt-service:
+    build:
+      context: .
+      dockerfile: services/common-services/fx-services/receipt-service/Dockerfile
+    container_name: receipt-service
+    ports:
+      - "8026:8026"  # gRPC port
+      - "9090:9090"  # Metrics port (Prometheus)
+    
+    #  OPTION 2: If you need Traefik for gRPC (uncomment below)
+    # labels:
+    #   - "traefik.enable=true"
+    #   - "traefik.tcp.routers.receipt-grpc.rule=HostSNI(`*`)"
+    #   - "traefik.tcp.routers.receipt-grpc.entrypoints=grpc"
+    #   - "traefik.tcp.services.receipt-grpc.loadbalancer.server.port=8026"
+    
+    env_file:
+      - ./services/common-services/fx-services/receipt-service/.env
+    
+    volumes:
+      - ./uploads:/app/uploads
+    
+    environment:
+      DB_HOST: 212.95.35.81
+      DB_PORT: 5432
+      DB_USER: sam
+      DB_PASSWORD: Kenya_2025!
+      DB_NAME: pxyz_fx
+      
+      DB_MAX_CONNS: 100              # Critical for high throughput
+      DB_MIN_CONNS: 20               # Keep warm connections
+      DB_MAX_CONN_LIFETIME: 30m      # Recycle connections
+      DB_MAX_CONN_IDLE_TIME: 5m      # Close idle connections
+      
+      REDIS_ADDR: redis:6379
+      REDIS_PASS: ""
+      REDIS_DB: 0
+      
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_TOPIC: receipt
+      
+      GRPC_ADDR: :8026               # gRPC server port
+      METRICS_PORT: 9090             # ADDED - Prometheus metrics
+      
+      MACHINE_ID: 19                  # Each instance should have unique ID
+      
+      LOG_LEVEL: info                # debug, info, warn, error
+      
+    networks:
+      - micro_net
+    
+    extra_hosts:
+      - "212.95.35.81:host-gateway"
+    
+    # ADDED: Health check
+    healthcheck:
+      test: ["CMD", "grpcurl", "-plaintext", "localhost:8026", "receipt.ReceiptService/HealthCheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    
+    # ADDED: Proper dependencies
+    depends_on:
+      redis:
+        condition: service_healthy   # Wait for Redis to be healthy
+      kafka:
+        condition: service_healthy   # Wait for Kafka to be healthy
+
+    # ADDED: Resource limits (optional but recommended)
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
+    
+    # ADDED: Restart policy
+    restart: unless-stopped
+    
+volumes:
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
 
 networks:
   micro_net:

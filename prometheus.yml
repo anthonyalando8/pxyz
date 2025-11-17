@@ -1,0 +1,25 @@
+# Prometheus Configuration for Receipt Service
+# Place this file in your project root as: prometheus.yml
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+  external_labels:
+    cluster: 'receipt-service'
+    environment: 'production'
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'receipt-service'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['receipt-service:9090']
+        labels:
+          service: 'receipt'
+          version: 'v3'

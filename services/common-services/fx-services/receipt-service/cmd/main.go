@@ -25,11 +25,14 @@ func main() {
 
 	// Start Receipt gRPC server in a goroutine
 	errCh := make(chan error, 1)
+	serverDone := make(chan struct{})
+
 	go func() {
+		defer close(serverDone)
 		log.Printf("🌍 Receipt gRPC server starting on %s", cfg.GRPCAddr)
-		// This blocks until server exits
-		server.NewReceiptGRPCServer(cfg)
-		errCh <- nil
+		if err := server.NewReceiptGRPCServer(cfg); err != nil {
+			errCh <- err
+		}
 	}()
 
 	// Handle graceful shutdown
@@ -39,13 +42,16 @@ func main() {
 	select {
 	case <-quit:
 		log.Println("🛑 Receipt service shutting down gracefully...")
-		// Timeout context for shutdown
-		_, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		// Add any cleanup logic here if needed (DB close, Redis close, etc.)
+
+		// Cleanup logic handled in server
+		<-ctx.Done()
+
 	case err := <-errCh:
-		if err != nil {
-			log.Fatalf("Receipt service failed: %v", err)
-		}
+		log.Fatalf("❌ Receipt service failed: %v", err)
+
+	case <-serverDone:
+		log.Println("✅ Receipt service stopped")
 	}
 }

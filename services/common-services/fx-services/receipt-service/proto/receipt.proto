@@ -1,59 +1,352 @@
 syntax = "proto3";
 
-package receiptpb;
+package accounting.receipt.v3;
 
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/struct.proto";
+//import "google/protobuf/empty.proto";
 
-option go_package = "genproto/shared/accounting/receiptpb;receiptpb";
+option go_package = "genproto/shared/accounting/receipt/v3;receiptpb";
 
-// Nested message for creditor/debitor info
+// ===============================
+// ENUMS
+// ===============================
+
+enum TransactionType {
+  TRANSACTION_TYPE_UNSPECIFIED = 0;
+  TRANSACTION_TYPE_DEPOSIT = 1;
+  TRANSACTION_TYPE_WITHDRAWAL = 2;
+  TRANSACTION_TYPE_CONVERSION = 3;
+  TRANSACTION_TYPE_TRADE = 4;
+  TRANSACTION_TYPE_TRANSFER = 5;
+  TRANSACTION_TYPE_FEE = 6;
+  TRANSACTION_TYPE_COMMISSION = 7;
+  TRANSACTION_TYPE_REVERSAL = 8;
+  TRANSACTION_TYPE_ADJUSTMENT = 9;
+  TRANSACTION_TYPE_DEMO_FUNDING = 10;
+}
+
+enum TransactionStatus {
+  TRANSACTION_STATUS_UNSPECIFIED = 0;
+  TRANSACTION_STATUS_PENDING = 1;
+  TRANSACTION_STATUS_PROCESSING = 2;
+  TRANSACTION_STATUS_COMPLETED = 3;
+  TRANSACTION_STATUS_FAILED = 4;
+  TRANSACTION_STATUS_REVERSED = 5;
+  TRANSACTION_STATUS_SUSPENDED = 6;
+  TRANSACTION_STATUS_EXPIRED = 7;
+}
+
+enum AccountType {
+  ACCOUNT_TYPE_UNSPECIFIED = 0;
+  ACCOUNT_TYPE_REAL = 1;
+  ACCOUNT_TYPE_DEMO = 2;
+}
+
+enum OwnerType {
+  OWNER_TYPE_UNSPECIFIED = 0;
+  OWNER_TYPE_SYSTEM = 1;
+  OWNER_TYPE_USER = 2;
+  OWNER_TYPE_AGENT = 3;
+  OWNER_TYPE_PARTNER = 4;
+}
+
+enum ReceiptMessageType {
+  TYPE_CREATED = 0;
+  TYPE_UPDATED = 1;
+}
+// ===============================
+// Domain Messages
+// ===============================
+
+// Party Info (creditor/debitor)
 message PartyInfo {
-  int64 id = 1;
-  string type = 2;   // user, partner, system
-  string name = 3;
-  string phone = 4;
-  string email = 5;
+  int64 account_id = 1;                    // FK -> accounts.id
+  int64 ledger_id = 2;                     // FK -> ledgers.id (set after ledger creation)
+  OwnerType owner_type = 3;                // system, user, agent, partner
+  TransactionStatus status = 4;            // pending, completed, failed
+  string external_id = 5;                  // External user/agent ID from auth service
+  bool is_creditor = 6;                    // true=creditor, false=debitor
 }
 
-// Main receipt message
+// Receipt (optimized for high performance)
 message Receipt {
-  int64 id = 1;
-  string code = 2;             // e.g., TIJ5LW4VDT
-  int64 journal_id = 3;
-  int64 account_id = 4;
-  string account_type = 5;     // system, partner, user
-  string type = 6;             // deposit, withdrawal, admin_credit
-  double amount = 7;
-  string currency = 8;
-  string status = 9;           // pending, success, failed
-  google.protobuf.Timestamp created_at = 10;
-
-  PartyInfo creditor = 11;
-  PartyInfo debitor = 12;
-
-  string coded_type = 13;
-  string external_ref = 14;
-
-  // Optional payload for notifications (flexible key-value map)
-  google.protobuf.Struct payload = 15;
+  int64 lookup_id = 1;                     // PK from receipt_lookup
+  string code = 2;                         // Unique receipt code (indexed)
+  TransactionType transaction_type = 3;    // Enum for better performance
+  string coded_type = 4;                   // Optional subtype
+  
+  // Amounts (stored as int64 in atomic units)
+  int64 amount = 5;                        // In smallest currency unit
+  int64 original_amount = 6;               // For conversions
+  int64 transaction_cost = 7;              // Fees
+  
+  // Currency
+  string currency = 8;                     // Currency code
+  string original_currency = 9;            // For conversions
+  string exchange_rate_decimal = 10;       // Stored as string for precision
+  
+  // Account type (real vs demo)
+  AccountType account_type = 11;           // CRITICAL: real or demo
+  
+  // Parties
+  PartyInfo creditor = 12;
+  PartyInfo debitor = 13;
+  
+  // Status
+  TransactionStatus status = 14;           // Overall transaction status
+  TransactionStatus creditor_status = 15;  // Creditor-specific status
+  TransactionStatus debitor_status = 16;   // Debitor-specific status
+  
+  // References
+  string external_ref = 17;                // External reference (bank txn, blockchain hash)
+  string parent_receipt_code = 18;         // For linked transactions
+  string reversal_receipt_code = 19;       // If this receipt was reversed
+  
+  // Timestamps
+  google.protobuf.Timestamp created_at = 20;
+  google.protobuf.Timestamp updated_at = 21;
+  google.protobuf.Timestamp completed_at = 22;
+  google.protobuf.Timestamp reversed_at = 23;
+  
+  // Audit
+  string created_by = 24;                  // User/system that created
+  string reversed_by = 25;                 // User/system that reversed
+  
+  // Error handling
+  string error_message = 26;               // Error details if failed
+  
+  // Flexible metadata (use sparingly for performance)
+  google.protobuf.Struct metadata = 27;
 }
 
-// Request message to create a receipt
+// Lightweight receipt for list operations
+message ReceiptSummary {
+  string code = 1;
+  TransactionType transaction_type = 2;
+  int64 amount = 3;
+  string currency = 4;
+  TransactionStatus status = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+// ===============================
+// Request/Response Messages
+// ===============================
+
+// --- Create Receipt ---
 message CreateReceiptRequest {
-  int64 journal_id = 1;
-  int64 account_id = 2;
-  string account_type = 3;
-  string type = 4;
-  double amount = 5;
+  TransactionType transaction_type = 1;
+  string coded_type = 2;
+  
+  // Amounts (in atomic units)
+  int64 amount = 3;
+  int64 original_amount = 4;
+  int64 transaction_cost = 5;
+  
+  // Currency
   string currency = 6;
-  string coded_type = 7;
-  string external_ref = 8;
-  PartyInfo creditor = 9;
-  PartyInfo debitor = 10;
+  string original_currency = 7;
+  string exchange_rate_decimal = 8;
+  
+  // Account type
+  AccountType account_type = 9;            // REQUIRED: real or demo
+  
+  // Parties
+  PartyInfo creditor = 10;
+  PartyInfo debitor = 11;
+  
+  // References
+  string external_ref = 12;
+  string parent_receipt_code = 13;
+  
+  // Audit
+  string created_by = 14;
+  
+  // Optional metadata
+  google.protobuf.Struct metadata = 15;
+  
+  // Idempotency
+  string idempotency_key = 16;             // For idempotent creation
 }
 
-// Response message after creating a receipt
 message CreateReceiptResponse {
   Receipt receipt = 1;
+  bool from_cache = 2;                     // True if returned from idempotency cache
+}
+
+// --- Batch Create (High Performance) ---
+message CreateReceiptsBatchRequest {
+  repeated CreateReceiptRequest receipts = 1;
+  bool fail_on_first_error = 2;            // Stop on first error or continue
+}
+
+message CreateReceiptsBatchResponse {
+  repeated Receipt receipts = 1;
+  repeated ReceiptError errors = 2;        // Errors for specific receipts
+  int32 success_count = 3;
+  int32 error_count = 4;
+}
+
+message ReceiptError {
+  int32 index = 1;                         // Index in request array
+  string code = 2;                         // Receipt code if generated
+  string error_message = 3;
+  string error_code = 4;                   // E.g., "DUPLICATE_RECEIPT", "INVALID_ACCOUNT"
+}
+
+// --- Get Receipt ---
+message GetReceiptRequest {
+  string code = 1;
+  bool include_metadata = 2;               // Fetch metadata or not (performance)
+}
+
+// Batch get (optimized query)
+message GetReceiptsRequest {
+  repeated string codes = 1;
+  bool include_metadata = 2;
+}
+
+message GetReceiptsResponse {
+  repeated Receipt receipts = 1;
+  repeated string not_found_codes = 2;     // Codes that weren't found
+}
+
+// --- Update Receipt ---
+message UpdateReceiptRequest {
+  string code = 1;                         // Required
+  
+  // Optional updates (empty string = no update)
+  TransactionStatus status = 2;
+  TransactionStatus creditor_status = 3;
+  TransactionStatus debitor_status = 4;
+  
+  // Ledger IDs (set after ledgers are created)
+  int64 creditor_ledger_id = 5;
+  int64 debitor_ledger_id = 6;
+  
+  // Reversal info
+  string reversed_by = 7;
+  google.protobuf.Timestamp reversed_at = 8;
+  string reversal_receipt_code = 9;
+  
+  // Error tracking
+  string error_message = 10;
+  
+  // Completion time
+  google.protobuf.Timestamp completed_at = 11;
+  
+  // Metadata patch (merged with existing)
+  google.protobuf.Struct metadata_patch = 12;
+}
+
+message UpdateReceiptResponse {
+  Receipt receipt = 1;
+  bool updated = 2;                        // False if no changes were made
+}
+
+message ReceiptMessage {
+  ReceiptMessageType type = 1; 
+  Receipt receipt = 2;
+  UpdateReceiptRequest update = 3;
+}
+
+// Batch update (optimized)
+message UpdateReceiptsBatchRequest {
+  repeated UpdateReceiptRequest updates = 1;
+}
+
+message UpdateReceiptsBatchResponse {
+  repeated Receipt receipts = 1;
+  repeated ReceiptError errors = 2;
+  int32 success_count = 3;
+  int32 error_count = 4;
+}
+
+// --- Query/Search ---
+message ListReceiptsRequest {
+  // Filters
+  repeated TransactionType transaction_types = 1;
+  repeated TransactionStatus statuses = 2;
+  AccountType account_type = 3;
+  string currency = 4;
+  string external_id = 5;                  // Filter by user/agent external ID
+  
+  // Date range
+  google.protobuf.Timestamp from_date = 6;
+  google.protobuf.Timestamp to_date = 7;
+  
+  // Pagination
+  int32 page_size = 8;                     // Max 100
+  string page_token = 9;                   // Cursor for next page
+  
+  // Performance
+  bool summary_only = 10;                  // Return summaries instead of full receipts
+  bool include_metadata = 11;              // Include metadata (slower)
+}
+
+message ListReceiptsResponse {
+  repeated Receipt receipts = 1;           // Full receipts
+  repeated ReceiptSummary summaries = 2;   // Lightweight summaries
+  string next_page_token = 3;
+  int32 total_count = 4;                   // Approximate count
+}
+
+// --- Health Check ---
+message HealthCheckRequest {
+  string service = 1;
+}
+
+message HealthCheckResponse {
+  enum ServingStatus {
+    UNKNOWN = 0;
+    SERVING = 1;
+    NOT_SERVING = 2;
+  }
+  ServingStatus status = 1;
+  string message = 2;
+  map<string, string> metrics = 3;         // E.g., {"db_latency_ms": "5", "cache_hit_rate": "0.95"}
+}
+
+// --- Metrics ---
+message GetMetricsRequest {
+  google.protobuf.Timestamp from_time = 1;
+  google.protobuf.Timestamp to_time = 2;
+}
+
+message GetMetricsResponse {
+  int64 total_receipts = 1;
+  int64 receipts_per_second = 2;
+  double avg_creation_time_ms = 3;
+  double p95_creation_time_ms = 4;
+  double p99_creation_time_ms = 5;
+  map<string, int64> receipts_by_type = 6;
+  map<string, int64> receipts_by_status = 7;
+  double cache_hit_rate = 8;
+}
+
+// ===============================
+// Service Definition
+// ===============================
+service ReceiptService {
+  // --- Single Operations ---
+  rpc CreateReceipt(CreateReceiptRequest) returns (CreateReceiptResponse);
+  rpc GetReceipt(GetReceiptRequest) returns (Receipt);
+  rpc UpdateReceipt(UpdateReceiptRequest) returns (UpdateReceiptResponse);
+  
+  // --- Batch Operations (High Performance) ---
+  rpc CreateReceiptsBatch(CreateReceiptsBatchRequest) returns (CreateReceiptsBatchResponse);
+  rpc GetReceiptsBatch(GetReceiptsRequest) returns (GetReceiptsResponse);
+  rpc UpdateReceiptsBatch(UpdateReceiptsBatchRequest) returns (UpdateReceiptsBatchResponse);
+  
+  // --- Streaming (for very high throughput) ---
+  rpc CreateReceiptsStream(stream CreateReceiptRequest) returns (stream CreateReceiptResponse);
+  rpc UpdateReceiptsStream(stream UpdateReceiptRequest) returns (stream UpdateReceiptResponse);
+  
+  // --- Query ---
+  rpc ListReceipts(ListReceiptsRequest) returns (ListReceiptsResponse);
+  
+  // --- Health & Metrics ---
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+  rpc GetMetrics(GetMetricsRequest) returns (GetMetricsResponse);
 }

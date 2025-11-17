@@ -40,7 +40,7 @@ func NewServer(cfg config.AppConfig) *http.Server {
 
 	// --- Init repos & usecases ---
 	rbacRepo := repository.NewRBACRepo(dbpool)
-	sf, err := id.NewSnowflake(13) // node ID for RBAC service
+	sf, err := id.NewSnowflake(17) // node ID for RBAC service
 	if err != nil {
 		log.Fatalf("failed to init snowflake: %v", err)
 	}

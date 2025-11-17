@@ -1,8 +1,20 @@
 -- ===============================================================================================
+-- PRODUCTION-READY TIMESCALEDB SCHEMA (NO USERS TABLE - MICROSERVICES ARCHITECTURE)
+-- ===============================================================================================
 -- Target: 1M+ users, millions of transactions/day
--- Features: Multi-tenancy, Agent support, Currency conversion, Transaction fees, Audit trails
--- Version: 2.0
+-- Features: Multi-tenancy, Agent support, Currency conversion, Transaction fees
+-- Architecture: Auth service owns user data, this service only references external user IDs
+-- Version: 4.0 - Microservices Compatible
 -- Last Updated: 2025-11-16
+-- ===============================================================================================
+--
+-- CRITICAL DESIGN DECISION:
+-- This database does NOT have a users table. User master data lives in the auth service.
+-- This service only stores:
+-- 1. External user IDs (TEXT) - never internal auto-increment IDs
+-- 2. Cached agent relationships (synced from auth service)
+-- 3. Demo-specific metadata (ledger service concerns only)
+--
 -- ===============================================================================================
 
 \c pxyz_fx;
@@ -13,17 +25,17 @@ BEGIN;
 -- EXTENSIONS
 -- ===============================
 CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";           -- For UUID generation
-CREATE EXTENSION IF NOT EXISTS pgcrypto;              -- For encryption functions
-CREATE EXTENSION IF NOT EXISTS pg_stat_statements;    -- For query performance monitoring
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
 
 -- ===============================
--- ENUMS (with conditional creation)
+-- ENUMS
 -- ===============================
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'owner_type_enum') THEN
-    CREATE TYPE owner_type_enum AS ENUM ('system','partner','user','agent');  -- Added 'agent'
+    CREATE TYPE owner_type_enum AS ENUM ('system','user','agent', 'partner');
   END IF;
 END $$;
 
@@ -31,15 +43,8 @@ DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'account_purpose_enum') THEN
     CREATE TYPE account_purpose_enum AS ENUM (
-      'liquidity',      -- System liquidity pool
-      'clearing',       -- Clearing account for settlements
-      'fees',           -- Fee collection account
-      'wallet',         -- User/partner trading wallet
-      'escrow',         -- Escrow for pending transactions
-      'settlement',     -- Settlement account
-      'revenue',        -- Platform revenue
-      'contra',         -- Contra/offset account
-      'commission'      -- Agent commission account
+      'liquidity', 'clearing', 'fees', 'wallet', 'escrow',
+      'settlement', 'revenue', 'contra', 'commission'
     );
   END IF;
 END $$;
@@ -62,13 +67,8 @@ DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'transaction_status_enum') THEN
     CREATE TYPE transaction_status_enum AS ENUM (
-      'pending',        -- Initial state
-      'processing',     -- Being processed
-      'completed',      -- Successfully completed
-      'failed',         -- Failed
-      'reversed',       -- Reversed/cancelled
-      'suspended',      -- Temporarily suspended
-      'expired'         -- Expired (for time-limited transactions)
+      'pending', 'processing', 'completed', 'failed',
+      'reversed', 'suspended', 'expired'
     );
   END IF;
 END $$;
@@ -77,15 +77,9 @@ DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'transaction_type_enum') THEN
     CREATE TYPE transaction_type_enum AS ENUM (
-      'deposit',        -- Admin -> Partner, Partner -> User
-      'withdrawal',     -- User -> Partner, Partner -> System
-      'conversion',     -- Currency conversion (e.g., USD -> USDT)
-      'trade',          -- Crypto purchase/sale
-      'transfer',       -- P2P transfer
-      'fee',            -- Fee deduction
-      'commission',     -- Agent commission
-      'reversal',       -- Transaction reversal
-      'adjustment'      -- Manual adjustment
+      'deposit', 'withdrawal', 'conversion', 'trade',
+      'transfer', 'fee', 'commission', 'reversal',
+      'adjustment', 'demo_funding'
     );
   END IF;
 END $$;
@@ -94,12 +88,8 @@ DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'fee_type_enum') THEN
     CREATE TYPE fee_type_enum AS ENUM (
-      'platform',       -- Platform fee
-      'network',        -- Blockchain network fee
-      'partner',        -- Partner fee
-      'conversion',     -- Currency conversion fee
-      'withdrawal',     -- Withdrawal fee
-      'agent_commission' -- Agent commission
+      'platform', 'network', 'conversion',
+      'withdrawal', 'agent_commission'
     );
   END IF;
 END $$;
@@ -110,352 +100,515 @@ END $$;
 CREATE TABLE IF NOT EXISTS currencies (
   code        VARCHAR(8) PRIMARY KEY,
   name        TEXT NOT NULL,
-  symbol      VARCHAR(10),                    -- Display symbol (e.g., $, ₿)
+  symbol      VARCHAR(10),
   decimals    SMALLINT NOT NULL DEFAULT 2 CHECK (decimals >= 0 AND decimals <= 18),
-  is_fiat     BOOLEAN NOT NULL DEFAULT true,  -- Distinguish fiat vs crypto
-  is_active   BOOLEAN NOT NULL DEFAULT true,  -- Can be disabled without deletion
-  min_amount  BIGINT NOT NULL DEFAULT 1,      -- Minimum transaction amount (in atomic units)
-  max_amount  BIGINT,                         -- Maximum transaction amount
+  is_fiat     BOOLEAN NOT NULL DEFAULT true,
+  is_active   BOOLEAN NOT NULL DEFAULT true,
+  
+  demo_enabled BOOLEAN NOT NULL DEFAULT true,
+  demo_initial_balance BIGINT DEFAULT 0,
+  
+  min_amount  BIGINT NOT NULL DEFAULT 1,
+  max_amount  BIGINT,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_currencies_active ON currencies (is_active, code) WHERE is_active = true;
-CREATE INDEX IF NOT EXISTS idx_currencies_name ON currencies (name);
+CREATE INDEX IF NOT EXISTS idx_currencies_active ON currencies (is_active) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_currencies_demo ON currencies (demo_enabled) WHERE demo_enabled = true;
 
 COMMENT ON TABLE currencies IS 'Master list of supported currencies (fiat and crypto)';
-COMMENT ON COLUMN currencies.decimals IS 'Number of decimal places (e.g., 2 for USD, 8 for BTC)';
+COMMENT ON COLUMN currencies.demo_enabled IS 'Whether this currency is available for demo accounts';
+COMMENT ON COLUMN currencies.demo_initial_balance IS 'Starting balance for new demo accounts in this currency';
+
 
 -- ===============================
--- FX RATES (Hypertable for historical rates)
+-- FX RATES (Hypertable)
 -- ===============================
 CREATE TABLE IF NOT EXISTS fx_rates (
   id             BIGSERIAL NOT NULL,
-  base_currency  VARCHAR(8) NOT NULL REFERENCES currencies(code) ON UPDATE CASCADE,
-  quote_currency VARCHAR(8) NOT NULL REFERENCES currencies(code) ON UPDATE CASCADE,
-  rate           NUMERIC(30,18) NOT NULL CHECK (rate > 0),  -- High precision for crypto rates
-  bid_rate       NUMERIC(30,18),                            -- Bid price (optional)
-  ask_rate       NUMERIC(30,18),                            -- Ask price (optional)
-  spread         NUMERIC(10,6),                             -- Spread percentage
-  source         TEXT,                                       -- Rate source (e.g., 'coinbase','binance')
+  base_currency  TEXT NOT NULL REFERENCES currencies(code),  -- Changed from VARCHAR(8)
+  quote_currency TEXT NOT NULL REFERENCES currencies(code),  -- Changed from VARCHAR(8)
+  rate           NUMERIC(30,18) NOT NULL CHECK (rate > 0),
+  bid_rate       NUMERIC(30,18),
+  ask_rate       NUMERIC(30,18),
+  spread         NUMERIC(10,6),
+  source         TEXT,
   valid_from     TIMESTAMPTZ NOT NULL DEFAULT now(),
-  valid_to       TIMESTAMPTZ,                               -- Null = current rate
+  valid_to       TIMESTAMPTZ,
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
-  PRIMARY KEY (id, valid_from)
+  PRIMARY KEY (id, valid_from),
+  -- Added length constraints
+  CONSTRAINT chk_currency_length CHECK (
+    length(base_currency) <= 8 AND length(quote_currency) <= 8
+  )
 );
 
--- Create hypertable for fx_rates
-SELECT create_hypertable(
-  'fx_rates',
-  'valid_from',
-  if_not_exists => TRUE,
-  chunk_time_interval => INTERVAL '7 days'  -- Weekly chunks for rate history
-);
+SELECT create_hypertable('fx_rates', 'valid_from', if_not_exists => TRUE, chunk_time_interval => INTERVAL '7 days');
 
-CREATE INDEX IF NOT EXISTS idx_fx_rates_pair_current 
-  ON fx_rates (base_currency, quote_currency, valid_from DESC) 
-  WHERE valid_to IS NULL;
+CREATE INDEX IF NOT EXISTS idx_fx_rates_current 
+  ON fx_rates (base_currency, quote_currency, valid_from DESC) WHERE valid_to IS NULL;
 
-CREATE INDEX IF NOT EXISTS idx_fx_rates_lookup 
-  ON fx_rates (base_currency, quote_currency, valid_from DESC);
-
--- Compression for old rates
-ALTER TABLE fx_rates SET (
-  timescaledb.compress,
-  timescaledb.compress_orderby = 'valid_from DESC'
-);
+ALTER TABLE fx_rates SET (timescaledb.compress, timescaledb.compress_orderby = 'valid_from DESC');
 SELECT add_compression_policy('fx_rates', INTERVAL '90 days');
 
-COMMENT ON TABLE fx_rates IS 'Historical FX rates for currency conversions';
-
 -- ===============================
--- USERS (Optional - for reference) agents
+-- AGENT RELATIONSHIPS CACHE
 -- ===============================
-CREATE TABLE IF NOT EXISTS users (
-  id              BIGSERIAL PRIMARY KEY,
-  external_id     TEXT UNIQUE NOT NULL,          -- ID from your auth/user service
-  email           TEXT,                           -- Encrypted or hashed
-  kyc_level       SMALLINT NOT NULL DEFAULT 0,   -- 0=none, 1=basic, 2=verified, 3=premium
-  is_active       BOOLEAN NOT NULL DEFAULT true,
-  is_agent        BOOLEAN NOT NULL DEFAULT false, -- Flag for agent users
-  agent_level     SMALLINT DEFAULT 0,             -- Agent tier (0=not agent, 1-5=tiers)
-  referred_by     BIGINT REFERENCES users(id),    -- For agent referral tracking
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+-- Synced from auth service to avoid cross-service calls during transactions
+CREATE TABLE IF NOT EXISTS agent_relationships (
+  user_external_id     TEXT NOT NULL,
+  agent_external_id    TEXT NOT NULL,
+  commission_rate      NUMERIC(5,4) NOT NULL,
+  relationship_type    TEXT NOT NULL DEFAULT 'direct',
+  is_active            BOOLEAN NOT NULL DEFAULT true,
+  synced_from_auth_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+  
+  PRIMARY KEY (user_external_id, agent_external_id),
+  CONSTRAINT chk_different_ids CHECK (user_external_id != agent_external_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_users_external_id ON users (external_id);
-CREATE INDEX IF NOT EXISTS idx_users_agent ON users (is_agent) WHERE is_agent = true;
-CREATE INDEX IF NOT EXISTS idx_users_referrer ON users (referred_by) WHERE referred_by IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_agent_rel_user ON agent_relationships (user_external_id) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_agent_rel_agent ON agent_relationships (agent_external_id) WHERE is_active = true;
 
-COMMENT ON TABLE users IS 'Minimal user reference table - full data in separate user service';
-
+COMMENT ON TABLE agent_relationships IS 
+  'Cached from auth service. Sync every 5 minutes. Prevents cross-service calls during transactions.';
 
 -- ===============================
--- ACCOUNTS (Enhanced with sharding key)
+-- DEMO ACCOUNT METADATA
+-- ===============================
+CREATE TABLE IF NOT EXISTS demo_account_metadata (
+  user_external_id   TEXT PRIMARY KEY,
+  demo_enabled       BOOLEAN NOT NULL DEFAULT true,
+  demo_reset_count   INT NOT NULL DEFAULT 0,
+  last_demo_reset    TIMESTAMPTZ,
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+COMMENT ON TABLE demo_account_metadata IS 'Demo-specific data. User master data in auth service.';
+
+-- ===============================
+-- ACCOUNTS
 -- ===============================
 CREATE TABLE IF NOT EXISTS accounts (
   id             BIGSERIAL PRIMARY KEY,
-  account_number TEXT NOT NULL UNIQUE,           -- Human-readable account number
+  account_number TEXT NOT NULL UNIQUE,
   owner_type     owner_type_enum NOT NULL,
-  owner_id       TEXT NOT NULL,                  -- External ID from user/partner service
-  currency       VARCHAR(8) NOT NULL REFERENCES currencies(code) ON UPDATE CASCADE,
+  owner_id       TEXT NOT NULL,                  -- External ID from auth service
+  currency       VARCHAR(8) NOT NULL REFERENCES currencies(code),
   purpose        account_purpose_enum NOT NULL,
   account_type   account_type_enum NOT NULL DEFAULT 'real',
   is_active      BOOLEAN NOT NULL DEFAULT true,
-  is_locked      BOOLEAN NOT NULL DEFAULT false, -- For security holds
-  overdraft_limit BIGINT NOT NULL DEFAULT 0,     -- Overdraft allowance (usually 0)
+  is_locked      BOOLEAN NOT NULL DEFAULT false,
+  overdraft_limit BIGINT NOT NULL DEFAULT 0,
   
-  -- Agent-specific fields
-  parent_agent_id BIGINT REFERENCES accounts(id), -- For agent hierarchy
-  commission_rate NUMERIC(5,4),                    -- Agent-specific commission
+  -- Agent fields (external ID reference)
+  parent_agent_external_id TEXT,
+  commission_rate          NUMERIC(5,4),
   
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
   
-  CONSTRAINT uq_account_owner_currency_purpose 
-    UNIQUE (owner_type, owner_id, currency, purpose, account_type),
+  CONSTRAINT uq_account UNIQUE (owner_type, owner_id, currency, purpose, account_type),
+  CONSTRAINT chk_system_real CHECK (owner_type != 'system' OR account_type = 'real'),
+  CONSTRAINT chk_demo_no_overdraft CHECK (account_type = 'real' OR overdraft_limit = 0),
+  -- Agent commission only applies to REAL accounts
   CONSTRAINT chk_agent_commission 
-    CHECK (owner_type != 'agent' OR commission_rate IS NOT NULL)
+    CHECK (
+      (owner_type != 'agent' OR commission_rate IS NOT NULL) AND
+      (account_type = 'real' OR commission_rate IS NULL)
+    ),
+  CONSTRAINT chk_demo_purpose CHECK (account_type = 'real' OR purpose = 'wallet')
 );
 
--- Partition-friendly indexes
-CREATE INDEX IF NOT EXISTS idx_accounts_owner ON accounts (owner_type, owner_id);
-CREATE INDEX IF NOT EXISTS idx_accounts_currency ON accounts (currency) WHERE is_active = true;
-CREATE INDEX IF NOT EXISTS idx_accounts_active ON accounts (is_active) WHERE is_active = true;
-CREATE INDEX IF NOT EXISTS idx_accounts_agent_hierarchy ON accounts (parent_agent_id) 
-  WHERE parent_agent_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_accounts_real ON accounts (owner_type, owner_id) WHERE account_type = 'real';
+CREATE INDEX IF NOT EXISTS idx_accounts_demo ON accounts (owner_type, owner_id) WHERE account_type = 'demo';
+CREATE INDEX IF NOT EXISTS idx_accounts_agent_parent ON accounts (parent_agent_external_id) WHERE parent_agent_external_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_accounts_real_currency 
+  ON accounts (currency) 
+  WHERE is_active = true AND account_type = 'real';
 
-COMMENT ON TABLE accounts IS 'All accounts for users, partners, agents, and system';
-COMMENT ON COLUMN accounts.owner_id IS 'External ID reference - do not use internal auto-increment IDs';
+CREATE INDEX IF NOT EXISTS idx_accounts_demo_currency 
+  ON accounts (currency) 
+  WHERE is_active = true AND account_type = 'demo';
+
+-- CREATE INDEX IF NOT EXISTS idx_accounts_agent_hierarchy 
+--   ON accounts (parent_agent_id) 
+--   WHERE parent_agent_id IS NOT NULL AND account_type = 'real';
+
+COMMENT ON COLUMN accounts.owner_id IS 'External ID from auth service (UUID/string)';
+COMMENT ON COLUMN accounts.parent_agent_external_id IS 'Agent external ID from auth service';
 
 -- ===============================
--- BALANCES (Real-time balance cache)
+-- BALANCES
 -- ===============================
 CREATE TABLE IF NOT EXISTS balances (
-  account_id      BIGINT PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
-  balance         BIGINT NOT NULL DEFAULT 0,
-  available_balance BIGINT NOT NULL DEFAULT 0,  -- Balance minus holds/locks
-  pending_debit   BIGINT NOT NULL DEFAULT 0,    -- Sum of pending debits
-  pending_credit  BIGINT NOT NULL DEFAULT 0,    -- Sum of pending credits
-  last_ledger_id  BIGINT,                       -- Last ledger entry ID processed
-  version         BIGINT NOT NULL DEFAULT 0,    -- Optimistic locking version
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  account_id        BIGINT PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
+  balance           BIGINT NOT NULL DEFAULT 0,
+  available_balance BIGINT NOT NULL DEFAULT 0,
+  pending_debit     BIGINT NOT NULL DEFAULT 0,
+  pending_credit    BIGINT NOT NULL DEFAULT 0,
+  last_ledger_id    BIGINT,
+  version           BIGINT NOT NULL DEFAULT 0,
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
   
   CONSTRAINT chk_balance_non_negative CHECK (balance >= 0),
   CONSTRAINT chk_available_non_negative CHECK (available_balance >= 0)
+
 );
 
-CREATE INDEX IF NOT EXISTS idx_balances_balance ON balances (balance) WHERE balance > 0;
 CREATE INDEX IF NOT EXISTS idx_balances_updated ON balances (updated_at DESC);
 
-COMMENT ON TABLE balances IS 'Cached account balances - updated transactionally with ledger entries';
-COMMENT ON COLUMN balances.version IS 'Optimistic lock version - increment on every update';
-
 -- ===============================
--- JOURNALS (Transaction container)
+-- JOURNALS
 -- ===============================
 CREATE TABLE IF NOT EXISTS journals (
-  id               BIGSERIAL PRIMARY KEY,
-  idempotency_key  TEXT UNIQUE,                 -- Global unique key for deduplication
-  transaction_type transaction_type_enum NOT NULL,
-  external_ref     TEXT,                        -- Reference to external system
-  description      TEXT,
-  created_by_user  BIGINT,                      -- User ID who initiated
-  created_by_type  owner_type_enum,
-  ip_address       INET,                        -- For audit trail
-  user_agent       TEXT,                        -- For audit trail
-  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  id                      BIGSERIAL PRIMARY KEY,
+  idempotency_key         TEXT UNIQUE,
+  transaction_type        transaction_type_enum NOT NULL,
+  account_type            account_type_enum NOT NULL,
+  external_ref            TEXT,
+  description             TEXT,
+  created_by_external_id  TEXT,
+  created_by_type         owner_type_enum,
+  ip_address              INET,
+  user_agent              TEXT,
+  created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
   
-  CONSTRAINT chk_journal_creator CHECK (
-    created_by_user IS NULL OR created_by_type IS NOT NULL
+  CONSTRAINT chk_real_only CHECK (
+    account_type = 'real' OR transaction_type NOT IN ('deposit', 'withdrawal', 'transfer', 'fee', 'commission')
   )
 );
 
-CREATE INDEX IF NOT EXISTS idx_journals_created_at ON journals (created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_journals_type ON journals (transaction_type, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_journals_external_ref ON journals (external_ref) 
-  WHERE external_ref IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_journals_creator ON journals (created_by_type, created_by_user) 
-  WHERE created_by_user IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_journals_real ON journals (created_at DESC) WHERE account_type = 'real';
+CREATE INDEX IF NOT EXISTS idx_journals_demo ON journals (created_at DESC) WHERE account_type = 'demo';
 
-COMMENT ON TABLE journals IS 'Transaction header - groups related ledger entries';
-COMMENT ON COLUMN journals.idempotency_key IS 'Ensures exactly-once transaction processing';
+CREATE INDEX IF NOT EXISTS idx_journals_type_real 
+  ON journals (transaction_type, created_at DESC) 
+  WHERE account_type = 'real';
+
+CREATE INDEX IF NOT EXISTS idx_journals_type_demo 
+  ON journals (transaction_type, created_at DESC) 
+  WHERE account_type = 'demo';
+
+COMMENT ON COLUMN journals.created_by_external_id IS 'External ID from auth service';
 
 -- ===============================
--- RECEIPT LOOKUP (Stable IDs for receipts)
+-- RECEIPT LOOKUP
 -- ===============================
-CREATE TABLE IF NOT EXISTS receipt_lookup (
-  id          BIGSERIAL PRIMARY KEY,
-  code        TEXT NOT NULL UNIQUE,             -- Human-readable code (e.g., RCP-2025-001234567)
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+DROP TABLE IF EXISTS receipt_lookup CASCADE;
+
+CREATE TABLE receipt_lookup (
+  id           BIGSERIAL PRIMARY KEY,
+  code         TEXT NOT NULL UNIQUE,  -- Global uniqueness
+  account_type account_type_enum NOT NULL,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_receipt_lookup_code ON receipt_lookup (code);
-
-COMMENT ON TABLE receipt_lookup IS 'Stable receipt IDs and codes for hypertable references';
+CREATE INDEX idx_receipt_lookup_type ON receipt_lookup(account_type);
+CREATE INDEX idx_receipt_lookup_created ON receipt_lookup(created_at DESC);
 
 -- ===============================
--- FX RECEIPTS (Hypertable - Transaction records)
+-- FX RECEIPTS (TimescaleDB Hypertable - OPTIMIZED)
 -- ===============================
-CREATE TABLE IF NOT EXISTS fx_receipts (
-  lookup_id              BIGINT NOT NULL REFERENCES receipt_lookup(id) ON DELETE CASCADE,
+DROP TABLE IF EXISTS fx_receipts CASCADE;
+
+CREATE TABLE fx_receipts (
+  -- Removed lookup_id from PRIMARY KEY for better write performance
+  lookup_id              BIGINT NOT NULL,
+  account_type           account_type_enum NOT NULL,
   
-  -- Creditor (receiver) details
-  creditor_account_id    BIGINT NOT NULL REFERENCES accounts(id),
+  -- Creditor information
+  creditor_account_id    BIGINT NOT NULL,
   creditor_ledger_id     BIGINT,
   creditor_account_type  owner_type_enum NOT NULL,
   creditor_status        transaction_status_enum NOT NULL DEFAULT 'pending',
   
-  -- Debitor (sender) details
-  debitor_account_id     BIGINT NOT NULL REFERENCES accounts(id),
+  -- Debitor information
+  debitor_account_id     BIGINT NOT NULL,
   debitor_ledger_id      BIGINT,
   debitor_account_type   owner_type_enum NOT NULL,
   debitor_status         transaction_status_enum NOT NULL DEFAULT 'pending',
   
   -- Transaction details
   transaction_type       transaction_type_enum NOT NULL,
-  coded_type             TEXT,                    -- Additional type coding
+  coded_type             TEXT,
   amount                 BIGINT NOT NULL CHECK (amount > 0),
-  original_amount        BIGINT,                  -- For conversions (original currency amount)
+  original_amount        BIGINT,
   transaction_cost       BIGINT NOT NULL DEFAULT 0,
-  currency               VARCHAR(8) NOT NULL REFERENCES currencies(code),
-  original_currency      VARCHAR(8) REFERENCES currencies(code), -- For conversions
-  exchange_rate          NUMERIC(30,18),          -- Rate used for conversion
+  
+  -- Currency and exchange
+  currency               TEXT NOT NULL,
+  original_currency      VARCHAR(8),
+  exchange_rate          NUMERIC(30,18),
   
   -- References
   external_ref           TEXT,
-  parent_receipt_code    TEXT REFERENCES receipt_lookup(code), -- For linked transactions
+  parent_receipt_code    TEXT,
+  reversal_receipt_code  TEXT,
   
-  -- Status and lifecycle
+  -- Status tracking
   status                 transaction_status_enum NOT NULL DEFAULT 'pending',
-  error_message          TEXT,                    -- Error details if failed
-  completed_at           TIMESTAMPTZ,
+  error_message          TEXT,
   
-  -- Audit trail
+  -- Timestamps
   created_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at             TIMESTAMPTZ,
-  created_by             TEXT DEFAULT 'system',
+  completed_at           TIMESTAMPTZ,
   reversed_at            TIMESTAMPTZ,
+  
+  -- Audit fields
+  created_by             TEXT DEFAULT 'system',
   reversed_by            TEXT,
-  reversal_receipt_code  TEXT REFERENCES receipt_lookup(code), -- Link to reversal receipt
   
   -- Metadata
-  metadata               JSONB,                   -- Flexible JSON for additional data
+  metadata               JSONB,
   
-  PRIMARY KEY (lookup_id, created_at),
+  -- CRITICAL: Only partition by created_at (not lookup_id)
+  -- This reduces write amplification and improves insert performance
+  PRIMARY KEY (created_at, lookup_id),
   
+  -- Constraints
+  CONSTRAINT chk_currency_codes CHECK (
+    length(currency) <= 8 AND 
+    (original_currency IS NULL OR length(original_currency) <= 8)
+  ),
+
   CONSTRAINT chk_conversion_fields CHECK (
     (transaction_type = 'conversion' AND original_currency IS NOT NULL AND exchange_rate IS NOT NULL)
     OR (transaction_type != 'conversion')
   ),
+  CONSTRAINT chk_real_only_receipt_types CHECK (
+    account_type = 'real' OR transaction_type NOT IN ('deposit', 'withdrawal', 'transfer', 'fee', 'commission')
+  ),
   CONSTRAINT chk_different_accounts CHECK (creditor_account_id != debitor_account_id)
 );
 
--- Create hypertable
-SELECT create_hypertable(
-  'fx_receipts',
-  'created_at',
-  if_not_exists => TRUE,
-  chunk_time_interval => INTERVAL '1 week'  -- Weekly chunks for better query performance
+-- Convert to hypertable (1 week chunks for optimal performance)
+SELECT create_hypertable('fx_receipts', 'created_at', 
+  if_not_exists => TRUE, 
+  chunk_time_interval => INTERVAL '1 week'
 );
 
--- Indexes
-CREATE INDEX IF NOT EXISTS idx_fx_receipts_created_at 
-  ON fx_receipts (created_at DESC);
+-- ===============================
+-- OPTIMIZED INDEXES
+-- ===============================
 
-CREATE INDEX IF NOT EXISTS idx_fx_receipts_status 
-  ON fx_receipts (status, created_at DESC) WHERE status != 'completed';
+-- CRITICAL: Separate indexes for real and demo accounts (better selectivity)
+-- Creditor indexes (partitioned by account_type for faster queries)
+CREATE INDEX idx_fx_receipts_real_creditor 
+  ON fx_receipts (creditor_account_id, created_at DESC) 
+  WHERE account_type = 'real';
 
-CREATE INDEX IF NOT EXISTS idx_fx_receipts_creditor 
-  ON fx_receipts (creditor_account_id, created_at DESC);
+CREATE INDEX idx_fx_receipts_demo_creditor 
+  ON fx_receipts (creditor_account_id, created_at DESC) 
+  WHERE account_type = 'demo';
 
-CREATE INDEX IF NOT EXISTS idx_fx_receipts_debitor 
-  ON fx_receipts (debitor_account_id, created_at DESC);
+-- Debitor indexes (partitioned by account_type)
+CREATE INDEX idx_fx_receipts_real_debitor 
+  ON fx_receipts (debitor_account_id, created_at DESC) 
+  WHERE account_type = 'real';
 
-CREATE INDEX IF NOT EXISTS idx_fx_receipts_type 
+CREATE INDEX idx_fx_receipts_demo_debitor 
+  ON fx_receipts (debitor_account_id, created_at DESC) 
+  WHERE account_type = 'demo';
+
+-- Lookup ID index (for joins with receipt_lookup)
+CREATE INDEX idx_fx_receipts_lookup_id 
+  ON fx_receipts (lookup_id, created_at DESC);
+
+-- Status index (for filtering by status)
+CREATE INDEX idx_fx_receipts_status 
+  ON fx_receipts (status, created_at DESC) 
+  WHERE account_type = 'real';
+
+-- Transaction type index (for filtering)
+CREATE INDEX idx_fx_receipts_transaction_type 
   ON fx_receipts (transaction_type, created_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_fx_receipts_currency 
-  ON fx_receipts (currency, created_at DESC);
+-- Currency index (for currency-specific queries)
+CREATE INDEX idx_fx_receipts_currency 
+  ON fx_receipts (currency, created_at DESC) 
+  WHERE account_type = 'real';
 
-CREATE INDEX IF NOT EXISTS idx_fx_receipts_external_ref 
-  ON fx_receipts (external_ref) WHERE external_ref IS NOT NULL;
+-- External ref index (for external system integration)
+CREATE INDEX idx_fx_receipts_external_ref 
+  ON fx_receipts (external_ref) 
+  WHERE external_ref IS NOT NULL;
 
-CREATE INDEX IF NOT EXISTS idx_fx_receipts_parent 
-  ON fx_receipts (parent_receipt_code) WHERE parent_receipt_code IS NOT NULL;
+-- Parent receipt code index (for hierarchy queries)
+CREATE INDEX idx_fx_receipts_parent_code 
+  ON fx_receipts (parent_receipt_code) 
+  WHERE parent_receipt_code IS NOT NULL;
 
--- Compression policy
+-- Composite index for common queries (status + transaction_type)
+CREATE INDEX idx_fx_receipts_status_type 
+  ON fx_receipts (status, transaction_type, created_at DESC);
+
+-- JSONB index for metadata queries
+CREATE INDEX idx_fx_receipts_metadata 
+  ON fx_receipts USING GIN (metadata jsonb_path_ops);
+
+-- ===============================
+-- TIMESCALEDB COMPRESSION (90 days)
+-- ===============================
+
 ALTER TABLE fx_receipts SET (
   timescaledb.compress,
-  timescaledb.compress_segmentby = 'transaction_type, currency',
+  -- FIXED: Added lookup_id to segmentby
+  timescaledb.compress_segmentby = 'lookup_id, account_type, transaction_type, currency',
   timescaledb.compress_orderby = 'created_at DESC'
 );
 
+-- Add compression policy (compress data older than 90 days)
+
 SELECT add_compression_policy('fx_receipts', INTERVAL '90 days');
 
-COMMENT ON TABLE fx_receipts IS 'Transaction receipts - main hypertable for all FX transactions';
+-- ===============================
+-- CONTINUOUS AGGREGATES (Hourly)
+-- ===============================
+
+CREATE MATERIALIZED VIEW receipt_stats_hourly
+WITH (timescaledb.continuous) AS
+SELECT 
+  time_bucket('1 hour', created_at) AS hour,
+  account_type,
+  transaction_type,
+  status,
+  currency,
+  COUNT(*) AS count,
+  SUM(amount) AS total_amount,
+  AVG(amount) AS avg_amount,
+  MIN(amount) AS min_amount,
+  MAX(amount) AS max_amount,
+  PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY amount) AS median_amount,
+  PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY amount) AS p95_amount,
+  PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY amount) AS p99_amount
+FROM fx_receipts
+GROUP BY hour, account_type, transaction_type, status, currency
+WITH NO DATA;
+
+CREATE INDEX receipt_stats_hourly_idx 
+ON receipt_stats_hourly (hour, account_type, transaction_type, status, currency);
+
+SELECT add_continuous_aggregate_policy(
+  'receipt_stats_hourly',
+  start_offset => INTERVAL '3 hours',
+  end_offset   => INTERVAL '30 minutes',
+  schedule_interval => INTERVAL '30 minutes'
+);
 
 -- ===============================
--- LEDGERS (Hypertable - Double-entry bookkeeping)
+-- CONTINUOUS AGGREGATES (Daily)
+-- ===============================
+
+CREATE MATERIALIZED VIEW receipt_stats_daily
+WITH (timescaledb.continuous) AS
+SELECT 
+  time_bucket('1 day', created_at) AS day,
+  account_type,
+  transaction_type,
+  status,
+  currency,
+  COUNT(*) AS count,
+  SUM(amount) AS total_amount,
+  AVG(amount) AS avg_amount
+FROM fx_receipts
+GROUP BY day, account_type, transaction_type, status, currency
+WITH NO DATA;
+
+CREATE INDEX receipt_stats_daily_idx 
+ON receipt_stats_daily (day, account_type, transaction_type, status, currency);
+
+SELECT add_continuous_aggregate_policy(
+  'receipt_stats_daily',
+  start_offset => INTERVAL '7 days',
+  end_offset   => INTERVAL '1 day',
+  schedule_interval => INTERVAL '1 day'
+);
+
+-- ===============================
+-- RETENTION POLICY
+-- ===============================
+
+-- NOTE: Timescale cannot filter retention by account_type. 
+-- This applies to the entire hypertable.
+
+SELECT add_retention_policy(
+  'fx_receipts', 
+  INTERVAL '2 years',
+  if_not_exists => TRUE
+);
+
+-- If you want demo-only cleanup:
+-- DELETE FROM fx_receipts WHERE account_type = 'demo' AND created_at < NOW() - INTERVAL '2 years';
+
+-- ===============================
+-- VIEWS
+-- ===============================
+
+CREATE OR REPLACE VIEW v_active_receipts AS
+SELECT 
+  rl.code,
+  fr.*
+FROM fx_receipts fr
+JOIN receipt_lookup rl ON rl.id = fr.lookup_id
+WHERE fr.status IN ('pending', 'processing')
+  AND fr.created_at > NOW() - INTERVAL '7 days';
+
+CREATE OR REPLACE VIEW v_recent_receipts AS
+SELECT 
+  rl.code,
+  rl.account_type,
+  fr.transaction_type,
+  fr.status,
+  fr.amount,
+  fr.currency,
+  fr.created_at
+FROM fx_receipts fr
+JOIN receipt_lookup rl ON rl.id = fr.lookup_id
+WHERE fr.created_at > NOW() - INTERVAL '24 hours'
+ORDER BY fr.created_at DESC;
+
+
+-- ===============================
+-- LEDGERS (Hypertable)
 -- ===============================
 CREATE TABLE IF NOT EXISTS ledgers (
-  id           BIGSERIAL NOT NULL,
-  journal_id   BIGINT NOT NULL REFERENCES journals(id) ON DELETE CASCADE,
-  account_id   BIGINT NOT NULL REFERENCES accounts(id),
-  amount       BIGINT NOT NULL CHECK (amount > 0),
-  dr_cr        dr_cr_enum NOT NULL,
-  currency     VARCHAR(8) NOT NULL REFERENCES currencies(code),
-  
-  -- Receipt reference
-  receipt_code TEXT REFERENCES receipt_lookup(code),
-  
-  -- Balance snapshot (for faster reconciliation)
-  balance_after BIGINT,                        -- Account balance after this entry
-  
-  -- Metadata
+  id            BIGSERIAL NOT NULL,
+  journal_id    BIGINT NOT NULL REFERENCES journals(id),
+  account_id    BIGINT NOT NULL REFERENCES accounts(id),
+  account_type  account_type_enum NOT NULL,
+  amount        BIGINT NOT NULL CHECK (amount > 0),
+  dr_cr         dr_cr_enum NOT NULL,
+  currency      VARCHAR(8) NOT NULL REFERENCES currencies(code),
+  receipt_code  TEXT REFERENCES receipt_lookup(code),
+  balance_after BIGINT,
   description   TEXT,
   metadata      JSONB,
-  
-  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   
   PRIMARY KEY (id, account_id, created_at)
 );
 
--- Create hypertable with space partitioning
-SELECT create_hypertable(
-  'ledgers',
-  'created_at',
-  if_not_exists => TRUE,
-  chunk_time_interval => INTERVAL '1 week',
-  number_partitions => 128,                    -- Increased for 1M+ users
-  partitioning_column => 'account_id'
-);
+SELECT create_hypertable('ledgers', 'created_at', if_not_exists => TRUE, chunk_time_interval => INTERVAL '1 week', number_partitions => 128, partitioning_column => 'account_id');
 
--- Indexes
-CREATE INDEX IF NOT EXISTS idx_ledgers_account_created 
-  ON ledgers (account_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ledgers_real ON ledgers (account_id, created_at DESC) WHERE account_type = 'real';
+CREATE INDEX IF NOT EXISTS idx_ledgers_demo ON ledgers (account_id, created_at DESC) WHERE account_type = 'demo';
+
 
 CREATE INDEX IF NOT EXISTS idx_ledgers_journal 
   ON ledgers (journal_id);
 
 CREATE INDEX IF NOT EXISTS idx_ledgers_receipt 
-  ON ledgers (receipt_code) WHERE receipt_code IS NOT NULL;
+  ON ledgers (receipt_code) 
+  WHERE receipt_code IS NOT NULL;
 
-CREATE INDEX IF NOT EXISTS idx_ledgers_currency 
-  ON ledgers (currency, created_at DESC);
-
--- Compression
-ALTER TABLE ledgers SET (
-  timescaledb.compress,
-  timescaledb.compress_segmentby = 'account_id, currency',
-  timescaledb.compress_orderby = 'created_at DESC'
-);
-
+ALTER TABLE ledgers SET (timescaledb.compress, timescaledb.compress_segmentby = 'account_type, account_id, currency', timescaledb.compress_orderby = 'created_at DESC');
 SELECT add_compression_policy('ledgers', INTERVAL '90 days');
-
-COMMENT ON TABLE ledgers IS 'Double-entry ledger - all debits and credits';
-COMMENT ON COLUMN ledgers.balance_after IS 'Snapshot balance for fast reconciliation';
 
 -- ===============================
 -- TRANSACTION FEE RULES
@@ -466,96 +619,172 @@ CREATE TABLE IF NOT EXISTS transaction_fee_rules (
   transaction_type    transaction_type_enum NOT NULL,
   source_currency     VARCHAR(8) REFERENCES currencies(code),
   target_currency     VARCHAR(8) REFERENCES currencies(code),
-  
-  -- Account type based fees
   account_type        account_type_enum,
   owner_type          owner_type_enum,
-  kyc_level           SMALLINT,                -- Fee can vary by KYC level
-  
-  -- Fee structure
   fee_type            fee_type_enum NOT NULL,
   calculation_method  TEXT NOT NULL CHECK (calculation_method IN ('percentage', 'fixed', 'tiered')),
-  fee_value           NUMERIC(10,6) NOT NULL,  -- Percentage or fixed amount
+  fee_value           NUMERIC(10,6) NOT NULL,
   min_fee             BIGINT,
   max_fee             BIGINT,
-  
-  -- Tiered pricing (JSON array for multiple tiers)
-  tiers               JSONB,  -- e.g., [{"min":0,"max":1000,"rate":0.01},{"min":1000,"max":null,"rate":0.005}]
-  
-  -- Validity
+  tiers               JSONB,
   valid_from          TIMESTAMPTZ NOT NULL DEFAULT now(),
   valid_to            TIMESTAMPTZ,
   is_active           BOOLEAN NOT NULL DEFAULT true,
-  priority            INT NOT NULL DEFAULT 0,  -- Higher priority rules override lower
-  
+  priority            INT NOT NULL DEFAULT 0,
   created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
   
-  CONSTRAINT chk_fee_currencies CHECK (
-    (source_currency IS NULL AND target_currency IS NULL) OR
-    (source_currency IS NOT NULL OR target_currency IS NOT NULL)
-  )
+  -- ===============================
+  -- CONSTRAINTS
+  -- ===============================
+  
+  CONSTRAINT chk_real_fees 
+    CHECK (account_type IS NULL OR account_type = 'real'),
+  
+  CONSTRAINT chk_min_max_fee 
+    CHECK (min_fee IS NULL OR max_fee IS NULL OR min_fee <= max_fee),
+  
+  CONSTRAINT chk_fee_value_positive 
+    CHECK (fee_value >= 0),
+  
+  CONSTRAINT chk_percentage_range 
+    CHECK (
+      calculation_method != 'percentage' OR 
+      (fee_value >= 0 AND fee_value <= 1)
+    ),
+  
+  CONSTRAINT chk_tiered_has_tiers 
+    CHECK (
+      (calculation_method = 'tiered' AND tiers IS NOT NULL) OR
+      (calculation_method != 'tiered')
+    ),
+  
+  CONSTRAINT chk_valid_date_range 
+    CHECK (valid_to IS NULL OR valid_from < valid_to)
 );
 
-CREATE INDEX IF NOT EXISTS idx_fee_rules_lookup 
-  ON transaction_fee_rules (transaction_type, source_currency, target_currency, is_active, priority DESC)
+-- ===============================
+-- UNIQUE CONSTRAINTS (as partial indexes)
+-- ===============================
+
+-- Prevent duplicate active rules for same combination
+-- Use NULLIF to handle NULLs properly without casting enums
+CREATE UNIQUE INDEX IF NOT EXISTS uq_fee_rule_active 
+  ON transaction_fee_rules (
+    transaction_type, 
+    fee_type,
+    priority,
+    (source_currency IS NOT DISTINCT FROM NULL),
+    (target_currency IS NOT DISTINCT FROM NULL),
+    (account_type IS NOT DISTINCT FROM NULL),
+    (owner_type IS NOT DISTINCT FROM NULL)
+  ) 
+  WHERE is_active = true AND valid_to IS NULL;
+
+-- Alternative simpler approach: Just use the non-NULL columns
+CREATE UNIQUE INDEX IF NOT EXISTS uq_fee_rule_active_simple
+  ON transaction_fee_rules (
+    transaction_type,
+    fee_type,
+    priority,
+    source_currency,
+    target_currency,
+    account_type,
+    owner_type
+  )
+  WHERE is_active = true AND valid_to IS NULL;
+
+-- Rule name must be unique for active rules
+CREATE UNIQUE INDEX IF NOT EXISTS uq_rule_name_active 
+  ON transaction_fee_rules (rule_name) 
   WHERE is_active = true;
 
-CREATE INDEX IF NOT EXISTS idx_fee_rules_owner_type 
-  ON transaction_fee_rules (owner_type, transaction_type, is_active)
-  WHERE owner_type IS NOT NULL AND is_active = true;
+-- ===============================
+-- OTHER INDEXES
+-- ===============================
 
-COMMENT ON TABLE transaction_fee_rules IS 'Configurable fee rules with tiered pricing support';
-COMMENT ON COLUMN transaction_fee_rules.tiers IS 'JSON array for tiered fee structure';
+CREATE INDEX IF NOT EXISTS idx_fee_rules_lookup 
+  ON transaction_fee_rules (
+    transaction_type, 
+    priority DESC,
+    valid_from,
+    valid_to
+  ) 
+  WHERE is_active = true;
+
+CREATE INDEX IF NOT EXISTS idx_fee_rules_source_currency 
+  ON transaction_fee_rules (source_currency, transaction_type) 
+  WHERE is_active = true AND source_currency IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_fee_rules_target_currency 
+  ON transaction_fee_rules (target_currency, transaction_type) 
+  WHERE is_active = true AND target_currency IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_fee_rules_account_type 
+  ON transaction_fee_rules (account_type, transaction_type) 
+  WHERE is_active = true AND account_type IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_fee_rules_owner_type 
+  ON transaction_fee_rules (owner_type, transaction_type) 
+  WHERE is_active = true AND owner_type IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_fee_rules_fee_type 
+  ON transaction_fee_rules (fee_type, transaction_type) 
+  WHERE is_active = true;
+
+CREATE INDEX IF NOT EXISTS idx_fee_rules_validity 
+  ON transaction_fee_rules (valid_from, valid_to) 
+  WHERE is_active = true;
+
+-- CREATE INDEX IF NOT EXISTS idx_fee_rules_expired 
+--   ON transaction_fee_rules (valid_to) 
+--   WHERE valid_to IS NOT NULL AND valid_to < now();
 
 -- ===============================
--- APPLIED TRANSACTION FEES
+-- COMMENTS
+-- ===============================
+
+COMMENT ON TABLE transaction_fee_rules IS 
+  'Fee rules for transactions. Uses priority-based matching with unique indexes to prevent conflicts.';
+
+COMMENT ON COLUMN transaction_fee_rules.priority IS 
+  'Higher priority rules are selected first. Use: 1=default, 2-9=specific, 10+=special cases, 100+=promotions.';
+
+COMMENT ON COLUMN transaction_fee_rules.tiers IS 
+  'JSON array for tiered fees. Format: [{"min_amount": 0, "max_amount": 100000, "rate": 0.002, "fixed_fee": 50}]';
+-- ===============================
+-- APPLIED FEES
 -- ===============================
 CREATE TABLE IF NOT EXISTS transaction_fees (
-  id               BIGSERIAL PRIMARY KEY,
-  receipt_code     TEXT NOT NULL REFERENCES receipt_lookup(code),
-  fee_rule_id      BIGINT REFERENCES transaction_fee_rules(id),
-  fee_type         fee_type_enum NOT NULL,
-  amount           BIGINT NOT NULL CHECK (amount >= 0),
-  currency         VARCHAR(8) NOT NULL REFERENCES currencies(code),
-  
-  -- Fee collection account
+  id                      BIGSERIAL PRIMARY KEY,
+  receipt_code            TEXT NOT NULL REFERENCES receipt_lookup(code),
+  fee_rule_id             BIGINT REFERENCES transaction_fee_rules(id),
+  fee_type                fee_type_enum NOT NULL,
+  amount                  BIGINT NOT NULL CHECK (amount >= 0),
+  currency                VARCHAR(8) NOT NULL REFERENCES currencies(code),
   collected_by_account_id BIGINT REFERENCES accounts(id),
-  ledger_id        BIGINT,                     -- Link to ledger entry
-  
-  -- Agent commission fields
-  agent_account_id BIGINT REFERENCES accounts(id),
-  commission_rate  NUMERIC(5,4),
-  
-  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  ledger_id               BIGINT,
+  agent_external_id       TEXT,
+  commission_rate         NUMERIC(5,4),
+  created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
   
   CONSTRAINT uniq_fee_per_receipt UNIQUE (receipt_code, fee_type),
   CONSTRAINT chk_agent_commission CHECK (
-    (fee_type = 'agent_commission' AND agent_account_id IS NOT NULL) OR
+    (fee_type = 'agent_commission' AND agent_external_id IS NOT NULL) OR
     (fee_type != 'agent_commission')
   )
 );
 
-CREATE INDEX IF NOT EXISTS idx_transaction_fees_receipt 
-  ON transaction_fees (receipt_code);
-
-CREATE INDEX IF NOT EXISTS idx_transaction_fees_rule 
-  ON transaction_fees (fee_rule_id);
-
-CREATE INDEX IF NOT EXISTS idx_transaction_fees_agent 
-  ON transaction_fees (agent_account_id) 
-  WHERE agent_account_id IS NOT NULL;
-
-CREATE INDEX IF NOT EXISTS idx_transaction_fees_collector 
-  ON transaction_fees (collected_by_account_id);
-
-COMMENT ON TABLE transaction_fees IS 'Actual fees charged per transaction';
+CREATE INDEX IF NOT EXISTS idx_fees_receipt ON transaction_fees (receipt_code);
+CREATE INDEX IF NOT EXISTS idx_fees_agent ON transaction_fees (agent_external_id) WHERE agent_external_id IS NOT NULL;
 
 -- ===============================
--- AGENT COMMISSIONS (Tracking)
+-- AGENT COMMISSIONS
 -- ===============================
 CREATE TABLE IF NOT EXISTS agent_commissions (
   id                    BIGSERIAL PRIMARY KEY,
+  agent_external_id     TEXT NOT NULL,
+  user_external_id      TEXT NOT NULL,
   agent_account_id      BIGINT NOT NULL REFERENCES accounts(id),
   user_account_id       BIGINT NOT NULL REFERENCES accounts(id),
   receipt_code          TEXT NOT NULL REFERENCES receipt_lookup(code),
@@ -563,158 +792,124 @@ CREATE TABLE IF NOT EXISTS agent_commissions (
   commission_rate       NUMERIC(5,4) NOT NULL,
   commission_amount     BIGINT NOT NULL,
   currency              VARCHAR(8) NOT NULL REFERENCES currencies(code),
-  
-  -- Payout tracking
   paid_out              BOOLEAN NOT NULL DEFAULT false,
   payout_receipt_code   TEXT REFERENCES receipt_lookup(code),
   paid_out_at           TIMESTAMPTZ,
-  
-  created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
-  
-  CONSTRAINT chk_commission_positive CHECK (commission_amount > 0)
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_agent_commissions_agent 
-  ON agent_commissions (agent_account_id, created_at DESC);
-
-CREATE INDEX IF NOT EXISTS idx_agent_commissions_unpaid 
-  ON agent_commissions (agent_account_id) 
-  WHERE paid_out = false;
-
-CREATE INDEX IF NOT EXISTS idx_agent_commissions_receipt 
-  ON agent_commissions (receipt_code);
-
-COMMENT ON TABLE agent_commissions IS 'Agent commission tracking and payout management';
+CREATE INDEX IF NOT EXISTS idx_commissions_agent ON agent_commissions (agent_external_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_commissions_unpaid ON agent_commissions (agent_external_id) WHERE paid_out = false;
 
 -- ===============================
--- TRANSACTION HOLDS (Pending/escrow)
+-- TRANSACTION HOLDS
 -- ===============================
 CREATE TABLE IF NOT EXISTS transaction_holds (
-  id              BIGSERIAL PRIMARY KEY,
-  account_id      BIGINT NOT NULL REFERENCES accounts(id),
-  receipt_code    TEXT REFERENCES receipt_lookup(code),
-  hold_amount     BIGINT NOT NULL CHECK (hold_amount > 0),
-  currency        VARCHAR(8) NOT NULL REFERENCES currencies(code),
-  hold_type       TEXT NOT NULL,              -- 'escrow', 'pending', 'compliance'
-  reason          TEXT,
-  expires_at      TIMESTAMPTZ,
-  released        BOOLEAN NOT NULL DEFAULT false,
-  released_at     TIMESTAMPTZ,
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  
+  id           BIGSERIAL PRIMARY KEY,
+  account_id   BIGINT NOT NULL REFERENCES accounts(id),
+  receipt_code TEXT REFERENCES receipt_lookup(code),
+  hold_amount  BIGINT NOT NULL CHECK (hold_amount > 0),
+  currency     VARCHAR(8) NOT NULL REFERENCES currencies(code),
+  hold_type    TEXT NOT NULL,
+  reason       TEXT,
+  expires_at   TIMESTAMPTZ,
+  released     BOOLEAN NOT NULL DEFAULT false,
+  released_at  TIMESTAMPTZ,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+
   CONSTRAINT chk_hold_release CHECK (
     (released = false AND released_at IS NULL) OR
     (released = true AND released_at IS NOT NULL)
   )
 );
 
-CREATE INDEX IF NOT EXISTS idx_holds_account 
-  ON transaction_holds (account_id) WHERE released = false;
-
-CREATE INDEX IF NOT EXISTS idx_holds_expires 
-  ON transaction_holds (expires_at) WHERE released = false AND expires_at IS NOT NULL;
-
-COMMENT ON TABLE transaction_holds IS 'Temporary holds on account balances';
+CREATE INDEX IF NOT EXISTS idx_holds ON transaction_holds (account_id) WHERE released = false;
 
 -- ===============================
--- AUDIT LOG (Compliance trail)
+-- AUDIT LOG
 -- ===============================
 CREATE TABLE IF NOT EXISTS audit_log (
-  id              BIGSERIAL NOT NULL,
-  entity_type     TEXT NOT NULL,              -- 'account', 'receipt', 'user', etc.
-  entity_id       TEXT NOT NULL,
-  action          TEXT NOT NULL,              -- 'create', 'update', 'delete', 'approve'
-  actor_type      owner_type_enum,
-  actor_id        TEXT,
-  ip_address      INET,
-  changes         JSONB,                      -- Before/after snapshot
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  id                 BIGSERIAL NOT NULL,
+  entity_type        TEXT NOT NULL,
+  entity_id          TEXT NOT NULL,
+  action             TEXT NOT NULL,
+  account_type       account_type_enum,
+  actor_type         owner_type_enum,
+  actor_external_id  TEXT,
+  ip_address         INET,
+  changes            JSONB,
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
   
   PRIMARY KEY (id, created_at)
 );
 
--- Hypertable for audit log
-SELECT create_hypertable(
-  'audit_log',
-  'created_at',
-  if_not_exists => TRUE,
-  chunk_time_interval => INTERVAL '1 month'
-);
+SELECT create_hypertable('audit_log', 'created_at', if_not_exists => TRUE, chunk_time_interval => INTERVAL '1 month');
 
-CREATE INDEX IF NOT EXISTS idx_audit_entity 
-  ON audit_log (entity_type, entity_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_log (entity_type, entity_id, created_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_audit_actor 
-  ON audit_log (actor_type, actor_id, created_at DESC);
-
--- Compression
-ALTER TABLE audit_log SET (
-  timescaledb.compress,
-  timescaledb.compress_segmentby = 'entity_type',
-  timescaledb.compress_orderby = 'created_at DESC'
-);
-
+ALTER TABLE audit_log SET (timescaledb.compress, timescaledb.compress_segmentby = 'account_type, entity_type', timescaledb.compress_orderby = 'created_at DESC');
 SELECT add_compression_policy('audit_log', INTERVAL '180 days');
 
-COMMENT ON TABLE audit_log IS 'Immutable audit trail for all system changes';
-
 -- ===============================
--- DAILY SETTLEMENT SUMMARY (Reporting)
+-- DAILY SETTLEMENTS
 -- ===============================
 CREATE TABLE IF NOT EXISTS daily_settlements (
   id                  BIGSERIAL NOT NULL,
   settlement_date     DATE NOT NULL,
   currency            VARCHAR(8) NOT NULL REFERENCES currencies(code),
   owner_type          owner_type_enum NOT NULL,
-  
-  -- Volume metrics
   transaction_count   BIGINT NOT NULL DEFAULT 0,
   total_volume        BIGINT NOT NULL DEFAULT 0,
   total_fees          BIGINT NOT NULL DEFAULT 0,
-  
-  -- By transaction type
   deposit_volume      BIGINT NOT NULL DEFAULT 0,
   withdrawal_volume   BIGINT NOT NULL DEFAULT 0,
   conversion_volume   BIGINT NOT NULL DEFAULT 0,
   trade_volume        BIGINT NOT NULL DEFAULT 0,
-  
   created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
   
   PRIMARY KEY (settlement_date, currency, owner_type)
 );
 
-CREATE INDEX IF NOT EXISTS idx_daily_settlements_date 
-  ON daily_settlements (settlement_date DESC);
-
-COMMENT ON TABLE daily_settlements IS 'Daily aggregated settlement data for reporting';
+CREATE INDEX IF NOT EXISTS idx_settlements ON daily_settlements (settlement_date DESC);
 
 -- ===============================
--- VIEWS (Convenience layers)
+-- DEMO RESETS
+-- ===============================
+CREATE TABLE IF NOT EXISTS demo_account_resets (
+  id               BIGSERIAL PRIMARY KEY,
+  user_external_id TEXT NOT NULL,
+  reset_reason     TEXT,
+  accounts_reset   INT NOT NULL,
+  balances_reset   JSONB,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_resets ON demo_account_resets (user_external_id, created_at DESC);
+
+-- ===============================
+-- VIEWS
 -- ===============================
 
--- Account ledgers with enriched data
-CREATE OR REPLACE VIEW account_ledgers AS
-SELECT 
-    l.id,
-    l.journal_id,
-    j.transaction_type,
-    l.account_id,
-    a.account_number,
-    a.owner_type,
-    a.owner_id,
-    l.amount,
-    l.dr_cr,
-    l.currency,
-    l.receipt_code,
-    l.balance_after,
-    l.description,
-    l.created_at
+CREATE OR REPLACE VIEW real_account_ledgers AS
+SELECT l.id, l.journal_id, j.transaction_type, l.account_id, a.account_number,
+       a.owner_type, a.owner_id AS owner_external_id, l.amount, l.dr_cr,
+       l.currency, l.receipt_code, l.balance_after, l.created_at
 FROM ledgers l
 JOIN journals j ON l.journal_id = j.id
-JOIN accounts a ON l.account_id = a.id;
+JOIN accounts a ON l.account_id = a.id
+WHERE l.account_type = 'real';
 
--- Account receipts with human-readable codes
-CREATE OR REPLACE VIEW account_receipts AS
+CREATE OR REPLACE VIEW demo_account_ledgers AS
+SELECT l.id, l.journal_id, j.transaction_type, l.account_id, a.account_number,
+       a.owner_type, a.owner_id AS owner_external_id, l.amount, l.dr_cr,
+       l.currency, l.receipt_code, l.balance_after, l.created_at
+FROM ledgers l
+JOIN journals j ON l.journal_id = j.id
+JOIN accounts a ON l.account_id = a.id
+WHERE l.account_type = 'demo';
+
+-- REAL RECEIPTS ONLY
+CREATE OR REPLACE VIEW real_account_receipts AS
 SELECT 
     rl.code AS receipt_code,
     r.transaction_type,
@@ -734,10 +929,39 @@ SELECT
 FROM fx_receipts r
 JOIN receipt_lookup rl ON r.lookup_id = rl.id
 JOIN accounts ca ON r.creditor_account_id = ca.id
-JOIN accounts da ON r.debitor_account_id = da.id;
+JOIN accounts da ON r.debitor_account_id = da.id
+WHERE r.account_type = 'real';
 
--- User account summary
-CREATE OR REPLACE VIEW user_account_summary AS
+COMMENT ON VIEW real_account_receipts IS 'REAL transactions only - for financial reporting';
+
+-- DEMO RECEIPTS ONLY
+CREATE OR REPLACE VIEW demo_account_receipts AS
+SELECT 
+    rl.code AS receipt_code,
+    r.transaction_type,
+    ca.account_number AS creditor_account,
+    ca.owner_type AS creditor_type,
+    ca.owner_id AS creditor_id,
+    da.account_number AS debitor_account,
+    da.owner_type AS debitor_type,
+    da.owner_id AS debitor_id,
+    r.amount,
+    r.currency,
+    r.original_currency,
+    r.exchange_rate,
+    r.status,
+    r.created_at,
+    r.completed_at
+FROM fx_receipts r
+JOIN receipt_lookup rl ON r.lookup_id = rl.id
+JOIN accounts ca ON r.creditor_account_id = ca.id
+JOIN accounts da ON r.debitor_account_id = da.id
+WHERE r.account_type = 'demo';
+
+COMMENT ON VIEW demo_account_receipts IS 'DEMO transactions only - for practice trading';
+
+-- REAL USER ACCOUNT SUMMARY
+CREATE OR REPLACE VIEW real_user_accounts AS
 SELECT 
     a.id AS account_id,
     a.account_number,
@@ -754,50 +978,52 @@ FROM accounts a
 LEFT JOIN balances b ON a.id = b.account_id
 WHERE a.owner_type = 'user' AND a.account_type = 'real';
 
--- Agent performance metrics
-CREATE OR REPLACE VIEW agent_performance AS
+COMMENT ON VIEW real_user_accounts IS 'REAL user accounts only';
+
+-- DEMO USER ACCOUNT SUMMARY
+CREATE OR REPLACE VIEW demo_user_accounts AS
 SELECT 
-    ac.agent_account_id,
+    a.id AS account_id,
     a.account_number,
-    a.owner_id AS agent_user_id,
-    COUNT(*) AS total_transactions,
-    SUM(ac.transaction_amount) AS total_volume,
-    SUM(ac.commission_amount) AS total_commission_earned,
-    SUM(CASE WHEN ac.paid_out THEN ac.commission_amount ELSE 0 END) AS commission_paid,
-    SUM(CASE WHEN NOT ac.paid_out THEN ac.commission_amount ELSE 0 END) AS commission_pending,
-    COUNT(DISTINCT ac.user_account_id) AS unique_customers
-FROM agent_commissions ac
-JOIN accounts a ON ac.agent_account_id = a.id
-GROUP BY ac.agent_account_id, a.account_number, a.owner_id;
-
-COMMENT ON VIEW agent_performance IS 'Agent commission and performance metrics';
-
--- ===============================
--- MATERIALIZED VIEWS (Pre-computed aggregates)
--- ===============================
-
--- System holdings by currency and owner type
-CREATE MATERIALIZED VIEW IF NOT EXISTS system_holdings AS
-SELECT 
-    a.owner_type,
+    a.owner_id AS user_id,
     a.currency,
-    COUNT(DISTINCT a.id) AS account_count,
-    SUM(COALESCE(b.balance, 0)) AS total_balance,
-    SUM(COALESCE(b.available_balance, 0)) AS total_available,
-    SUM(COALESCE(b.pending_debit, 0)) AS total_pending_debit,
-    SUM(COALESCE(b.pending_credit, 0)) AS total_pending_credit
+    a.purpose,
+    COALESCE(b.balance, 0) AS balance,
+    COALESCE(b.available_balance, 0) AS available_balance,
+    a.is_active,
+    a.is_locked
 FROM accounts a
 LEFT JOIN balances b ON a.id = b.account_id
-WHERE a.is_active = true
+WHERE a.owner_type = 'user' AND a.account_type = 'demo';
+
+COMMENT ON VIEW demo_user_accounts IS 'DEMO user accounts only';
+
+CREATE OR REPLACE VIEW agent_performance AS
+SELECT agent_external_id, COUNT(*) AS total_transactions,
+       SUM(transaction_amount) AS total_volume,
+       SUM(commission_amount) AS total_commission_earned,
+       SUM(CASE WHEN paid_out THEN commission_amount ELSE 0 END) AS commission_paid,
+       SUM(CASE WHEN NOT paid_out THEN commission_amount ELSE 0 END) AS commission_pending,
+       COUNT(DISTINCT user_external_id) AS unique_customers
+FROM agent_commissions
+GROUP BY agent_external_id;
+
+-- ===============================
+-- MATERIALIZED VIEWS
+-- ===============================
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS system_holdings_real AS
+SELECT a.owner_type, a.currency, COUNT(DISTINCT a.id) AS account_count,
+       SUM(COALESCE(b.balance, 0)) AS total_balance
+FROM accounts a
+LEFT JOIN balances b ON a.id = b.account_id
+WHERE a.is_active = true AND a.account_type = 'real'
 GROUP BY a.owner_type, a.currency;
 
-CREATE UNIQUE INDEX idx_system_holdings_pk 
-    ON system_holdings (owner_type, currency);
+CREATE UNIQUE INDEX idx_holdings_pk ON system_holdings_real (owner_type, currency);
 
-COMMENT ON MATERIALIZED VIEW system_holdings IS 'System-wide balance aggregates - refresh periodically';
-
--- Daily transaction volume by currency
-CREATE MATERIALIZED VIEW IF NOT EXISTS daily_transaction_volume AS
+-- Daily transaction volume (REAL ONLY)
+CREATE MATERIALIZED VIEW IF NOT EXISTS daily_transaction_volume_real AS
 SELECT 
     DATE(r.created_at) AS transaction_date,
     r.currency,
@@ -806,77 +1032,119 @@ SELECT
     SUM(r.amount) AS total_volume,
     AVG(r.amount) AS avg_transaction_size
 FROM fx_receipts r
-WHERE r.status = 'completed'
+WHERE r.status = 'completed' AND r.account_type = 'real'
 GROUP BY DATE(r.created_at), r.currency, r.transaction_type;
 
-CREATE UNIQUE INDEX idx_daily_volume_pk 
-    ON daily_transaction_volume (transaction_date, currency, transaction_type);
+CREATE UNIQUE INDEX idx_daily_volume_real_pk 
+    ON daily_transaction_volume_real (transaction_date, currency, transaction_type);
 
-COMMENT ON MATERIALIZED VIEW daily_transaction_volume IS 'Daily volume metrics for reporting';
+COMMENT ON MATERIALIZED VIEW daily_transaction_volume_real IS 'Daily volume - REAL transactions only';
+
+-- Demo activity summary (separate from real)
+CREATE MATERIALIZED VIEW IF NOT EXISTS demo_activity_summary AS
+SELECT 
+    DATE(r.created_at) AS activity_date,
+    r.currency,
+    r.transaction_type,
+    COUNT(*) AS transaction_count,
+    COUNT(DISTINCT r.debitor_account_id) AS active_users,
+    SUM(r.amount) AS total_volume
+FROM fx_receipts r
+WHERE r.status = 'completed' AND r.account_type = 'demo'
+GROUP BY DATE(r.created_at), r.currency, r.transaction_type;
+
+CREATE UNIQUE INDEX idx_demo_activity_pk 
+    ON demo_activity_summary (activity_date, currency, transaction_type);
+
+COMMENT ON MATERIALIZED VIEW demo_activity_summary IS 'Demo activity metrics - NOT real money';
 
 -- ===============================
 -- FUNCTIONS
 -- ===============================
 
--- Function to generate unique receipt code
-CREATE OR REPLACE FUNCTION generate_receipt_code()
+CREATE OR REPLACE FUNCTION generate_receipt_code(p_account_type account_type_enum)
 RETURNS TEXT AS $$
-DECLARE
-    new_code TEXT;
 BEGIN
-    new_code := 'RCP-' || TO_CHAR(NOW(), 'YYYY') || '-' || LPAD(nextval('receipt_lookup_id_seq')::TEXT, 12, '0');
-    RETURN new_code;
+    RETURN (CASE WHEN p_account_type = 'real' THEN 'RCP' ELSE 'DEMO' END) || '-' || 
+           TO_CHAR(NOW(), 'YYYY') || '-' || LPAD(nextval('receipt_lookup_id_seq')::TEXT, 12, '0');
 END;
 $$ LANGUAGE plpgsql;
 
--- Function to get current exchange rate
-CREATE OR REPLACE FUNCTION get_current_fx_rate(p_base VARCHAR(8), p_quote VARCHAR(8))
-RETURNS NUMERIC(30,18) AS $$
+CREATE OR REPLACE FUNCTION reset_demo_account(p_user_external_id TEXT)
+RETURNS JSONB AS $$
 DECLARE
-    current_rate NUMERIC(30,18);
+    v_account RECORD;  -- Add this line - missing variable declaration
+    v_balances_reset JSONB := '[]'::JSONB;
+    v_reset_count INT;
+    v_initial_balance BIGINT;  -- Add this to store the initial balance
 BEGIN
-    SELECT rate INTO current_rate
-    FROM fx_rates
-    WHERE base_currency = p_base 
-      AND quote_currency = p_quote
-      AND valid_to IS NULL
-    ORDER BY valid_from DESC
-    LIMIT 1;
+    -- Reset balances
+    FOR v_account IN 
+        SELECT a.id, a.currency 
+        FROM accounts a 
+        WHERE a.owner_id = p_user_external_id AND a.account_type = 'demo'
+    LOOP
+        -- Get initial balance for this currency
+        SELECT demo_initial_balance INTO v_initial_balance
+        FROM currencies 
+        WHERE code = v_account.currency;
+        
+        -- Update balance
+        UPDATE balances 
+        SET balance = v_initial_balance,
+            available_balance = v_initial_balance,
+            pending_debit = 0,
+            pending_credit = 0,
+            version = version + 1,
+            updated_at = now()
+        WHERE account_id = v_account.id;
+        
+        -- Track what was reset
+        v_balances_reset := v_balances_reset || jsonb_build_object(
+            'currency', v_account.currency,
+            'new_balance', v_initial_balance
+        );
+    END LOOP;
     
-    IF current_rate IS NULL THEN
-        RAISE EXCEPTION 'No exchange rate found for % -> %', p_base, p_quote;
+    -- Update metadata
+    INSERT INTO demo_account_metadata (user_external_id, demo_reset_count, last_demo_reset)
+    VALUES (p_user_external_id, 1, now())
+    ON CONFLICT (user_external_id) DO UPDATE 
+    SET demo_reset_count = demo_account_metadata.demo_reset_count + 1, 
+        last_demo_reset = now()
+    RETURNING demo_reset_count INTO v_reset_count;
+    
+    -- Log the reset
+    INSERT INTO demo_account_resets (user_external_id, reset_reason, accounts_reset, balances_reset)
+    VALUES (p_user_external_id, 'User requested reset', jsonb_array_length(v_balances_reset), v_balances_reset);
+    
+    RETURN jsonb_build_object(
+        'success', true, 
+        'reset_count', v_reset_count,
+        'balances', v_balances_reset
+    );
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION validate_account_type_match()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_creditor_type account_type_enum;
+    v_debitor_type account_type_enum;
+BEGIN
+    SELECT account_type INTO v_creditor_type FROM accounts WHERE id = NEW.creditor_account_id;
+    SELECT account_type INTO v_debitor_type FROM accounts WHERE id = NEW.debitor_account_id;
+    
+    IF v_creditor_type != NEW.account_type OR v_debitor_type != NEW.account_type THEN
+        RAISE EXCEPTION 'Cannot mix real and demo accounts';
     END IF;
-    
-    RETURN current_rate;
+    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
--- Function to calculate available balance
-CREATE OR REPLACE FUNCTION calculate_available_balance(p_account_id BIGINT)
-RETURNS BIGINT AS $$
-DECLARE
-    current_balance BIGINT;
-    total_holds BIGINT;
-BEGIN
-    SELECT balance INTO current_balance
-    FROM balances
-    WHERE account_id = p_account_id;
-    
-    SELECT COALESCE(SUM(hold_amount), 0) INTO total_holds
-    FROM transaction_holds
-    WHERE account_id = p_account_id AND released = false;
-    
-    RETURN GREATEST(current_balance - total_holds, 0);
-END;
-$$ LANGUAGE plpgsql;
+CREATE TRIGGER trg_validate_receipt_types BEFORE INSERT OR UPDATE ON fx_receipts
+    FOR EACH ROW EXECUTE FUNCTION validate_account_type_match();
 
-COMMENT ON FUNCTION calculate_available_balance IS 'Calculate available balance after holds';
-
--- ===============================
--- TRIGGERS
--- ===============================
-
--- Auto-update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -885,217 +1153,198 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Apply to relevant tables
 CREATE TRIGGER trg_currencies_updated_at BEFORE UPDATE ON currencies
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER trg_accounts_updated_at BEFORE UPDATE ON accounts
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trg_users_updated_at BEFORE UPDATE ON users
+CREATE TRIGGER trg_users_updated_at BEFORE UPDATE ON agent_relationships
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-
 -- ===============================
--- INITIAL DATA SETUP
+-- INITIAL DATA
 -- ===============================
 
--- Insert supported currencies
-INSERT INTO currencies (code, name, symbol, decimals, is_fiat, is_active) VALUES
-('USD', 'United States Dollar', '$', 2, true, true),
-('USDT', 'Tether USD', '₮', 2, false, true),
-('BTC', 'Bitcoin', '₿', 8, false, true)
-ON CONFLICT (code) DO NOTHING;
-
--- Insert system accounts
-DO $$
-DECLARE
-    sys_liquidity_usd BIGINT;
-    sys_liquidity_usdt BIGINT;
-    sys_liquidity_btc BIGINT;
-    sys_fee_usd BIGINT;
-    sys_fee_usdt BIGINT;
-    sys_fee_btc BIGINT;
-BEGIN
-    -- Liquidity accounts for each currency
-    INSERT INTO accounts (owner_type, owner_id, currency, purpose, account_type, account_number)
-    VALUES ('system', 'system', 'USD', 'liquidity', 'real', 'SYS-LIQ-USD')
-    ON CONFLICT DO NOTHING
-    RETURNING id INTO sys_liquidity_usd;
-    
-    INSERT INTO accounts (owner_type, owner_id, currency, purpose, account_type, account_number)
-    VALUES ('system', 'system', 'USDT', 'liquidity', 'real', 'SYS-LIQ-USDT')
-    ON CONFLICT DO NOTHING
-    RETURNING id INTO sys_liquidity_usdt;
-    
-    INSERT INTO accounts (owner_type, owner_id, currency, purpose, account_type, account_number)
-    VALUES ('system', 'system', 'BTC', 'liquidity', 'real', 'SYS-LIQ-BTC')
-    ON CONFLICT DO NOTHING
-    RETURNING id INTO sys_liquidity_btc;
-    
-    -- Fee collection accounts
-    INSERT INTO accounts (owner_type, owner_id, currency, purpose, account_type, account_number)
-    VALUES ('system', 'system', 'USD', 'fees', 'real', 'SYS-FEE-USD')
-    ON CONFLICT DO NOTHING
-    RETURNING id INTO sys_fee_usd;
-    
-    INSERT INTO accounts (owner_type, owner_id, currency, purpose, account_type, account_number)
-    VALUES ('system', 'system', 'USDT', 'fees', 'real', 'SYS-FEE-USDT')
-    ON CONFLICT DO NOTHING
-    RETURNING id INTO sys_fee_usdt;
-    
-    INSERT INTO accounts (owner_type, owner_id, currency, purpose, account_type, account_number)
-    VALUES ('system', 'system', 'BTC', 'fees', 'real', 'SYS-FEE-BTC')
-    ON CONFLICT DO NOTHING
-    RETURNING id INTO sys_fee_btc;
-    
-    -- Initialize balances for system accounts
-    INSERT INTO balances (account_id, balance, available_balance)
-    SELECT id, 0, 0 FROM accounts WHERE owner_type = 'system'
-    ON CONFLICT (account_id) DO NOTHING;
-END $$;
-
--- Insert default fee rules
-INSERT INTO transaction_fee_rules (
-    rule_name, transaction_type, fee_type, calculation_method, 
-    fee_value, min_fee, is_active, priority
-) VALUES
-('Standard Deposit Fee', 'deposit', 'platform', 'percentage', 0.001, 100, true, 1),
-('Standard Withdrawal Fee', 'withdrawal', 'platform', 'fixed', 500, NULL, true, 1),
-('Standard Conversion Fee', 'conversion', 'conversion', 'percentage', 0.005, 100, true, 1),
-('Agent Commission', 'trade', 'agent_commission', 'percentage', 0.002, NULL, true, 1)
+INSERT INTO currencies (code, name, symbol, decimals, is_fiat, demo_enabled, demo_initial_balance) VALUES
+('USD', 'United States Dollar', '$', 2, true, true, 1000000),
+('USDT', 'Tether USD', '₮', 2, false, true, 1000000),
+('BTC', 'Bitcoin', '₿', 8, false, true, 10000000)
 ON CONFLICT DO NOTHING;
+
+INSERT INTO accounts (owner_type, owner_id, currency, purpose, account_type, account_number) VALUES
+('system', 'system', 'USD', 'liquidity', 'real', 'SYS-LIQ-USD'),
+('system', 'system', 'USDT', 'liquidity', 'real', 'SYS-LIQ-USDT'),
+('system', 'system', 'BTC', 'liquidity', 'real', 'SYS-LIQ-BTC'),
+('system', 'system', 'USD', 'fees', 'real', 'SYS-FEE-USD'),
+('system', 'system', 'USDT', 'fees', 'real', 'SYS-FEE-USDT'),
+('system', 'system', 'BTC', 'fees', 'real', 'SYS-FEE-BTC')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO balances (account_id, balance, available_balance)
+SELECT id, 1000000000, 1000000000 FROM accounts WHERE owner_type = 'system'
+ON CONFLICT DO NOTHING;
+
+-- ===============================
+-- TRANSACTION FEE RULES - REALISTIC DATA
+-- ===============================
+
+INSERT INTO transaction_fee_rules (
+    rule_name, 
+    transaction_type, 
+    source_currency,
+    target_currency,
+    account_type,
+    owner_type,
+    fee_type, 
+    calculation_method, 
+    fee_value, 
+    min_fee,
+    max_fee,
+    tiers,
+    is_active, 
+    priority
+) VALUES
+
+-- ===============================
+-- DEPOSIT FEES
+-- ===============================
+('Standard USD Deposit Fee', 'deposit', 'USD', NULL, 'real', NULL, 'platform', 'percentage', 0.001, 100, 50000, NULL, true, 1),
+('Standard USDT Deposit Fee', 'deposit', 'USDT', NULL, 'real', NULL, 'platform', 'percentage', 0.0005, 50, 10000, NULL, true, 1),
+('Crypto Deposit Network Fee', 'deposit', 'BTC', NULL, 'real', NULL, 'network', 'fixed', 0, 500000, NULL, NULL, true, 1),
+
+-- ===============================
+-- WITHDRAWAL FEES
+-- ===============================
+('USD Withdrawal Fee', 'withdrawal', 'USD', NULL, 'real', NULL, 'platform', 'fixed', 0, 200, NULL, NULL, true, 1),
+('USDT Withdrawal Fee (TRC20)', 'withdrawal', 'USDT', NULL, 'real', NULL, 'network', 'fixed', 0, 100, NULL, NULL, true, 1),
+('BTC Withdrawal Fee', 'withdrawal', 'BTC', NULL, 'real', NULL, 'network', 'percentage', 0.0005, 50000, 500000, NULL, true, 1),
+
+-- Tiered withdrawal fees (VIP users get lower fees)
+('VIP User Withdrawal Fee', 'withdrawal', NULL, NULL, 'real', 'user', 'platform', 'tiered', 0, NULL, NULL, 
+'[
+  {"min_amount": 0, "max_amount": 100000, "rate": 0.002, "fixed_fee": 100},
+  {"min_amount": 100000, "max_amount": 500000, "rate": 0.0015, "fixed_fee": 150},
+  {"min_amount": 500000, "max_amount": null, "rate": 0.001, "fixed_fee": 200}
+]'::JSONB, 
+true, 2),
+
+-- ===============================
+-- CONVERSION FEES (Currency Exchange)
+-- ===============================
+('USD to USDT Conversion', 'conversion', 'USD', 'USDT', 'real', NULL, 'conversion', 'percentage', 0.003, 50, 5000, NULL, true, 1),
+('USDT to USD Conversion', 'conversion', 'USDT', 'USD', 'real', NULL, 'conversion', 'percentage', 0.003, 50, 5000, NULL, true, 1),
+('USD to BTC Conversion', 'conversion', 'USD', 'BTC', 'real', NULL, 'conversion', 'percentage', 0.005, 100, 50000, NULL, true, 1),
+('BTC to USD Conversion', 'conversion', 'BTC', 'USD', 'real', NULL, 'conversion', 'percentage', 0.005, 100, 50000, NULL, true, 1),
+('USDT to BTC Conversion', 'conversion', 'USDT', 'BTC', 'real', NULL, 'conversion', 'percentage', 0.004, 100, 20000, NULL, true, 1),
+('BTC to USDT Conversion', 'conversion', 'BTC', 'USDT', 'real', NULL, 'conversion', 'percentage', 0.004, 100, 20000, NULL, true, 1),
+
+-- Tiered conversion fees (larger amounts = lower fees)
+('High Volume Conversion Fee', 'conversion', NULL, NULL, 'real', NULL, 'conversion', 'tiered', 0, NULL, NULL,
+'[
+  {"min_amount": 0, "max_amount": 100000, "rate": 0.005},
+  {"min_amount": 100000, "max_amount": 500000, "rate": 0.003},
+  {"min_amount": 500000, "max_amount": 1000000, "rate": 0.002},
+  {"min_amount": 1000000, "max_amount": null, "rate": 0.001}
+]'::JSONB,
+true, 2),
+
+-- ===============================
+-- TRADE FEES (Crypto Purchase/Sale)
+-- ===============================
+('Standard Trading Fee', 'trade', NULL, NULL, 'real', 'user', 'platform', 'percentage', 0.002, 50, 10000, NULL, true, 1),
+('BTC Trading Fee', 'trade', 'BTC', NULL, 'real', NULL, 'platform', 'percentage', 0.0025, 100, 50000, NULL, true, 2),
+('USDT Trading Fee', 'trade', 'USDT', NULL, 'real', NULL, 'platform', 'percentage', 0.0015, 50, 5000, NULL, true, 2),
+
+-- Maker/Taker fee structure (tiered)
+('Maker Fee (Liquidity Provider)', 'trade', NULL, NULL, 'real', NULL, 'platform', 'tiered', 0, NULL, NULL,
+'[
+  {"min_amount": 0, "max_amount": 100000, "rate": 0.002},
+  {"min_amount": 100000, "max_amount": 500000, "rate": 0.0015},
+  {"min_amount": 500000, "max_amount": null, "rate": 0.001}
+]'::JSONB,
+true, 3),
+
+('Taker Fee (Liquidity Consumer)', 'trade', NULL, NULL, 'real', NULL, 'platform', 'tiered', 0, NULL, NULL,
+'[
+  {"min_amount": 0, "max_amount": 100000, "rate": 0.003},
+  {"min_amount": 100000, "max_amount": 500000, "rate": 0.0025},
+  {"min_amount": 500000, "max_amount": null, "rate": 0.002}
+]'::JSONB,
+true, 3),
+
+-- ===============================
+-- AGENT COMMISSIONS
+-- ===============================
+('Standard Agent Commission', 'trade', NULL, NULL, 'real', 'agent', 'agent_commission', 'percentage', 0.002, NULL, NULL, NULL, true, 1),
+('Premium Agent Commission', 'trade', NULL, NULL, 'real', 'agent', 'agent_commission', 'percentage', 0.0025, NULL, NULL, NULL, true, 2),
+
+-- Tiered agent commission (higher volume = higher commission)
+('Tiered Agent Commission', 'trade', NULL, NULL, 'real', 'agent', 'agent_commission', 'tiered', 0, NULL, NULL,
+'[
+  {"min_amount": 0, "max_amount": 500000, "rate": 0.002},
+  {"min_amount": 500000, "max_amount": 2000000, "rate": 0.0025},
+  {"min_amount": 2000000, "max_amount": 5000000, "rate": 0.003},
+  {"min_amount": 5000000, "max_amount": null, "rate": 0.004}
+]'::JSONB,
+true, 3),
+
+-- Agent commission on conversions
+('Agent Conversion Commission', 'conversion', NULL, NULL, 'real', 'agent', 'agent_commission', 'percentage', 0.001, NULL, NULL, NULL, true, 1),
+
+-- Agent commission on deposits (rare, but some platforms do this)
+('Agent Deposit Referral Bonus', 'deposit', NULL, NULL, 'real', 'agent', 'agent_commission', 'percentage', 0.0005, 50, 1000, NULL, true, 1),
+
+-- ===============================
+-- TRANSFER FEES (P2P)
+-- ===============================
+('P2P Transfer Fee (Same Currency)', 'transfer', NULL, NULL, 'real', NULL, 'platform', 'percentage', 0.001, 10, 1000, NULL, true, 1),
+('P2P Transfer Fee USD', 'transfer', 'USD', NULL, 'real', NULL, 'platform', 'fixed', 0, 50, NULL, NULL, true, 2),
+('P2P Transfer Fee USDT', 'transfer', 'USDT', NULL, 'real', NULL, 'platform', 'fixed', 0, 25, NULL, NULL, true, 2),
+('P2P Transfer Fee BTC', 'transfer', 'BTC', NULL, 'real', NULL, 'network', 'percentage', 0.0003, 10000, 100000, NULL, true, 2),
+
+-- Free transfers for high-value users
+('VIP Free Transfer', 'transfer', NULL, NULL, 'real', 'user', 'platform', 'percentage', 0, 0, 0, NULL, true, 10),
+
+-- ===============================
+-- SPECIAL PROMOTIONAL FEES (Lower Priority)
+-- ===============================
+('New User Promotion - Zero Conversion Fee', 'conversion', NULL, NULL, 'real', 'user', 'conversion', 'percentage', 0, 0, 0, NULL, false, 100),
+('Weekend Trading Discount', 'trade', NULL, NULL, 'real', NULL, 'platform', 'percentage', 0.001, 25, 5000, NULL, false, 100),
+
+-- ===============================
+-- NETWORK FEES (Blockchain)
+-- ===============================
+('BTC Network Fee (Low Priority)', 'withdrawal', 'BTC', NULL, 'real', NULL, 'network', 'fixed', 0, 50000, NULL, NULL, true, 1),
+('BTC Network Fee (High Priority)', 'withdrawal', 'BTC', NULL, 'real', NULL, 'network', 'fixed', 0, 100000, NULL, NULL, true, 2),
+('USDT TRC20 Network Fee', 'withdrawal', 'USDT', NULL, 'real', NULL, 'network', 'fixed', 0, 100, NULL, NULL, true, 1),
+('USDT ERC20 Network Fee', 'withdrawal', 'USDT', NULL, 'real', NULL, 'network', 'fixed', 0, 500, NULL, NULL, false, 1)
+
+ON CONFLICT DO NOTHING;
+
 
 COMMIT;
 
--- ===============================
--- POST-DEPLOYMENT OPTIMIZATION
--- ===============================
-
--- Analyze tables for query planner
-ANALYZE currencies;
-ANALYZE accounts;
-ANALYZE balances;
-ANALYZE journals;
-ANALYZE fx_receipts;
-ANALYZE ledgers;
-ANALYZE transaction_fee_rules;
-
--- Refresh materialized views (run after initial data load)
--- REFRESH MATERIALIZED VIEW CONCURRENTLY system_holdings;
--- REFRESH MATERIALIZED VIEW CONCURRENTLY daily_transaction_volume;
+ANALYZE;
 
 -- ===============================
--- HOUSEKEEPING & MAINTENANCE NOTES
+-- INTEGRATION GUIDE
 -- ===============================
--- 
--- DEPLOYMENT CHECKLIST:
--- □ Configure PostgreSQL max_connections (500+ for high concurrency)
--- □ Set shared_buffers to 25% of RAM
--- □ Configure effective_cache_size to 50-75% of RAM
--- □ Enable pg_stat_statements for query monitoring
--- □ Set up connection pooling (PgBouncer/PgPool) - transaction mode recommended
--- □ Configure WAL archiving for point-in-time recovery
--- □ Set up streaming replication (1+ read replicas)
--- □ Enable SSL/TLS for all connections
--- □ Configure firewall rules (only application servers can connect)
--- □ Set up automated backups (pg_dump + continuous archiving)
--- □ Configure monitoring (Prometheus + Grafana or DataDog)
 --
--- SCALING STRATEGY:
--- 1. Phase 1 (0-100k users): Single primary + 1 read replica
--- 2. Phase 2 (100k-500k users): Primary + 2-3 read replicas, connection pooling
--- 3. Phase 3 (500k-1M users): Consider TimescaleDB multi-node or Citus for sharding
--- 4. Phase 4 (1M+ users): Full sharding by user_id/account_id ranges
+-- AUTH SERVICE → LEDGER SERVICE COMMUNICATION:
 --
--- PARTITION STRATEGY:
--- - fx_receipts: Time-based (weekly chunks) + compression after 90 days
--- - ledgers: Time + space partitioning (by account_id) for optimal query performance
--- - audit_log: Time-based (monthly chunks) + compression after 180 days
+-- 1. USER REGISTRATION:
+--    Auth service creates user → Webhook to ledger service → Create demo accounts
 --
--- BACKUP STRATEGY:
--- - Full backup: Daily (off-peak hours)
--- - Incremental backup: Every 6 hours
--- - WAL archiving: Continuous
--- - Retention: 30 days online, 7 years archive (compliance)
--- - Test restore procedure: Monthly
+-- 2. AGENT ASSIGNMENT:
+--    Auth service assigns agent → Webhook to ledger service → Update agent_relationships cache
 --
--- MONITORING METRICS:
--- - Query performance: p50, p95, p99 latency
--- - Database size and growth rate
--- - Active connections and connection pool saturation
--- - Cache hit ratio (should be >95%)
--- - Replication lag (should be <100ms)
--- - Chunk health (compression status, chunk size)
--- - Slow queries (>100ms should be investigated)
--- - Lock contention and wait events
+-- 3. PERIODIC SYNC (every 5 minutes):
+--    Ledger service fetches all active agent relationships from auth service API
+--    Updates agent_relationships table
 --
--- SECURITY BEST PRACTICES:
--- - Use RLS (Row Level Security) for multi-tenant isolation if needed
--- - Encrypt sensitive columns (email, external IDs) at rest
--- - Use parameterized queries only (prevent SQL injection)
--- - Rotate database passwords quarterly
--- - Audit all DDL changes
--- - Restrict superuser access (use specific roles)
--- - Enable pgAudit extension for compliance logging
---
--- DATA RETENTION:
--- - Ledgers: 7 years (financial compliance - Sarbanes-Oxley, GDPR)
--- - Receipts: 7 years (same as ledgers)
--- - Audit logs: 7 years (compliance)
--- - Compressed data: Can be moved to cold storage after 2 years
--- - Add retention policy (example):
---   SELECT add_retention_policy('fx_receipts', INTERVAL '7 years');
---   SELECT add_retention_policy('ledgers', INTERVAL '7 years');
---
--- PERFORMANCE TUNING:
--- - Vacuum: Auto-vacuum should be aggressive for high-write tables
---   ALTER TABLE balances SET (autovacuum_vacuum_scale_factor = 0.01);
--- - Statistics: Increase statistics target for frequently queried columns
---   ALTER TABLE accounts ALTER COLUMN owner_id SET STATISTICS 1000;
--- - Indexes: Monitor unused indexes monthly (drop if not used)
--- - Query optimization: Use EXPLAIN ANALYZE for slow queries
--- - Connection pooling: Use transaction mode for better performance
---
--- DISASTER RECOVERY:
--- - RTO (Recovery Time Objective): 1 hour
--- - RPO (Recovery Point Objective): 5 minutes
--- - Failover: Automated with streaming replication
--- - Backup location: Multi-region cloud storage
--- - DR drill: Quarterly
---
--- COMPLIANCE NOTES:
--- - GDPR: Implement right to erasure (account deletion workflow)
--- - PCI-DSS: Not storing card data, but secure transaction records
--- - AML/KYC: Audit logs track all account activities
--- - Data residency: Ensure backups comply with regional regulations
---
--- MAINTENANCE TASKS:
--- - Daily: Monitor alerts, check replication lag
--- - Weekly: Review slow query log, check disk space
--- - Monthly: Analyze table statistics, review unused indexes
--- - Quarterly: Test backup restoration, security audit
--- - Annually: Capacity planning review, architecture review
---
--- UPGRADE PATH:
--- - Always test on staging environment first
--- - Use blue-green deployment for zero-downtime upgrades
--- - Keep TimescaleDB version current (security patches)
--- - Plan for PostgreSQL major version upgrades annually
---
--- TROUBLESHOOTING COMMON ISSUES:
--- - High CPU: Check for missing indexes or bad query plans
--- - High I/O: Consider faster storage (NVMe SSDs) or more RAM
--- - Connection exhaustion: Increase max_connections or add pooling
--- - Replication lag: Check network bandwidth and disk I/O on replica
--- - Lock contention: Review long-running transactions
--- - Slow queries: Add indexes, rewrite queries, or partition tables
---
--- COST OPTIMIZATION:
--- - Use compression aggressively (can save 90% storage on old data)
--- - Archive old data to cheaper storage (S3/Glacier)
--- - Use read replicas for reporting queries (offload from primary)
--- - Monitor and kill idle connections
--- - Right-size instance based on actual metrics
+-- 4. TRANSACTION PROCESSING:
+--    When processing transaction, ledger service uses cached agent_relationships
+--    No cross-service call during transaction = fast & reliable
 --
 -- ===============================

@@ -37,7 +37,7 @@ func NewServer(cfg config.AppConfig) *http.Server {
 	db, _ := config.ConnectDB()
 
 	userRepo := repository.NewUserRepository(db)
-	sf, err := id.NewSnowflake(5) // Node ID 1 for this service
+	sf, err := id.NewSnowflake(16) // Node ID 1 for this service
 	if err != nil {
 		log.Fatalf("failed to init snowflake: %v", err)
 	}
