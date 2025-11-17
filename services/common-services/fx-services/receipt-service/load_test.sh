@@ -35,7 +35,7 @@ fi
 # Test 1: Single Receipt Creation (Baseline)
 echo -e "\n${YELLOW}Test 1: Single Receipt Creation${NC}"
 ghz --insecure \
-    --proto=shared/proto/shared/accounting/receipt_v3.proto o \
+    --proto=shared/proto/shared/accounting/receipt_v3.proto \
     --call=receipt.ReceiptService.CreateReceipt \
     --total=1000 \
     --concurrency=10 \
