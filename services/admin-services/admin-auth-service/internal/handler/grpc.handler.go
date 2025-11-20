@@ -3,6 +3,8 @@ package handler
 import (
 	"admin-auth-service/internal/domain"
 	"admin-auth-service/internal/usecase"
+	"strings"
+
 	//authclient "x/shared/auth"
 	otpclient "x/shared/auth/otp"
 	emailclient "x/shared/email"
@@ -48,6 +50,8 @@ func NewGRPCAuthHandler(
 // Register a new user
 func (h *GRPCAuthHandler) RegisterUser(ctx context.Context, req *authpb.RegisterUserRequest) (*authpb.RegisterUserResponse, error) {
 	//check if valid role
+	// Convert to lowercase if the identifier looks like an email
+	req.Email = strings.ToLower(req.Email)
 	user, err := h.uc.RegisterUser(ctx, req.Email, req.Password, req.FirstName, req.LastName, req.Role)
 	_ = user
 	if err != nil {

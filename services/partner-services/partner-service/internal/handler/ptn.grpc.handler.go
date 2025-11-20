@@ -4,14 +4,15 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
 	domain "partner-service/internal/domain"
 	"partner-service/internal/usecase"
+	accountingclient "x/shared/common/accounting" // 👈 added
 	partnerauthpb "x/shared/genproto/partner/authpb"
 	partnersvcpb "x/shared/genproto/partner/svcpb"
-	accountingclient "x/shared/common/accounting" // 👈 added
 	accountingpb "x/shared/genproto/shared/accounting/accountingpb"
 
 	authclient "x/shared/auth"
@@ -61,6 +62,8 @@ func (h *GRPCPartnerHandler) CreatePartner(
 	req *partnersvcpb.CreatePartnerRequest,
 ) (*partnersvcpb.PartnerResponse, error) {
 	// --- 1. Build partner domain object ---
+	// Convert to lowercase if the identifier looks like an email
+	req.ContactEmail = strings.ToLower(req.ContactEmail)
 	partner := &domain.Partner{
 		ID:           id.GenerateID("PTN"),
 		Name:         req.Name,
@@ -182,6 +185,8 @@ func (h *GRPCPartnerHandler) CreatePartner(
 
 
 func (h *GRPCPartnerHandler) UpdatePartner(ctx context.Context, req *partnersvcpb.UpdatePartnerRequest) (*partnersvcpb.PartnerResponse, error) {
+	// Convert to lowercase if the identifier looks like an email
+	req.ContactEmail = strings.ToLower(req.ContactEmail)
 	partner := &domain.Partner{
 		ID:           req.Id,
 		Name:         req.Name,
@@ -227,6 +232,8 @@ func (h *GRPCPartnerHandler) CreatePartnerUser(
 	}
 
 	// 2. Call PartnerAuthService to register
+	// Convert to lowercase if the identifier looks like an email
+	req.Email = strings.ToLower(req.Email)
 	userResp, err := h.authClient.PartnerClient.RegisterUser(ctx, &partnerauthpb.RegisterUserRequest{
 		Email:     req.Email,
 		Password:  password,

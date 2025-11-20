@@ -8,14 +8,16 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 	"x/shared/auth/middleware"
 
 	//"x/shared/genproto/accountpb"
 	"x/shared/genproto/corepb"
-	"google.golang.org/protobuf/types/known/structpb"
 	"x/shared/genproto/shared/notificationpb"
+
 	"github.com/google/uuid"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"x/shared/genproto/otppb"
 	"x/shared/response"
@@ -115,6 +117,8 @@ func (h *AuthHandler) HandleChangeEmail(w http.ResponseWriter, r *http.Request) 
 		response.Error(w, http.StatusBadRequest, "New email required")
 		return
 	}
+	// Convert to lowercase if the identifier looks like an email
+	req.NewEmail = strings.ToLower(req.NewEmail)
 
 	if valid := utils.ValidateEmail(req.NewEmail); !valid {
 		response.Error(w, http.StatusBadRequest, "Invalid email format")
@@ -460,7 +464,8 @@ func (h *AuthHandler) HandleForgotPassword(w http.ResponseWriter, r *http.Reques
 		response.Error(w, http.StatusBadRequest, "Email or phone required")
 		return
 	}
-
+// Convert to lowercase if the identifier looks like an email
+	req.Identifier = strings.ToLower(req.Identifier)
 	// Step 1: Try to find user
 	user, err := h.uc.FindUserByIdentifier(r.Context(), req.Identifier)
 	if err != nil {

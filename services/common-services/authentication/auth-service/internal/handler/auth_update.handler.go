@@ -111,6 +111,8 @@ func (h *AuthHandler) HandleChangeEmail(w http.ResponseWriter, r *http.Request) 
 		response.Error(w, http.StatusBadRequest, "Invalid email format")
 		return
 	}
+	// Convert to lowercase if the identifier looks like an email
+	req.NewEmail = strings.ToLower(req.NewEmail)
 	ctx := r.Context()
 
 	// --- Check if email already exists ---
@@ -544,6 +546,8 @@ func (h *AuthHandler) HandleForgotPassword(w http.ResponseWriter, r *http.Reques
 		response.Error(w, http.StatusBadRequest, "Email or phone required")
 		return
 	}
+	// Convert to lowercase if the identifier looks like an email
+	req.Identifier = strings.ToLower(req.Identifier)
 
 	// Step 1: Try to find user
 	user, err := h.uc.GetUserByIdentifier(r.Context(), req.Identifier)

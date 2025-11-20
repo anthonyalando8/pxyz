@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-
+	"strings"
 
 	"x/shared/response"
 	"x/shared/utils/errors"
@@ -20,7 +20,8 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, err.Error())
 		return
 	}
-
+	// Convert to lowercase if the identifier looks like an email
+	req.Identifier = strings.ToLower(req.Identifier)
 	// Step 2: Authenticate user
 	user, err := h.uc.LoginUser(r.Context(), req.Identifier, req.Password)
 	if err != nil {

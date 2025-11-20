@@ -8,16 +8,18 @@ import (
 	"net/http"
 	"ptn-auth-service/internal/domain"
 	"ptn-auth-service/pkg/utils"
+	"strings"
 	"time"
 	"x/shared/auth/middleware"
 
 	//"x/shared/genproto/accountpb"
 	"x/shared/genproto/corepb"
 	"x/shared/genproto/otppb"
-	"x/shared/response"
-	"google.golang.org/protobuf/types/known/structpb"
 	"x/shared/genproto/shared/notificationpb"
+	"x/shared/response"
+
 	"github.com/google/uuid"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // Reset password (via OTP/email link)
@@ -120,6 +122,8 @@ func (h *AuthHandler) HandleChangeEmail(w http.ResponseWriter, r *http.Request) 
 		response.Error(w, http.StatusBadRequest, "Invalid email format")
 		return
 	}
+	// Convert to lowercase if the identifier looks like an email
+	req.NewEmail = strings.ToLower(req.NewEmail)
 
 	// --- Step 1: Save pending email with expiry (15 min) ---
 	key := fmt.Sprintf("pending_email_change:%s", req.UserID)
@@ -488,6 +492,8 @@ func (h *AuthHandler) HandleForgotPassword(w http.ResponseWriter, r *http.Reques
 		response.Error(w, http.StatusBadRequest, "Email or phone required")
 		return
 	}
+	// Convert to lowercase if the identifier looks like an email
+	req.Identifier = strings.ToLower(req.Identifier)
 
 	// Step 1: Try to find user
 	user, err := h.uc.FindUserByIdentifier(r.Context(), req.Identifier)

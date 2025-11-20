@@ -183,7 +183,7 @@ func (am *AuthMiddleware) handleAuth(
 	// --- 7. Check optional role restrictions ---
 	if len(allowedRoles) > 0 {
 		var role string
-
+		log.Printf("Allowed roles: %v", allowedRoles)
 		// Try context role first
 		if roleVal := r.Context().Value(ContextRole); roleVal != nil {
 			if rStr, ok := roleVal.(string); ok && rStr != "" {

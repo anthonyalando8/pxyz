@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"log"
+	"strings"
 
 	"ptn-auth-service/internal/domain"
 	"ptn-auth-service/internal/usecase"
@@ -49,6 +50,8 @@ func (h *GRPCAuthHandler) RegisterUser(ctx context.Context, req *authpb.Register
 			Error: "email and password are required",
 		}, nil
 	}
+	// Convert to lowercase if the identifier looks like an email
+	req.Email = strings.ToLower(req.Email)
 
 	// Pass partner_id into usecase so we can associate properly
 	user, err := h.uc.RegisterUser(ctx, req.Email, req.Password, req.FirstName, req.LastName, req.Role, req.PartnerId)

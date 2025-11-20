@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"x/shared/auth/middleware"
 	"x/shared/response"
 )
@@ -51,6 +52,11 @@ func (h *AuthHandler) SubmitIdentifier(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	//validate email or phone
+	// Convert to lowercase if the identifier looks like an email
+	if utils.ValidateEmail(req.Identifier) {
+		req.Identifier = strings.ToLower(req.Identifier)
+	}
+
 	if !utils.ValidateEmail(req.Identifier) && !utils.ValidatePhone(req.Identifier) {
 		response.Error(w, http.StatusBadRequest, "invalid identifier format")
 		return

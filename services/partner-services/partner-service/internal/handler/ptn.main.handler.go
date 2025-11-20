@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	emailclient "x/shared/email"
@@ -14,13 +15,13 @@ import (
 	"partner-service/internal/usecase"
 
 	authclient "x/shared/auth" // gRPC/HTTP client for auth-service
+	"x/shared/auth/middleware"
 	otpclient "x/shared/auth/otp"
 	"x/shared/response"
-	"x/shared/auth/middleware"
 
 	accountingclient "x/shared/common/accounting"
-	accountingpb "x/shared/genproto/shared/accounting/accountingpb"
 	authpb "x/shared/genproto/partner/authpb"
+	accountingpb "x/shared/genproto/shared/accounting/accountingpb"
 
 	"github.com/go-chi/chi/v5"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -198,6 +199,7 @@ func (h *PartnerHandler) GetOwnerStatement(w http.ResponseWriter, r *http.Reques
 // CreatePartnerUser (calls auth service to create user first)
 func (h *PartnerHandler) CreatePartnerUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	
 
 	var req struct {
 		Email     string `json:"email"`
@@ -217,6 +219,8 @@ func (h *PartnerHandler) CreatePartnerUser(w http.ResponseWriter, r *http.Reques
 		response.Error(w, http.StatusUnauthorized, "missing or invalid user ID")
 		return
 	}
+	// Convert to lowercase if the identifier looks like an email
+	req.Email = strings.ToLower(req.Email)
 
 	// Ask Auth service for profile (to fetch PartnerID)
 	profileResp, err := h.authClient.PartnerClient.GetUserProfile(ctx, &authpb.GetUserProfileRequest{
