@@ -1,159 +1,701 @@
 syntax = "proto3";
 
-package accounting;
+package accounting.v1;
 
 import "google/protobuf/timestamp.proto";
+//import "google/protobuf/empty.proto";
 
-option go_package = "genproto/shared/accounting/accountingpb;accountingpb";
+option go_package = "genproto/shared/accounting/v1;accountingpb";
 
 // ===============================
 // ENUMS
 // ===============================
+
 enum OwnerType {
     OWNER_TYPE_UNSPECIFIED = 0;
-    USER = 1;
-    PARTNER = 2;
-    SYSTEM = 3;
-    ADMIN = 4;
+    OWNER_TYPE_USER = 1;
+    OWNER_TYPE_PARTNER = 2;
+    OWNER_TYPE_SYSTEM = 3;
+    OWNER_TYPE_ADMIN = 4;
+    OWNER_TYPE_AGENT = 5;
+}
+
+enum AccountType {
+    ACCOUNT_TYPE_UNSPECIFIED = 0;
+    ACCOUNT_TYPE_REAL = 1;
+    ACCOUNT_TYPE_DEMO = 2;
+}
+
+enum AccountPurpose {
+    ACCOUNT_PURPOSE_UNSPECIFIED = 0;
+    ACCOUNT_PURPOSE_WALLET = 1;
+    ACCOUNT_PURPOSE_LIQUIDITY = 2;
+    ACCOUNT_PURPOSE_CLEARING = 3;
+    ACCOUNT_PURPOSE_FEES = 4;
+    ACCOUNT_PURPOSE_ESCROW = 5;
+    ACCOUNT_PURPOSE_SETTLEMENT = 6;
+    ACCOUNT_PURPOSE_REVENUE = 7;
+    ACCOUNT_PURPOSE_CONTRA = 8;
+    ACCOUNT_PURPOSE_COMMISSION = 9;
 }
 
 enum DrCr {
     DR_CR_UNSPECIFIED = 0;
-    DR = 1;
-    CR = 2;
+    DR_CR_DEBIT = 1;
+    DR_CR_CREDIT = 2;
+}
+
+enum TransactionType {
+    TRANSACTION_TYPE_UNSPECIFIED = 0;
+    TRANSACTION_TYPE_DEPOSIT = 1;
+    TRANSACTION_TYPE_WITHDRAWAL = 2;
+    TRANSACTION_TYPE_TRANSFER = 3;
+    TRANSACTION_TYPE_CONVERSION = 4;
+    TRANSACTION_TYPE_FEE = 5;
+    TRANSACTION_TYPE_COMMISSION = 6;
+    TRANSACTION_TYPE_TRADE = 7;
+    TRANSACTION_TYPE_ADJUSTMENT = 8;
+    TRANSACTION_TYPE_REFUND = 9;
+    TRANSACTION_TYPE_REVERSAL = 10;
+}
+
+enum TransactionStatus {
+    TRANSACTION_STATUS_UNSPECIFIED = 0;
+    TRANSACTION_STATUS_PROCESSING = 1;
+    TRANSACTION_STATUS_EXECUTING = 2;
+    TRANSACTION_STATUS_COMPLETED = 3;
+    TRANSACTION_STATUS_FAILED = 4;
+}
+
+enum FeeType {
+    FEE_TYPE_UNSPECIFIED = 0;
+    FEE_TYPE_PLATFORM = 1;
+    FEE_TYPE_NETWORK = 2;
+    FEE_TYPE_CONVERSION = 3;
+    FEE_TYPE_WITHDRAWAL = 4;
+    FEE_TYPE_AGENT_COMMISSION = 5;
 }
 
 // ===============================
-// MESSAGES
+// ACCOUNT MESSAGES
 // ===============================
+
 message Account {
     int64 id = 1;
-    OwnerType owner_type = 2;
-    string owner_id = 3;
-    string currency = 4;
-    string purpose = 5;
-    string account_type = 6; // real / demo
-    bool is_active = 7;
-    string account_number = 8; // new field
-    double balance = 9;         // new field for current balance
-    google.protobuf.Timestamp created_at = 10; // can be omitted in JSON
-    google.protobuf.Timestamp updated_at = 11; // can be omitted in JSON
+    string account_number = 2;
+    OwnerType owner_type = 3;
+    string owner_id = 4;
+    string currency = 5;
+    AccountPurpose purpose = 6;
+    AccountType account_type = 7;
+    bool is_active = 8;
+    bool is_locked = 9;
+    int64 overdraft_limit = 10;
+    int64 parent_agent_id = 11;
+    string commission_rate = 12; // NUMERIC as string (e.g. "0.0025")
+    google.protobuf.Timestamp created_at = 13;
+    google.protobuf.Timestamp updated_at = 14;
 }
 
+message Balance {
+    int64 account_id = 1;
+    string account_number = 2;
+    int64 balance = 3; // Atomic units (e.g., cents)
+    int64 available_balance = 4;
+    int64 pending_debit = 5;
+    int64 pending_credit = 6;
+    string currency = 7;
+    int64 version = 8;
+    google.protobuf.Timestamp last_transaction_at = 9;
+}
 
 message CreateAccountRequest {
-    repeated Account accounts = 1; // supports batch creation
+    OwnerType owner_type = 1;
+    string owner_id = 2;
+    string currency = 3;
+    AccountPurpose purpose = 4;
+    AccountType account_type = 5;
+    int64 overdraft_limit = 6;
+    int64 parent_agent_id = 7;
+    string commission_rate = 8;
+}
+
+message CreateAccountsRequest {
+    repeated CreateAccountRequest accounts = 1;
 }
 
 message CreateAccountResponse {
-    repeated Account accounts = 1;
-    map<int32, string> errors = 2; // key: index in request, value: error message
+    Account account = 1;
 }
 
-message GetAccountsRequest {
+message CreateAccountsResponse {
+    repeated Account accounts = 1;
+    map<int32, string> errors = 2; // index -> error message
+}
+
+message GetAccountRequest {
+    oneof identifier {
+        int64 id = 1;
+        string account_number = 2;
+    }
+}
+
+message GetAccountResponse {
+    Account account = 1;
+}
+
+message GetAccountsByOwnerRequest {
     OwnerType owner_type = 1;
     string owner_id = 2;
+    AccountType account_type = 3;
 }
 
-message GetAccountsResponse {
+message GetAccountsByOwnerResponse {
     repeated Account accounts = 1;
 }
 
-message TransactionEntry {
-    int64 account_id = 1;
-    string account_number = 2;
-    DrCr dr_cr = 3;
-    double amount = 4;
-    string currency = 5;
+message GetOrCreateUserAccountsRequest {
+    string user_id = 1;
+    AccountType account_type = 2;
+    OwnerType owner_type = 3;
 }
 
-message CreateTransactionRequest {
-    string external_ref = 1;
-    string description = 2;
-    OwnerType created_by_type = 3;
-    int64 created_by_user = 4;
-    repeated TransactionEntry entries = 5;
-    bool apply_fee = 6;
-    string transaction_type = 7;
-    bool require_approval = 8;
+message GetOrCreateUserAccountsResponse {
+    repeated Account accounts = 1;
 }
 
-message CreateTransactionResponse {
-    string externalRef = 1;
+message UpdateAccountRequest {
+    int64 id = 1;
+    optional bool is_active = 2;
+    optional bool is_locked = 3;
+    optional int64 overdraft_limit = 4;
 }
 
-message AccountStatementRequest {
+message UpdateAccountResponse {
+    Account account = 1;
+}
+
+message GetBalanceRequest {
+    oneof identifier {
+        int64 account_id = 1;
+        string account_number = 2;
+    }
+}
+
+message GetBalanceResponse {
+    Balance balance = 1;
+}
+
+// ===============================
+// TRANSACTION MESSAGES
+// ===============================
+
+message LedgerEntry {
     string account_number = 1;
-    google.protobuf.Timestamp from = 2;
-    google.protobuf.Timestamp to = 3;
+    int64 amount = 2; // Atomic units
+    DrCr dr_cr = 3;
+    string currency = 4;
+    optional string description = 5;
 }
 
-message OwnerStatementRequest {
-    OwnerType owner_type = 1;
-    string owner_id = 2;
+message ExecuteTransactionRequest {
+    optional string idempotency_key = 1;
+    TransactionType transaction_type = 2;
+    AccountType account_type = 3;
+    repeated LedgerEntry entries = 4;
+    optional string external_ref = 5;
+    optional string description = 6;
+    string created_by_external_id = 7;
+    OwnerType created_by_type = 8;
+    optional string ip_address = 9;
+    optional string user_agent = 10;
+    bool generate_receipt = 11;
+}
+
+message ExecuteTransactionResponse {
+    string receipt_code = 1;
+    int64 transaction_id = 2;
+    TransactionStatus status = 3;
+    int64 amount = 4;
+    string currency = 5;
+    int64 fee = 6;
+    int64 processing_time_ms = 7;
+    google.protobuf.Timestamp created_at = 8;
+}
+
+message ExecuteTransactionSyncRequest {
+    // Same as ExecuteTransactionRequest
+    optional string idempotency_key = 1;
+    TransactionType transaction_type = 2;
+    AccountType account_type = 3;
+    repeated LedgerEntry entries = 4;
+    optional string external_ref = 5;
+    optional string description = 6;
+    string created_by_external_id = 7;
+    OwnerType created_by_type = 8;
+    optional string ip_address = 9;
+    optional string user_agent = 10;
+    bool generate_receipt = 11;
+}
+
+message ExecuteTransactionSyncResponse {
+    // Same as ExecuteTransactionResponse but guaranteed completed
+    string receipt_code = 1;
+    int64 transaction_id = 2;
+    TransactionStatus status = 3;
+    int64 amount = 4;
+    string currency = 5;
+    int64 fee = 6;
+    int64 processing_time_ms = 7;
+    google.protobuf.Timestamp created_at = 8;
+}
+
+message GetTransactionStatusRequest {
+    string receipt_code = 1;
+}
+
+message GetTransactionStatusResponse {
+    string receipt_code = 1;
+    TransactionStatus status = 2;
+    optional string error_message = 3;
+    google.protobuf.Timestamp started_at = 4;
+    optional google.protobuf.Timestamp completed_at = 5;
+}
+
+message GetTransactionByReceiptRequest {
+    string receipt_code = 1;
+}
+
+message GetTransactionByReceiptResponse {
+    Journal journal = 1;
+    repeated Ledger ledgers = 2;
+    repeated TransactionFee fees = 3;
+}
+
+// ===============================
+// JOURNAL & LEDGER MESSAGES
+// ===============================
+
+message Journal {
+    int64 id = 1;
+    string idempotency_key = 2;
+    TransactionType transaction_type = 3;
+    AccountType account_type = 4;
+    string external_ref = 5; // Receipt code stored here
+    string description = 6;
+    string created_by_external_id = 7;
+    OwnerType created_by_type = 8;
+    string ip_address = 9;
+    string user_agent = 10;
+    google.protobuf.Timestamp created_at = 11;
+}
+
+message Ledger {
+    int64 id = 1;
+    int64 journal_id = 2;
+    int64 account_id = 3;
+    string account_number = 4;
+    int64 amount = 5;
+    DrCr dr_cr = 6;
+    string currency = 7;
+    int64 balance_after = 8;
+    optional string description = 9;
+    optional string receipt_code = 10;
+    google.protobuf.Timestamp created_at = 11;
+}
+
+message GetJournalRequest {
+    int64 id = 1;
+}
+
+message GetJournalResponse {
+    Journal journal = 1;
+}
+
+message ListJournalsRequest {
+    optional TransactionType transaction_type = 1;
+    optional AccountType account_type = 2;
+    optional string external_ref = 3;
+    optional string created_by_external_id = 4;
+    optional google.protobuf.Timestamp from = 5;
+    optional google.protobuf.Timestamp to = 6;
+    int32 limit = 7;
+    int32 offset = 8;
+}
+
+message ListJournalsResponse {
+    repeated Journal journals = 1;
+    int32 total = 2;
+}
+
+message ListLedgersByJournalRequest {
+    int64 journal_id = 1;
+}
+
+message ListLedgersByJournalResponse {
+    repeated Ledger ledgers = 1;
+}
+
+message ListLedgersByAccountRequest {
+    string account_number = 1;
+    AccountType account_type = 2;
+    optional google.protobuf.Timestamp from = 3;
+    optional google.protobuf.Timestamp to = 4;
+    int32 limit = 5;
+    int32 offset = 6;
+}
+
+message ListLedgersByAccountResponse {
+    repeated Ledger ledgers = 1;
+    int32 total = 2;
+}
+
+// ===============================
+// STATEMENT MESSAGES
+// ===============================
+
+message AccountStatement {
+    string account_number = 1;
+    AccountType account_type = 2;
+    repeated Ledger ledgers = 3;
+    int64 opening_balance = 4;
+    int64 closing_balance = 5;
+    int64 total_debits = 6;
+    int64 total_credits = 7;
+    google.protobuf.Timestamp period_start = 8;
+    google.protobuf.Timestamp period_end = 9;
+}
+
+message GetAccountStatementRequest {
+    string account_number = 1;
+    AccountType account_type = 2;
     google.protobuf.Timestamp from = 3;
     google.protobuf.Timestamp to = 4;
 }
 
-message Posting {
-    int64 id = 1;
-    int64 journal_id = 2;
-    int64 account_id = 3;
-    double amount = 4;
-    DrCr dr_cr = 5;
-    string currency = 6;
-    string receipt_code = 7;
-    google.protobuf.Timestamp created_at = 8;
-    string account_number = 9;
+message GetAccountStatementResponse {
+    AccountStatement statement = 1;
 }
 
-message AccountStatement {
+message GetOwnerStatementRequest {
+    OwnerType owner_type = 1;
+    string owner_id = 2;
+    AccountType account_type = 3;
+    google.protobuf.Timestamp from = 4;
+    google.protobuf.Timestamp to = 5;
+}
+
+message GetOwnerStatementResponse {
+    repeated AccountStatement statements = 1;
+}
+
+message OwnerSummary {
+    OwnerType owner_type = 1;
+    string owner_id = 2;
+    AccountType account_type = 3;
+    repeated AccountBalance account_balances = 4;
+    int64 total_balance_usd_equivalent = 5;
+}
+
+message AccountBalance {
     int64 account_id = 1;
     string account_number = 2;
-    string acount_number = 3;
-    repeated Posting postings = 4;
-    double balance = 5;
+    string currency = 3;
+    int64 balance = 4;
+    int64 available_balance = 5;
 }
 
-message JournalPostingsRequest {
-    int64 journal_id = 1;
+message GetOwnerSummaryRequest {
+    OwnerType owner_type = 1;
+    string owner_id = 2;
+    AccountType account_type = 3;
 }
 
-message DailyReportRequest {
-    google.protobuf.Timestamp date = 1;
+message GetOwnerSummaryResponse {
+    OwnerSummary summary = 1;
 }
+
+// ===============================
+// REPORT MESSAGES
+// ===============================
 
 message DailyReport {
     OwnerType owner_type = 1;
     string owner_id = 2;
     int64 account_id = 3;
     string currency = 4;
-    double total_debit = 5;
-    double total_credit = 6;
-    double balance = 7;
-    double net_change = 8;
+    int64 total_debit = 5;
+    int64 total_credit = 6;
+    int64 balance = 7;
+    int64 net_change = 8;
     google.protobuf.Timestamp date = 9;
 }
 
+message GenerateDailyReportRequest {
+    google.protobuf.Timestamp date = 1;
+    AccountType account_type = 2;
+}
+
+message GenerateDailyReportResponse {
+    repeated DailyReport reports = 1;
+}
+
+message TransactionSummary {
+    TransactionType transaction_type = 1;
+    string currency = 2;
+    int64 count = 3;
+    int64 total_amount = 4;
+    int64 min_amount = 5;
+    int64 max_amount = 6;
+    int64 avg_amount = 7;
+}
+
+message GetTransactionSummaryRequest {
+    AccountType account_type = 1;
+    google.protobuf.Timestamp from = 2;
+    google.protobuf.Timestamp to = 3;
+}
+
+message GetTransactionSummaryResponse {
+    repeated TransactionSummary summaries = 1;
+}
+
+message GetSystemHoldingsRequest {
+    AccountType account_type = 1;
+}
+
+message GetSystemHoldingsResponse {
+    map<string, int64> holdings = 1; // currency -> amount
+}
+
 // ===============================
-// SERVICE
+// FEE MESSAGES
 // ===============================
+
+message TransactionFee {
+    int64 id = 1;
+    string receipt_code = 2;
+    int64 fee_rule_id = 3;
+    FeeType fee_type = 4;
+    int64 amount = 5;
+    string currency = 6;
+    optional int64 collected_by_account_id = 7;
+    optional int64 ledger_id = 8;
+    optional string agent_external_id = 9;
+    optional string commission_rate = 10;
+    google.protobuf.Timestamp created_at = 11;
+}
+
+message CalculateFeeRequest {
+    TransactionType transaction_type = 1;
+    int64 amount = 2;
+    optional string source_currency = 3;
+    optional string target_currency = 4;
+    optional AccountType account_type = 5;
+    optional OwnerType owner_type = 6;
+}
+
+message FeeCalculation {
+    FeeType fee_type = 1;
+    int64 amount = 2;
+    string currency = 3;
+    optional string applied_rate = 4;
+    optional int64 rule_id = 5;
+    string calculated_from = 6;
+}
+
+message CalculateFeeResponse {
+    FeeCalculation calculation = 1;
+}
+
+message GetFeesByReceiptRequest {
+    string receipt_code = 1;
+}
+
+message GetFeesByReceiptResponse {
+    repeated TransactionFee fees = 1;
+}
+
+message GetAgentCommissionSummaryRequest {
+    string agent_external_id = 1;
+    google.protobuf.Timestamp from = 2;
+    google.protobuf.Timestamp to = 3;
+}
+
+message GetAgentCommissionSummaryResponse {
+    map<string, int64> commissions = 1; // currency -> total commission
+}
+
+// ===============================
+// HEALTH CHECK
+// ===============================
+
+message HealthCheckRequest {}
+
+message HealthCheckResponse {
+    string status = 1; // "healthy", "degraded", "unhealthy"
+    map<string, string> components = 2; // component -> status
+    int64 timestamp = 3;
+}
+
+// ===============================
+// BATCH OPERATIONS
+// ===============================
+
+message BatchExecuteTransactionsRequest {
+    repeated ExecuteTransactionRequest transactions = 1;
+    bool fail_on_first_error = 2;
+}
+
+message BatchExecuteTransactionsResponse {
+    repeated ExecuteTransactionResponse results = 1;
+    map<int32, string> errors = 2; // index -> error message
+}
+
+message BatchGetBalancesRequest {
+    repeated string account_numbers = 1;
+}
+
+message BatchGetBalancesResponse {
+    repeated Balance balances = 1;
+    map<int32, string> errors = 2;
+}
+
+// ===============================
+// STREAMING MESSAGES
+// ===============================
+
+message StreamTransactionEventsRequest {
+    optional OwnerType owner_type = 1;
+    optional string owner_id = 2;
+    optional AccountType account_type = 3;
+}
+
+message TransactionEvent {
+    string event_type = 1; // "transaction.completed", "transaction.failed"
+    string receipt_code = 2;
+    int64 transaction_id = 3;
+    TransactionStatus status = 4;
+    int64 amount = 5;
+    string currency = 6;
+    optional string error_message = 7;
+    google.protobuf.Timestamp timestamp = 8;
+}
+
+// ===============================
+// SERVICE DEFINITION
+// ===============================
+
 service AccountingService {
-
-    // Accounts
-    rpc CreateAccounts(CreateAccountRequest) returns (CreateAccountResponse);
-    rpc GetUserAccounts(GetAccountsRequest) returns (GetAccountsResponse);
-
-    // Transactions
-    rpc PostTransaction(CreateTransactionRequest) returns (CreateTransactionResponse);
-
-    // Statements
-    rpc GetAccountStatement(AccountStatementRequest) returns (AccountStatement);
-    rpc GetOwnerStatement(OwnerStatementRequest) returns (stream AccountStatement);
-
-    // Journal
-    rpc GetJournalPostings(JournalPostingsRequest) returns (stream Posting);
-
-    // Reports
-    rpc GenerateDailyReport(DailyReportRequest) returns (stream DailyReport);
+    // ===============================
+    // ACCOUNT MANAGEMENT
+    // ===============================
+    
+    // Create single account
+    rpc CreateAccount(CreateAccountRequest) returns (CreateAccountResponse);
+    
+    // Create multiple accounts (batch)
+    rpc CreateAccounts(CreateAccountsRequest) returns (CreateAccountsResponse);
+    
+    // Get account by ID or account number
+    rpc GetAccount(GetAccountRequest) returns (GetAccountResponse);
+    
+    // Get all accounts for an owner
+    rpc GetAccountsByOwner(GetAccountsByOwnerRequest) returns (GetAccountsByOwnerResponse);
+    
+    // Get or create user accounts (lazy initialization)
+    rpc GetOrCreateUserAccounts(GetOrCreateUserAccountsRequest) returns (GetOrCreateUserAccountsResponse);
+    
+    // Update account settings
+    rpc UpdateAccount(UpdateAccountRequest) returns (UpdateAccountResponse);
+    
+    // Get account balance
+    rpc GetBalance(GetBalanceRequest) returns (GetBalanceResponse);
+    
+    // Batch get balances (optimized)
+    rpc BatchGetBalances(BatchGetBalancesRequest) returns (BatchGetBalancesResponse);
+    
+    // ===============================
+    // TRANSACTION EXECUTION
+    // ===============================
+    
+    // Execute transaction asynchronously (returns immediately)
+    rpc ExecuteTransaction(ExecuteTransactionRequest) returns (ExecuteTransactionResponse);
+    
+    // Execute transaction synchronously (waits for completion)
+    rpc ExecuteTransactionSync(ExecuteTransactionSyncRequest) returns (ExecuteTransactionSyncResponse);
+    
+    // Batch execute transactions (high throughput)
+    rpc BatchExecuteTransactions(BatchExecuteTransactionsRequest) returns (BatchExecuteTransactionsResponse);
+    
+    // Get transaction status
+    rpc GetTransactionStatus(GetTransactionStatusRequest) returns (GetTransactionStatusResponse);
+    
+    // Get full transaction details by receipt
+    rpc GetTransactionByReceipt(GetTransactionByReceiptRequest) returns (GetTransactionByReceiptResponse);
+    
+    // ===============================
+    // JOURNAL & LEDGER QUERIES
+    // ===============================
+    
+    // Get journal by ID
+    rpc GetJournal(GetJournalRequest) returns (GetJournalResponse);
+    
+    // List journals with filters
+    rpc ListJournals(ListJournalsRequest) returns (ListJournalsResponse);
+    
+    // List ledgers for a journal
+    rpc ListLedgersByJournal(ListLedgersByJournalRequest) returns (ListLedgersByJournalResponse);
+    
+    // List ledgers for an account
+    rpc ListLedgersByAccount(ListLedgersByAccountRequest) returns (ListLedgersByAccountResponse);
+    
+    // ===============================
+    // STATEMENTS & REPORTING
+    // ===============================
+    
+    // Get account statement for period
+    rpc GetAccountStatement(GetAccountStatementRequest) returns (GetAccountStatementResponse);
+    
+    // Get all statements for an owner
+    rpc GetOwnerStatement(GetOwnerStatementRequest) returns (GetOwnerStatementResponse);
+    
+    // Get owner summary (consolidated balance)
+    rpc GetOwnerSummary(GetOwnerSummaryRequest) returns (GetOwnerSummaryResponse);
+    
+    // Generate daily report
+    rpc GenerateDailyReport(GenerateDailyReportRequest) returns (GenerateDailyReportResponse);
+    
+    // Get transaction summary (statistics)
+    rpc GetTransactionSummary(GetTransactionSummaryRequest) returns (GetTransactionSummaryResponse);
+    
+    // Get system holdings by currency
+    rpc GetSystemHoldings(GetSystemHoldingsRequest) returns (GetSystemHoldingsResponse);
+    
+    // ===============================
+    // FEE MANAGEMENT
+    // ===============================
+    
+    // Calculate fee for a transaction (preview)
+    rpc CalculateFee(CalculateFeeRequest) returns (CalculateFeeResponse);
+    
+    // Get fees by receipt
+    rpc GetFeesByReceipt(GetFeesByReceiptRequest) returns (GetFeesByReceiptResponse);
+    
+    // Get agent commission summary
+    rpc GetAgentCommissionSummary(GetAgentCommissionSummaryRequest) returns (GetAgentCommissionSummaryResponse);
+    
+    // ===============================
+    // STREAMING (Real-time)
+    // ===============================
+    
+    // Stream transaction events (for real-time updates)
+    rpc StreamTransactionEvents(StreamTransactionEventsRequest) returns (stream TransactionEvent);
+    
+    // ===============================
+    // HEALTH & MONITORING
+    // ===============================
+    
+    // Health check
+    rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
 }

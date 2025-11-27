@@ -61,3 +61,15 @@ func nullableStr(s string) *string {
 	}
 	return &s
 }
+func strOrDefault(s *string, def string) string {
+	if s == nil {
+		return def
+	}
+	return *s
+}
+func ptrStrToStr(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}

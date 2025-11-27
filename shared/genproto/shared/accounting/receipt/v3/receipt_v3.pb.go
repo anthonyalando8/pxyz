@@ -37,6 +37,7 @@ const (
 	TransactionType_TRANSACTION_TYPE_REVERSAL     TransactionType = 8
 	TransactionType_TRANSACTION_TYPE_ADJUSTMENT   TransactionType = 9
 	TransactionType_TRANSACTION_TYPE_DEMO_FUNDING TransactionType = 10
+	TransactionType_TRANSACTION_TYPE_REFUND       TransactionType = 11
 )
 
 // Enum value maps for TransactionType.
@@ -53,6 +54,7 @@ var (
 		8:  "TRANSACTION_TYPE_REVERSAL",
 		9:  "TRANSACTION_TYPE_ADJUSTMENT",
 		10: "TRANSACTION_TYPE_DEMO_FUNDING",
+		11: "TRANSACTION_TYPE_REFUND",
 	}
 	TransactionType_value = map[string]int32{
 		"TRANSACTION_TYPE_UNSPECIFIED":  0,
@@ -66,6 +68,7 @@ var (
 		"TRANSACTION_TYPE_REVERSAL":     8,
 		"TRANSACTION_TYPE_ADJUSTMENT":   9,
 		"TRANSACTION_TYPE_DEMO_FUNDING": 10,
+		"TRANSACTION_TYPE_REFUND":       11,
 	}
 )
 
@@ -368,6 +371,7 @@ type PartyInfo struct {
 	Status        TransactionStatus      `protobuf:"varint,4,opt,name=status,proto3,enum=accounting.receipt.v3.TransactionStatus" json:"status,omitempty"`                // pending, completed, failed
 	ExternalId    string                 `protobuf:"bytes,5,opt,name=external_id,json=externalId,proto3" json:"external_id,omitempty"`                                    // External user/agent ID from auth service
 	IsCreditor    bool                   `protobuf:"varint,6,opt,name=is_creditor,json=isCreditor,proto3" json:"is_creditor,omitempty"`                                   // true=creditor, false=debitor
+	AccountNumber string                 `protobuf:"bytes,7,opt,name=account_number,json=accountNumber,proto3" json:"account_number,omitempty"`                           // Account number (for reference)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -442,6 +446,13 @@ func (x *PartyInfo) GetIsCreditor() bool {
 		return x.IsCreditor
 	}
 	return false
+}
+
+func (x *PartyInfo) GetAccountNumber() string {
+	if x != nil {
+		return x.AccountNumber
+	}
+	return ""
 }
 
 // Receipt (optimized for high performance)
@@ -2202,7 +2213,7 @@ var File_proto_shared_accounting_receipt_v3_proto protoreflect.FileDescriptor
 
 const file_proto_shared_accounting_receipt_v3_proto_rawDesc = "" +
 	"\n" +
-	"(proto/shared/accounting/receipt_v3.proto\x12\x15accounting.receipt.v3\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1cgoogle/protobuf/struct.proto\"\x8c\x02\n" +
+	"(proto/shared/accounting/receipt_v3.proto\x12\x15accounting.receipt.v3\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1cgoogle/protobuf/struct.proto\"\xb3\x02\n" +
 	"\tPartyInfo\x12\x1d\n" +
 	"\n" +
 	"account_id\x18\x01 \x01(\x03R\taccountId\x12\x1b\n" +
@@ -2213,7 +2224,8 @@ const file_proto_shared_accounting_receipt_v3_proto_rawDesc = "" +
 	"\vexternal_id\x18\x05 \x01(\tR\n" +
 	"externalId\x12\x1f\n" +
 	"\vis_creditor\x18\x06 \x01(\bR\n" +
-	"isCreditor\"\xcf\n" +
+	"isCreditor\x12%\n" +
+	"\x0eaccount_number\x18\a \x01(\tR\raccountNumber\"\xcf\n" +
 	"\n" +
 	"\aReceipt\x12\x1b\n" +
 	"\tlookup_id\x18\x01 \x01(\x03R\blookupId\x12\x12\n" +
@@ -2391,7 +2403,7 @@ const file_proto_shared_accounting_receipt_v3_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01\x1aC\n" +
 	"\x15ReceiptsByStatusEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01*\xec\x02\n" +
+	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01*\x89\x03\n" +
 	"\x0fTransactionType\x12 \n" +
 	"\x1cTRANSACTION_TYPE_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18TRANSACTION_TYPE_DEPOSIT\x10\x01\x12\x1f\n" +
@@ -2404,7 +2416,8 @@ const file_proto_shared_accounting_receipt_v3_proto_rawDesc = "" +
 	"\x19TRANSACTION_TYPE_REVERSAL\x10\b\x12\x1f\n" +
 	"\x1bTRANSACTION_TYPE_ADJUSTMENT\x10\t\x12!\n" +
 	"\x1dTRANSACTION_TYPE_DEMO_FUNDING\x10\n" +
-	"*\x9e\x02\n" +
+	"\x12\x1b\n" +
+	"\x17TRANSACTION_TYPE_REFUND\x10\v*\x9e\x02\n" +
 	"\x11TransactionStatus\x12\"\n" +
 	"\x1eTRANSACTION_STATUS_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aTRANSACTION_STATUS_PENDING\x10\x01\x12!\n" +

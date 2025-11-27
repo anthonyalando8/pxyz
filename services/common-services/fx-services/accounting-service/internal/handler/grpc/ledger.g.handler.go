@@ -3,343 +3,885 @@ package hgrpc
 import (
 	"context"
 	"errors"
-	"strings"
+	//"fmt"
 	"time"
-
-	"github.com/redis/go-redis/v9"
 
 	"accounting-service/internal/domain"
 	"accounting-service/internal/usecase"
-	accountingpb "x/shared/genproto/shared/accounting/accountingpb"
+	accountingpb "x/shared/genproto/shared/accounting/v1"
+	xerrors "x/shared/utils/errors"
 
+	"github.com/redis/go-redis/v9"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-type AccountingGRPCHandler struct {
+type AccountingHandler struct {
 	accountingpb.UnimplementedAccountingServiceServer
-	accountUC   *usecase.AccountUsecase
-	ledgerUC    *usecase.LedgerUsecase
-	statementUC *usecase.StatementUsecase
+
+	// Usecases
+	accountUC    *usecase.AccountUsecase
+	txUC         *usecase.TransactionUsecase
+	statementUC  *usecase.StatementUsecase
+	journalUC    *usecase.JournalUsecase
+	ledgerUC     *usecase.LedgerUsecase
+	feeUC        *usecase.TransactionFeeUsecase
+	feeRuleUC    *usecase.TransactionFeeRuleUsecase
+
+	// Infrastructure
 	redisClient *redis.Client
 }
 
-// NewAccountingGRPCHandler initializes the handler with optional Redis client
-func NewAccountingGRPCHandler(
+func NewAccountingHandler(
 	accountUC *usecase.AccountUsecase,
-	ledgerUC *usecase.LedgerUsecase,
+	txUC *usecase.TransactionUsecase,
 	statementUC *usecase.StatementUsecase,
+	journalUC *usecase.JournalUsecase,
+	ledgerUC *usecase.LedgerUsecase,
+	feeUC *usecase.TransactionFeeUsecase,
+	feeRuleUC *usecase.TransactionFeeRuleUsecase,
 	redisClient *redis.Client,
-) *AccountingGRPCHandler {
-	return &AccountingGRPCHandler{
+) *AccountingHandler {
+	return &AccountingHandler{
 		accountUC:   accountUC,
-		ledgerUC:    ledgerUC,
+		txUC:        txUC,
 		statementUC: statementUC,
+		journalUC:   journalUC,
+		ledgerUC:    ledgerUC,
+		feeUC:       feeUC,
+		feeRuleUC:   feeRuleUC,
 		redisClient: redisClient,
 	}
 }
 
-
 // ===============================
-// Accounts
+// ACCOUNT MANAGEMENT
 // ===============================
-func (h *AccountingGRPCHandler) CreateAccounts(ctx context.Context, req *accountingpb.CreateAccountRequest) (*accountingpb.CreateAccountResponse, error) {
-	// Start a transaction
-	tx, err := h.accountUC.BeginTx(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback(ctx)
 
-	// Convert proto accounts to domain accounts
-	domainAccounts := make([]*domain.Account, len(req.Accounts))
-	for i, acc := range req.Accounts {
-		domainAccounts[i] = &domain.Account{
-			OwnerType:   strings.ToLower(acc.OwnerType.String()),
-			OwnerID:     acc.OwnerId,
-			Currency:    acc.Currency,
-			Purpose:     acc.Purpose,
-			AccountType: acc.AccountType,
-			IsActive:    acc.IsActive,
-		}
-	}
-
-	// Call usecase batch creation
-	errMap := h.accountUC.CreateAccounts(ctx, domainAccounts, tx)
-
-	// Prepare response
-	resp := &accountingpb.CreateAccountResponse{
-		Accounts: []*accountingpb.Account{},
-		Errors:   map[int32]string{},
-	}
-
-	for i, a := range domainAccounts {
-		if err, exists := errMap[i]; exists {
-			resp.Errors[int32(i)] = err.Error()
-		} else {
-			resp.Accounts = append(resp.Accounts, &accountingpb.Account{
-				Id:          a.ID,
-				OwnerType:   req.Accounts[i].OwnerType,
-				OwnerId:     a.OwnerID,
-				Currency:    a.Currency,
-				Purpose:     a.Purpose,
-				AccountType: a.AccountType,
-				IsActive:    a.IsActive,
-			})
-		}
-	}
-
-	// Commit transaction
-	if err := tx.Commit(ctx); err != nil {
-		return nil, err
-	}
-
-	return resp, nil
-}
-
-
-func (h *AccountingGRPCHandler) GetUserAccounts(ctx context.Context, req *accountingpb.GetAccountsRequest) (*accountingpb.GetAccountsResponse, error) {
-	tx, err := h.accountUC.BeginTx(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback(ctx)
-	accounts, err := h.accountUC.GetByOwner(ctx, strings.ToLower(req.OwnerType.String()), req.OwnerId, tx)
-	if err != nil {
-		return nil, err
-	}
-
-	resp := &accountingpb.GetAccountsResponse{
-		Accounts: []*accountingpb.Account{},
-	}
-
-	for _, a := range accounts {
-		resp.Accounts = append(resp.Accounts, &accountingpb.Account{
-			Id:          a.ID,
-			AccountNumber: a.AccountNumber,
-			OwnerType:   req.OwnerType,
-			OwnerId:     a.OwnerID,
-			Currency:    a.Currency,
-			Purpose:     a.Purpose,
-			AccountType: a.AccountType,
-			IsActive:    a.IsActive,
-		})
-	}
-	// Commit transaction
-	if err := tx.Commit(ctx); err != nil {
-		return nil, err
-	}
-
-	return resp, nil
-}
-
-// ===============================
-// Transactions
-// ===============================
-func (h *AccountingGRPCHandler) PostTransaction(
+func (h *AccountingHandler) CreateAccount(
 	ctx context.Context,
-	req *accountingpb.CreateTransactionRequest,
-) (*accountingpb.CreateTransactionResponse, error) {
-	// Map proto → domain journal
-	journal := &domain.Journal{
-		ExternalRef:   req.ExternalRef,
-		Description:   req.Description,
-		CreatedBy:     req.CreatedByUser,
-		CreatedByType: strings.ToLower(req.CreatedByType.String()),
-		CreatedAt:     time.Now(),
-	}
-
-	// Convert proto entries to domain postings
-	var postings []*domain.Posting
-	var drAmount float64
-	var drCurrency string
-
-	for _, e := range req.Entries {
-		posting := &domain.Posting{
-			AccountID: e.AccountId,
-			DrCr:      e.DrCr.String(),
-			Amount:    e.Amount,
-			Currency:  e.Currency,
-			AccountData: &domain.Account{
-				AccountNumber: e.AccountNumber,
-			},
-		}
-
-		// Capture DR posting details for transactionAmount and currency
-		if posting.DrCr == "DR" {
-			drAmount = posting.Amount
-			drCurrency = posting.Currency
-		}
-
-		postings = append(postings, posting)
-	}
-
-	if drAmount == 0 || drCurrency == "" {
-		return nil, errors.New("no DR posting found to determine transaction amount and currency")
-	}
-
-	// Delegate transaction creation to the usecase
-	ledger, err := h.ledgerUC.CreateTransactionMulti(
-		ctx,
-		req.TransactionType,
-		drAmount,
-		drCurrency,
-		journal,
-		postings,
-		nil, // no existing DB transaction
-	)
+	req *accountingpb.CreateAccountRequest,
+) (*accountingpb.CreateAccountResponse, error) {
+	// Begin transaction
+	tx, err := h.accountUC.BeginTx(ctx)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.Internal, "failed to begin transaction")
+	}
+	defer tx.Rollback(ctx)
+
+	// Convert and create
+	domainReq := convertCreateAccountRequestToDomain(req)
+	account, err := h.accountUC.CreateAccount(ctx, domainReq, tx)
+	if err != nil {
+		return nil, handleUsecaseError(err)
 	}
 
-	return &accountingpb.CreateTransactionResponse{
-		ExternalRef: ledger.Journal.ExternalRef,
+	// Commit
+	if err := tx.Commit(ctx); err != nil {
+		return nil, status.Error(codes.Internal, "failed to commit transaction")
+	}
+
+	return &accountingpb.CreateAccountResponse{
+		Account: convertAccountToProto(account),
+	}, nil
+}
+
+func (h *AccountingHandler) CreateAccounts(
+	ctx context.Context,
+	req *accountingpb.CreateAccountsRequest,
+) (*accountingpb.CreateAccountsResponse, error) {
+	if len(req.Accounts) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "at least one account required")
+	}
+
+	// Begin transaction
+	tx, err := h.accountUC.BeginTx(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to begin transaction")
+	}
+	defer tx.Rollback(ctx)
+
+	// Convert requests
+	createRequests := make([]*domain.CreateAccountRequest, len(req.Accounts))
+	for i, protoReq := range req.Accounts {
+		createRequests[i] = convertCreateAccountRequestToDomain(protoReq)
+	}
+
+	// Create accounts (batch) - returns only error map
+	errs := h.accountUC.CreateAccounts(ctx, createRequests, tx)
+
+	// Determine which accounts succeeded
+	successfulAccounts := make([]*domain.Account, 0)
+	for i, createReq := range createRequests {
+		if _, hasError := errs[i]; !hasError {
+			// Account was created successfully
+			// You may want to fetch it back or convert from createReq
+			account := &domain.Account{
+				OwnerType:             createReq.OwnerType,
+				OwnerID:               createReq.OwnerID,
+				Currency:              createReq.Currency,
+				Purpose:               createReq.Purpose,
+				AccountType:           createReq.AccountType,
+				// IsActive:              createReq.IsActive,
+				// IsLocked:              createReq.IsLocked,
+				OverdraftLimit:        createReq.OverdraftLimit,
+				ParentAgentExternalID: createReq.ParentAgentExternalID,
+				CommissionRate:        createReq.CommissionRate,
+				//AccountNumber:         createReq.AccountNumber,
+			}
+			successfulAccounts = append(successfulAccounts, account)
+		}
+	}
+
+	// Commit if at least one succeeded
+	if len(successfulAccounts) > 0 {
+		if commitErr := tx.Commit(ctx); commitErr != nil {
+			return nil, status.Error(codes.Internal, "failed to commit transaction")
+		}
+	} else {
+		// All failed, rollback
+		return nil, status.Error(codes.Internal, "all accounts failed to create")
+	}
+
+	// Build response
+	response := &accountingpb.CreateAccountsResponse{
+		Accounts: convertAccountsToProto(successfulAccounts),
+		Errors:   make(map[int32]string),
+	}
+
+	for idx, err := range errs {
+		response.Errors[int32(idx)] = err.Error()
+	}
+
+	return response, nil
+}
+
+func (h *AccountingHandler) GetAccount(
+	ctx context.Context,
+	req *accountingpb.GetAccountRequest,
+) (*accountingpb.GetAccountResponse, error) {
+	var account *domain.Account
+	var err error
+
+	switch id := req.Identifier.(type) {
+	case *accountingpb.GetAccountRequest_Id:
+		account, err = h.accountUC.GetByID(ctx, id.Id)
+	case *accountingpb.GetAccountRequest_AccountNumber:
+		account, err = h.accountUC.GetByAccountNumber(ctx, id.AccountNumber)
+	default:
+		return nil, status.Error(codes.InvalidArgument, "identifier is required")
+	}
+
+	if err != nil {
+		return nil, handleUsecaseError(err)
+	}
+
+	return &accountingpb.GetAccountResponse{
+		Account: convertAccountToProto(account),
+	}, nil
+}
+
+func (h *AccountingHandler) GetAccountsByOwner(
+	ctx context.Context,
+	req *accountingpb.GetAccountsByOwnerRequest,
+) (*accountingpb.GetAccountsByOwnerResponse, error) {
+	if req.OwnerId == "" {
+		return nil, status.Error(codes.InvalidArgument, "owner_id is required")
+	}
+
+	ownerType := convertOwnerTypeToDomain(req.OwnerType)
+	accountType := convertAccountTypeToDomain(req.AccountType)
+
+	accounts, err := h.accountUC.GetByOwner(ctx, ownerType, req.OwnerId, accountType)
+	if err != nil {
+		return nil, handleUsecaseError(err)
+	}
+
+	return &accountingpb.GetAccountsByOwnerResponse{
+		Accounts: convertAccountsToProto(accounts),
+	}, nil
+}
+
+func (h *AccountingHandler) GetOrCreateUserAccounts(
+	ctx context.Context,
+	req *accountingpb.GetOrCreateUserAccountsRequest,
+) (*accountingpb.GetOrCreateUserAccountsResponse, error) {
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+
+	accountType := convertAccountTypeToDomain(req.AccountType)
+	ownerType := convertOwnerTypeToDomain(req.OwnerType)
+
+	// Begin transaction
+	tx, err := h.accountUC.BeginTx(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to begin transaction")
+	}
+	defer tx.Rollback(ctx)
+
+	accounts, err := h.accountUC.GetOrCreateUserAccounts(ctx, ownerType, req.UserId, accountType, tx)
+	if err != nil {
+		return nil, handleUsecaseError(err)
+	}
+
+	// Commit
+	if err := tx.Commit(ctx); err != nil {
+		return nil, status.Error(codes.Internal, "failed to commit transaction")
+	}
+
+	return &accountingpb.GetOrCreateUserAccountsResponse{
+		Accounts: convertAccountsToProto(accounts),
+	}, nil
+}
+
+func (h *AccountingHandler) UpdateAccount(
+	ctx context.Context,
+	req *accountingpb.UpdateAccountRequest,
+) (*accountingpb.UpdateAccountResponse, error) {
+	// Get existing account
+	account, err := h.accountUC.GetByID(ctx, req.Id)
+	if err != nil {
+		return nil, handleUsecaseError(err)
+	}
+
+	// Update fields
+	if req.IsActive != nil {
+		account.IsActive = *req.IsActive
+	}
+	if req.IsLocked != nil {
+		account.IsLocked = *req.IsLocked
+	}
+	if req.OverdraftLimit != nil {
+		account.OverdraftLimit = *req.OverdraftLimit
+	}
+
+	// Begin transaction
+	tx, err := h.accountUC.BeginTx(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to begin transaction")
+	}
+	defer tx.Rollback(ctx)
+
+	// Update
+	if err := h.accountUC.UpdateAccount(ctx, account, tx); err != nil {
+		return nil, handleUsecaseError(err)
+	}
+
+	// Commit
+	if err := tx.Commit(ctx); err != nil {
+		return nil, status.Error(codes.Internal, "failed to commit transaction")
+	}
+
+	return &accountingpb.UpdateAccountResponse{
+		Account: convertAccountToProto(account),
+	}, nil
+}
+
+func (h *AccountingHandler) GetBalance(
+	ctx context.Context,
+	req *accountingpb.GetBalanceRequest,
+) (*accountingpb.GetBalanceResponse, error) {
+	var balance *domain.Balance
+	var account *domain.Account
+	var err error
+
+	switch id := req.Identifier.(type) {
+	case *accountingpb.GetBalanceRequest_AccountId:
+		balance, err = h.statementUC.GetCachedBalance(ctx, id.AccountId)
+		if err == nil && balance != nil {
+			account, _ = h.accountUC.GetByID(ctx, id.AccountId)
+		}
+	case *accountingpb.GetBalanceRequest_AccountNumber:
+		account, err = h.accountUC.GetByAccountNumber(ctx, id.AccountNumber)
+		if err == nil && account != nil {
+			balance, err = h.statementUC.GetCachedBalance(ctx, account.ID)
+		}
+	default:
+		return nil, status.Error(codes.InvalidArgument, "identifier is required")
+	}
+
+	if err != nil {
+		return nil, handleUsecaseError(err)
+	}
+
+	return &accountingpb.GetBalanceResponse{
+		Balance: convertBalanceToProto(balance, account),
+	}, nil
+}
+
+func (h *AccountingHandler) BatchGetBalances(
+	ctx context.Context,
+	req *accountingpb.BatchGetBalancesRequest,
+) (*accountingpb.BatchGetBalancesResponse, error) {
+	if len(req.AccountNumbers) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "at least one account_number required")
+	}
+
+	response := &accountingpb.BatchGetBalancesResponse{
+		Balances: make([]*accountingpb.Balance, 0, len(req.AccountNumbers)),
+		Errors:   make(map[int32]string),
+	}
+
+	for i, accountNumber := range req.AccountNumbers {
+		account, err := h.accountUC.GetByAccountNumber(ctx, accountNumber)
+		if err != nil {
+			response.Errors[int32(i)] = err.Error()
+			continue
+		}
+
+		balance, err := h.statementUC.GetCachedBalance(ctx, account.ID)
+		if err != nil {
+			response.Errors[int32(i)] = err.Error()
+			continue
+		}
+
+		response.Balances = append(response.Balances, convertBalanceToProto(balance, account))
+	}
+
+	return response, nil
+}
+
+// ===============================
+// TRANSACTION EXECUTION
+// ===============================
+
+func (h *AccountingHandler) ExecuteTransaction(
+	ctx context.Context,
+	req *accountingpb.ExecuteTransactionRequest,
+) (*accountingpb.ExecuteTransactionResponse, error) {
+	// Validate
+	if len(req.Entries) < 2 {
+		return nil, status.Error(codes.InvalidArgument, "at least 2 entries required")
+	}
+
+	// Convert
+	domainReq := convertExecuteTransactionRequestToDomain(req)
+
+	// Execute (async)
+	result, err := h.txUC.ExecuteTransaction(ctx, domainReq)
+	if err != nil {
+		return nil, handleUsecaseError(err)
+	}
+
+	return convertTransactionResultToProto(result), nil
+}
+
+func (h *AccountingHandler) ExecuteTransactionSync(
+	ctx context.Context,
+	req *accountingpb.ExecuteTransactionSyncRequest,
+) (*accountingpb.ExecuteTransactionSyncResponse, error) {
+	// Validate
+	if len(req.Entries) < 2 {
+		return nil, status.Error(codes.InvalidArgument, "at least 2 entries required")
+	}
+
+	// Convert (reuse ExecuteTransactionRequest conversion)
+	domainReq := &domain.TransactionRequest{
+		IdempotencyKey:      req.IdempotencyKey,
+		TransactionType:     convertTransactionTypeToDomain(req.TransactionType),
+		AccountType:         convertAccountTypeToDomain(req.AccountType),
+		ExternalRef:         req.ExternalRef,
+		Description:         req.Description,
+		CreatedByExternalID: &req.CreatedByExternalId,
+		CreatedByType:       ptrOwnerType(convertOwnerTypeToDomain(req.CreatedByType)),
+		IPAddress:           req.IpAddress,
+		UserAgent:           req.UserAgent,
+		GenerateReceipt:     req.GenerateReceipt,
+	}
+
+	// Convert entries
+	domainReq.Entries = make([]*domain.LedgerEntryRequest, len(req.Entries))
+	for i, e := range req.Entries {
+		domainReq.Entries[i] = convertLedgerEntryToDomain(e)
+	}
+
+	// Execute (sync)
+	result, err := h.txUC.ExecuteTransactionSync(ctx, domainReq)
+	if err != nil {
+		return nil, handleUsecaseError(err)
+	}
+
+	return &accountingpb.ExecuteTransactionSyncResponse{
+		ReceiptCode:      result.ReceiptCode,
+		TransactionId:    result.TransactionID,
+		Status:           convertTransactionStatusToProto(result.Status),
+		Amount:           result.Amount,
+		Currency:         result.Currency,
+		Fee:              result.Fee,
+		ProcessingTimeMs: result.ProcessingTime.Milliseconds(),
+		CreatedAt:        timestamppb.New(result.CreatedAt),
+	}, nil
+}
+
+func (h *AccountingHandler) BatchExecuteTransactions(
+	ctx context.Context,
+	req *accountingpb.BatchExecuteTransactionsRequest,
+) (*accountingpb.BatchExecuteTransactionsResponse, error) {
+	if len(req.Transactions) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "at least one transaction required")
+	}
+
+	response := &accountingpb.BatchExecuteTransactionsResponse{
+		Results: make([]*accountingpb.ExecuteTransactionResponse, 0, len(req.Transactions)),
+		Errors:  make(map[int32]string),
+	}
+
+	for i, txReq := range req.Transactions {
+		domainReq := convertExecuteTransactionRequestToDomain(txReq)
+		
+		result, err := h.txUC.ExecuteTransaction(ctx, domainReq)
+		if err != nil {
+			response.Errors[int32(i)] = err.Error()
+			if req.FailOnFirstError {
+				break
+			}
+			continue
+		}
+
+		response.Results = append(response.Results, convertTransactionResultToProto(result))
+	}
+
+	return response, nil
+}
+
+func (h *AccountingHandler) GetTransactionStatus(
+	ctx context.Context,
+	req *accountingpb.GetTransactionStatusRequest,
+) (*accountingpb.GetTransactionStatusResponse, error) {
+	if req.ReceiptCode == "" {
+		return nil, status.Error(codes.InvalidArgument, "receipt_code is required")
+	}
+
+	status, err := h.txUC.GetTransactionStatus(ctx, req.ReceiptCode)
+	if err != nil {
+		return nil, handleUsecaseError(err)
+	}
+
+	response := &accountingpb.GetTransactionStatusResponse{
+		ReceiptCode: status.ReceiptCode,
+		Status:      convertTransactionStatusToProto(status.Status),
+		StartedAt:   timestamppb.New(status.StartedAt),
+	}
+
+	if status.ErrorMessage != "" {
+		response.ErrorMessage = &status.ErrorMessage
+	}
+
+	if !status.UpdatedAt.IsZero() {
+		response.CompletedAt = timestamppb.New(status.UpdatedAt)
+	}
+
+	return response, nil
+}
+
+func (h *AccountingHandler) GetTransactionByReceipt(
+	ctx context.Context,
+	req *accountingpb.GetTransactionByReceiptRequest,
+) (*accountingpb.GetTransactionByReceiptResponse, error) {
+	if req.ReceiptCode == "" {
+		return nil, status.Error(codes.InvalidArgument, "receipt_code is required")
+	}
+
+	// Get journals by receipt
+	journals, err := h.journalUC.GetByExternalRef(ctx, req.ReceiptCode)
+	if err != nil || len(journals) == 0 {
+		return nil, handleUsecaseError(err)
+	}
+
+	journal := journals[0] // Take first journal
+
+	// Get ledgers
+	ledgers, err := h.ledgerUC.ListByJournal(ctx, journal.ID)
+	if err != nil {
+		return nil, handleUsecaseError(err)
+	}
+
+	// Get fees
+	fees, err := h.feeUC.GetByReceipt(ctx, req.ReceiptCode)
+	if err != nil {
+		fees = []*domain.TransactionFee{} // Empty on error
+	}
+
+	return &accountingpb.GetTransactionByReceiptResponse{
+		Journal: convertJournalToProto(journal),
+		Ledgers: convertLedgersToProto(ledgers),
+		Fees:    convertFeesToProto(fees),
 	}, nil
 }
 
 // ===============================
-// Statements
+// JOURNAL & LEDGER QUERIES
 // ===============================
-func (h *AccountingGRPCHandler) GetAccountStatement(
-    ctx context.Context,
-    req *accountingpb.AccountStatementRequest,
-) (*accountingpb.AccountStatement, error) {
 
-    stmt, err := h.statementUC.GetAccountStatement(ctx, req.AccountNumber, req.From.AsTime(), req.To.AsTime())
-    if err != nil {
-        return nil, err
-    }
+func (h *AccountingHandler) GetJournal(
+	ctx context.Context,
+	req *accountingpb.GetJournalRequest,
+) (*accountingpb.GetJournalResponse, error) {
+	journal, err := h.journalUC.GetByID(ctx, req.Id)
+	if err != nil {
+		return nil, handleUsecaseError(err)
+	}
 
-    pbs := make([]*accountingpb.Posting, 0, len(stmt.Postings))
-    for _, p := range stmt.Postings {
-        receiptCode := string("")
-        if p.ReceiptCode != nil {
-            receiptCode = *p.ReceiptCode
-        }
-
-        pbs = append(pbs, &accountingpb.Posting{
-            Id:        p.ID,
-            JournalId: p.JournalID,
-            AccountId: p.AccountID,
-            Amount:    p.Amount,
-            DrCr:      accountingpb.DrCr(accountingpb.DrCr_value[p.DrCr]),
-            Currency:  p.Currency,
-            CreatedAt: timestamppb.New(p.CreatedAt),
-            ReceiptCode: receiptCode,
-        })
-    }
-
-    return &accountingpb.AccountStatement{
-        AccountId: stmt.AccountID,
-		AccountNumber: stmt.AccountNumber,
-        Postings:  pbs,
-        Balance:   stmt.Balance,
-    }, nil
+	return &accountingpb.GetJournalResponse{
+		Journal: convertJournalToProto(journal),
+	}, nil
 }
 
+func (h *AccountingHandler) ListJournals(
+	ctx context.Context,
+	req *accountingpb.ListJournalsRequest,
+) (*accountingpb.ListJournalsResponse, error) {
+	filter := &domain.JournalFilter{
+		TransactionType: convertOptionalTransactionTypeToDomain(req.TransactionType),
+		AccountType:     convertOptionalAccountTypeToDomain(req.AccountType),
+		ExternalRef:     req.ExternalRef,
+		CreatedByID:     req.CreatedByExternalId,
+		StartDate:       convertOptionalTimestamp(req.From),
+		EndDate:         convertOptionalTimestamp(req.To),
+		Limit:           int(req.Limit),
+		Offset:          int(req.Offset),
+	}
 
-
-func (h *AccountingGRPCHandler) GetOwnerStatement(req *accountingpb.OwnerStatementRequest, stream accountingpb.AccountingService_GetOwnerStatementServer) error {
-	ctx := stream.Context()
-	tx, err := h.statementUC.BeginTx(ctx)
+	journals, total, err := h.journalUC.List(ctx, filter)
 	if err != nil {
-		return err
+		return nil, handleUsecaseError(err)
 	}
-	defer tx.Rollback(ctx)
-	stmts, err := h.statementUC.GetOwnerStatement(ctx, strings.ToLower(req.OwnerType.String()), req.OwnerId, req.From.AsTime(), req.To.AsTime(), h.accountUC, tx)
+
+	return &accountingpb.ListJournalsResponse{
+		Journals: convertJournalsToProto(journals),
+		Total:    int32(total),
+	}, nil
+}
+
+func (h *AccountingHandler) ListLedgersByJournal(
+	ctx context.Context,
+	req *accountingpb.ListLedgersByJournalRequest,
+) (*accountingpb.ListLedgersByJournalResponse, error) {
+	ledgers, err := h.ledgerUC.ListByJournal(ctx, req.JournalId)
 	if err != nil {
-		return err
+		return nil, handleUsecaseError(err)
 	}
 
-	for _, stmt := range stmts {
-		pbs := []*accountingpb.Posting{}
-		for _, p := range stmt.Postings {
-			pbs = append(pbs, &accountingpb.Posting{
-				Id:        p.ID,
-				JournalId: p.JournalID,
-				AccountId: p.AccountID,
-				Amount:    p.Amount,
-				DrCr:      accountingpb.DrCr(accountingpb.DrCr_value[p.DrCr]),
-				Currency:  p.Currency,
-				ReceiptCode: func() string {
-					if p.ReceiptCode != nil {
-						return *p.ReceiptCode
-					}
-					return ""
-				}(),
-				CreatedAt: timestamppb.New(p.CreatedAt),
-			})
-		}
+	return &accountingpb.ListLedgersByJournalResponse{
+		Ledgers: convertLedgersToProto(ledgers),
+	}, nil
+}
 
-		if err := stream.Send(&accountingpb.AccountStatement{
-			AccountId: stmt.AccountID,
-			AccountNumber: stmt.AccountNumber,
-			Postings:  pbs,
-			Balance:   stmt.Balance,
-		}); err != nil {
-			return err
-		}
+func (h *AccountingHandler) ListLedgersByAccount(
+	ctx context.Context,
+	req *accountingpb.ListLedgersByAccountRequest,
+) (*accountingpb.ListLedgersByAccountResponse, error) {
+	if req.AccountNumber == "" {
+		return nil, status.Error(codes.InvalidArgument, "account_number is required")
 	}
-	// Commit transaction
-	if err := tx.Commit(ctx); err != nil {
-		return err
+
+	accountType := convertAccountTypeToDomain(req.AccountType)
+	from := convertOptionalTimestamp(req.From)
+	to := convertOptionalTimestamp(req.To)
+	limit := int(req.Limit)
+	offset := int(req.Offset)
+
+	ledgers, total, err := h.ledgerUC.ListByAccount(ctx, req.AccountNumber, accountType, from, to, limit, offset)
+	if err != nil {
+		return nil, handleUsecaseError(err)
 	}
-	return nil
+
+	return &accountingpb.ListLedgersByAccountResponse{
+		Ledgers: convertLedgersToProto(ledgers),
+		Total:   int32(total),
+	}, nil
 }
 
 // ===============================
-// Journal
+// STATEMENTS & REPORTING
 // ===============================
-func (h *AccountingGRPCHandler) GetJournalPostings(req *accountingpb.JournalPostingsRequest, stream accountingpb.AccountingService_GetJournalPostingsServer) error {
-	postings, err := h.statementUC.GetJournalPostings(stream.Context(), req.JournalId)
-	if err != nil {
-		return err
+
+func (h *AccountingHandler) GetAccountStatement(
+	ctx context.Context,
+	req *accountingpb.GetAccountStatementRequest,
+) (*accountingpb.GetAccountStatementResponse, error) {
+	if req.AccountNumber == "" {
+		return nil, status.Error(codes.InvalidArgument, "account_number is required")
 	}
 
-	for _, p := range postings {
-		if err := stream.Send(&accountingpb.Posting{
-			Id:        p.ID,
-			JournalId: p.JournalID,
-			AccountId: p.AccountID,
-			Amount:    p.Amount,
-			DrCr:      accountingpb.DrCr(accountingpb.DrCr_value[p.DrCr]),
-			Currency:  p.Currency,
-			ReceiptCode: func() string {
-				if p.ReceiptCode != nil {
-					return *p.ReceiptCode
-				}
-				return ""
-			}(),
-			CreatedAt: timestamppb.New(p.CreatedAt),
-		}); err != nil {
-			return err
-		}
+	accountType := convertAccountTypeToDomain(req.AccountType)
+	from := req.From.AsTime()
+	to := req.To.AsTime()
+
+	stmt, err := h.statementUC.GetAccountStatement(ctx, req.AccountNumber, accountType, from, to)
+	if err != nil {
+		return nil, handleUsecaseError(err)
 	}
-	return nil
+
+	return &accountingpb.GetAccountStatementResponse{
+		Statement: convertAccountStatementToProto(stmt),
+	}, nil
+}
+
+func (h *AccountingHandler) GetOwnerStatement(
+	ctx context.Context,
+	req *accountingpb.GetOwnerStatementRequest,
+) (*accountingpb.GetOwnerStatementResponse, error) {
+	if req.OwnerId == "" {
+		return nil, status.Error(codes.InvalidArgument, "owner_id is required")
+	}
+
+	ownerType := convertOwnerTypeToDomain(req.OwnerType)
+	accountType := convertAccountTypeToDomain(req.AccountType)
+	from := req.From.AsTime()
+	to := req.To.AsTime()
+
+	statements, err := h.statementUC.GetOwnerStatement(ctx, ownerType, req.OwnerId, accountType, from, to)
+	if err != nil {
+		return nil, handleUsecaseError(err)
+	}
+
+	return &accountingpb.GetOwnerStatementResponse{
+		Statements: convertAccountStatementsToProto(statements),
+	}, nil
+}
+
+func (h *AccountingHandler) GetOwnerSummary(
+	ctx context.Context,
+	req *accountingpb.GetOwnerSummaryRequest,
+) (*accountingpb.GetOwnerSummaryResponse, error) {
+	if req.OwnerId == "" {
+		return nil, status.Error(codes.InvalidArgument, "owner_id is required")
+	}
+
+	ownerType := convertOwnerTypeToDomain(req.OwnerType)
+	accountType := convertAccountTypeToDomain(req.AccountType)
+
+	summary, err := h.statementUC.GetOwnerSummary(ctx, ownerType, req.OwnerId, accountType)
+	if err != nil {
+		return nil, handleUsecaseError(err)
+	}
+
+	return &accountingpb.GetOwnerSummaryResponse{
+		Summary: convertOwnerSummaryToProto(summary),
+	}, nil
+}
+
+func (h *AccountingHandler) GenerateDailyReport(
+	ctx context.Context,
+	req *accountingpb.GenerateDailyReportRequest,
+) (*accountingpb.GenerateDailyReportResponse, error) {
+	date := req.Date.AsTime()
+	accountType := convertAccountTypeToDomain(req.AccountType)
+
+	reports, err := h.statementUC.GenerateDailyReport(ctx, date, accountType)
+	if err != nil {
+		return nil, handleUsecaseError(err)
+	}
+
+	return &accountingpb.GenerateDailyReportResponse{
+		Reports: convertDailyReportsToProto(reports),
+	}, nil
+}
+
+func (h *AccountingHandler) GetTransactionSummary(
+	ctx context.Context,
+	req *accountingpb.GetTransactionSummaryRequest,
+) (*accountingpb.GetTransactionSummaryResponse, error) {
+	accountType := convertAccountTypeToDomain(req.AccountType)
+	from := req.From.AsTime()
+	to := req.To.AsTime()
+
+	summaries, err := h.statementUC.GetTransactionSummary(ctx, accountType, from, to)
+	if err != nil {
+		return nil, handleUsecaseError(err)
+	}
+
+	return &accountingpb.GetTransactionSummaryResponse{
+		Summaries: convertTransactionSummariesToProto(summaries),
+	}, nil
+}
+
+func (h *AccountingHandler) GetSystemHoldings(
+	ctx context.Context,
+	req *accountingpb.GetSystemHoldingsRequest,
+) (*accountingpb.GetSystemHoldingsResponse, error) {
+	accountType := convertAccountTypeToDomain(req.AccountType)
+
+	holdings, err := h.statementUC.GetSystemHoldings(ctx, accountType)
+	if err != nil {
+		return nil, handleUsecaseError(err)
+	}
+
+	return &accountingpb.GetSystemHoldingsResponse{
+		Holdings: holdings,
+	}, nil
 }
 
 // ===============================
-// Reports
+// FEE MANAGEMENT
 // ===============================
-func (h *AccountingGRPCHandler) GenerateDailyReport(req *accountingpb.DailyReportRequest, stream accountingpb.AccountingService_GenerateDailyReportServer) error {
-	reports, err := h.statementUC.GenerateDailyReport(stream.Context(), req.Date.AsTime())
-	if err != nil {
-		return err
+
+func (h *AccountingHandler) CalculateFee(
+	ctx context.Context,
+	req *accountingpb.CalculateFeeRequest,
+) (*accountingpb.CalculateFeeResponse, error) {
+	txType := convertTransactionTypeToDomain(req.TransactionType)
+	sourceCurrency := getStringOrEmpty(req.SourceCurrency)
+	targetCurrency := getStringOrEmpty(req.TargetCurrency)
+
+	var accountType domain.AccountType
+	if req.AccountType != nil {
+		accountType = convertAccountTypeToDomain(*req.AccountType)
+	} else {
+		accountType = domain.AccountTypeReal
 	}
 
-	for _, r := range reports {
-		if err := stream.Send(&accountingpb.DailyReport{
-			OwnerType:   accountingpb.OwnerType(accountingpb.OwnerType_value[r.OwnerType]),
-			OwnerId:     r.OwnerID,
-			AccountId:   r.AccountID,
-			Currency:    r.Currency,
-			TotalDebit:  r.TotalDebit,
-			TotalCredit: r.TotalCredit,
-			Balance:     r.Balance,
-			NetChange:   r.NetChange,
-			Date:        timestamppb.New(r.Date),
-		}); err != nil {
-			return err
+	var ownerType domain.OwnerType
+	if req.OwnerType != nil {
+		ownerType = convertOwnerTypeToDomain(*req.OwnerType)
+	} else {
+		ownerType = domain.OwnerTypeUser
+	}
+
+	calculation, err := h.feeUC.CalculateFee(
+		ctx,
+		txType,
+		req.Amount,
+		ptrString(sourceCurrency),
+		ptrString(targetCurrency),
+		ptrAccountType(accountType),
+		ptrOwnerType(ownerType),
+	)
+	if err != nil {
+		return nil, handleUsecaseError(err)
+	}
+
+	return &accountingpb.CalculateFeeResponse{
+		Calculation: convertFeeCalculationToProto(calculation),
+	}, nil
+}
+
+func (h *AccountingHandler) GetFeesByReceipt(
+	ctx context.Context,
+	req *accountingpb.GetFeesByReceiptRequest,
+) (*accountingpb.GetFeesByReceiptResponse, error) {
+	if req.ReceiptCode == "" {
+		return nil, status.Error(codes.InvalidArgument, "receipt_code is required")
+	}
+
+	fees, err := h.feeUC.GetByReceipt(ctx, req.ReceiptCode)
+	if err != nil {
+		return nil, handleUsecaseError(err)
+	}
+
+	return &accountingpb.GetFeesByReceiptResponse{
+		Fees: convertFeesToProto(fees),
+	}, nil
+}
+
+func (h *AccountingHandler) GetAgentCommissionSummary(
+	ctx context.Context,
+	req *accountingpb.GetAgentCommissionSummaryRequest,
+) (*accountingpb.GetAgentCommissionSummaryResponse, error) {
+	if req.AgentExternalId == "" {
+		return nil, status.Error(codes.InvalidArgument, "agent_external_id is required")
+	}
+
+	from := req.From.AsTime()
+	to := req.To.AsTime()
+
+	summary, err := h.feeUC.GetAgentCommissionSummary(ctx, req.AgentExternalId, from, to)
+	if err != nil {
+		return nil, handleUsecaseError(err)
+	}
+
+	return &accountingpb.GetAgentCommissionSummaryResponse{
+		Commissions: summary,
+	}, nil
+}
+
+// ===============================
+// STREAMING
+// ===============================
+
+func (h *AccountingHandler) StreamTransactionEvents(
+	req *accountingpb.StreamTransactionEventsRequest,
+	stream accountingpb.AccountingService_StreamTransactionEventsServer,
+) error {
+	// TODO: Implement streaming with Kafka or Redis pub/sub
+	return status.Error(codes.Unimplemented, "streaming not yet implemented")
+}
+
+// ===============================
+// HEALTH & MONITORING
+// ===============================
+
+func (h *AccountingHandler) HealthCheck(
+	ctx context.Context,
+	req *accountingpb.HealthCheckRequest,
+) (*accountingpb.HealthCheckResponse, error) {
+	components := make(map[string]string)
+
+	// Check Redis
+	if err := h.redisClient.Ping(ctx).Err(); err != nil {
+		components["redis"] = "unhealthy"
+	} else {
+		components["redis"] = "healthy"
+	}
+
+	// Determine overall status
+	overallStatus := "healthy"
+	for _, status := range components {
+		if status == "unhealthy" {
+			overallStatus = "degraded"
+			break
 		}
 	}
-	return nil
+
+	return &accountingpb.HealthCheckResponse{
+		Status:     overallStatus,
+		Components: components,
+		Timestamp:  time.Now().Unix(),
+	}, nil
+}
+
+// ===============================
+// ERROR HANDLING
+// ===============================
+
+func handleUsecaseError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	switch {
+	case errors.Is(err, xerrors.ErrNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, xerrors.ErrInsufficientBalance):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, xerrors.ErrAccountLocked):
+		return status.Error(codes.PermissionDenied, "account is locked")
+	case errors.Is(err, xerrors.ErrAccountInactive):
+		return status.Error(codes.PermissionDenied, "account is inactive")
+	case errors.Is(err, xerrors.ErrDuplicateIdempotencyKey):
+		return status.Error(codes.AlreadyExists, "duplicate idempotency key")
+	case errors.Is(err, xerrors.ErrConcurrentModification):
+		return status.Error(codes.Aborted, "concurrent modification, retry")
+	case errors.Is(err, context.DeadlineExceeded):
+		return status.Error(codes.DeadlineExceeded, "request timeout")
+	case errors.Is(err, context.Canceled):
+		return status.Error(codes.Canceled, "request canceled")
+	default:
+		return status.Error(codes.Internal, "internal server error")
+	}
+}
+
+// ===============================
+// HELPER FUNCTIONS
+// ===============================
+
+func ptrOwnerType(t domain.OwnerType) *domain.OwnerType {
+	return &t
+}
+
+func ptrAccountType(t domain.AccountType) *domain.AccountType {
+	return &t
 }

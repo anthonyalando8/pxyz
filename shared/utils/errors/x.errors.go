@@ -138,3 +138,134 @@ var (
 var (
 	ErrInvalidApplePEM = errors.New("invalid PEM for Apple private key")
 )
+
+// ===============================
+// ACCOUNTING ERRORS
+// ===============================
+
+// Account errors
+var (
+	ErrAccountNotFound       = errors.New("account not found")
+	ErrAccountLocked         = errors.New("account is locked")
+	ErrAccountInactive       = errors.New("account is inactive")
+	ErrInvalidAccountNumber  = errors.New("invalid account number")
+	ErrInvalidAccountType    = errors.New("invalid account type")
+	ErrInvalidAccountPurpose = errors.New("invalid account purpose")
+	ErrInvalidOwnerType      = errors.New("invalid owner type")
+	ErrDuplicateAccount      = errors.New("account already exists")
+)
+
+// Balance errors
+var (
+	ErrInsufficientBalance    = errors.New("insufficient balance")
+	ErrInsufficientAvailable  = errors.New("insufficient available balance")
+	ErrBalanceNotFound        = errors.New("balance not found")
+	ErrNegativeBalance        = errors.New("balance cannot be negative")
+	ErrOverdraftLimitExceeded = errors.New("overdraft limit exceeded")
+)
+
+// Transaction errors
+var (
+	ErrInvalidTransaction       = errors.New("invalid transaction")
+	ErrTransactionNotFound      = errors.New("transaction not found")
+	ErrDuplicateIdempotencyKey  = errors.New("duplicate idempotency key")
+	ErrInvalidTransactionType   = errors.New("invalid transaction type")
+	ErrInvalidTransactionAmount = errors.New("invalid transaction amount")
+	ErrTransactionFailed        = errors.New("transaction failed")
+	ErrTransactionPending       = errors.New("transaction is pending")
+	ErrTransactionAlreadyProcessed = errors.New("transaction already processed")
+)
+
+// Ledger errors
+var (
+	ErrLedgerNotFound      = errors.New("ledger not found")
+	ErrInvalidLedgerEntry  = errors.New("invalid ledger entry")
+	ErrLedgerNotBalanced   = errors.New("ledger entries not balanced")
+	ErrInvalidDrCr         = errors.New("invalid debit/credit indicator")
+	ErrInsufficientEntries = errors.New("insufficient ledger entries for double-entry")
+)
+
+// Journal errors
+var (
+	ErrJournalNotFound = errors.New("journal not found")
+	ErrInvalidJournal  = errors.New("invalid journal entry")
+)
+
+// Currency errors
+var (
+	ErrInvalidCurrency       = errors.New("invalid currency")
+	ErrCurrencyNotSupported  = errors.New("currency not supported")
+	ErrCurrencyMismatch      = errors.New("currency mismatch")
+	ErrMultipleCurrencies    = errors.New("multiple currencies in single transaction")
+	ErrInvalidCurrencyFormat = errors.New("invalid currency format")
+)
+
+// Fee errors
+var (
+	ErrFeeCalculationFailed = errors.New("fee calculation failed")
+	ErrFeeRuleNotFound      = errors.New("fee rule not found")
+	ErrInvalidFeeType       = errors.New("invalid fee type")
+	ErrInvalidFeeAmount     = errors.New("invalid fee amount")
+	ErrFeeRuleExpired       = errors.New("fee rule has expired")
+	ErrFeeRuleInactive      = errors.New("fee rule is inactive")
+)
+
+// Validation errors
+var (
+	ErrInvalidAmount        = errors.New("invalid amount")
+	ErrInvalidLimit         = errors.New("invalid limit")
+	ErrInvalidOffset        = errors.New("invalid offset")
+	ErrInvalidDateRange     = errors.New("invalid date range")
+	ErrRequiredFieldMissing = errors.New("required field missing")
+	ErrInvalidFilter        = errors.New("invalid filter parameters")
+)
+
+// Concurrency errors
+var (
+	ErrConcurrentModification = errors.New("concurrent modification detected")
+	ErrOptimisticLockFailed   = errors.New("optimistic lock failed")
+	ErrVersionMismatch        = errors.New("version mismatch")
+	ErrDeadlockDetected       = errors.New("deadlock detected")
+)
+
+// Demo account restrictions
+var (
+	ErrDemoAccountRestricted = errors.New("operation not allowed for demo accounts")
+	ErrDemoDepositNotAllowed = errors.New("deposits not allowed for demo accounts")
+	ErrDemoWithdrawalNotAllowed = errors.New("withdrawals not allowed for demo accounts")
+	ErrDemoTransferNotAllowed = errors.New("transfers not allowed for demo accounts")
+)
+
+// System errors
+var (
+	ErrSystemAccountNotFound = errors.New("system account not found")
+	ErrInvalidSystemOperation = errors.New("invalid system operation")
+	ErrSystemBalanceInsufficient = errors.New("system balance insufficient")
+)
+
+// Receipt errors
+var (
+	ErrReceiptNotFound     = errors.New("receipt not found")
+	ErrInvalidReceiptCode  = errors.New("invalid receipt code")
+	ErrReceiptExpired      = errors.New("receipt expired")
+	ErrDuplicateReceipt    = errors.New("duplicate receipt")
+)
+
+// Statement errors
+var (
+	ErrStatementNotFound    = errors.New("statement not found")
+	ErrInvalidStatementPeriod = errors.New("invalid statement period")
+	ErrStatementGenerationFailed = errors.New("statement generation failed")
+)
+
+// Agent/Commission errors
+var (
+	ErrAgentNotFound          = errors.New("agent not found")
+	ErrInvalidCommissionRate  = errors.New("invalid commission rate")
+	ErrCommissionNotApplicable = errors.New("commission not applicable")
+	ErrParentAgentNotFound    = errors.New("parent agent not found")
+)
+
+var (
+	ErrInsufficientFunds = errors.New("insufficient available balance")
+)
