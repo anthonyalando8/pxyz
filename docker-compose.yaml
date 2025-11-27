@@ -866,7 +866,44 @@ services:
     
     # ADDED: Restart policy
     restart: unless-stopped
+
+  accounting-service:
+      build:
+        context: .
+        dockerfile: services/common-services/fx-services/accounting-service/Dockerfile
+      container_name: accounting-service
+      ports:
+      - "8024:8024"  # gRPC port
+      # labels:
+      #   - "traefik.enable=true"
+      #   - "traefik.http.routers.accounting.rule=PathPrefix(`/accounting`)"
+      #   - "traefik.http.services.accounting.loadbalancer.server.port=8024"
+      env_file:
+        - ./services/common-services/fx-services/accounting-service/.env
+      volumes:
+        - ./services/common-services/fx-services/accounting-service/secrets:/app/secrets:ro
+        - ./uploads:/app/uploads
+      networks:
+        - micro_net
+      environment:
+        DB_HOST: 212.95.35.81
+        DB_PORT: 5432
+        DB_USER: sam
+        DB_PASSWORD: Kenya_2025!
+        DB_NAME: pxyz_fx
+        REDIS_ADDR: redis:6379
+        GRPC_ADDR: :8024
+        REDIS_PASS:
+        JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+      depends_on:
+        redis:
+          condition: service_healthy   # Wait for Redis to be healthy
+        kafka:
+          condition: service_healthy
+      extra_hosts:
+      - "212.95.35.81:host-gateway"
     
+      
 volumes:
   prometheus_data:
     driver: local
