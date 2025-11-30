@@ -388,7 +388,7 @@ func (h *GRPCPartnerHandler) GetPartnersByService(
 }
 
 
-func (h *PartnerHandler) StreamAllPartners(
+func (h *GRPCPartnerHandler) StreamAllPartners(
     req *partnersvcpb.StreamAllPartnersRequest,
     stream partnersvcpb.PartnerService_StreamAllPartnersServer,
 ) error {
