@@ -181,3 +181,31 @@ func (h *GRPCAuthHandler) GetFullUserProfile(ctx context.Context, userID string)
 
 	return user, profileResp.Profile, nil
 }
+
+
+func (h *GRPCAuthHandler) StreamAllUsers(
+    req *authpb.StreamAllUsersRequest,
+    stream authpb.AuthService_StreamAllUsersServer,
+) error {
+
+    batchSize := int(req.BatchSize)
+    if batchSize <= 0 {
+        batchSize = 1000
+    }
+
+    ctx := stream.Context()
+
+    return h.uc.StreamAllUsers(ctx, batchSize, func(u *domain.UserProfile) error {
+        return stream.Send(&authpb.UserProfile{
+            Id:               u.ID,
+            Email:            safeString(u.Email),
+            Phone:            safeString(u.Phone),
+            AccountStatus:    u.AccountStatus,
+            AccountType:      u.AccountType,
+            IsEmailVerified:  u.IsEmailVerified,
+            IsPhoneVerified:  u.IsPhoneVerified,
+            // CreatedAt:        u.CreatedAt,
+            // UpdatedAt:        u.UpdatedAt,
+        })
+    })
+}

@@ -34,30 +34,39 @@ service PartnerService {
   rpc GetPartners(GetPartnersRequest) returns (GetPartnersResponse);
   rpc GetPartnerUsers(GetPartnerUsersRequest) returns (GetPartnerUsersResponse);
   rpc GetPartnersByService(GetPartnersByServiceRequest) returns (GetPartnersResponse);
+
+  rpc StreamAllPartners(StreamAllPartnersRequest)
+        returns (stream Partner);
+}
+
+message StreamAllPartnersRequest {
+    int32 batch_size = 1;
+}
+
+message Partner {
+    string id = 1;
+    string name = 2;
+    string country = 3;
+    string contact_email = 4;
+    string contact_phone = 5;
+    string status = 6;
+    string service = 7;
+    string currency = 8;
+    string local_currency = 9;
+    string rate = 10;
+    string inverse_rate = 11;
+    double commission_rate = 12;
+    string api_key = 13;
+    bool is_api_enabled = 14;
+    int32 api_rate_limit = 15;
+    string webhook_url = 16;
+    string callback_url = 17;
+    google.protobuf.Timestamp created_at = 18;
+    google.protobuf.Timestamp updated_at = 19;
+    repeated string allowed_ips = 20;
 }
 
 // -------------------- Entities --------------------
-
-message Partner {
-  string id = 1;
-  string name = 2;
-  string country = 3;
-  string contact_email = 4;
-  string contact_phone = 5;
-  string status = 6;
-  string service = 7;
-  string currency = 8;
-  
-  // API fields
-  bool is_api_enabled = 9;
-  string webhook_url = 10;
-  string callback_url = 11;
-  int32 api_rate_limit = 12;
-  repeated string allowed_ips = 13;
-  
-  google.protobuf.Timestamp created_at = 14;
-  google.protobuf.Timestamp updated_at = 15;
-}
 
 message PartnerTransaction {
   int64 id = 1;

@@ -14,6 +14,24 @@ service AuthService {
 
   // Delete a user and all associated auth records
   rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
+
+  rpc StreamAllUsers(StreamAllUsersRequest) returns (stream UserProfile);
+}
+
+message StreamAllUsersRequest {
+    int32 batch_size = 1; // default 500 or 1000
+}
+
+message UserProfile {
+    string id = 1;
+    string email = 2;
+    string phone = 3;
+    string account_status = 4;
+    string account_type = 5;
+    bool is_email_verified = 6;
+    bool is_phone_verified = 7;
+    // int64 created_at = 8;
+    // int64 updated_at = 9;
 }
 
 // -------------------- Messages --------------------

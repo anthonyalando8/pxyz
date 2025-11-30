@@ -27,6 +27,9 @@ CREATE TABLE partners (
   status        partner_status_enum NOT NULL DEFAULT 'active',
   service       TEXT,               -- new field: type of service the partner offers
   currency      TEXT,               -- new field: default currency for the partner
+  local_currency TEXT NOT NULL,          -- e.g. KES
+  rate NUMERIC(18,8) NOT NULL,           -- e.g. 120.50
+  inverse_rate NUMERIC(18,8) GENERATED ALWAYS AS (1 / rate) STORED,
 --   api_key_hash    TEXT,                           -- Hashed API key
 --   webhook_url     TEXT,                           -- For callbacks
   commission_rate NUMERIC(5,4) DEFAULT 0,         -- Partner commission (e.g., 0.0050 = 0.5%)

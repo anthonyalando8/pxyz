@@ -10,8 +10,8 @@ import (
 
 	"accounting-service/internal/domain"
 	"accounting-service/internal/repository"
-	"x/shared/utils/profile"
 	xerrors "x/shared/utils/errors"
+	helpers "x/shared/utils/profile"
 
 	authclient "x/shared/auth"
 	receiptclient "x/shared/common/receipt"
@@ -27,14 +27,14 @@ import (
 
 const (
 	// Batch configuration
-	ReceiptBatchSize      = 50   // Receipts per gRPC call
-	NotificationBatchSize = 100  // Notifications per gRPC call
+	ReceiptBatchSize      = 50  // Receipts per gRPC call
+	NotificationBatchSize = 100 // Notifications per gRPC call
 	BatchFlushInterval    = 50 * time.Millisecond
-	
+
 	// Worker pool
 	NumProcessorWorkers = 50
 	ProcessorQueueSize  = 10000
-	
+
 	// Status tracking
 	StatusCacheTTL       = 5 * time.Minute
 	StatusUpdateInterval = 1 * time.Second
@@ -65,7 +65,7 @@ type TransactionUsecase struct {
 	redisClient  *redis.Client
 	kafkaWriter  *kafka.Writer
 	profileFetch *helpers.ProfileFetcher
-	
+
 	// Batch processing
 	receiptBatcher      *ReceiptBatcher
 	notificationBatcher *NotificationBatcher
@@ -114,10 +114,10 @@ func NewTransactionUsecase(
 	uc.receiptBatcher = NewReceiptBatcher(uc, receiptClient, ReceiptBatchSize, BatchFlushInterval)
 	uc.notificationBatcher = NewNotificationBatcher(notificationClient, NotificationBatchSize, BatchFlushInterval)
 	uc.statusTracker = NewTransactionStatusTracker(redisClient, StatusUpdateInterval)
-	
+
 	// Initialize processor pool
 	uc.processorPool = NewProcessorPool(NumProcessorWorkers, ProcessorQueueSize, uc)
-	
+
 	// Start background workers
 	uc.receiptBatcher.Start()
 	uc.notificationBatcher.Start()
@@ -158,7 +158,7 @@ func (uc *TransactionUsecase) ExecuteTransaction(
 	// Generate receipt code via batch (NON-BLOCKING)
 	receiptCodeChan := make(chan string, 1)
 	errChan := make(chan error, 1)
-	
+
 	uc.receiptBatcher.Add(&ReceiptRequest{
 		TxnReq:     req,
 		ResultChan: receiptCodeChan,
@@ -227,7 +227,7 @@ func (uc *TransactionUsecase) ExecuteTransactionSync(
 	// Generate receipt synchronously (still batched)
 	receiptCodeChan := make(chan string, 1)
 	errChan := make(chan error, 1)
-	
+
 	uc.receiptBatcher.Add(&ReceiptRequest{
 		TxnReq:     req,
 		ResultChan: receiptCodeChan,
@@ -263,7 +263,7 @@ func (uc *TransactionUsecase) ExecuteTransactionSync(
 		uc.receiptBatcher.UpdateStatus(receiptCode, receiptpb.TransactionStatus_TRANSACTION_STATUS_FAILED, err.Error())
 		uc.publishTransactionEvent(context.Background(), receiptCode, "failed", err.Error())
 		uc.logTransactionError(receiptCode, err)
-		
+
 		return nil, fmt.Errorf("transaction failed: %w", err)
 	}
 
@@ -330,7 +330,7 @@ func (p *ProcessorPool) Start() {
 
 func (p *ProcessorPool) worker(id int) {
 	defer p.wg.Done()
-	
+
 	for {
 		select {
 		case task := <-p.taskChan:
@@ -478,7 +478,7 @@ func (uc *TransactionUsecase) queueNotifications(receiptCode string, aggregate *
 		eventType := "transaction.credit"
 		title := "Credit Transaction"
 		body := fmt.Sprintf("Your account was credited with %d %s", ledger.Amount, ledger.Currency)
-		
+
 		if ledger.DrCr == domain.DrCrDebit {
 			eventType = "transaction.debit"
 			title = "Debit Transaction"
@@ -546,14 +546,14 @@ func (uc *TransactionUsecase) preValidateTransaction(ctx context.Context, req *d
 // ===============================
 
 type TransactionEvent struct {
-	EventType      string    `json:"event_type"`
-	ReceiptCode    string    `json:"receipt_code"`
-	TransactionID  int64     `json:"transaction_id,omitempty"`
-	Status         string    `json:"status"`
-	Amount         int64     `json:"amount,omitempty"`
-	Currency       string    `json:"currency,omitempty"`
-	ErrorMessage   string    `json:"error_message,omitempty"`
-	Timestamp      time.Time `json:"timestamp"`
+	EventType     string    `json:"event_type"`
+	ReceiptCode   string    `json:"receipt_code"`
+	TransactionID int64     `json:"transaction_id,omitempty"`
+	Status        string    `json:"status"`
+	Amount        int64     `json:"amount,omitempty"`
+	Currency      string    `json:"currency,omitempty"`
+	ErrorMessage  string    `json:"error_message,omitempty"`
+	Timestamp     time.Time `json:"timestamp"`
 }
 
 func (uc *TransactionUsecase) publishTransactionEvent(ctx context.Context, receiptCode, status, errorMsg string) {
@@ -570,7 +570,7 @@ func (uc *TransactionUsecase) publishTransactionEvent(ctx context.Context, recei
 	}
 
 	eventBytes, _ := json.Marshal(event)
-	
+
 	err := uc.kafkaWriter.WriteMessages(ctx, kafka.Message{
 		Key:   []byte(receiptCode),
 		Value: eventBytes,
@@ -614,7 +614,7 @@ func (uc *TransactionUsecase) invalidateTransactionCaches(ctx context.Context, a
 func (uc *TransactionUsecase) GetTransactionByReceipt(ctx context.Context, receiptCode string) (*domain.LedgerAggregate, error) {
 	// Try cache first
 	cacheKey := fmt.Sprintf("transaction:receipt:%s", receiptCode)
-	
+
 	if val, err := uc.redisClient.Get(ctx, cacheKey).Result(); err == nil {
 		var aggregate domain.LedgerAggregate
 		if json.Unmarshal([]byte(val), &aggregate) == nil {
@@ -674,21 +674,21 @@ func (uc *TransactionUsecase) GetTransactionStatus(
 		if err == nil && receipt != nil {
 			statusStr := uc.convertReceiptStatus(receipt.Status)
 			uc.statusTracker.Track(receiptCode, statusStr)
-			
+
 			result := &TransactionStatus{
 				ReceiptCode: receiptCode,
 				Status:      statusStr,
 				StartedAt:   receipt.CreatedAt.AsTime(),
 			}
-			
+
 			if receipt.ErrorMessage != "" {
 				result.ErrorMessage = receipt.ErrorMessage
 			}
-			
+
 			if receipt.UpdatedAt != nil {
 				result.UpdatedAt = receipt.UpdatedAt.AsTime()
 			}
-			
+
 			return result, nil
 		}
 	}
@@ -714,7 +714,7 @@ func (uc *TransactionUsecase) GetTransactionStatus(
 				StartedAt:   time.Now(),
 			}, nil
 		}
-		
+
 		// Completely unknown receipt
 		return nil, xerrors.ErrReceiptNotFound
 	}
@@ -778,29 +778,113 @@ func (uc *TransactionUsecase) getTotalAmount(entries []*domain.LedgerEntryReques
 // Shutdown gracefully stops all background workers
 func (uc *TransactionUsecase) Shutdown() {
 	fmt.Println("[SHUTDOWN] Stopping transaction usecase...")
-	
+
 	// Stop accepting new tasks
 	if uc.processorPool != nil {
 		fmt.Println("[SHUTDOWN] Stopping processor pool...")
 		uc.processorPool.Stop()
 	}
-	
+
 	// Flush remaining batches
 	if uc.receiptBatcher != nil {
 		fmt.Println("[SHUTDOWN] Flushing receipt batches...")
 		uc.receiptBatcher.flushCreate()
 		uc.receiptBatcher.flushUpdate()
 	}
-	
+
 	if uc.notificationBatcher != nil {
 		fmt.Println("[SHUTDOWN] Flushing notification batches...")
 		uc.notificationBatcher.flush()
 	}
-	
+
 	if uc.statusTracker != nil {
 		fmt.Println("[SHUTDOWN] Stopping status tracker...")
 		uc.statusTracker.Stop()
 	}
-	
+
 	fmt.Println("[SHUTDOWN] Transaction usecase stopped successfully")
+}
+
+// Credit adds money to an account (system → user, NO FEES)
+func (uc *TransactionUsecase) Credit(
+	ctx context.Context,
+	req *domain.CreditRequest,
+) (*domain.LedgerAggregate, error) {
+	if err := req.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid credit request: %w", err)
+	}
+	
+	return uc.transactionRepo.Credit(ctx, req)
+}
+
+// Debit removes money from account (user → system, NO FEES)
+func (uc *TransactionUsecase) Debit(
+	ctx context.Context,
+	req *domain.DebitRequest,
+) (*domain.LedgerAggregate, error) {
+	if err := req.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid debit request: %w", err)
+	}
+	
+	return uc.transactionRepo.Debit(ctx, req)
+}
+
+// Transfer moves money between accounts (P2P, FEES APPLY)
+func (uc *TransactionUsecase) Transfer(
+	ctx context.Context,
+	req *domain.TransferRequest,
+) (*domain.LedgerAggregate, error) {
+	if err := req.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid transfer request: %w", err)
+	}
+	
+	return uc.transactionRepo.Transfer(ctx, req)
+}
+
+// ConvertAndTransfer performs currency conversion (FEES APPLY)
+func (uc *TransactionUsecase) ConvertAndTransfer(
+	ctx context.Context,
+	req *domain.ConversionRequest,
+) (*domain.LedgerAggregate, error) {
+	if err := req.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid conversion request: %w", err)
+	}
+	
+	return uc.transactionRepo.ConvertAndTransfer(ctx, req)
+}
+
+// ProcessTradeWin credits account for trade win (NO FEES)
+func (uc *TransactionUsecase) ProcessTradeWin(
+	ctx context.Context,
+	req *domain.TradeRequest,
+) (*domain.LedgerAggregate, error) {
+	if err := req.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid trade request: %w", err)
+	}
+	
+	return uc.transactionRepo.ProcessTradeWin(ctx, req)
+}
+
+// ProcessTradeLoss debits account for trade loss (NO FEES)
+func (uc *TransactionUsecase) ProcessTradeLoss(
+	ctx context.Context,
+	req *domain.TradeRequest,
+) (*domain.LedgerAggregate, error) {
+	if err := req.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid trade request: %w", err)
+	}
+	
+	return uc.transactionRepo.ProcessTradeLoss(ctx, req)
+}
+
+// ProcessAgentCommission pays commission to agent (NO FEES)
+func (uc *TransactionUsecase) ProcessAgentCommission(
+	ctx context.Context,
+	req *domain.AgentCommissionRequest,
+) (*domain.LedgerAggregate, error) {
+	if err := req.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid commission request: %w", err)
+	}
+	
+	return uc.transactionRepo.ProcessAgentCommission(ctx, req)
 }

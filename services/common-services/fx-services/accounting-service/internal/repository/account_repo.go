@@ -46,6 +46,11 @@ type AccountRepository interface {
 	Lock(ctx context.Context, accountID int64, tx pgx.Tx) error
 	Unlock(ctx context.Context, accountID int64, tx pgx.Tx) error
 
+	GetSystemAccount(ctx context.Context, currency string, accountType domain.AccountType) (*domain.Account, error)
+	GetSystemFeeAccount(ctx context.Context, currency string) (*domain.Account, error)
+	GetAgentAccount(ctx context.Context, agentExternalID string, currency string) (*domain.Account, error)
+	GetOrCreateAgentAccount(ctx context.Context, tx pgx.Tx, agentExternalID string, currency string, commissionRate *string) (*domain.Account, error)
+
 	// Transaction helper
 	BeginTx(ctx context.Context) (pgx.Tx, error)
 }
@@ -697,4 +702,363 @@ func (r *accountRepo) Unlock(ctx context.Context, accountID int64, tx pgx.Tx) er
 	}
 
 	return nil
+}
+
+
+func (r *accountRepo) GetSystemAccount(
+	ctx context.Context,
+	currency string,
+	accountType domain.AccountType,
+) (*domain.Account, error) {
+	// System accounts follow pattern: SYS-LIQ-{CURRENCY}
+	accountNumber := fmt.Sprintf("SYS-LIQ-%s", currency)
+	
+	account, err := r.GetByAccountNumber(ctx, accountNumber)
+	if err != nil {
+		return nil, fmt.Errorf("system account not found for currency %s: %w", currency, err)
+	}
+	
+	if account.OwnerType != domain.OwnerTypeSystem {
+		return nil, errors.New("account is not a system account")
+	}
+	
+	if account.Purpose != domain.PurposeLiquidity {
+		return nil, fmt.Errorf("expected liquidity account, got %s", account.Purpose)
+	}
+	
+	return account, nil
+}
+
+// GetSystemFeeAccount retrieves system fee collection account for a currency
+// Pattern: SYS-FEE-{CURRENCY}
+// OPTIMIZED: Uses unique account_number index
+func (r *accountRepo) GetSystemFeeAccount(
+	ctx context.Context,
+	currency string,
+) (*domain.Account, error) {
+	// System fee accounts follow pattern: SYS-FEE-{CURRENCY}
+	accountNumber := fmt.Sprintf("SYS-FEE-%s", currency)
+	
+	account, err := r.GetByAccountNumber(ctx, accountNumber)
+	if err != nil {
+		return nil, fmt.Errorf("system fee account not found for currency %s: %w", currency, err)
+	}
+	
+	if account.OwnerType != domain.OwnerTypeSystem {
+		return nil, errors.New("account is not a system account")
+	}
+	
+	if account.Purpose != domain.PurposeFees {
+		return nil, fmt.Errorf("expected fees account, got %s", account.Purpose)
+	}
+	
+	return account, nil
+}
+
+// GetAgentAccount retrieves agent commission account
+// Uses unique constraint: owner_type + owner_id + currency + purpose + account_type
+// OPTIMIZED: Uses composite index idx_accounts_real
+func (r *accountRepo) GetAgentAccount(
+	ctx context.Context,
+	agentExternalID string,
+	currency string,
+) (*domain.Account, error) {
+	query := baseSelectQuery + `
+		WHERE owner_type = $1
+		  AND owner_id = $2
+		  AND currency = $3
+		  AND purpose = $4
+		  AND account_type = 'real'
+		  AND is_active = true
+		LIMIT 1
+	`
+
+	row := r.db.QueryRow(ctx, query,
+		domain.OwnerTypeAgent,
+		agentExternalID,
+		currency,
+		domain.PurposeCommission,
+	)
+
+	account, err := scanAccount(row)
+	if err != nil {
+		if errors.Is(err, xerrors.ErrNotFound) {
+			return nil, fmt.Errorf("agent commission account not found for agent %s, currency %s: %w", 
+				agentExternalID, currency, xerrors.ErrAgentNotFound)
+		}
+		return nil, fmt.Errorf("failed to get agent account: %w", err)
+	}
+
+	return account, nil
+}
+
+// GetOrCreateAgentAccount ensures agent has a commission account
+// Creates account if it doesn't exist
+// CRITICAL: Must be called within a transaction
+func (r *accountRepo) GetOrCreateAgentAccount(
+	ctx context.Context,
+	tx pgx.Tx,
+	agentExternalID string,
+	currency string,
+	commissionRate *string,
+) (*domain.Account, error) {
+	if tx == nil {
+		return nil, errors.New("transaction cannot be nil for GetOrCreateAgentAccount")
+	}
+
+	// Try to get existing account using transaction
+	query := baseSelectQuery + `
+		WHERE owner_type = $1
+		  AND owner_id = $2
+		  AND currency = $3
+		  AND purpose = $4
+		  AND account_type = 'real'
+		LIMIT 1
+	`
+
+	row := tx.QueryRow(ctx, query,
+		domain.OwnerTypeAgent,
+		agentExternalID,
+		currency,
+		domain.PurposeCommission,
+	)
+
+	account, err := scanAccount(row)
+	if err == nil {
+		return account, nil // Already exists
+	}
+
+	if !errors.Is(err, xerrors.ErrNotFound) {
+		return nil, err // Other error
+	}
+
+	// Create new agent commission account
+	now := time.Now()
+	newAccount := &domain.Account{
+		OwnerType:      domain.OwnerTypeAgent,
+		OwnerID:        agentExternalID,
+		Currency:       currency,
+		Purpose:        domain.PurposeCommission,
+		AccountType:    domain.AccountTypeReal,
+		IsActive:       true,
+		IsLocked:       false,
+		OverdraftLimit: 0,
+		CommissionRate: commissionRate,
+		AccountNumber:  fmt.Sprintf("AGT-COM-%s-%s-%d", agentExternalID, currency, now.UnixNano()),
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}
+
+	// Create account
+	if err := r.Create(ctx, newAccount, tx); err != nil {
+		return nil, fmt.Errorf("failed to create agent account: %w", err)
+	}
+
+	return newAccount, nil
+}
+
+// ========================================
+// ADDITIONAL HELPER METHODS
+// ========================================
+
+// GetSystemAccountTx retrieves system account within a transaction
+func (r *accountRepo) GetSystemAccountTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	currency string,
+	accountType domain.AccountType,
+) (*domain.Account, error) {
+	accountNumber := fmt.Sprintf("SYS-LIQ-%s", currency)
+	
+	account, err := r.GetByAccountNumberTx(ctx, accountNumber, tx)
+	if err != nil {
+		return nil, fmt.Errorf("system account not found for currency %s: %w", currency, err)
+	}
+	
+	if account.OwnerType != domain.OwnerTypeSystem {
+		return nil, errors.New("account is not a system account")
+	}
+	
+	return account, nil
+}
+
+// GetSystemFeeAccountTx retrieves system fee account within a transaction
+func (r *accountRepo) GetSystemFeeAccountTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	currency string,
+) (*domain.Account, error) {
+	accountNumber := fmt.Sprintf("SYS-FEE-%s", currency)
+	
+	account, err := r.GetByAccountNumberTx(ctx, accountNumber, tx)
+	if err != nil {
+		return nil, fmt.Errorf("system fee account not found for currency %s: %w", currency, err)
+	}
+	
+	if account.OwnerType != domain.OwnerTypeSystem {
+		return nil, errors.New("account is not a system account")
+	}
+	
+	return account, nil
+}
+
+// GetAgentAccountTx retrieves agent account within a transaction
+func (r *accountRepo) GetAgentAccountTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	agentExternalID string,
+	currency string,
+) (*domain.Account, error) {
+	query := baseSelectQuery + `
+		WHERE owner_type = $1
+		  AND owner_id = $2
+		  AND currency = $3
+		  AND purpose = $4
+		  AND account_type = 'real'
+		  AND is_active = true
+		LIMIT 1
+	`
+
+	row := tx.QueryRow(ctx, query,
+		domain.OwnerTypeAgent,
+		agentExternalID,
+		currency,
+		domain.PurposeCommission,
+	)
+
+	account, err := scanAccount(row)
+	if err != nil {
+		if errors.Is(err, xerrors.ErrNotFound) {
+			return nil, fmt.Errorf("agent commission account not found for agent %s, currency %s: %w", 
+				agentExternalID, currency, xerrors.ErrAgentNotFound)
+		}
+		return nil, fmt.Errorf("failed to get agent account: %w", err)
+	}
+
+	return account, nil
+}
+
+// ========================================
+// BATCH SYSTEM ACCOUNT OPERATIONS
+// ========================================
+
+// GetSystemAccountsForCurrencies retrieves system accounts for multiple currencies
+// OPTIMIZED: Single query for batch lookup
+func (r *accountRepo) GetSystemAccountsForCurrencies(
+	ctx context.Context,
+	currencies []string,
+	accountType domain.AccountType,
+) (map[string]*domain.Account, error) {
+	if len(currencies) == 0 {
+		return make(map[string]*domain.Account), nil
+	}
+
+	// Build account numbers
+	accountNumbers := make([]string, len(currencies))
+	for i, currency := range currencies {
+		accountNumbers[i] = fmt.Sprintf("SYS-LIQ-%s", currency)
+	}
+
+	query := baseSelectQuery + ` WHERE account_number = ANY($1) AND owner_type = $2`
+	
+	rows, err := r.db.Query(ctx, query, accountNumbers, domain.OwnerTypeSystem)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query system accounts: %w", err)
+	}
+
+	accounts, err := scanAccountRows(rows)
+	if err != nil {
+		return nil, err
+	}
+
+	// Map by currency
+	result := make(map[string]*domain.Account, len(accounts))
+	for _, account := range accounts {
+		result[account.Currency] = account
+	}
+
+	return result, nil
+}
+
+// CreateSystemAccounts creates all required system accounts for a currency
+// Creates: liquidity, fees, clearing, settlement accounts
+// CRITICAL: Must be called within a transaction
+func (r *accountRepo) CreateSystemAccounts(
+	ctx context.Context,
+	tx pgx.Tx,
+	currency string,
+	initialBalance int64,
+) ([]*domain.Account, error) {
+	if tx == nil {
+		return nil, errors.New("transaction cannot be nil")
+	}
+
+	now := time.Now()
+	
+	systemAccounts := []*domain.Account{
+		{
+			OwnerType:      domain.OwnerTypeSystem,
+			OwnerID:        "system",
+			Currency:       currency,
+			Purpose:        domain.PurposeLiquidity,
+			AccountType:    domain.AccountTypeReal,
+			IsActive:       true,
+			AccountNumber:  fmt.Sprintf("SYS-LIQ-%s", currency),
+			CreatedAt:      now,
+			UpdatedAt:      now,
+		},
+		{
+			OwnerType:      domain.OwnerTypeSystem,
+			OwnerID:        "system",
+			Currency:       currency,
+			Purpose:        domain.PurposeFees,
+			AccountType:    domain.AccountTypeReal,
+			IsActive:       true,
+			AccountNumber:  fmt.Sprintf("SYS-FEE-%s", currency),
+			CreatedAt:      now,
+			UpdatedAt:      now,
+		},
+		{
+			OwnerType:      domain.OwnerTypeSystem,
+			OwnerID:        "system",
+			Currency:       currency,
+			Purpose:        domain.PurposeClearing,
+			AccountType:    domain.AccountTypeReal,
+			IsActive:       true,
+			AccountNumber:  fmt.Sprintf("SYS-CLR-%s", currency),
+			CreatedAt:      now,
+			UpdatedAt:      now,
+		},
+		{
+			OwnerType:      domain.OwnerTypeSystem,
+			OwnerID:        "system",
+			Currency:       currency,
+			Purpose:        domain.PurposeSettlement,
+			AccountType:    domain.AccountTypeReal,
+			IsActive:       true,
+			AccountNumber:  fmt.Sprintf("SYS-SET-%s", currency),
+			CreatedAt:      now,
+			UpdatedAt:      now,
+		},
+	}
+
+	errs := r.CreateMany(ctx, systemAccounts, tx)
+	if len(errs) > 0 {
+		return nil, fmt.Errorf("failed to create system accounts: %v", errs)
+	}
+
+	// Set initial balance for liquidity account if provided
+	if initialBalance > 0 {
+		_, err := tx.Exec(ctx, `
+			UPDATE balances
+			SET balance = $1, available_balance = $1, updated_at = $2
+			WHERE account_id = $3
+		`, initialBalance, now, systemAccounts[0].ID)
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to set initial balance: %w", err)
+		}
+	}
+
+	return systemAccounts, nil
 }

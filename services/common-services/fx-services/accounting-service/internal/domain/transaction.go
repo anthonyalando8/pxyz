@@ -3,6 +3,7 @@ package domain
 import (
 	"errors"
 	"time"
+	xerrors "x/shared/utils/errors"
 )
 
 // LedgerAggregate represents a complete transaction with all its parts
@@ -43,6 +44,10 @@ type TransactionRequest struct {
 	
 	// Optional receipt
 	GenerateReceipt bool
+
+	AgentExternalID     *string `json:"agent_external_id,omitempty"`     // Agent who facilitated transaction
+	IsSystemTransaction bool    `json:"is_system_transaction"`           // If true, no fees applied
+	Metadata            map[string]interface{} `json:"metadata,omitempty"`              // Additional metadata
 }
 
 // LedgerEntryRequest represents a single ledger entry
@@ -53,6 +58,7 @@ type LedgerEntryRequest struct {
 	Currency      string      // Currency code
 	Description   *string     // Optional description
 	ReceiptCode   *string     // Optional receipt code
+	Metadata            map[string]interface{} `json:"metadata,omitempty"`              // Additional metadata
 }
 
 
@@ -81,6 +87,217 @@ type TransactionStatus struct {
 	UpdatedAt    time.Time
 }
 
+// CreditRequest represents a simple credit operation (add money to account)
+type CreditRequest struct {
+	AccountNumber       string                 `json:"account_number"`
+	Amount              int64                  `json:"amount"`
+	Currency            string                 `json:"currency"`
+	AccountType         AccountType            `json:"account_type"`
+	Description         string                 `json:"description"`
+	IdempotencyKey      *string                `json:"idempotency_key,omitempty"`
+	ExternalRef         *string                `json:"external_ref,omitempty"`
+	CreatedByExternalID string                 `json:"created_by_external_id"`
+	CreatedByType       OwnerType              `json:"created_by_type"`
+	Metadata            map[string]interface{} `json:"metadata,omitempty"`
+}
+
+// DebitRequest represents a simple debit operation (remove money from account)
+type DebitRequest struct {
+	AccountNumber       string                 `json:"account_number"`
+	Amount              int64                  `json:"amount"`
+	Currency            string                 `json:"currency"`
+	AccountType         AccountType            `json:"account_type"`
+	Description         string                 `json:"description"`
+	IdempotencyKey      *string                `json:"idempotency_key,omitempty"`
+	ExternalRef         *string                `json:"external_ref,omitempty"`
+	CreatedByExternalID string                 `json:"created_by_external_id"`
+	CreatedByType       OwnerType              `json:"created_by_type"`
+	Metadata            map[string]interface{} `json:"metadata,omitempty"`
+}
+
+// TransferRequest represents a transfer between two accounts (same currency)
+type TransferRequest struct {
+	FromAccountNumber   string                 `json:"from_account_number"`
+	ToAccountNumber     string                 `json:"to_account_number"`
+	Amount              int64                  `json:"amount"`
+	AccountType         AccountType            `json:"account_type"`
+	Description         string                 `json:"description"`
+	IdempotencyKey      *string                `json:"idempotency_key,omitempty"`
+	ExternalRef         *string                `json:"external_ref,omitempty"`
+	CreatedByExternalID string                 `json:"created_by_external_id"`
+	CreatedByType       OwnerType              `json:"created_by_type"`
+	AgentExternalID     *string                `json:"agent_external_id,omitempty"` // Agent who facilitated
+	Metadata            map[string]interface{} `json:"metadata,omitempty"`
+}
+
+// ConversionRequest represents a currency conversion transfer
+type ConversionRequest struct {
+	FromAccountNumber   string                 `json:"from_account_number"`   // USD account
+	ToAccountNumber     string                 `json:"to_account_number"`     // EUR account
+	Amount              int64                  `json:"amount"`                // Amount in source currency
+	AccountType         AccountType            `json:"account_type"`
+	IdempotencyKey      *string                `json:"idempotency_key,omitempty"`
+	ExternalRef         *string                `json:"external_ref,omitempty"`
+	CreatedByExternalID string                 `json:"created_by_external_id"`
+	CreatedByType       OwnerType              `json:"created_by_type"`
+	AgentExternalID     *string                `json:"agent_external_id,omitempty"`
+	Metadata            map[string]interface{} `json:"metadata,omitempty"`
+}
+
+type AgentCommissionRequest struct {
+	AgentExternalID   string  `json:"agent_external_id"`
+	TransactionRef    string  `json:"transaction_ref"`    // Reference to original transaction
+	Currency          string  `json:"currency"`
+	TransactionAmount int64   `json:"transaction_amount"` // Original transaction amount
+	CommissionAmount  int64   `json:"commission_amount"`  // Calculated commission
+	CommissionRate    *string `json:"commission_rate"`    // Rate used for calculation
+	IdempotencyKey    *string `json:"idempotency_key,omitempty"`
+}
+type TradeRequest struct {
+	AccountNumber       string                 `json:"account_number"`
+	Amount              int64                  `json:"amount"`
+	Currency            string                 `json:"currency"`
+	AccountType         AccountType            `json:"account_type"`
+	TradeID             string                 `json:"trade_id"`
+	TradeType           string                 `json:"trade_type"`           // e.g., "forex", "crypto", "sports"
+	IdempotencyKey      *string                `json:"idempotency_key,omitempty"`
+	CreatedByExternalID string                 `json:"created_by_external_id"`
+	CreatedByType       OwnerType              `json:"created_by_type"`
+	Metadata            map[string]interface{} `json:"metadata,omitempty"`
+}
+
+// ========================================
+// VALIDATION METHODS
+// ========================================
+
+func (r *CreditRequest) Validate() error {
+	if r.AccountNumber == "" {
+		return xerrors.ErrInvalidAccountNumber
+	}
+	if r.Amount <= 0 {
+		return xerrors.ErrInvalidAmount
+	}
+	if r.Currency == "" {
+		return xerrors.ErrInvalidCurrency
+	}
+	if r.CreatedByExternalID == "" {
+		return xerrors.ErrRequiredFieldMissing
+	}
+	return nil
+}
+
+func (r *DebitRequest) Validate() error {
+	if r.AccountNumber == "" {
+		return xerrors.ErrInvalidAccountNumber
+	}
+	if r.Amount <= 0 {
+		return xerrors.ErrInvalidAmount
+	}
+	if r.Currency == "" {
+		return xerrors.ErrInvalidCurrency
+	}
+	if r.CreatedByExternalID == "" {
+		return xerrors.ErrRequiredFieldMissing
+	}
+	return nil
+}
+
+func (r *TransferRequest) Validate() error {
+	if r.FromAccountNumber == "" || r.ToAccountNumber == "" {
+		return xerrors.ErrInvalidAccountNumber
+	}
+	if r.FromAccountNumber == r.ToAccountNumber {
+		return xerrors.ErrInvalidTransaction
+	}
+	if r.Amount <= 0 {
+		return xerrors.ErrInvalidAmount
+	}
+	if r.CreatedByExternalID == "" {
+		return xerrors.ErrRequiredFieldMissing
+	}
+	return nil
+}
+
+func (r *ConversionRequest) Validate() error {
+	if r.FromAccountNumber == "" || r.ToAccountNumber == "" {
+		return xerrors.ErrInvalidAccountNumber
+	}
+	if r.FromAccountNumber == r.ToAccountNumber {
+		return xerrors.ErrInvalidTransaction
+	}
+	if r.Amount <= 0 {
+		return xerrors.ErrInvalidAmount
+	}
+	if r.CreatedByExternalID == "" {
+		return xerrors.ErrRequiredFieldMissing
+	}
+	return nil
+}
+
+func (r *TradeRequest) Validate() error {
+	if r.AccountNumber == "" {
+		return xerrors.ErrInvalidAccountNumber
+	}
+	if r.Amount <= 0 {
+		return xerrors.ErrInvalidAmount
+	}
+	if r.Currency == "" {
+		return xerrors.ErrInvalidCurrency
+	}
+	if r.TradeID == "" {
+		return xerrors.ErrRequiredFieldMissing
+	}
+	if r.CreatedByExternalID == "" {
+		return xerrors.ErrRequiredFieldMissing
+	}
+	return nil
+}
+
+func (r *AgentCommissionRequest) Validate() error {
+	if r.AgentExternalID == "" {
+		return xerrors.ErrAgentNotFound
+	}
+	if r.Currency == "" {
+		return xerrors.ErrInvalidCurrency
+	}
+	if r.CommissionAmount <= 0 {
+		return xerrors.ErrInvalidFeeAmount
+	}
+	if r.TransactionRef == "" {
+		return xerrors.ErrRequiredFieldMissing
+	}
+	return nil
+}
+
+// ========================================
+// HELPER METHODS FOR TransactionRequest
+// ========================================
+
+// GetTotalAmount returns the debit amount (transaction amount)
+func (r *TransactionRequest) GetTotalAmount() int64 {
+	for _, entry := range r.Entries {
+		if entry.DrCr == DrCrDebit {
+			return entry.Amount
+		}
+	}
+	return 0
+}
+
+// IsConversion checks if transaction involves multiple currencies
+func (r *TransactionRequest) IsConversion() bool {
+	if len(r.Entries) < 2 {
+		return false
+	}
+	
+	currency := r.Entries[0].Currency
+	for _, entry := range r.Entries[1:] {
+		if entry.Currency != currency {
+			return true
+		}
+	}
+	
+	return false
+}
 
 // Validate checks if the transaction request is valid
 func (r *TransactionRequest) Validate() error {

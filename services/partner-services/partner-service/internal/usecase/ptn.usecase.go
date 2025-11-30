@@ -120,3 +120,22 @@ func (uc *PartnerUsecase) GetPartnersByService(ctx context.Context, service stri
 	}
 	return uc.partnerRepo.GetPartnersByService(ctx, service)
 }
+
+func (uc *PartnerUsecase) StreamAllPartners(
+    ctx context.Context,
+    batchSize int,
+    sendFn func(*domain.Partner) error,
+) error {
+
+    return uc.partnerRepo.StreamAllPartners(ctx, batchSize, func(p *domain.Partner) error {
+
+        // check for cancellation
+        select {
+        case <-ctx.Done():
+            return ctx.Err()
+        default:
+        }
+
+        return sendFn(p)
+    })
+}

@@ -5032,6 +5032,1134 @@ func (x *TransactionEvent) GetTimestamp() *timestamppb.Timestamp {
 	return nil
 }
 
+type CreditRequest struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	AccountNumber       string                 `protobuf:"bytes,1,opt,name=account_number,json=accountNumber,proto3" json:"account_number,omitempty"`
+	Amount              int64                  `protobuf:"varint,2,opt,name=amount,proto3" json:"amount,omitempty"`
+	Currency            string                 `protobuf:"bytes,3,opt,name=currency,proto3" json:"currency,omitempty"`
+	AccountType         AccountType            `protobuf:"varint,4,opt,name=account_type,json=accountType,proto3,enum=accounting.v1.AccountType" json:"account_type,omitempty"`
+	Description         string                 `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
+	IdempotencyKey      *string                `protobuf:"bytes,6,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
+	ExternalRef         *string                `protobuf:"bytes,7,opt,name=external_ref,json=externalRef,proto3,oneof" json:"external_ref,omitempty"`
+	CreatedByExternalId string                 `protobuf:"bytes,8,opt,name=created_by_external_id,json=createdByExternalId,proto3" json:"created_by_external_id,omitempty"`
+	CreatedByType       OwnerType              `protobuf:"varint,9,opt,name=created_by_type,json=createdByType,proto3,enum=accounting.v1.OwnerType" json:"created_by_type,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *CreditRequest) Reset() {
+	*x = CreditRequest{}
+	mi := &file_proto_shared_accounting_account_proto_msgTypes[68]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreditRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreditRequest) ProtoMessage() {}
+
+func (x *CreditRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_shared_accounting_account_proto_msgTypes[68]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreditRequest.ProtoReflect.Descriptor instead.
+func (*CreditRequest) Descriptor() ([]byte, []int) {
+	return file_proto_shared_accounting_account_proto_rawDescGZIP(), []int{68}
+}
+
+func (x *CreditRequest) GetAccountNumber() string {
+	if x != nil {
+		return x.AccountNumber
+	}
+	return ""
+}
+
+func (x *CreditRequest) GetAmount() int64 {
+	if x != nil {
+		return x.Amount
+	}
+	return 0
+}
+
+func (x *CreditRequest) GetCurrency() string {
+	if x != nil {
+		return x.Currency
+	}
+	return ""
+}
+
+func (x *CreditRequest) GetAccountType() AccountType {
+	if x != nil {
+		return x.AccountType
+	}
+	return AccountType_ACCOUNT_TYPE_UNSPECIFIED
+}
+
+func (x *CreditRequest) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *CreditRequest) GetIdempotencyKey() string {
+	if x != nil && x.IdempotencyKey != nil {
+		return *x.IdempotencyKey
+	}
+	return ""
+}
+
+func (x *CreditRequest) GetExternalRef() string {
+	if x != nil && x.ExternalRef != nil {
+		return *x.ExternalRef
+	}
+	return ""
+}
+
+func (x *CreditRequest) GetCreatedByExternalId() string {
+	if x != nil {
+		return x.CreatedByExternalId
+	}
+	return ""
+}
+
+func (x *CreditRequest) GetCreatedByType() OwnerType {
+	if x != nil {
+		return x.CreatedByType
+	}
+	return OwnerType_OWNER_TYPE_UNSPECIFIED
+}
+
+type CreditResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	JournalId     int64                  `protobuf:"varint,1,opt,name=journal_id,json=journalId,proto3" json:"journal_id,omitempty"`
+	ReceiptCode   string                 `protobuf:"bytes,2,opt,name=receipt_code,json=receiptCode,proto3" json:"receipt_code,omitempty"`
+	BalanceAfter  int64                  `protobuf:"varint,3,opt,name=balance_after,json=balanceAfter,proto3" json:"balance_after,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreditResponse) Reset() {
+	*x = CreditResponse{}
+	mi := &file_proto_shared_accounting_account_proto_msgTypes[69]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreditResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreditResponse) ProtoMessage() {}
+
+func (x *CreditResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_shared_accounting_account_proto_msgTypes[69]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreditResponse.ProtoReflect.Descriptor instead.
+func (*CreditResponse) Descriptor() ([]byte, []int) {
+	return file_proto_shared_accounting_account_proto_rawDescGZIP(), []int{69}
+}
+
+func (x *CreditResponse) GetJournalId() int64 {
+	if x != nil {
+		return x.JournalId
+	}
+	return 0
+}
+
+func (x *CreditResponse) GetReceiptCode() string {
+	if x != nil {
+		return x.ReceiptCode
+	}
+	return ""
+}
+
+func (x *CreditResponse) GetBalanceAfter() int64 {
+	if x != nil {
+		return x.BalanceAfter
+	}
+	return 0
+}
+
+func (x *CreditResponse) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+type DebitRequest struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	AccountNumber       string                 `protobuf:"bytes,1,opt,name=account_number,json=accountNumber,proto3" json:"account_number,omitempty"`
+	Amount              int64                  `protobuf:"varint,2,opt,name=amount,proto3" json:"amount,omitempty"`
+	Currency            string                 `protobuf:"bytes,3,opt,name=currency,proto3" json:"currency,omitempty"`
+	AccountType         AccountType            `protobuf:"varint,4,opt,name=account_type,json=accountType,proto3,enum=accounting.v1.AccountType" json:"account_type,omitempty"`
+	Description         string                 `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
+	IdempotencyKey      *string                `protobuf:"bytes,6,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
+	ExternalRef         *string                `protobuf:"bytes,7,opt,name=external_ref,json=externalRef,proto3,oneof" json:"external_ref,omitempty"`
+	CreatedByExternalId string                 `protobuf:"bytes,8,opt,name=created_by_external_id,json=createdByExternalId,proto3" json:"created_by_external_id,omitempty"`
+	CreatedByType       OwnerType              `protobuf:"varint,9,opt,name=created_by_type,json=createdByType,proto3,enum=accounting.v1.OwnerType" json:"created_by_type,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *DebitRequest) Reset() {
+	*x = DebitRequest{}
+	mi := &file_proto_shared_accounting_account_proto_msgTypes[70]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DebitRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DebitRequest) ProtoMessage() {}
+
+func (x *DebitRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_shared_accounting_account_proto_msgTypes[70]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DebitRequest.ProtoReflect.Descriptor instead.
+func (*DebitRequest) Descriptor() ([]byte, []int) {
+	return file_proto_shared_accounting_account_proto_rawDescGZIP(), []int{70}
+}
+
+func (x *DebitRequest) GetAccountNumber() string {
+	if x != nil {
+		return x.AccountNumber
+	}
+	return ""
+}
+
+func (x *DebitRequest) GetAmount() int64 {
+	if x != nil {
+		return x.Amount
+	}
+	return 0
+}
+
+func (x *DebitRequest) GetCurrency() string {
+	if x != nil {
+		return x.Currency
+	}
+	return ""
+}
+
+func (x *DebitRequest) GetAccountType() AccountType {
+	if x != nil {
+		return x.AccountType
+	}
+	return AccountType_ACCOUNT_TYPE_UNSPECIFIED
+}
+
+func (x *DebitRequest) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *DebitRequest) GetIdempotencyKey() string {
+	if x != nil && x.IdempotencyKey != nil {
+		return *x.IdempotencyKey
+	}
+	return ""
+}
+
+func (x *DebitRequest) GetExternalRef() string {
+	if x != nil && x.ExternalRef != nil {
+		return *x.ExternalRef
+	}
+	return ""
+}
+
+func (x *DebitRequest) GetCreatedByExternalId() string {
+	if x != nil {
+		return x.CreatedByExternalId
+	}
+	return ""
+}
+
+func (x *DebitRequest) GetCreatedByType() OwnerType {
+	if x != nil {
+		return x.CreatedByType
+	}
+	return OwnerType_OWNER_TYPE_UNSPECIFIED
+}
+
+type DebitResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	JournalId     int64                  `protobuf:"varint,1,opt,name=journal_id,json=journalId,proto3" json:"journal_id,omitempty"`
+	ReceiptCode   string                 `protobuf:"bytes,2,opt,name=receipt_code,json=receiptCode,proto3" json:"receipt_code,omitempty"`
+	BalanceAfter  int64                  `protobuf:"varint,3,opt,name=balance_after,json=balanceAfter,proto3" json:"balance_after,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DebitResponse) Reset() {
+	*x = DebitResponse{}
+	mi := &file_proto_shared_accounting_account_proto_msgTypes[71]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DebitResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DebitResponse) ProtoMessage() {}
+
+func (x *DebitResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_shared_accounting_account_proto_msgTypes[71]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DebitResponse.ProtoReflect.Descriptor instead.
+func (*DebitResponse) Descriptor() ([]byte, []int) {
+	return file_proto_shared_accounting_account_proto_rawDescGZIP(), []int{71}
+}
+
+func (x *DebitResponse) GetJournalId() int64 {
+	if x != nil {
+		return x.JournalId
+	}
+	return 0
+}
+
+func (x *DebitResponse) GetReceiptCode() string {
+	if x != nil {
+		return x.ReceiptCode
+	}
+	return ""
+}
+
+func (x *DebitResponse) GetBalanceAfter() int64 {
+	if x != nil {
+		return x.BalanceAfter
+	}
+	return 0
+}
+
+func (x *DebitResponse) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+type TransferRequest struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	FromAccountNumber   string                 `protobuf:"bytes,1,opt,name=from_account_number,json=fromAccountNumber,proto3" json:"from_account_number,omitempty"`
+	ToAccountNumber     string                 `protobuf:"bytes,2,opt,name=to_account_number,json=toAccountNumber,proto3" json:"to_account_number,omitempty"`
+	Amount              int64                  `protobuf:"varint,3,opt,name=amount,proto3" json:"amount,omitempty"`
+	AccountType         AccountType            `protobuf:"varint,4,opt,name=account_type,json=accountType,proto3,enum=accounting.v1.AccountType" json:"account_type,omitempty"`
+	Description         string                 `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
+	IdempotencyKey      *string                `protobuf:"bytes,6,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
+	ExternalRef         *string                `protobuf:"bytes,7,opt,name=external_ref,json=externalRef,proto3,oneof" json:"external_ref,omitempty"`
+	CreatedByExternalId string                 `protobuf:"bytes,8,opt,name=created_by_external_id,json=createdByExternalId,proto3" json:"created_by_external_id,omitempty"`
+	CreatedByType       OwnerType              `protobuf:"varint,9,opt,name=created_by_type,json=createdByType,proto3,enum=accounting.v1.OwnerType" json:"created_by_type,omitempty"`
+	AgentExternalId     *string                `protobuf:"bytes,10,opt,name=agent_external_id,json=agentExternalId,proto3,oneof" json:"agent_external_id,omitempty"` // Agent who facilitated
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *TransferRequest) Reset() {
+	*x = TransferRequest{}
+	mi := &file_proto_shared_accounting_account_proto_msgTypes[72]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TransferRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TransferRequest) ProtoMessage() {}
+
+func (x *TransferRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_shared_accounting_account_proto_msgTypes[72]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TransferRequest.ProtoReflect.Descriptor instead.
+func (*TransferRequest) Descriptor() ([]byte, []int) {
+	return file_proto_shared_accounting_account_proto_rawDescGZIP(), []int{72}
+}
+
+func (x *TransferRequest) GetFromAccountNumber() string {
+	if x != nil {
+		return x.FromAccountNumber
+	}
+	return ""
+}
+
+func (x *TransferRequest) GetToAccountNumber() string {
+	if x != nil {
+		return x.ToAccountNumber
+	}
+	return ""
+}
+
+func (x *TransferRequest) GetAmount() int64 {
+	if x != nil {
+		return x.Amount
+	}
+	return 0
+}
+
+func (x *TransferRequest) GetAccountType() AccountType {
+	if x != nil {
+		return x.AccountType
+	}
+	return AccountType_ACCOUNT_TYPE_UNSPECIFIED
+}
+
+func (x *TransferRequest) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *TransferRequest) GetIdempotencyKey() string {
+	if x != nil && x.IdempotencyKey != nil {
+		return *x.IdempotencyKey
+	}
+	return ""
+}
+
+func (x *TransferRequest) GetExternalRef() string {
+	if x != nil && x.ExternalRef != nil {
+		return *x.ExternalRef
+	}
+	return ""
+}
+
+func (x *TransferRequest) GetCreatedByExternalId() string {
+	if x != nil {
+		return x.CreatedByExternalId
+	}
+	return ""
+}
+
+func (x *TransferRequest) GetCreatedByType() OwnerType {
+	if x != nil {
+		return x.CreatedByType
+	}
+	return OwnerType_OWNER_TYPE_UNSPECIFIED
+}
+
+func (x *TransferRequest) GetAgentExternalId() string {
+	if x != nil && x.AgentExternalId != nil {
+		return *x.AgentExternalId
+	}
+	return ""
+}
+
+type TransferResponse struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	JournalId       int64                  `protobuf:"varint,1,opt,name=journal_id,json=journalId,proto3" json:"journal_id,omitempty"`
+	ReceiptCode     string                 `protobuf:"bytes,2,opt,name=receipt_code,json=receiptCode,proto3" json:"receipt_code,omitempty"`
+	FeeAmount       int64                  `protobuf:"varint,3,opt,name=fee_amount,json=feeAmount,proto3" json:"fee_amount,omitempty"`
+	AgentCommission int64                  `protobuf:"varint,4,opt,name=agent_commission,json=agentCommission,proto3" json:"agent_commission,omitempty"`
+	CreatedAt       *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *TransferResponse) Reset() {
+	*x = TransferResponse{}
+	mi := &file_proto_shared_accounting_account_proto_msgTypes[73]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TransferResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TransferResponse) ProtoMessage() {}
+
+func (x *TransferResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_shared_accounting_account_proto_msgTypes[73]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TransferResponse.ProtoReflect.Descriptor instead.
+func (*TransferResponse) Descriptor() ([]byte, []int) {
+	return file_proto_shared_accounting_account_proto_rawDescGZIP(), []int{73}
+}
+
+func (x *TransferResponse) GetJournalId() int64 {
+	if x != nil {
+		return x.JournalId
+	}
+	return 0
+}
+
+func (x *TransferResponse) GetReceiptCode() string {
+	if x != nil {
+		return x.ReceiptCode
+	}
+	return ""
+}
+
+func (x *TransferResponse) GetFeeAmount() int64 {
+	if x != nil {
+		return x.FeeAmount
+	}
+	return 0
+}
+
+func (x *TransferResponse) GetAgentCommission() int64 {
+	if x != nil {
+		return x.AgentCommission
+	}
+	return 0
+}
+
+func (x *TransferResponse) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+type ConversionRequest struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	FromAccountNumber   string                 `protobuf:"bytes,1,opt,name=from_account_number,json=fromAccountNumber,proto3" json:"from_account_number,omitempty"`
+	ToAccountNumber     string                 `protobuf:"bytes,2,opt,name=to_account_number,json=toAccountNumber,proto3" json:"to_account_number,omitempty"`
+	Amount              int64                  `protobuf:"varint,3,opt,name=amount,proto3" json:"amount,omitempty"` // Amount in source currency
+	AccountType         AccountType            `protobuf:"varint,4,opt,name=account_type,json=accountType,proto3,enum=accounting.v1.AccountType" json:"account_type,omitempty"`
+	IdempotencyKey      *string                `protobuf:"bytes,5,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
+	ExternalRef         *string                `protobuf:"bytes,6,opt,name=external_ref,json=externalRef,proto3,oneof" json:"external_ref,omitempty"`
+	CreatedByExternalId string                 `protobuf:"bytes,7,opt,name=created_by_external_id,json=createdByExternalId,proto3" json:"created_by_external_id,omitempty"`
+	CreatedByType       OwnerType              `protobuf:"varint,8,opt,name=created_by_type,json=createdByType,proto3,enum=accounting.v1.OwnerType" json:"created_by_type,omitempty"`
+	AgentExternalId     *string                `protobuf:"bytes,9,opt,name=agent_external_id,json=agentExternalId,proto3,oneof" json:"agent_external_id,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *ConversionRequest) Reset() {
+	*x = ConversionRequest{}
+	mi := &file_proto_shared_accounting_account_proto_msgTypes[74]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConversionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConversionRequest) ProtoMessage() {}
+
+func (x *ConversionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_shared_accounting_account_proto_msgTypes[74]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConversionRequest.ProtoReflect.Descriptor instead.
+func (*ConversionRequest) Descriptor() ([]byte, []int) {
+	return file_proto_shared_accounting_account_proto_rawDescGZIP(), []int{74}
+}
+
+func (x *ConversionRequest) GetFromAccountNumber() string {
+	if x != nil {
+		return x.FromAccountNumber
+	}
+	return ""
+}
+
+func (x *ConversionRequest) GetToAccountNumber() string {
+	if x != nil {
+		return x.ToAccountNumber
+	}
+	return ""
+}
+
+func (x *ConversionRequest) GetAmount() int64 {
+	if x != nil {
+		return x.Amount
+	}
+	return 0
+}
+
+func (x *ConversionRequest) GetAccountType() AccountType {
+	if x != nil {
+		return x.AccountType
+	}
+	return AccountType_ACCOUNT_TYPE_UNSPECIFIED
+}
+
+func (x *ConversionRequest) GetIdempotencyKey() string {
+	if x != nil && x.IdempotencyKey != nil {
+		return *x.IdempotencyKey
+	}
+	return ""
+}
+
+func (x *ConversionRequest) GetExternalRef() string {
+	if x != nil && x.ExternalRef != nil {
+		return *x.ExternalRef
+	}
+	return ""
+}
+
+func (x *ConversionRequest) GetCreatedByExternalId() string {
+	if x != nil {
+		return x.CreatedByExternalId
+	}
+	return ""
+}
+
+func (x *ConversionRequest) GetCreatedByType() OwnerType {
+	if x != nil {
+		return x.CreatedByType
+	}
+	return OwnerType_OWNER_TYPE_UNSPECIFIED
+}
+
+func (x *ConversionRequest) GetAgentExternalId() string {
+	if x != nil && x.AgentExternalId != nil {
+		return *x.AgentExternalId
+	}
+	return ""
+}
+
+type ConversionResponse struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	JournalId       int64                  `protobuf:"varint,1,opt,name=journal_id,json=journalId,proto3" json:"journal_id,omitempty"`
+	ReceiptCode     string                 `protobuf:"bytes,2,opt,name=receipt_code,json=receiptCode,proto3" json:"receipt_code,omitempty"`
+	SourceCurrency  string                 `protobuf:"bytes,3,opt,name=source_currency,json=sourceCurrency,proto3" json:"source_currency,omitempty"`
+	DestCurrency    string                 `protobuf:"bytes,4,opt,name=dest_currency,json=destCurrency,proto3" json:"dest_currency,omitempty"`
+	SourceAmount    int64                  `protobuf:"varint,5,opt,name=source_amount,json=sourceAmount,proto3" json:"source_amount,omitempty"`
+	ConvertedAmount int64                  `protobuf:"varint,6,opt,name=converted_amount,json=convertedAmount,proto3" json:"converted_amount,omitempty"`
+	FxRate          string                 `protobuf:"bytes,7,opt,name=fx_rate,json=fxRate,proto3" json:"fx_rate,omitempty"`
+	FxRateId        int64                  `protobuf:"varint,8,opt,name=fx_rate_id,json=fxRateId,proto3" json:"fx_rate_id,omitempty"`
+	FeeAmount       int64                  `protobuf:"varint,9,opt,name=fee_amount,json=feeAmount,proto3" json:"fee_amount,omitempty"`
+	CreatedAt       *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *ConversionResponse) Reset() {
+	*x = ConversionResponse{}
+	mi := &file_proto_shared_accounting_account_proto_msgTypes[75]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConversionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConversionResponse) ProtoMessage() {}
+
+func (x *ConversionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_shared_accounting_account_proto_msgTypes[75]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConversionResponse.ProtoReflect.Descriptor instead.
+func (*ConversionResponse) Descriptor() ([]byte, []int) {
+	return file_proto_shared_accounting_account_proto_rawDescGZIP(), []int{75}
+}
+
+func (x *ConversionResponse) GetJournalId() int64 {
+	if x != nil {
+		return x.JournalId
+	}
+	return 0
+}
+
+func (x *ConversionResponse) GetReceiptCode() string {
+	if x != nil {
+		return x.ReceiptCode
+	}
+	return ""
+}
+
+func (x *ConversionResponse) GetSourceCurrency() string {
+	if x != nil {
+		return x.SourceCurrency
+	}
+	return ""
+}
+
+func (x *ConversionResponse) GetDestCurrency() string {
+	if x != nil {
+		return x.DestCurrency
+	}
+	return ""
+}
+
+func (x *ConversionResponse) GetSourceAmount() int64 {
+	if x != nil {
+		return x.SourceAmount
+	}
+	return 0
+}
+
+func (x *ConversionResponse) GetConvertedAmount() int64 {
+	if x != nil {
+		return x.ConvertedAmount
+	}
+	return 0
+}
+
+func (x *ConversionResponse) GetFxRate() string {
+	if x != nil {
+		return x.FxRate
+	}
+	return ""
+}
+
+func (x *ConversionResponse) GetFxRateId() int64 {
+	if x != nil {
+		return x.FxRateId
+	}
+	return 0
+}
+
+func (x *ConversionResponse) GetFeeAmount() int64 {
+	if x != nil {
+		return x.FeeAmount
+	}
+	return 0
+}
+
+func (x *ConversionResponse) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+type TradeRequest struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	AccountNumber       string                 `protobuf:"bytes,1,opt,name=account_number,json=accountNumber,proto3" json:"account_number,omitempty"`
+	Amount              int64                  `protobuf:"varint,2,opt,name=amount,proto3" json:"amount,omitempty"`
+	Currency            string                 `protobuf:"bytes,3,opt,name=currency,proto3" json:"currency,omitempty"`
+	AccountType         AccountType            `protobuf:"varint,4,opt,name=account_type,json=accountType,proto3,enum=accounting.v1.AccountType" json:"account_type,omitempty"`
+	TradeId             string                 `protobuf:"bytes,5,opt,name=trade_id,json=tradeId,proto3" json:"trade_id,omitempty"`
+	TradeType           string                 `protobuf:"bytes,6,opt,name=trade_type,json=tradeType,proto3" json:"trade_type,omitempty"` // e.g., "forex", "crypto", "sports"
+	IdempotencyKey      *string                `protobuf:"bytes,7,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
+	CreatedByExternalId string                 `protobuf:"bytes,8,opt,name=created_by_external_id,json=createdByExternalId,proto3" json:"created_by_external_id,omitempty"`
+	CreatedByType       OwnerType              `protobuf:"varint,9,opt,name=created_by_type,json=createdByType,proto3,enum=accounting.v1.OwnerType" json:"created_by_type,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *TradeRequest) Reset() {
+	*x = TradeRequest{}
+	mi := &file_proto_shared_accounting_account_proto_msgTypes[76]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TradeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TradeRequest) ProtoMessage() {}
+
+func (x *TradeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_shared_accounting_account_proto_msgTypes[76]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TradeRequest.ProtoReflect.Descriptor instead.
+func (*TradeRequest) Descriptor() ([]byte, []int) {
+	return file_proto_shared_accounting_account_proto_rawDescGZIP(), []int{76}
+}
+
+func (x *TradeRequest) GetAccountNumber() string {
+	if x != nil {
+		return x.AccountNumber
+	}
+	return ""
+}
+
+func (x *TradeRequest) GetAmount() int64 {
+	if x != nil {
+		return x.Amount
+	}
+	return 0
+}
+
+func (x *TradeRequest) GetCurrency() string {
+	if x != nil {
+		return x.Currency
+	}
+	return ""
+}
+
+func (x *TradeRequest) GetAccountType() AccountType {
+	if x != nil {
+		return x.AccountType
+	}
+	return AccountType_ACCOUNT_TYPE_UNSPECIFIED
+}
+
+func (x *TradeRequest) GetTradeId() string {
+	if x != nil {
+		return x.TradeId
+	}
+	return ""
+}
+
+func (x *TradeRequest) GetTradeType() string {
+	if x != nil {
+		return x.TradeType
+	}
+	return ""
+}
+
+func (x *TradeRequest) GetIdempotencyKey() string {
+	if x != nil && x.IdempotencyKey != nil {
+		return *x.IdempotencyKey
+	}
+	return ""
+}
+
+func (x *TradeRequest) GetCreatedByExternalId() string {
+	if x != nil {
+		return x.CreatedByExternalId
+	}
+	return ""
+}
+
+func (x *TradeRequest) GetCreatedByType() OwnerType {
+	if x != nil {
+		return x.CreatedByType
+	}
+	return OwnerType_OWNER_TYPE_UNSPECIFIED
+}
+
+type TradeResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	JournalId     int64                  `protobuf:"varint,1,opt,name=journal_id,json=journalId,proto3" json:"journal_id,omitempty"`
+	ReceiptCode   string                 `protobuf:"bytes,2,opt,name=receipt_code,json=receiptCode,proto3" json:"receipt_code,omitempty"`
+	TradeId       string                 `protobuf:"bytes,3,opt,name=trade_id,json=tradeId,proto3" json:"trade_id,omitempty"`
+	TradeResult   string                 `protobuf:"bytes,4,opt,name=trade_result,json=tradeResult,proto3" json:"trade_result,omitempty"` // "win" or "loss"
+	BalanceAfter  int64                  `protobuf:"varint,5,opt,name=balance_after,json=balanceAfter,proto3" json:"balance_after,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TradeResponse) Reset() {
+	*x = TradeResponse{}
+	mi := &file_proto_shared_accounting_account_proto_msgTypes[77]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TradeResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TradeResponse) ProtoMessage() {}
+
+func (x *TradeResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_shared_accounting_account_proto_msgTypes[77]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TradeResponse.ProtoReflect.Descriptor instead.
+func (*TradeResponse) Descriptor() ([]byte, []int) {
+	return file_proto_shared_accounting_account_proto_rawDescGZIP(), []int{77}
+}
+
+func (x *TradeResponse) GetJournalId() int64 {
+	if x != nil {
+		return x.JournalId
+	}
+	return 0
+}
+
+func (x *TradeResponse) GetReceiptCode() string {
+	if x != nil {
+		return x.ReceiptCode
+	}
+	return ""
+}
+
+func (x *TradeResponse) GetTradeId() string {
+	if x != nil {
+		return x.TradeId
+	}
+	return ""
+}
+
+func (x *TradeResponse) GetTradeResult() string {
+	if x != nil {
+		return x.TradeResult
+	}
+	return ""
+}
+
+func (x *TradeResponse) GetBalanceAfter() int64 {
+	if x != nil {
+		return x.BalanceAfter
+	}
+	return 0
+}
+
+func (x *TradeResponse) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+type AgentCommissionRequest struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	AgentExternalId   string                 `protobuf:"bytes,1,opt,name=agent_external_id,json=agentExternalId,proto3" json:"agent_external_id,omitempty"`
+	TransactionRef    string                 `protobuf:"bytes,2,opt,name=transaction_ref,json=transactionRef,proto3" json:"transaction_ref,omitempty"` // Receipt code of original transaction
+	Currency          string                 `protobuf:"bytes,3,opt,name=currency,proto3" json:"currency,omitempty"`
+	TransactionAmount int64                  `protobuf:"varint,4,opt,name=transaction_amount,json=transactionAmount,proto3" json:"transaction_amount,omitempty"`
+	CommissionAmount  int64                  `protobuf:"varint,5,opt,name=commission_amount,json=commissionAmount,proto3" json:"commission_amount,omitempty"`
+	CommissionRate    *string                `protobuf:"bytes,6,opt,name=commission_rate,json=commissionRate,proto3,oneof" json:"commission_rate,omitempty"`
+	IdempotencyKey    *string                `protobuf:"bytes,7,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *AgentCommissionRequest) Reset() {
+	*x = AgentCommissionRequest{}
+	mi := &file_proto_shared_accounting_account_proto_msgTypes[78]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AgentCommissionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AgentCommissionRequest) ProtoMessage() {}
+
+func (x *AgentCommissionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_shared_accounting_account_proto_msgTypes[78]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AgentCommissionRequest.ProtoReflect.Descriptor instead.
+func (*AgentCommissionRequest) Descriptor() ([]byte, []int) {
+	return file_proto_shared_accounting_account_proto_rawDescGZIP(), []int{78}
+}
+
+func (x *AgentCommissionRequest) GetAgentExternalId() string {
+	if x != nil {
+		return x.AgentExternalId
+	}
+	return ""
+}
+
+func (x *AgentCommissionRequest) GetTransactionRef() string {
+	if x != nil {
+		return x.TransactionRef
+	}
+	return ""
+}
+
+func (x *AgentCommissionRequest) GetCurrency() string {
+	if x != nil {
+		return x.Currency
+	}
+	return ""
+}
+
+func (x *AgentCommissionRequest) GetTransactionAmount() int64 {
+	if x != nil {
+		return x.TransactionAmount
+	}
+	return 0
+}
+
+func (x *AgentCommissionRequest) GetCommissionAmount() int64 {
+	if x != nil {
+		return x.CommissionAmount
+	}
+	return 0
+}
+
+func (x *AgentCommissionRequest) GetCommissionRate() string {
+	if x != nil && x.CommissionRate != nil {
+		return *x.CommissionRate
+	}
+	return ""
+}
+
+func (x *AgentCommissionRequest) GetIdempotencyKey() string {
+	if x != nil && x.IdempotencyKey != nil {
+		return *x.IdempotencyKey
+	}
+	return ""
+}
+
+type AgentCommissionResponse struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	JournalId        int64                  `protobuf:"varint,1,opt,name=journal_id,json=journalId,proto3" json:"journal_id,omitempty"`
+	ReceiptCode      string                 `protobuf:"bytes,2,opt,name=receipt_code,json=receiptCode,proto3" json:"receipt_code,omitempty"`
+	AgentExternalId  string                 `protobuf:"bytes,3,opt,name=agent_external_id,json=agentExternalId,proto3" json:"agent_external_id,omitempty"`
+	CommissionAmount int64                  `protobuf:"varint,4,opt,name=commission_amount,json=commissionAmount,proto3" json:"commission_amount,omitempty"`
+	CreatedAt        *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *AgentCommissionResponse) Reset() {
+	*x = AgentCommissionResponse{}
+	mi := &file_proto_shared_accounting_account_proto_msgTypes[79]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AgentCommissionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AgentCommissionResponse) ProtoMessage() {}
+
+func (x *AgentCommissionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_shared_accounting_account_proto_msgTypes[79]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AgentCommissionResponse.ProtoReflect.Descriptor instead.
+func (*AgentCommissionResponse) Descriptor() ([]byte, []int) {
+	return file_proto_shared_accounting_account_proto_rawDescGZIP(), []int{79}
+}
+
+func (x *AgentCommissionResponse) GetJournalId() int64 {
+	if x != nil {
+		return x.JournalId
+	}
+	return 0
+}
+
+func (x *AgentCommissionResponse) GetReceiptCode() string {
+	if x != nil {
+		return x.ReceiptCode
+	}
+	return ""
+}
+
+func (x *AgentCommissionResponse) GetAgentExternalId() string {
+	if x != nil {
+		return x.AgentExternalId
+	}
+	return ""
+}
+
+func (x *AgentCommissionResponse) GetCommissionAmount() int64 {
+	if x != nil {
+		return x.CommissionAmount
+	}
+	return 0
+}
+
+func (x *AgentCommissionResponse) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
 var File_proto_shared_accounting_account_proto protoreflect.FileDescriptor
 
 const file_proto_shared_accounting_account_proto_rawDesc = "" +
@@ -5479,7 +6607,137 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\bcurrency\x18\x06 \x01(\tR\bcurrency\x12(\n" +
 	"\rerror_message\x18\a \x01(\tH\x00R\ferrorMessage\x88\x01\x01\x128\n" +
 	"\ttimestamp\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\ttimestampB\x10\n" +
-	"\x0e_error_message*\x97\x01\n" +
+	"\x0e_error_message\"\xbd\x03\n" +
+	"\rCreditRequest\x12%\n" +
+	"\x0eaccount_number\x18\x01 \x01(\tR\raccountNumber\x12\x16\n" +
+	"\x06amount\x18\x02 \x01(\x03R\x06amount\x12\x1a\n" +
+	"\bcurrency\x18\x03 \x01(\tR\bcurrency\x12=\n" +
+	"\faccount_type\x18\x04 \x01(\x0e2\x1a.accounting.v1.AccountTypeR\vaccountType\x12 \n" +
+	"\vdescription\x18\x05 \x01(\tR\vdescription\x12,\n" +
+	"\x0fidempotency_key\x18\x06 \x01(\tH\x00R\x0eidempotencyKey\x88\x01\x01\x12&\n" +
+	"\fexternal_ref\x18\a \x01(\tH\x01R\vexternalRef\x88\x01\x01\x123\n" +
+	"\x16created_by_external_id\x18\b \x01(\tR\x13createdByExternalId\x12@\n" +
+	"\x0fcreated_by_type\x18\t \x01(\x0e2\x18.accounting.v1.OwnerTypeR\rcreatedByTypeB\x12\n" +
+	"\x10_idempotency_keyB\x0f\n" +
+	"\r_external_ref\"\xb2\x01\n" +
+	"\x0eCreditResponse\x12\x1d\n" +
+	"\n" +
+	"journal_id\x18\x01 \x01(\x03R\tjournalId\x12!\n" +
+	"\freceipt_code\x18\x02 \x01(\tR\vreceiptCode\x12#\n" +
+	"\rbalance_after\x18\x03 \x01(\x03R\fbalanceAfter\x129\n" +
+	"\n" +
+	"created_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xbc\x03\n" +
+	"\fDebitRequest\x12%\n" +
+	"\x0eaccount_number\x18\x01 \x01(\tR\raccountNumber\x12\x16\n" +
+	"\x06amount\x18\x02 \x01(\x03R\x06amount\x12\x1a\n" +
+	"\bcurrency\x18\x03 \x01(\tR\bcurrency\x12=\n" +
+	"\faccount_type\x18\x04 \x01(\x0e2\x1a.accounting.v1.AccountTypeR\vaccountType\x12 \n" +
+	"\vdescription\x18\x05 \x01(\tR\vdescription\x12,\n" +
+	"\x0fidempotency_key\x18\x06 \x01(\tH\x00R\x0eidempotencyKey\x88\x01\x01\x12&\n" +
+	"\fexternal_ref\x18\a \x01(\tH\x01R\vexternalRef\x88\x01\x01\x123\n" +
+	"\x16created_by_external_id\x18\b \x01(\tR\x13createdByExternalId\x12@\n" +
+	"\x0fcreated_by_type\x18\t \x01(\x0e2\x18.accounting.v1.OwnerTypeR\rcreatedByTypeB\x12\n" +
+	"\x10_idempotency_keyB\x0f\n" +
+	"\r_external_ref\"\xb1\x01\n" +
+	"\rDebitResponse\x12\x1d\n" +
+	"\n" +
+	"journal_id\x18\x01 \x01(\x03R\tjournalId\x12!\n" +
+	"\freceipt_code\x18\x02 \x01(\tR\vreceiptCode\x12#\n" +
+	"\rbalance_after\x18\x03 \x01(\x03R\fbalanceAfter\x129\n" +
+	"\n" +
+	"created_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\x9f\x04\n" +
+	"\x0fTransferRequest\x12.\n" +
+	"\x13from_account_number\x18\x01 \x01(\tR\x11fromAccountNumber\x12*\n" +
+	"\x11to_account_number\x18\x02 \x01(\tR\x0ftoAccountNumber\x12\x16\n" +
+	"\x06amount\x18\x03 \x01(\x03R\x06amount\x12=\n" +
+	"\faccount_type\x18\x04 \x01(\x0e2\x1a.accounting.v1.AccountTypeR\vaccountType\x12 \n" +
+	"\vdescription\x18\x05 \x01(\tR\vdescription\x12,\n" +
+	"\x0fidempotency_key\x18\x06 \x01(\tH\x00R\x0eidempotencyKey\x88\x01\x01\x12&\n" +
+	"\fexternal_ref\x18\a \x01(\tH\x01R\vexternalRef\x88\x01\x01\x123\n" +
+	"\x16created_by_external_id\x18\b \x01(\tR\x13createdByExternalId\x12@\n" +
+	"\x0fcreated_by_type\x18\t \x01(\x0e2\x18.accounting.v1.OwnerTypeR\rcreatedByType\x12/\n" +
+	"\x11agent_external_id\x18\n" +
+	" \x01(\tH\x02R\x0fagentExternalId\x88\x01\x01B\x12\n" +
+	"\x10_idempotency_keyB\x0f\n" +
+	"\r_external_refB\x14\n" +
+	"\x12_agent_external_id\"\xd9\x01\n" +
+	"\x10TransferResponse\x12\x1d\n" +
+	"\n" +
+	"journal_id\x18\x01 \x01(\x03R\tjournalId\x12!\n" +
+	"\freceipt_code\x18\x02 \x01(\tR\vreceiptCode\x12\x1d\n" +
+	"\n" +
+	"fee_amount\x18\x03 \x01(\x03R\tfeeAmount\x12)\n" +
+	"\x10agent_commission\x18\x04 \x01(\x03R\x0fagentCommission\x129\n" +
+	"\n" +
+	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xff\x03\n" +
+	"\x11ConversionRequest\x12.\n" +
+	"\x13from_account_number\x18\x01 \x01(\tR\x11fromAccountNumber\x12*\n" +
+	"\x11to_account_number\x18\x02 \x01(\tR\x0ftoAccountNumber\x12\x16\n" +
+	"\x06amount\x18\x03 \x01(\x03R\x06amount\x12=\n" +
+	"\faccount_type\x18\x04 \x01(\x0e2\x1a.accounting.v1.AccountTypeR\vaccountType\x12,\n" +
+	"\x0fidempotency_key\x18\x05 \x01(\tH\x00R\x0eidempotencyKey\x88\x01\x01\x12&\n" +
+	"\fexternal_ref\x18\x06 \x01(\tH\x01R\vexternalRef\x88\x01\x01\x123\n" +
+	"\x16created_by_external_id\x18\a \x01(\tR\x13createdByExternalId\x12@\n" +
+	"\x0fcreated_by_type\x18\b \x01(\x0e2\x18.accounting.v1.OwnerTypeR\rcreatedByType\x12/\n" +
+	"\x11agent_external_id\x18\t \x01(\tH\x02R\x0fagentExternalId\x88\x01\x01B\x12\n" +
+	"\x10_idempotency_keyB\x0f\n" +
+	"\r_external_refB\x14\n" +
+	"\x12_agent_external_id\"\x85\x03\n" +
+	"\x12ConversionResponse\x12\x1d\n" +
+	"\n" +
+	"journal_id\x18\x01 \x01(\x03R\tjournalId\x12!\n" +
+	"\freceipt_code\x18\x02 \x01(\tR\vreceiptCode\x12'\n" +
+	"\x0fsource_currency\x18\x03 \x01(\tR\x0esourceCurrency\x12#\n" +
+	"\rdest_currency\x18\x04 \x01(\tR\fdestCurrency\x12#\n" +
+	"\rsource_amount\x18\x05 \x01(\x03R\fsourceAmount\x12)\n" +
+	"\x10converted_amount\x18\x06 \x01(\x03R\x0fconvertedAmount\x12\x17\n" +
+	"\afx_rate\x18\a \x01(\tR\x06fxRate\x12\x1c\n" +
+	"\n" +
+	"fx_rate_id\x18\b \x01(\x03R\bfxRateId\x12\x1d\n" +
+	"\n" +
+	"fee_amount\x18\t \x01(\x03R\tfeeAmount\x129\n" +
+	"\n" +
+	"created_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\x9b\x03\n" +
+	"\fTradeRequest\x12%\n" +
+	"\x0eaccount_number\x18\x01 \x01(\tR\raccountNumber\x12\x16\n" +
+	"\x06amount\x18\x02 \x01(\x03R\x06amount\x12\x1a\n" +
+	"\bcurrency\x18\x03 \x01(\tR\bcurrency\x12=\n" +
+	"\faccount_type\x18\x04 \x01(\x0e2\x1a.accounting.v1.AccountTypeR\vaccountType\x12\x19\n" +
+	"\btrade_id\x18\x05 \x01(\tR\atradeId\x12\x1d\n" +
+	"\n" +
+	"trade_type\x18\x06 \x01(\tR\ttradeType\x12,\n" +
+	"\x0fidempotency_key\x18\a \x01(\tH\x00R\x0eidempotencyKey\x88\x01\x01\x123\n" +
+	"\x16created_by_external_id\x18\b \x01(\tR\x13createdByExternalId\x12@\n" +
+	"\x0fcreated_by_type\x18\t \x01(\x0e2\x18.accounting.v1.OwnerTypeR\rcreatedByTypeB\x12\n" +
+	"\x10_idempotency_key\"\xef\x01\n" +
+	"\rTradeResponse\x12\x1d\n" +
+	"\n" +
+	"journal_id\x18\x01 \x01(\x03R\tjournalId\x12!\n" +
+	"\freceipt_code\x18\x02 \x01(\tR\vreceiptCode\x12\x19\n" +
+	"\btrade_id\x18\x03 \x01(\tR\atradeId\x12!\n" +
+	"\ftrade_result\x18\x04 \x01(\tR\vtradeResult\x12#\n" +
+	"\rbalance_after\x18\x05 \x01(\x03R\fbalanceAfter\x129\n" +
+	"\n" +
+	"created_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xe9\x02\n" +
+	"\x16AgentCommissionRequest\x12*\n" +
+	"\x11agent_external_id\x18\x01 \x01(\tR\x0fagentExternalId\x12'\n" +
+	"\x0ftransaction_ref\x18\x02 \x01(\tR\x0etransactionRef\x12\x1a\n" +
+	"\bcurrency\x18\x03 \x01(\tR\bcurrency\x12-\n" +
+	"\x12transaction_amount\x18\x04 \x01(\x03R\x11transactionAmount\x12+\n" +
+	"\x11commission_amount\x18\x05 \x01(\x03R\x10commissionAmount\x12,\n" +
+	"\x0fcommission_rate\x18\x06 \x01(\tH\x00R\x0ecommissionRate\x88\x01\x01\x12,\n" +
+	"\x0fidempotency_key\x18\a \x01(\tH\x01R\x0eidempotencyKey\x88\x01\x01B\x12\n" +
+	"\x10_commission_rateB\x12\n" +
+	"\x10_idempotency_key\"\xef\x01\n" +
+	"\x17AgentCommissionResponse\x12\x1d\n" +
+	"\n" +
+	"journal_id\x18\x01 \x01(\x03R\tjournalId\x12!\n" +
+	"\freceipt_code\x18\x02 \x01(\tR\vreceiptCode\x12*\n" +
+	"\x11agent_external_id\x18\x03 \x01(\tR\x0fagentExternalId\x12+\n" +
+	"\x11commission_amount\x18\x04 \x01(\x03R\x10commissionAmount\x129\n" +
+	"\n" +
+	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt*\x97\x01\n" +
 	"\tOwnerType\x12\x1a\n" +
 	"\x16OWNER_TYPE_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fOWNER_TYPE_USER\x10\x01\x12\x16\n" +
@@ -5531,7 +6789,7 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\x10FEE_TYPE_NETWORK\x10\x02\x12\x17\n" +
 	"\x13FEE_TYPE_CONVERSION\x10\x03\x12\x17\n" +
 	"\x13FEE_TYPE_WITHDRAWAL\x10\x04\x12\x1d\n" +
-	"\x19FEE_TYPE_AGENT_COMMISSION\x10\x052\xf5\x16\n" +
+	"\x19FEE_TYPE_AGENT_COMMISSION\x10\x052\xae\x1b\n" +
 	"\x11AccountingService\x12Z\n" +
 	"\rCreateAccount\x12#.accounting.v1.CreateAccountRequest\x1a$.accounting.v1.CreateAccountResponse\x12]\n" +
 	"\x0eCreateAccounts\x12$.accounting.v1.CreateAccountsRequest\x1a%.accounting.v1.CreateAccountsResponse\x12Q\n" +
@@ -5562,7 +6820,14 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\fCalculateFee\x12\".accounting.v1.CalculateFeeRequest\x1a#.accounting.v1.CalculateFeeResponse\x12c\n" +
 	"\x10GetFeesByReceipt\x12&.accounting.v1.GetFeesByReceiptRequest\x1a'.accounting.v1.GetFeesByReceiptResponse\x12~\n" +
 	"\x19GetAgentCommissionSummary\x12/.accounting.v1.GetAgentCommissionSummaryRequest\x1a0.accounting.v1.GetAgentCommissionSummaryResponse\x12k\n" +
-	"\x17StreamTransactionEvents\x12-.accounting.v1.StreamTransactionEventsRequest\x1a\x1f.accounting.v1.TransactionEvent0\x01\x12T\n" +
+	"\x17StreamTransactionEvents\x12-.accounting.v1.StreamTransactionEventsRequest\x1a\x1f.accounting.v1.TransactionEvent0\x01\x12E\n" +
+	"\x06Credit\x12\x1c.accounting.v1.CreditRequest\x1a\x1d.accounting.v1.CreditResponse\x12B\n" +
+	"\x05Debit\x12\x1b.accounting.v1.DebitRequest\x1a\x1c.accounting.v1.DebitResponse\x12K\n" +
+	"\bTransfer\x12\x1e.accounting.v1.TransferRequest\x1a\x1f.accounting.v1.TransferResponse\x12Y\n" +
+	"\x12ConvertAndTransfer\x12 .accounting.v1.ConversionRequest\x1a!.accounting.v1.ConversionResponse\x12L\n" +
+	"\x0fProcessTradeWin\x12\x1b.accounting.v1.TradeRequest\x1a\x1c.accounting.v1.TradeResponse\x12M\n" +
+	"\x10ProcessTradeLoss\x12\x1b.accounting.v1.TradeRequest\x1a\x1c.accounting.v1.TradeResponse\x12g\n" +
+	"\x16ProcessAgentCommission\x12%.accounting.v1.AgentCommissionRequest\x1a&.accounting.v1.AgentCommissionResponse\x12T\n" +
 	"\vHealthCheck\x12!.accounting.v1.HealthCheckRequest\x1a\".accounting.v1.HealthCheckResponseB,Z*genproto/shared/accounting/v1;accountingpbb\x06proto3"
 
 var (
@@ -5578,7 +6843,7 @@ func file_proto_shared_accounting_account_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_shared_accounting_account_proto_enumTypes = make([]protoimpl.EnumInfo, 7)
-var file_proto_shared_accounting_account_proto_msgTypes = make([]protoimpl.MessageInfo, 74)
+var file_proto_shared_accounting_account_proto_msgTypes = make([]protoimpl.MessageInfo, 86)
 var file_proto_shared_accounting_account_proto_goTypes = []any{
 	(OwnerType)(0),                            // 0: accounting.v1.OwnerType
 	(AccountType)(0),                          // 1: accounting.v1.AccountType
@@ -5655,28 +6920,40 @@ var file_proto_shared_accounting_account_proto_goTypes = []any{
 	(*BatchGetBalancesResponse)(nil),          // 72: accounting.v1.BatchGetBalancesResponse
 	(*StreamTransactionEventsRequest)(nil),    // 73: accounting.v1.StreamTransactionEventsRequest
 	(*TransactionEvent)(nil),                  // 74: accounting.v1.TransactionEvent
-	nil,                                       // 75: accounting.v1.CreateAccountsResponse.ErrorsEntry
-	nil,                                       // 76: accounting.v1.GetSystemHoldingsResponse.HoldingsEntry
-	nil,                                       // 77: accounting.v1.GetAgentCommissionSummaryResponse.CommissionsEntry
-	nil,                                       // 78: accounting.v1.HealthCheckResponse.ComponentsEntry
-	nil,                                       // 79: accounting.v1.BatchExecuteTransactionsResponse.ErrorsEntry
-	nil,                                       // 80: accounting.v1.BatchGetBalancesResponse.ErrorsEntry
-	(*timestamppb.Timestamp)(nil),             // 81: google.protobuf.Timestamp
+	(*CreditRequest)(nil),                     // 75: accounting.v1.CreditRequest
+	(*CreditResponse)(nil),                    // 76: accounting.v1.CreditResponse
+	(*DebitRequest)(nil),                      // 77: accounting.v1.DebitRequest
+	(*DebitResponse)(nil),                     // 78: accounting.v1.DebitResponse
+	(*TransferRequest)(nil),                   // 79: accounting.v1.TransferRequest
+	(*TransferResponse)(nil),                  // 80: accounting.v1.TransferResponse
+	(*ConversionRequest)(nil),                 // 81: accounting.v1.ConversionRequest
+	(*ConversionResponse)(nil),                // 82: accounting.v1.ConversionResponse
+	(*TradeRequest)(nil),                      // 83: accounting.v1.TradeRequest
+	(*TradeResponse)(nil),                     // 84: accounting.v1.TradeResponse
+	(*AgentCommissionRequest)(nil),            // 85: accounting.v1.AgentCommissionRequest
+	(*AgentCommissionResponse)(nil),           // 86: accounting.v1.AgentCommissionResponse
+	nil,                                       // 87: accounting.v1.CreateAccountsResponse.ErrorsEntry
+	nil,                                       // 88: accounting.v1.GetSystemHoldingsResponse.HoldingsEntry
+	nil,                                       // 89: accounting.v1.GetAgentCommissionSummaryResponse.CommissionsEntry
+	nil,                                       // 90: accounting.v1.HealthCheckResponse.ComponentsEntry
+	nil,                                       // 91: accounting.v1.BatchExecuteTransactionsResponse.ErrorsEntry
+	nil,                                       // 92: accounting.v1.BatchGetBalancesResponse.ErrorsEntry
+	(*timestamppb.Timestamp)(nil),             // 93: google.protobuf.Timestamp
 }
 var file_proto_shared_accounting_account_proto_depIdxs = []int32{
 	0,   // 0: accounting.v1.Account.owner_type:type_name -> accounting.v1.OwnerType
 	2,   // 1: accounting.v1.Account.purpose:type_name -> accounting.v1.AccountPurpose
 	1,   // 2: accounting.v1.Account.account_type:type_name -> accounting.v1.AccountType
-	81,  // 3: accounting.v1.Account.created_at:type_name -> google.protobuf.Timestamp
-	81,  // 4: accounting.v1.Account.updated_at:type_name -> google.protobuf.Timestamp
-	81,  // 5: accounting.v1.Balance.last_transaction_at:type_name -> google.protobuf.Timestamp
+	93,  // 3: accounting.v1.Account.created_at:type_name -> google.protobuf.Timestamp
+	93,  // 4: accounting.v1.Account.updated_at:type_name -> google.protobuf.Timestamp
+	93,  // 5: accounting.v1.Balance.last_transaction_at:type_name -> google.protobuf.Timestamp
 	0,   // 6: accounting.v1.CreateAccountRequest.owner_type:type_name -> accounting.v1.OwnerType
 	2,   // 7: accounting.v1.CreateAccountRequest.purpose:type_name -> accounting.v1.AccountPurpose
 	1,   // 8: accounting.v1.CreateAccountRequest.account_type:type_name -> accounting.v1.AccountType
 	9,   // 9: accounting.v1.CreateAccountsRequest.accounts:type_name -> accounting.v1.CreateAccountRequest
 	7,   // 10: accounting.v1.CreateAccountResponse.account:type_name -> accounting.v1.Account
 	7,   // 11: accounting.v1.CreateAccountsResponse.accounts:type_name -> accounting.v1.Account
-	75,  // 12: accounting.v1.CreateAccountsResponse.errors:type_name -> accounting.v1.CreateAccountsResponse.ErrorsEntry
+	87,  // 12: accounting.v1.CreateAccountsResponse.errors:type_name -> accounting.v1.CreateAccountsResponse.ErrorsEntry
 	7,   // 13: accounting.v1.GetAccountResponse.account:type_name -> accounting.v1.Account
 	0,   // 14: accounting.v1.GetAccountsByOwnerRequest.owner_type:type_name -> accounting.v1.OwnerType
 	1,   // 15: accounting.v1.GetAccountsByOwnerRequest.account_type:type_name -> accounting.v1.AccountType
@@ -5692,48 +6969,48 @@ var file_proto_shared_accounting_account_proto_depIdxs = []int32{
 	23,  // 25: accounting.v1.ExecuteTransactionRequest.entries:type_name -> accounting.v1.LedgerEntry
 	0,   // 26: accounting.v1.ExecuteTransactionRequest.created_by_type:type_name -> accounting.v1.OwnerType
 	5,   // 27: accounting.v1.ExecuteTransactionResponse.status:type_name -> accounting.v1.TransactionStatus
-	81,  // 28: accounting.v1.ExecuteTransactionResponse.created_at:type_name -> google.protobuf.Timestamp
+	93,  // 28: accounting.v1.ExecuteTransactionResponse.created_at:type_name -> google.protobuf.Timestamp
 	4,   // 29: accounting.v1.ExecuteTransactionSyncRequest.transaction_type:type_name -> accounting.v1.TransactionType
 	1,   // 30: accounting.v1.ExecuteTransactionSyncRequest.account_type:type_name -> accounting.v1.AccountType
 	23,  // 31: accounting.v1.ExecuteTransactionSyncRequest.entries:type_name -> accounting.v1.LedgerEntry
 	0,   // 32: accounting.v1.ExecuteTransactionSyncRequest.created_by_type:type_name -> accounting.v1.OwnerType
 	5,   // 33: accounting.v1.ExecuteTransactionSyncResponse.status:type_name -> accounting.v1.TransactionStatus
-	81,  // 34: accounting.v1.ExecuteTransactionSyncResponse.created_at:type_name -> google.protobuf.Timestamp
+	93,  // 34: accounting.v1.ExecuteTransactionSyncResponse.created_at:type_name -> google.protobuf.Timestamp
 	5,   // 35: accounting.v1.GetTransactionStatusResponse.status:type_name -> accounting.v1.TransactionStatus
-	81,  // 36: accounting.v1.GetTransactionStatusResponse.started_at:type_name -> google.protobuf.Timestamp
-	81,  // 37: accounting.v1.GetTransactionStatusResponse.completed_at:type_name -> google.protobuf.Timestamp
+	93,  // 36: accounting.v1.GetTransactionStatusResponse.started_at:type_name -> google.protobuf.Timestamp
+	93,  // 37: accounting.v1.GetTransactionStatusResponse.completed_at:type_name -> google.protobuf.Timestamp
 	32,  // 38: accounting.v1.GetTransactionByReceiptResponse.journal:type_name -> accounting.v1.Journal
 	33,  // 39: accounting.v1.GetTransactionByReceiptResponse.ledgers:type_name -> accounting.v1.Ledger
 	59,  // 40: accounting.v1.GetTransactionByReceiptResponse.fees:type_name -> accounting.v1.TransactionFee
 	4,   // 41: accounting.v1.Journal.transaction_type:type_name -> accounting.v1.TransactionType
 	1,   // 42: accounting.v1.Journal.account_type:type_name -> accounting.v1.AccountType
 	0,   // 43: accounting.v1.Journal.created_by_type:type_name -> accounting.v1.OwnerType
-	81,  // 44: accounting.v1.Journal.created_at:type_name -> google.protobuf.Timestamp
+	93,  // 44: accounting.v1.Journal.created_at:type_name -> google.protobuf.Timestamp
 	3,   // 45: accounting.v1.Ledger.dr_cr:type_name -> accounting.v1.DrCr
-	81,  // 46: accounting.v1.Ledger.created_at:type_name -> google.protobuf.Timestamp
+	93,  // 46: accounting.v1.Ledger.created_at:type_name -> google.protobuf.Timestamp
 	32,  // 47: accounting.v1.GetJournalResponse.journal:type_name -> accounting.v1.Journal
 	4,   // 48: accounting.v1.ListJournalsRequest.transaction_type:type_name -> accounting.v1.TransactionType
 	1,   // 49: accounting.v1.ListJournalsRequest.account_type:type_name -> accounting.v1.AccountType
-	81,  // 50: accounting.v1.ListJournalsRequest.from:type_name -> google.protobuf.Timestamp
-	81,  // 51: accounting.v1.ListJournalsRequest.to:type_name -> google.protobuf.Timestamp
+	93,  // 50: accounting.v1.ListJournalsRequest.from:type_name -> google.protobuf.Timestamp
+	93,  // 51: accounting.v1.ListJournalsRequest.to:type_name -> google.protobuf.Timestamp
 	32,  // 52: accounting.v1.ListJournalsResponse.journals:type_name -> accounting.v1.Journal
 	33,  // 53: accounting.v1.ListLedgersByJournalResponse.ledgers:type_name -> accounting.v1.Ledger
 	1,   // 54: accounting.v1.ListLedgersByAccountRequest.account_type:type_name -> accounting.v1.AccountType
-	81,  // 55: accounting.v1.ListLedgersByAccountRequest.from:type_name -> google.protobuf.Timestamp
-	81,  // 56: accounting.v1.ListLedgersByAccountRequest.to:type_name -> google.protobuf.Timestamp
+	93,  // 55: accounting.v1.ListLedgersByAccountRequest.from:type_name -> google.protobuf.Timestamp
+	93,  // 56: accounting.v1.ListLedgersByAccountRequest.to:type_name -> google.protobuf.Timestamp
 	33,  // 57: accounting.v1.ListLedgersByAccountResponse.ledgers:type_name -> accounting.v1.Ledger
 	1,   // 58: accounting.v1.AccountStatement.account_type:type_name -> accounting.v1.AccountType
 	33,  // 59: accounting.v1.AccountStatement.ledgers:type_name -> accounting.v1.Ledger
-	81,  // 60: accounting.v1.AccountStatement.period_start:type_name -> google.protobuf.Timestamp
-	81,  // 61: accounting.v1.AccountStatement.period_end:type_name -> google.protobuf.Timestamp
+	93,  // 60: accounting.v1.AccountStatement.period_start:type_name -> google.protobuf.Timestamp
+	93,  // 61: accounting.v1.AccountStatement.period_end:type_name -> google.protobuf.Timestamp
 	1,   // 62: accounting.v1.GetAccountStatementRequest.account_type:type_name -> accounting.v1.AccountType
-	81,  // 63: accounting.v1.GetAccountStatementRequest.from:type_name -> google.protobuf.Timestamp
-	81,  // 64: accounting.v1.GetAccountStatementRequest.to:type_name -> google.protobuf.Timestamp
+	93,  // 63: accounting.v1.GetAccountStatementRequest.from:type_name -> google.protobuf.Timestamp
+	93,  // 64: accounting.v1.GetAccountStatementRequest.to:type_name -> google.protobuf.Timestamp
 	42,  // 65: accounting.v1.GetAccountStatementResponse.statement:type_name -> accounting.v1.AccountStatement
 	0,   // 66: accounting.v1.GetOwnerStatementRequest.owner_type:type_name -> accounting.v1.OwnerType
 	1,   // 67: accounting.v1.GetOwnerStatementRequest.account_type:type_name -> accounting.v1.AccountType
-	81,  // 68: accounting.v1.GetOwnerStatementRequest.from:type_name -> google.protobuf.Timestamp
-	81,  // 69: accounting.v1.GetOwnerStatementRequest.to:type_name -> google.protobuf.Timestamp
+	93,  // 68: accounting.v1.GetOwnerStatementRequest.from:type_name -> google.protobuf.Timestamp
+	93,  // 69: accounting.v1.GetOwnerStatementRequest.to:type_name -> google.protobuf.Timestamp
 	42,  // 70: accounting.v1.GetOwnerStatementResponse.statements:type_name -> accounting.v1.AccountStatement
 	0,   // 71: accounting.v1.OwnerSummary.owner_type:type_name -> accounting.v1.OwnerType
 	1,   // 72: accounting.v1.OwnerSummary.account_type:type_name -> accounting.v1.AccountType
@@ -5742,99 +7019,129 @@ var file_proto_shared_accounting_account_proto_depIdxs = []int32{
 	1,   // 75: accounting.v1.GetOwnerSummaryRequest.account_type:type_name -> accounting.v1.AccountType
 	47,  // 76: accounting.v1.GetOwnerSummaryResponse.summary:type_name -> accounting.v1.OwnerSummary
 	0,   // 77: accounting.v1.DailyReport.owner_type:type_name -> accounting.v1.OwnerType
-	81,  // 78: accounting.v1.DailyReport.date:type_name -> google.protobuf.Timestamp
-	81,  // 79: accounting.v1.GenerateDailyReportRequest.date:type_name -> google.protobuf.Timestamp
+	93,  // 78: accounting.v1.DailyReport.date:type_name -> google.protobuf.Timestamp
+	93,  // 79: accounting.v1.GenerateDailyReportRequest.date:type_name -> google.protobuf.Timestamp
 	1,   // 80: accounting.v1.GenerateDailyReportRequest.account_type:type_name -> accounting.v1.AccountType
 	51,  // 81: accounting.v1.GenerateDailyReportResponse.reports:type_name -> accounting.v1.DailyReport
 	4,   // 82: accounting.v1.TransactionSummary.transaction_type:type_name -> accounting.v1.TransactionType
 	1,   // 83: accounting.v1.GetTransactionSummaryRequest.account_type:type_name -> accounting.v1.AccountType
-	81,  // 84: accounting.v1.GetTransactionSummaryRequest.from:type_name -> google.protobuf.Timestamp
-	81,  // 85: accounting.v1.GetTransactionSummaryRequest.to:type_name -> google.protobuf.Timestamp
+	93,  // 84: accounting.v1.GetTransactionSummaryRequest.from:type_name -> google.protobuf.Timestamp
+	93,  // 85: accounting.v1.GetTransactionSummaryRequest.to:type_name -> google.protobuf.Timestamp
 	54,  // 86: accounting.v1.GetTransactionSummaryResponse.summaries:type_name -> accounting.v1.TransactionSummary
 	1,   // 87: accounting.v1.GetSystemHoldingsRequest.account_type:type_name -> accounting.v1.AccountType
-	76,  // 88: accounting.v1.GetSystemHoldingsResponse.holdings:type_name -> accounting.v1.GetSystemHoldingsResponse.HoldingsEntry
+	88,  // 88: accounting.v1.GetSystemHoldingsResponse.holdings:type_name -> accounting.v1.GetSystemHoldingsResponse.HoldingsEntry
 	6,   // 89: accounting.v1.TransactionFee.fee_type:type_name -> accounting.v1.FeeType
-	81,  // 90: accounting.v1.TransactionFee.created_at:type_name -> google.protobuf.Timestamp
+	93,  // 90: accounting.v1.TransactionFee.created_at:type_name -> google.protobuf.Timestamp
 	4,   // 91: accounting.v1.CalculateFeeRequest.transaction_type:type_name -> accounting.v1.TransactionType
 	1,   // 92: accounting.v1.CalculateFeeRequest.account_type:type_name -> accounting.v1.AccountType
 	0,   // 93: accounting.v1.CalculateFeeRequest.owner_type:type_name -> accounting.v1.OwnerType
 	6,   // 94: accounting.v1.FeeCalculation.fee_type:type_name -> accounting.v1.FeeType
 	61,  // 95: accounting.v1.CalculateFeeResponse.calculation:type_name -> accounting.v1.FeeCalculation
 	59,  // 96: accounting.v1.GetFeesByReceiptResponse.fees:type_name -> accounting.v1.TransactionFee
-	81,  // 97: accounting.v1.GetAgentCommissionSummaryRequest.from:type_name -> google.protobuf.Timestamp
-	81,  // 98: accounting.v1.GetAgentCommissionSummaryRequest.to:type_name -> google.protobuf.Timestamp
-	77,  // 99: accounting.v1.GetAgentCommissionSummaryResponse.commissions:type_name -> accounting.v1.GetAgentCommissionSummaryResponse.CommissionsEntry
-	78,  // 100: accounting.v1.HealthCheckResponse.components:type_name -> accounting.v1.HealthCheckResponse.ComponentsEntry
+	93,  // 97: accounting.v1.GetAgentCommissionSummaryRequest.from:type_name -> google.protobuf.Timestamp
+	93,  // 98: accounting.v1.GetAgentCommissionSummaryRequest.to:type_name -> google.protobuf.Timestamp
+	89,  // 99: accounting.v1.GetAgentCommissionSummaryResponse.commissions:type_name -> accounting.v1.GetAgentCommissionSummaryResponse.CommissionsEntry
+	90,  // 100: accounting.v1.HealthCheckResponse.components:type_name -> accounting.v1.HealthCheckResponse.ComponentsEntry
 	24,  // 101: accounting.v1.BatchExecuteTransactionsRequest.transactions:type_name -> accounting.v1.ExecuteTransactionRequest
 	25,  // 102: accounting.v1.BatchExecuteTransactionsResponse.results:type_name -> accounting.v1.ExecuteTransactionResponse
-	79,  // 103: accounting.v1.BatchExecuteTransactionsResponse.errors:type_name -> accounting.v1.BatchExecuteTransactionsResponse.ErrorsEntry
+	91,  // 103: accounting.v1.BatchExecuteTransactionsResponse.errors:type_name -> accounting.v1.BatchExecuteTransactionsResponse.ErrorsEntry
 	8,   // 104: accounting.v1.BatchGetBalancesResponse.balances:type_name -> accounting.v1.Balance
-	80,  // 105: accounting.v1.BatchGetBalancesResponse.errors:type_name -> accounting.v1.BatchGetBalancesResponse.ErrorsEntry
+	92,  // 105: accounting.v1.BatchGetBalancesResponse.errors:type_name -> accounting.v1.BatchGetBalancesResponse.ErrorsEntry
 	0,   // 106: accounting.v1.StreamTransactionEventsRequest.owner_type:type_name -> accounting.v1.OwnerType
 	1,   // 107: accounting.v1.StreamTransactionEventsRequest.account_type:type_name -> accounting.v1.AccountType
 	5,   // 108: accounting.v1.TransactionEvent.status:type_name -> accounting.v1.TransactionStatus
-	81,  // 109: accounting.v1.TransactionEvent.timestamp:type_name -> google.protobuf.Timestamp
-	9,   // 110: accounting.v1.AccountingService.CreateAccount:input_type -> accounting.v1.CreateAccountRequest
-	10,  // 111: accounting.v1.AccountingService.CreateAccounts:input_type -> accounting.v1.CreateAccountsRequest
-	13,  // 112: accounting.v1.AccountingService.GetAccount:input_type -> accounting.v1.GetAccountRequest
-	15,  // 113: accounting.v1.AccountingService.GetAccountsByOwner:input_type -> accounting.v1.GetAccountsByOwnerRequest
-	17,  // 114: accounting.v1.AccountingService.GetOrCreateUserAccounts:input_type -> accounting.v1.GetOrCreateUserAccountsRequest
-	19,  // 115: accounting.v1.AccountingService.UpdateAccount:input_type -> accounting.v1.UpdateAccountRequest
-	21,  // 116: accounting.v1.AccountingService.GetBalance:input_type -> accounting.v1.GetBalanceRequest
-	71,  // 117: accounting.v1.AccountingService.BatchGetBalances:input_type -> accounting.v1.BatchGetBalancesRequest
-	24,  // 118: accounting.v1.AccountingService.ExecuteTransaction:input_type -> accounting.v1.ExecuteTransactionRequest
-	26,  // 119: accounting.v1.AccountingService.ExecuteTransactionSync:input_type -> accounting.v1.ExecuteTransactionSyncRequest
-	69,  // 120: accounting.v1.AccountingService.BatchExecuteTransactions:input_type -> accounting.v1.BatchExecuteTransactionsRequest
-	28,  // 121: accounting.v1.AccountingService.GetTransactionStatus:input_type -> accounting.v1.GetTransactionStatusRequest
-	30,  // 122: accounting.v1.AccountingService.GetTransactionByReceipt:input_type -> accounting.v1.GetTransactionByReceiptRequest
-	34,  // 123: accounting.v1.AccountingService.GetJournal:input_type -> accounting.v1.GetJournalRequest
-	36,  // 124: accounting.v1.AccountingService.ListJournals:input_type -> accounting.v1.ListJournalsRequest
-	38,  // 125: accounting.v1.AccountingService.ListLedgersByJournal:input_type -> accounting.v1.ListLedgersByJournalRequest
-	40,  // 126: accounting.v1.AccountingService.ListLedgersByAccount:input_type -> accounting.v1.ListLedgersByAccountRequest
-	43,  // 127: accounting.v1.AccountingService.GetAccountStatement:input_type -> accounting.v1.GetAccountStatementRequest
-	45,  // 128: accounting.v1.AccountingService.GetOwnerStatement:input_type -> accounting.v1.GetOwnerStatementRequest
-	49,  // 129: accounting.v1.AccountingService.GetOwnerSummary:input_type -> accounting.v1.GetOwnerSummaryRequest
-	52,  // 130: accounting.v1.AccountingService.GenerateDailyReport:input_type -> accounting.v1.GenerateDailyReportRequest
-	55,  // 131: accounting.v1.AccountingService.GetTransactionSummary:input_type -> accounting.v1.GetTransactionSummaryRequest
-	57,  // 132: accounting.v1.AccountingService.GetSystemHoldings:input_type -> accounting.v1.GetSystemHoldingsRequest
-	60,  // 133: accounting.v1.AccountingService.CalculateFee:input_type -> accounting.v1.CalculateFeeRequest
-	63,  // 134: accounting.v1.AccountingService.GetFeesByReceipt:input_type -> accounting.v1.GetFeesByReceiptRequest
-	65,  // 135: accounting.v1.AccountingService.GetAgentCommissionSummary:input_type -> accounting.v1.GetAgentCommissionSummaryRequest
-	73,  // 136: accounting.v1.AccountingService.StreamTransactionEvents:input_type -> accounting.v1.StreamTransactionEventsRequest
-	67,  // 137: accounting.v1.AccountingService.HealthCheck:input_type -> accounting.v1.HealthCheckRequest
-	11,  // 138: accounting.v1.AccountingService.CreateAccount:output_type -> accounting.v1.CreateAccountResponse
-	12,  // 139: accounting.v1.AccountingService.CreateAccounts:output_type -> accounting.v1.CreateAccountsResponse
-	14,  // 140: accounting.v1.AccountingService.GetAccount:output_type -> accounting.v1.GetAccountResponse
-	16,  // 141: accounting.v1.AccountingService.GetAccountsByOwner:output_type -> accounting.v1.GetAccountsByOwnerResponse
-	18,  // 142: accounting.v1.AccountingService.GetOrCreateUserAccounts:output_type -> accounting.v1.GetOrCreateUserAccountsResponse
-	20,  // 143: accounting.v1.AccountingService.UpdateAccount:output_type -> accounting.v1.UpdateAccountResponse
-	22,  // 144: accounting.v1.AccountingService.GetBalance:output_type -> accounting.v1.GetBalanceResponse
-	72,  // 145: accounting.v1.AccountingService.BatchGetBalances:output_type -> accounting.v1.BatchGetBalancesResponse
-	25,  // 146: accounting.v1.AccountingService.ExecuteTransaction:output_type -> accounting.v1.ExecuteTransactionResponse
-	27,  // 147: accounting.v1.AccountingService.ExecuteTransactionSync:output_type -> accounting.v1.ExecuteTransactionSyncResponse
-	70,  // 148: accounting.v1.AccountingService.BatchExecuteTransactions:output_type -> accounting.v1.BatchExecuteTransactionsResponse
-	29,  // 149: accounting.v1.AccountingService.GetTransactionStatus:output_type -> accounting.v1.GetTransactionStatusResponse
-	31,  // 150: accounting.v1.AccountingService.GetTransactionByReceipt:output_type -> accounting.v1.GetTransactionByReceiptResponse
-	35,  // 151: accounting.v1.AccountingService.GetJournal:output_type -> accounting.v1.GetJournalResponse
-	37,  // 152: accounting.v1.AccountingService.ListJournals:output_type -> accounting.v1.ListJournalsResponse
-	39,  // 153: accounting.v1.AccountingService.ListLedgersByJournal:output_type -> accounting.v1.ListLedgersByJournalResponse
-	41,  // 154: accounting.v1.AccountingService.ListLedgersByAccount:output_type -> accounting.v1.ListLedgersByAccountResponse
-	44,  // 155: accounting.v1.AccountingService.GetAccountStatement:output_type -> accounting.v1.GetAccountStatementResponse
-	46,  // 156: accounting.v1.AccountingService.GetOwnerStatement:output_type -> accounting.v1.GetOwnerStatementResponse
-	50,  // 157: accounting.v1.AccountingService.GetOwnerSummary:output_type -> accounting.v1.GetOwnerSummaryResponse
-	53,  // 158: accounting.v1.AccountingService.GenerateDailyReport:output_type -> accounting.v1.GenerateDailyReportResponse
-	56,  // 159: accounting.v1.AccountingService.GetTransactionSummary:output_type -> accounting.v1.GetTransactionSummaryResponse
-	58,  // 160: accounting.v1.AccountingService.GetSystemHoldings:output_type -> accounting.v1.GetSystemHoldingsResponse
-	62,  // 161: accounting.v1.AccountingService.CalculateFee:output_type -> accounting.v1.CalculateFeeResponse
-	64,  // 162: accounting.v1.AccountingService.GetFeesByReceipt:output_type -> accounting.v1.GetFeesByReceiptResponse
-	66,  // 163: accounting.v1.AccountingService.GetAgentCommissionSummary:output_type -> accounting.v1.GetAgentCommissionSummaryResponse
-	74,  // 164: accounting.v1.AccountingService.StreamTransactionEvents:output_type -> accounting.v1.TransactionEvent
-	68,  // 165: accounting.v1.AccountingService.HealthCheck:output_type -> accounting.v1.HealthCheckResponse
-	138, // [138:166] is the sub-list for method output_type
-	110, // [110:138] is the sub-list for method input_type
-	110, // [110:110] is the sub-list for extension type_name
-	110, // [110:110] is the sub-list for extension extendee
-	0,   // [0:110] is the sub-list for field type_name
+	93,  // 109: accounting.v1.TransactionEvent.timestamp:type_name -> google.protobuf.Timestamp
+	1,   // 110: accounting.v1.CreditRequest.account_type:type_name -> accounting.v1.AccountType
+	0,   // 111: accounting.v1.CreditRequest.created_by_type:type_name -> accounting.v1.OwnerType
+	93,  // 112: accounting.v1.CreditResponse.created_at:type_name -> google.protobuf.Timestamp
+	1,   // 113: accounting.v1.DebitRequest.account_type:type_name -> accounting.v1.AccountType
+	0,   // 114: accounting.v1.DebitRequest.created_by_type:type_name -> accounting.v1.OwnerType
+	93,  // 115: accounting.v1.DebitResponse.created_at:type_name -> google.protobuf.Timestamp
+	1,   // 116: accounting.v1.TransferRequest.account_type:type_name -> accounting.v1.AccountType
+	0,   // 117: accounting.v1.TransferRequest.created_by_type:type_name -> accounting.v1.OwnerType
+	93,  // 118: accounting.v1.TransferResponse.created_at:type_name -> google.protobuf.Timestamp
+	1,   // 119: accounting.v1.ConversionRequest.account_type:type_name -> accounting.v1.AccountType
+	0,   // 120: accounting.v1.ConversionRequest.created_by_type:type_name -> accounting.v1.OwnerType
+	93,  // 121: accounting.v1.ConversionResponse.created_at:type_name -> google.protobuf.Timestamp
+	1,   // 122: accounting.v1.TradeRequest.account_type:type_name -> accounting.v1.AccountType
+	0,   // 123: accounting.v1.TradeRequest.created_by_type:type_name -> accounting.v1.OwnerType
+	93,  // 124: accounting.v1.TradeResponse.created_at:type_name -> google.protobuf.Timestamp
+	93,  // 125: accounting.v1.AgentCommissionResponse.created_at:type_name -> google.protobuf.Timestamp
+	9,   // 126: accounting.v1.AccountingService.CreateAccount:input_type -> accounting.v1.CreateAccountRequest
+	10,  // 127: accounting.v1.AccountingService.CreateAccounts:input_type -> accounting.v1.CreateAccountsRequest
+	13,  // 128: accounting.v1.AccountingService.GetAccount:input_type -> accounting.v1.GetAccountRequest
+	15,  // 129: accounting.v1.AccountingService.GetAccountsByOwner:input_type -> accounting.v1.GetAccountsByOwnerRequest
+	17,  // 130: accounting.v1.AccountingService.GetOrCreateUserAccounts:input_type -> accounting.v1.GetOrCreateUserAccountsRequest
+	19,  // 131: accounting.v1.AccountingService.UpdateAccount:input_type -> accounting.v1.UpdateAccountRequest
+	21,  // 132: accounting.v1.AccountingService.GetBalance:input_type -> accounting.v1.GetBalanceRequest
+	71,  // 133: accounting.v1.AccountingService.BatchGetBalances:input_type -> accounting.v1.BatchGetBalancesRequest
+	24,  // 134: accounting.v1.AccountingService.ExecuteTransaction:input_type -> accounting.v1.ExecuteTransactionRequest
+	26,  // 135: accounting.v1.AccountingService.ExecuteTransactionSync:input_type -> accounting.v1.ExecuteTransactionSyncRequest
+	69,  // 136: accounting.v1.AccountingService.BatchExecuteTransactions:input_type -> accounting.v1.BatchExecuteTransactionsRequest
+	28,  // 137: accounting.v1.AccountingService.GetTransactionStatus:input_type -> accounting.v1.GetTransactionStatusRequest
+	30,  // 138: accounting.v1.AccountingService.GetTransactionByReceipt:input_type -> accounting.v1.GetTransactionByReceiptRequest
+	34,  // 139: accounting.v1.AccountingService.GetJournal:input_type -> accounting.v1.GetJournalRequest
+	36,  // 140: accounting.v1.AccountingService.ListJournals:input_type -> accounting.v1.ListJournalsRequest
+	38,  // 141: accounting.v1.AccountingService.ListLedgersByJournal:input_type -> accounting.v1.ListLedgersByJournalRequest
+	40,  // 142: accounting.v1.AccountingService.ListLedgersByAccount:input_type -> accounting.v1.ListLedgersByAccountRequest
+	43,  // 143: accounting.v1.AccountingService.GetAccountStatement:input_type -> accounting.v1.GetAccountStatementRequest
+	45,  // 144: accounting.v1.AccountingService.GetOwnerStatement:input_type -> accounting.v1.GetOwnerStatementRequest
+	49,  // 145: accounting.v1.AccountingService.GetOwnerSummary:input_type -> accounting.v1.GetOwnerSummaryRequest
+	52,  // 146: accounting.v1.AccountingService.GenerateDailyReport:input_type -> accounting.v1.GenerateDailyReportRequest
+	55,  // 147: accounting.v1.AccountingService.GetTransactionSummary:input_type -> accounting.v1.GetTransactionSummaryRequest
+	57,  // 148: accounting.v1.AccountingService.GetSystemHoldings:input_type -> accounting.v1.GetSystemHoldingsRequest
+	60,  // 149: accounting.v1.AccountingService.CalculateFee:input_type -> accounting.v1.CalculateFeeRequest
+	63,  // 150: accounting.v1.AccountingService.GetFeesByReceipt:input_type -> accounting.v1.GetFeesByReceiptRequest
+	65,  // 151: accounting.v1.AccountingService.GetAgentCommissionSummary:input_type -> accounting.v1.GetAgentCommissionSummaryRequest
+	73,  // 152: accounting.v1.AccountingService.StreamTransactionEvents:input_type -> accounting.v1.StreamTransactionEventsRequest
+	75,  // 153: accounting.v1.AccountingService.Credit:input_type -> accounting.v1.CreditRequest
+	77,  // 154: accounting.v1.AccountingService.Debit:input_type -> accounting.v1.DebitRequest
+	79,  // 155: accounting.v1.AccountingService.Transfer:input_type -> accounting.v1.TransferRequest
+	81,  // 156: accounting.v1.AccountingService.ConvertAndTransfer:input_type -> accounting.v1.ConversionRequest
+	83,  // 157: accounting.v1.AccountingService.ProcessTradeWin:input_type -> accounting.v1.TradeRequest
+	83,  // 158: accounting.v1.AccountingService.ProcessTradeLoss:input_type -> accounting.v1.TradeRequest
+	85,  // 159: accounting.v1.AccountingService.ProcessAgentCommission:input_type -> accounting.v1.AgentCommissionRequest
+	67,  // 160: accounting.v1.AccountingService.HealthCheck:input_type -> accounting.v1.HealthCheckRequest
+	11,  // 161: accounting.v1.AccountingService.CreateAccount:output_type -> accounting.v1.CreateAccountResponse
+	12,  // 162: accounting.v1.AccountingService.CreateAccounts:output_type -> accounting.v1.CreateAccountsResponse
+	14,  // 163: accounting.v1.AccountingService.GetAccount:output_type -> accounting.v1.GetAccountResponse
+	16,  // 164: accounting.v1.AccountingService.GetAccountsByOwner:output_type -> accounting.v1.GetAccountsByOwnerResponse
+	18,  // 165: accounting.v1.AccountingService.GetOrCreateUserAccounts:output_type -> accounting.v1.GetOrCreateUserAccountsResponse
+	20,  // 166: accounting.v1.AccountingService.UpdateAccount:output_type -> accounting.v1.UpdateAccountResponse
+	22,  // 167: accounting.v1.AccountingService.GetBalance:output_type -> accounting.v1.GetBalanceResponse
+	72,  // 168: accounting.v1.AccountingService.BatchGetBalances:output_type -> accounting.v1.BatchGetBalancesResponse
+	25,  // 169: accounting.v1.AccountingService.ExecuteTransaction:output_type -> accounting.v1.ExecuteTransactionResponse
+	27,  // 170: accounting.v1.AccountingService.ExecuteTransactionSync:output_type -> accounting.v1.ExecuteTransactionSyncResponse
+	70,  // 171: accounting.v1.AccountingService.BatchExecuteTransactions:output_type -> accounting.v1.BatchExecuteTransactionsResponse
+	29,  // 172: accounting.v1.AccountingService.GetTransactionStatus:output_type -> accounting.v1.GetTransactionStatusResponse
+	31,  // 173: accounting.v1.AccountingService.GetTransactionByReceipt:output_type -> accounting.v1.GetTransactionByReceiptResponse
+	35,  // 174: accounting.v1.AccountingService.GetJournal:output_type -> accounting.v1.GetJournalResponse
+	37,  // 175: accounting.v1.AccountingService.ListJournals:output_type -> accounting.v1.ListJournalsResponse
+	39,  // 176: accounting.v1.AccountingService.ListLedgersByJournal:output_type -> accounting.v1.ListLedgersByJournalResponse
+	41,  // 177: accounting.v1.AccountingService.ListLedgersByAccount:output_type -> accounting.v1.ListLedgersByAccountResponse
+	44,  // 178: accounting.v1.AccountingService.GetAccountStatement:output_type -> accounting.v1.GetAccountStatementResponse
+	46,  // 179: accounting.v1.AccountingService.GetOwnerStatement:output_type -> accounting.v1.GetOwnerStatementResponse
+	50,  // 180: accounting.v1.AccountingService.GetOwnerSummary:output_type -> accounting.v1.GetOwnerSummaryResponse
+	53,  // 181: accounting.v1.AccountingService.GenerateDailyReport:output_type -> accounting.v1.GenerateDailyReportResponse
+	56,  // 182: accounting.v1.AccountingService.GetTransactionSummary:output_type -> accounting.v1.GetTransactionSummaryResponse
+	58,  // 183: accounting.v1.AccountingService.GetSystemHoldings:output_type -> accounting.v1.GetSystemHoldingsResponse
+	62,  // 184: accounting.v1.AccountingService.CalculateFee:output_type -> accounting.v1.CalculateFeeResponse
+	64,  // 185: accounting.v1.AccountingService.GetFeesByReceipt:output_type -> accounting.v1.GetFeesByReceiptResponse
+	66,  // 186: accounting.v1.AccountingService.GetAgentCommissionSummary:output_type -> accounting.v1.GetAgentCommissionSummaryResponse
+	74,  // 187: accounting.v1.AccountingService.StreamTransactionEvents:output_type -> accounting.v1.TransactionEvent
+	76,  // 188: accounting.v1.AccountingService.Credit:output_type -> accounting.v1.CreditResponse
+	78,  // 189: accounting.v1.AccountingService.Debit:output_type -> accounting.v1.DebitResponse
+	80,  // 190: accounting.v1.AccountingService.Transfer:output_type -> accounting.v1.TransferResponse
+	82,  // 191: accounting.v1.AccountingService.ConvertAndTransfer:output_type -> accounting.v1.ConversionResponse
+	84,  // 192: accounting.v1.AccountingService.ProcessTradeWin:output_type -> accounting.v1.TradeResponse
+	84,  // 193: accounting.v1.AccountingService.ProcessTradeLoss:output_type -> accounting.v1.TradeResponse
+	86,  // 194: accounting.v1.AccountingService.ProcessAgentCommission:output_type -> accounting.v1.AgentCommissionResponse
+	68,  // 195: accounting.v1.AccountingService.HealthCheck:output_type -> accounting.v1.HealthCheckResponse
+	161, // [161:196] is the sub-list for method output_type
+	126, // [126:161] is the sub-list for method input_type
+	126, // [126:126] is the sub-list for extension type_name
+	126, // [126:126] is the sub-list for extension extendee
+	0,   // [0:126] is the sub-list for field type_name
 }
 
 func init() { file_proto_shared_accounting_account_proto_init() }
@@ -5863,13 +7170,19 @@ func file_proto_shared_accounting_account_proto_init() {
 	file_proto_shared_accounting_account_proto_msgTypes[54].OneofWrappers = []any{}
 	file_proto_shared_accounting_account_proto_msgTypes[66].OneofWrappers = []any{}
 	file_proto_shared_accounting_account_proto_msgTypes[67].OneofWrappers = []any{}
+	file_proto_shared_accounting_account_proto_msgTypes[68].OneofWrappers = []any{}
+	file_proto_shared_accounting_account_proto_msgTypes[70].OneofWrappers = []any{}
+	file_proto_shared_accounting_account_proto_msgTypes[72].OneofWrappers = []any{}
+	file_proto_shared_accounting_account_proto_msgTypes[74].OneofWrappers = []any{}
+	file_proto_shared_accounting_account_proto_msgTypes[76].OneofWrappers = []any{}
+	file_proto_shared_accounting_account_proto_msgTypes[78].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_shared_accounting_account_proto_rawDesc), len(file_proto_shared_accounting_account_proto_rawDesc)),
 			NumEnums:      7,
-			NumMessages:   74,
+			NumMessages:   86,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

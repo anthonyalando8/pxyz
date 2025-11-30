@@ -9,6 +9,7 @@ import (
 	"accounting-service/internal/config"
 	hgrpc "accounting-service/internal/handler/grpc"
 	"accounting-service/internal/repository"
+	"accounting-service/internal/service"
 	"accounting-service/internal/usecase"
 	accountingpb "x/shared/genproto/shared/accounting/v1"
 	authclient "x/shared/auth"
@@ -126,7 +127,7 @@ func NewAccountingGRPCServer(cfg config.AppConfig) {
 	statementRepo := repository.NewStatementRepo(dbpool, ledgerRepo)
 	_ = currencyRepo  // Currently unused, but initialized for completeness
 
-	transactionRepo := repository.NewTransactionRepo(dbpool, accountRepo, journalRepo, ledgerRepo, balanceRepo)
+	transactionRepo := repository.NewTransactionRepo(dbpool, accountRepo, journalRepo, ledgerRepo, balanceRepo, currencyRepo, feeRepo)
 
 	log.Println("✅ All repositories initialized")
 
@@ -208,6 +209,58 @@ func NewAccountingGRPCServer(cfg config.AppConfig) {
 	log.Println("✅ Transaction usecase initialized")
 
 	log.Println("✅ All 7 usecases initialized successfully")
+
+	// ===============================
+	// SYSTEM SEEDER (Optional)
+	// ===============================
+	// Seed system accounts, user accounts, and partner accounts
+	// Set cfg.SeedOnStartup = true in config to enable
+	if cfg.SeedOnStartup {
+		log.Println("")
+		log.Println("🌱 Starting system seeding...")
+		log.Println("════════════════════════════════════════════════════════════")
+		
+		seeder := service.NewSystemSeeder(
+			accountUC,
+			authClient,
+			partnerSvc,
+			dbpool,
+		)
+
+		// Step 1: Seed system accounts (run first, always)
+		log.Println("Step 1/3: Creating system accounts...")
+		if err := seeder.SeedSystemAccounts(ctx); err != nil {
+			log.Printf("⚠️  Warning: System account seeding failed (may already exist): %v", err)
+			// Don't fatal - accounts might already exist
+		} else {
+			log.Println("✅ System accounts seeded successfully")
+		}
+
+		// Step 2: Seed user and partner accounts
+		log.Println("Step 2/3: Seeding user and partner accounts...")
+		if err := seeder.SeedSystem(ctx); err != nil {
+			log.Printf("⚠️  Warning: User/partner seeding failed: %v", err)
+			// Don't fatal - continue with server startup
+		} else {
+			log.Println("✅ User and partner accounts seeded successfully")
+		}
+
+		// Step 3 (Optional): Seed agent accounts
+		if cfg.SeedAgents {
+			log.Println("Step 3/3: Seeding agent accounts...")
+			if err := seeder.SeedAgentAccounts(ctx); err != nil {
+				log.Printf("⚠️  Warning: Agent seeding failed: %v", err)
+			} else {
+				log.Println("✅ Agent accounts seeded successfully")
+			}
+		}
+
+		log.Println("════════════════════════════════════════════════════════════")
+		log.Println("✅ System seeding completed!")
+		log.Println("")
+	} else {
+		log.Println("ℹ️  System seeding skipped (cfg.SeedOnStartup = false)")
+	}
 
 	// ===============================
 	// GRPC HANDLER

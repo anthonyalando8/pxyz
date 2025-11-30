@@ -582,6 +582,135 @@ message TransactionEvent {
     google.protobuf.Timestamp timestamp = 8;
 }
 
+// NEW 
+// ===============================
+// NEW TRANSACTION OPERATION MESSAGES
+// ===============================
+
+message CreditRequest {
+    string account_number = 1;
+    int64 amount = 2;
+    string currency = 3;
+    AccountType account_type = 4;
+    string description = 5;
+    optional string idempotency_key = 6;
+    optional string external_ref = 7;
+    string created_by_external_id = 8;
+    OwnerType created_by_type = 9;
+}
+
+message CreditResponse {
+    int64 journal_id = 1;
+    string receipt_code = 2;
+    int64 balance_after = 3;
+    google.protobuf.Timestamp created_at = 4;
+}
+
+message DebitRequest {
+    string account_number = 1;
+    int64 amount = 2;
+    string currency = 3;
+    AccountType account_type = 4;
+    string description = 5;
+    optional string idempotency_key = 6;
+    optional string external_ref = 7;
+    string created_by_external_id = 8;
+    OwnerType created_by_type = 9;
+}
+
+message DebitResponse {
+    int64 journal_id = 1;
+    string receipt_code = 2;
+    int64 balance_after = 3;
+    google.protobuf.Timestamp created_at = 4;
+}
+
+message TransferRequest {
+    string from_account_number = 1;
+    string to_account_number = 2;
+    int64 amount = 3;
+    AccountType account_type = 4;
+    string description = 5;
+    optional string idempotency_key = 6;
+    optional string external_ref = 7;
+    string created_by_external_id = 8;
+    OwnerType created_by_type = 9;
+    optional string agent_external_id = 10; // Agent who facilitated
+}
+
+message TransferResponse {
+    int64 journal_id = 1;
+    string receipt_code = 2;
+    int64 fee_amount = 3;
+    int64 agent_commission = 4;
+    google.protobuf.Timestamp created_at = 5;
+}
+
+message ConversionRequest {
+    string from_account_number = 1;
+    string to_account_number = 2;
+    int64 amount = 3; // Amount in source currency
+    AccountType account_type = 4;
+    optional string idempotency_key = 5;
+    optional string external_ref = 6;
+    string created_by_external_id = 7;
+    OwnerType created_by_type = 8;
+    optional string agent_external_id = 9;
+}
+
+message ConversionResponse {
+    int64 journal_id = 1;
+    string receipt_code = 2;
+    string source_currency = 3;
+    string dest_currency = 4;
+    int64 source_amount = 5;
+    int64 converted_amount = 6;
+    string fx_rate = 7;
+    int64 fx_rate_id = 8;
+    int64 fee_amount = 9;
+    google.protobuf.Timestamp created_at = 10;
+}
+
+message TradeRequest {
+    string account_number = 1;
+    int64 amount = 2;
+    string currency = 3;
+    AccountType account_type = 4;
+    string trade_id = 5;
+    string trade_type = 6; // e.g., "forex", "crypto", "sports"
+    optional string idempotency_key = 7;
+    string created_by_external_id = 8;
+    OwnerType created_by_type = 9;
+}
+
+message TradeResponse {
+    int64 journal_id = 1;
+    string receipt_code = 2;
+    string trade_id = 3;
+    string trade_result = 4; // "win" or "loss"
+    int64 balance_after = 5;
+    google.protobuf.Timestamp created_at = 6;
+}
+
+message AgentCommissionRequest {
+    string agent_external_id = 1;
+    string transaction_ref = 2; // Receipt code of original transaction
+    string currency = 3;
+    int64 transaction_amount = 4;
+    int64 commission_amount = 5;
+    optional string commission_rate = 6;
+    optional string idempotency_key = 7;
+}
+
+message AgentCommissionResponse {
+    int64 journal_id = 1;
+    string receipt_code = 2;
+    string agent_external_id = 3;
+    int64 commission_amount = 4;
+    google.protobuf.Timestamp created_at = 5;
+}
+
+
 // ===============================
 // SERVICE DEFINITION
 // ===============================
@@ -691,6 +820,31 @@ service AccountingService {
     
     // Stream transaction events (for real-time updates)
     rpc StreamTransactionEvents(StreamTransactionEventsRequest) returns (stream TransactionEvent);
+
+    // ===============================
+    // SIMPLE TRANSACTION OPERATIONS
+    // ===============================
+    
+    // Credit account (system → user, NO FEES)
+    rpc Credit(CreditRequest) returns (CreditResponse);
+    
+    // Debit account (user → system, NO FEES)
+    rpc Debit(DebitRequest) returns (DebitResponse);
+    
+    // Transfer between accounts (P2P, FEES APPLY)
+    rpc Transfer(TransferRequest) returns (TransferResponse);
+    
+    // Currency conversion transfer (FEES APPLY)
+    rpc ConvertAndTransfer(ConversionRequest) returns (ConversionResponse);
+    
+    // Process trade win (NO FEES)
+    rpc ProcessTradeWin(TradeRequest) returns (TradeResponse);
+    
+    // Process trade loss (NO FEES)
+    rpc ProcessTradeLoss(TradeRequest) returns (TradeResponse);
+    
+    // Process agent commission (NO FEES)
+    rpc ProcessAgentCommission(AgentCommissionRequest) returns (AgentCommissionResponse);
     
     // ===============================
     // HEALTH & MONITORING

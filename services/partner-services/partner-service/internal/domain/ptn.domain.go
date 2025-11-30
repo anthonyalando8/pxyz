@@ -14,31 +14,36 @@ const (
 	PartnerStatusSuspended PartnerStatus = "suspended"
 )
 
+
 type Partner struct {
-	ID              string
-	Name            string
-	Country         string
-	ContactEmail    string
-	ContactPhone    string
-	Status          PartnerStatus
-	Service         string
-	Currency        string
-	
-	// API Integration fields
+    ID             string
+    Name           string
+    Country        string
+    ContactEmail   string
+    ContactPhone   string
+    Status         PartnerStatus
+    Service        string
+    Currency       string
+    LocalCurrency  string
+    Rate           string
+    InverseRate    string
+    CommissionRate float64
+    
+    IsAPIEnabled   bool
+    // API Integration fields
 	APIKey          *string
 	APISecretHash   *string
 	PlainAPISecret  *string // Temporary, for notification purposes only
 	WebhookURL      *string
 	WebhookSecret   *string
-	CallbackURL     *string
-	IsAPIEnabled    bool
-	APIRateLimit    int
-	AllowedIPs      []string
-	Metadata        map[string]interface{}
-	
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	APIRateLimit   int32
+    CallbackURL    *string
+    AllowedIPs     []string
+    Metadata        map[string]interface{}
+    CreatedAt      time.Time
+    UpdatedAt      time.Time
 }
+
 
 type PartnerAPILog struct {
 	ID            int64

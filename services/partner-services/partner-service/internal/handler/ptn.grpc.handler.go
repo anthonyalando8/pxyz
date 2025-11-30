@@ -386,3 +386,56 @@ func (h *GRPCPartnerHandler) GetPartnersByService(
 		Partners: protoPartners,
 	}, nil
 }
+
+
+func (h *PartnerHandler) StreamAllPartners(
+    req *partnersvcpb.StreamAllPartnersRequest,
+    stream partnersvcpb.PartnerService_StreamAllPartnersServer,
+) error {
+
+    batchSize := int(req.BatchSize)
+    if batchSize <= 0 {
+        batchSize = 1000
+    }
+
+    ctx := stream.Context()
+
+	return h.uc.StreamAllPartners(ctx, batchSize, func(p *domain.Partner) error {
+
+		return stream.Send(&partnersvcpb.Partner{
+			Id:             p.ID,
+			Name:           p.Name,
+			Country:        p.Country,
+			ContactEmail:   p.ContactEmail,
+			ContactPhone:   p.ContactPhone,
+			Status:         string(p.Status),
+			Service:        p.Service,
+			Currency:       p.Currency,
+			LocalCurrency:  p.LocalCurrency,
+			Rate:           p.Rate,
+			InverseRate:    p.InverseRate,
+			CommissionRate: p.CommissionRate,
+			ApiKey:         safeString(p.APIKey),
+			IsApiEnabled:   p.IsAPIEnabled,
+			ApiRateLimit:   p.APIRateLimit,
+			WebhookUrl:     safeString(p.WebhookURL),
+			CallbackUrl:    safeString(p.CallbackURL),
+			// CreatedAt:      p.CreatedAt.String(),
+			// UpdatedAt:      p.UpdatedAt.String(),
+		})
+	})
+}
+
+
+func toPtr(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+func safeString(ptr *string) string {
+	if ptr == nil {
+		return ""
+	}
+	return *ptr
+}

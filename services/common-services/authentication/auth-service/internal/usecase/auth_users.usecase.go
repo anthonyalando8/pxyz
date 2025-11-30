@@ -441,3 +441,23 @@ func (uc *UserUsecase) sendOTPAsync(ctx context.Context, userID, identifier, pur
 
 	return channel, recipient
 }
+
+
+// StreamUsers streams all users in batches and applies business logic on each
+func (uc *UserUsecase) StreamAllUsers(
+    ctx context.Context,
+    batchSize int,
+    sendFn func(*domain.UserProfile) error,
+) error {
+
+    return uc.userRepo.StreamAllUsers(ctx, batchSize, func(u *domain.UserProfile) error {
+        // honor cancellations
+        select {
+        case <-ctx.Done():
+            return ctx.Err()
+        default:
+        }
+
+        return sendFn(u)
+    })
+}

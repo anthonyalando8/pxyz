@@ -22,31 +22,79 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type Partner struct {
-	state        protoimpl.MessageState `protogen:"open.v1"`
-	Id           string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name         string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Country      string                 `protobuf:"bytes,3,opt,name=country,proto3" json:"country,omitempty"`
-	ContactEmail string                 `protobuf:"bytes,4,opt,name=contact_email,json=contactEmail,proto3" json:"contact_email,omitempty"`
-	ContactPhone string                 `protobuf:"bytes,5,opt,name=contact_phone,json=contactPhone,proto3" json:"contact_phone,omitempty"`
-	Status       string                 `protobuf:"bytes,6,opt,name=status,proto3" json:"status,omitempty"`
-	Service      string                 `protobuf:"bytes,7,opt,name=service,proto3" json:"service,omitempty"`
-	Currency     string                 `protobuf:"bytes,8,opt,name=currency,proto3" json:"currency,omitempty"`
-	// API fields
-	IsApiEnabled  bool                   `protobuf:"varint,9,opt,name=is_api_enabled,json=isApiEnabled,proto3" json:"is_api_enabled,omitempty"`
-	WebhookUrl    string                 `protobuf:"bytes,10,opt,name=webhook_url,json=webhookUrl,proto3" json:"webhook_url,omitempty"`
-	CallbackUrl   string                 `protobuf:"bytes,11,opt,name=callback_url,json=callbackUrl,proto3" json:"callback_url,omitempty"`
-	ApiRateLimit  int32                  `protobuf:"varint,12,opt,name=api_rate_limit,json=apiRateLimit,proto3" json:"api_rate_limit,omitempty"`
-	AllowedIps    []string               `protobuf:"bytes,13,rep,name=allowed_ips,json=allowedIps,proto3" json:"allowed_ips,omitempty"`
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,14,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,15,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+type StreamAllPartnersRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	BatchSize     int32                  `protobuf:"varint,1,opt,name=batch_size,json=batchSize,proto3" json:"batch_size,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
+func (x *StreamAllPartnersRequest) Reset() {
+	*x = StreamAllPartnersRequest{}
+	mi := &file_proto_partner_svc_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StreamAllPartnersRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StreamAllPartnersRequest) ProtoMessage() {}
+
+func (x *StreamAllPartnersRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_partner_svc_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StreamAllPartnersRequest.ProtoReflect.Descriptor instead.
+func (*StreamAllPartnersRequest) Descriptor() ([]byte, []int) {
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *StreamAllPartnersRequest) GetBatchSize() int32 {
+	if x != nil {
+		return x.BatchSize
+	}
+	return 0
+}
+
+type Partner struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Id             string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name           string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Country        string                 `protobuf:"bytes,3,opt,name=country,proto3" json:"country,omitempty"`
+	ContactEmail   string                 `protobuf:"bytes,4,opt,name=contact_email,json=contactEmail,proto3" json:"contact_email,omitempty"`
+	ContactPhone   string                 `protobuf:"bytes,5,opt,name=contact_phone,json=contactPhone,proto3" json:"contact_phone,omitempty"`
+	Status         string                 `protobuf:"bytes,6,opt,name=status,proto3" json:"status,omitempty"`
+	Service        string                 `protobuf:"bytes,7,opt,name=service,proto3" json:"service,omitempty"`
+	Currency       string                 `protobuf:"bytes,8,opt,name=currency,proto3" json:"currency,omitempty"`
+	LocalCurrency  string                 `protobuf:"bytes,9,opt,name=local_currency,json=localCurrency,proto3" json:"local_currency,omitempty"`
+	Rate           string                 `protobuf:"bytes,10,opt,name=rate,proto3" json:"rate,omitempty"`
+	InverseRate    string                 `protobuf:"bytes,11,opt,name=inverse_rate,json=inverseRate,proto3" json:"inverse_rate,omitempty"`
+	CommissionRate float64                `protobuf:"fixed64,12,opt,name=commission_rate,json=commissionRate,proto3" json:"commission_rate,omitempty"`
+	ApiKey         string                 `protobuf:"bytes,13,opt,name=api_key,json=apiKey,proto3" json:"api_key,omitempty"`
+	IsApiEnabled   bool                   `protobuf:"varint,14,opt,name=is_api_enabled,json=isApiEnabled,proto3" json:"is_api_enabled,omitempty"`
+	ApiRateLimit   int32                  `protobuf:"varint,15,opt,name=api_rate_limit,json=apiRateLimit,proto3" json:"api_rate_limit,omitempty"`
+	WebhookUrl     string                 `protobuf:"bytes,16,opt,name=webhook_url,json=webhookUrl,proto3" json:"webhook_url,omitempty"`
+	CallbackUrl    string                 `protobuf:"bytes,17,opt,name=callback_url,json=callbackUrl,proto3" json:"callback_url,omitempty"`
+	CreatedAt      *timestamppb.Timestamp `protobuf:"bytes,18,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt      *timestamppb.Timestamp `protobuf:"bytes,19,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	AllowedIps     []string               `protobuf:"bytes,20,rep,name=allowed_ips,json=allowedIps,proto3" json:"allowed_ips,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
 func (x *Partner) Reset() {
 	*x = Partner{}
-	mi := &file_proto_partner_svc_proto_msgTypes[0]
+	mi := &file_proto_partner_svc_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -58,7 +106,7 @@ func (x *Partner) String() string {
 func (*Partner) ProtoMessage() {}
 
 func (x *Partner) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[0]
+	mi := &file_proto_partner_svc_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -71,7 +119,7 @@ func (x *Partner) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Partner.ProtoReflect.Descriptor instead.
 func (*Partner) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{0}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *Partner) GetId() string {
@@ -130,11 +178,53 @@ func (x *Partner) GetCurrency() string {
 	return ""
 }
 
+func (x *Partner) GetLocalCurrency() string {
+	if x != nil {
+		return x.LocalCurrency
+	}
+	return ""
+}
+
+func (x *Partner) GetRate() string {
+	if x != nil {
+		return x.Rate
+	}
+	return ""
+}
+
+func (x *Partner) GetInverseRate() string {
+	if x != nil {
+		return x.InverseRate
+	}
+	return ""
+}
+
+func (x *Partner) GetCommissionRate() float64 {
+	if x != nil {
+		return x.CommissionRate
+	}
+	return 0
+}
+
+func (x *Partner) GetApiKey() string {
+	if x != nil {
+		return x.ApiKey
+	}
+	return ""
+}
+
 func (x *Partner) GetIsApiEnabled() bool {
 	if x != nil {
 		return x.IsApiEnabled
 	}
 	return false
+}
+
+func (x *Partner) GetApiRateLimit() int32 {
+	if x != nil {
+		return x.ApiRateLimit
+	}
+	return 0
 }
 
 func (x *Partner) GetWebhookUrl() string {
@@ -151,20 +241,6 @@ func (x *Partner) GetCallbackUrl() string {
 	return ""
 }
 
-func (x *Partner) GetApiRateLimit() int32 {
-	if x != nil {
-		return x.ApiRateLimit
-	}
-	return 0
-}
-
-func (x *Partner) GetAllowedIps() []string {
-	if x != nil {
-		return x.AllowedIps
-	}
-	return nil
-}
-
 func (x *Partner) GetCreatedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.CreatedAt
@@ -175,6 +251,13 @@ func (x *Partner) GetCreatedAt() *timestamppb.Timestamp {
 func (x *Partner) GetUpdatedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.UpdatedAt
+	}
+	return nil
+}
+
+func (x *Partner) GetAllowedIps() []string {
+	if x != nil {
+		return x.AllowedIps
 	}
 	return nil
 }
@@ -199,7 +282,7 @@ type PartnerTransaction struct {
 
 func (x *PartnerTransaction) Reset() {
 	*x = PartnerTransaction{}
-	mi := &file_proto_partner_svc_proto_msgTypes[1]
+	mi := &file_proto_partner_svc_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -211,7 +294,7 @@ func (x *PartnerTransaction) String() string {
 func (*PartnerTransaction) ProtoMessage() {}
 
 func (x *PartnerTransaction) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[1]
+	mi := &file_proto_partner_svc_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -224,7 +307,7 @@ func (x *PartnerTransaction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PartnerTransaction.ProtoReflect.Descriptor instead.
 func (*PartnerTransaction) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{1}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *PartnerTransaction) GetId() int64 {
@@ -320,7 +403,7 @@ type GenerateAPICredentialsRequest struct {
 
 func (x *GenerateAPICredentialsRequest) Reset() {
 	*x = GenerateAPICredentialsRequest{}
-	mi := &file_proto_partner_svc_proto_msgTypes[2]
+	mi := &file_proto_partner_svc_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -332,7 +415,7 @@ func (x *GenerateAPICredentialsRequest) String() string {
 func (*GenerateAPICredentialsRequest) ProtoMessage() {}
 
 func (x *GenerateAPICredentialsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[2]
+	mi := &file_proto_partner_svc_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -345,7 +428,7 @@ func (x *GenerateAPICredentialsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateAPICredentialsRequest.ProtoReflect.Descriptor instead.
 func (*GenerateAPICredentialsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{2}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *GenerateAPICredentialsRequest) GetPartnerId() string {
@@ -367,7 +450,7 @@ type APICredentialsResponse struct {
 
 func (x *APICredentialsResponse) Reset() {
 	*x = APICredentialsResponse{}
-	mi := &file_proto_partner_svc_proto_msgTypes[3]
+	mi := &file_proto_partner_svc_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -379,7 +462,7 @@ func (x *APICredentialsResponse) String() string {
 func (*APICredentialsResponse) ProtoMessage() {}
 
 func (x *APICredentialsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[3]
+	mi := &file_proto_partner_svc_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -392,7 +475,7 @@ func (x *APICredentialsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use APICredentialsResponse.ProtoReflect.Descriptor instead.
 func (*APICredentialsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{3}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *APICredentialsResponse) GetApiKey() string {
@@ -432,7 +515,7 @@ type RevokeAPICredentialsRequest struct {
 
 func (x *RevokeAPICredentialsRequest) Reset() {
 	*x = RevokeAPICredentialsRequest{}
-	mi := &file_proto_partner_svc_proto_msgTypes[4]
+	mi := &file_proto_partner_svc_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -444,7 +527,7 @@ func (x *RevokeAPICredentialsRequest) String() string {
 func (*RevokeAPICredentialsRequest) ProtoMessage() {}
 
 func (x *RevokeAPICredentialsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[4]
+	mi := &file_proto_partner_svc_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -457,7 +540,7 @@ func (x *RevokeAPICredentialsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeAPICredentialsRequest.ProtoReflect.Descriptor instead.
 func (*RevokeAPICredentialsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{4}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *RevokeAPICredentialsRequest) GetPartnerId() string {
@@ -477,7 +560,7 @@ type RevokeAPICredentialsResponse struct {
 
 func (x *RevokeAPICredentialsResponse) Reset() {
 	*x = RevokeAPICredentialsResponse{}
-	mi := &file_proto_partner_svc_proto_msgTypes[5]
+	mi := &file_proto_partner_svc_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -489,7 +572,7 @@ func (x *RevokeAPICredentialsResponse) String() string {
 func (*RevokeAPICredentialsResponse) ProtoMessage() {}
 
 func (x *RevokeAPICredentialsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[5]
+	mi := &file_proto_partner_svc_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -502,7 +585,7 @@ func (x *RevokeAPICredentialsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeAPICredentialsResponse.ProtoReflect.Descriptor instead.
 func (*RevokeAPICredentialsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{5}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *RevokeAPICredentialsResponse) GetSuccess() bool {
@@ -528,7 +611,7 @@ type RotateAPISecretRequest struct {
 
 func (x *RotateAPISecretRequest) Reset() {
 	*x = RotateAPISecretRequest{}
-	mi := &file_proto_partner_svc_proto_msgTypes[6]
+	mi := &file_proto_partner_svc_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -540,7 +623,7 @@ func (x *RotateAPISecretRequest) String() string {
 func (*RotateAPISecretRequest) ProtoMessage() {}
 
 func (x *RotateAPISecretRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[6]
+	mi := &file_proto_partner_svc_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -553,7 +636,7 @@ func (x *RotateAPISecretRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RotateAPISecretRequest.ProtoReflect.Descriptor instead.
 func (*RotateAPISecretRequest) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{6}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *RotateAPISecretRequest) GetPartnerId() string {
@@ -575,7 +658,7 @@ type UpdateAPISettingsRequest struct {
 
 func (x *UpdateAPISettingsRequest) Reset() {
 	*x = UpdateAPISettingsRequest{}
-	mi := &file_proto_partner_svc_proto_msgTypes[7]
+	mi := &file_proto_partner_svc_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -587,7 +670,7 @@ func (x *UpdateAPISettingsRequest) String() string {
 func (*UpdateAPISettingsRequest) ProtoMessage() {}
 
 func (x *UpdateAPISettingsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[7]
+	mi := &file_proto_partner_svc_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -600,7 +683,7 @@ func (x *UpdateAPISettingsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateAPISettingsRequest.ProtoReflect.Descriptor instead.
 func (*UpdateAPISettingsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{7}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *UpdateAPISettingsRequest) GetPartnerId() string {
@@ -647,7 +730,7 @@ type InitiateDepositRequest struct {
 
 func (x *InitiateDepositRequest) Reset() {
 	*x = InitiateDepositRequest{}
-	mi := &file_proto_partner_svc_proto_msgTypes[8]
+	mi := &file_proto_partner_svc_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -659,7 +742,7 @@ func (x *InitiateDepositRequest) String() string {
 func (*InitiateDepositRequest) ProtoMessage() {}
 
 func (x *InitiateDepositRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[8]
+	mi := &file_proto_partner_svc_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -672,7 +755,7 @@ func (x *InitiateDepositRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InitiateDepositRequest.ProtoReflect.Descriptor instead.
 func (*InitiateDepositRequest) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{8}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *InitiateDepositRequest) GetPartnerId() string {
@@ -743,7 +826,7 @@ type InitiateDepositResponse struct {
 
 func (x *InitiateDepositResponse) Reset() {
 	*x = InitiateDepositResponse{}
-	mi := &file_proto_partner_svc_proto_msgTypes[9]
+	mi := &file_proto_partner_svc_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -755,7 +838,7 @@ func (x *InitiateDepositResponse) String() string {
 func (*InitiateDepositResponse) ProtoMessage() {}
 
 func (x *InitiateDepositResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[9]
+	mi := &file_proto_partner_svc_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -768,7 +851,7 @@ func (x *InitiateDepositResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InitiateDepositResponse.ProtoReflect.Descriptor instead.
 func (*InitiateDepositResponse) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{9}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *InitiateDepositResponse) GetSuccess() bool {
@@ -809,7 +892,7 @@ type GetTransactionStatusRequest struct {
 
 func (x *GetTransactionStatusRequest) Reset() {
 	*x = GetTransactionStatusRequest{}
-	mi := &file_proto_partner_svc_proto_msgTypes[10]
+	mi := &file_proto_partner_svc_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -821,7 +904,7 @@ func (x *GetTransactionStatusRequest) String() string {
 func (*GetTransactionStatusRequest) ProtoMessage() {}
 
 func (x *GetTransactionStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[10]
+	mi := &file_proto_partner_svc_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -834,7 +917,7 @@ func (x *GetTransactionStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTransactionStatusRequest.ProtoReflect.Descriptor instead.
 func (*GetTransactionStatusRequest) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{10}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *GetTransactionStatusRequest) GetPartnerId() string {
@@ -860,7 +943,7 @@ type TransactionStatusResponse struct {
 
 func (x *TransactionStatusResponse) Reset() {
 	*x = TransactionStatusResponse{}
-	mi := &file_proto_partner_svc_proto_msgTypes[11]
+	mi := &file_proto_partner_svc_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -872,7 +955,7 @@ func (x *TransactionStatusResponse) String() string {
 func (*TransactionStatusResponse) ProtoMessage() {}
 
 func (x *TransactionStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[11]
+	mi := &file_proto_partner_svc_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -885,7 +968,7 @@ func (x *TransactionStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TransactionStatusResponse.ProtoReflect.Descriptor instead.
 func (*TransactionStatusResponse) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{11}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *TransactionStatusResponse) GetTransaction() *PartnerTransaction {
@@ -909,7 +992,7 @@ type ListTransactionsRequest struct {
 
 func (x *ListTransactionsRequest) Reset() {
 	*x = ListTransactionsRequest{}
-	mi := &file_proto_partner_svc_proto_msgTypes[12]
+	mi := &file_proto_partner_svc_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -921,7 +1004,7 @@ func (x *ListTransactionsRequest) String() string {
 func (*ListTransactionsRequest) ProtoMessage() {}
 
 func (x *ListTransactionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[12]
+	mi := &file_proto_partner_svc_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -934,7 +1017,7 @@ func (x *ListTransactionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTransactionsRequest.ProtoReflect.Descriptor instead.
 func (*ListTransactionsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{12}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ListTransactionsRequest) GetPartnerId() string {
@@ -989,7 +1072,7 @@ type ListTransactionsResponse struct {
 
 func (x *ListTransactionsResponse) Reset() {
 	*x = ListTransactionsResponse{}
-	mi := &file_proto_partner_svc_proto_msgTypes[13]
+	mi := &file_proto_partner_svc_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1001,7 +1084,7 @@ func (x *ListTransactionsResponse) String() string {
 func (*ListTransactionsResponse) ProtoMessage() {}
 
 func (x *ListTransactionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[13]
+	mi := &file_proto_partner_svc_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1014,7 +1097,7 @@ func (x *ListTransactionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTransactionsResponse.ProtoReflect.Descriptor instead.
 func (*ListTransactionsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{13}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ListTransactionsResponse) GetTransactions() []*PartnerTransaction {
@@ -1043,7 +1126,7 @@ type UpdateWebhookConfigRequest struct {
 
 func (x *UpdateWebhookConfigRequest) Reset() {
 	*x = UpdateWebhookConfigRequest{}
-	mi := &file_proto_partner_svc_proto_msgTypes[14]
+	mi := &file_proto_partner_svc_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1055,7 +1138,7 @@ func (x *UpdateWebhookConfigRequest) String() string {
 func (*UpdateWebhookConfigRequest) ProtoMessage() {}
 
 func (x *UpdateWebhookConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[14]
+	mi := &file_proto_partner_svc_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1068,7 +1151,7 @@ func (x *UpdateWebhookConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateWebhookConfigRequest.ProtoReflect.Descriptor instead.
 func (*UpdateWebhookConfigRequest) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{14}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *UpdateWebhookConfigRequest) GetPartnerId() string {
@@ -1109,7 +1192,7 @@ type WebhookConfigResponse struct {
 
 func (x *WebhookConfigResponse) Reset() {
 	*x = WebhookConfigResponse{}
-	mi := &file_proto_partner_svc_proto_msgTypes[15]
+	mi := &file_proto_partner_svc_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1121,7 +1204,7 @@ func (x *WebhookConfigResponse) String() string {
 func (*WebhookConfigResponse) ProtoMessage() {}
 
 func (x *WebhookConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[15]
+	mi := &file_proto_partner_svc_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1134,7 +1217,7 @@ func (x *WebhookConfigResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WebhookConfigResponse.ProtoReflect.Descriptor instead.
 func (*WebhookConfigResponse) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{15}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *WebhookConfigResponse) GetSuccess() bool {
@@ -1160,7 +1243,7 @@ type TestWebhookRequest struct {
 
 func (x *TestWebhookRequest) Reset() {
 	*x = TestWebhookRequest{}
-	mi := &file_proto_partner_svc_proto_msgTypes[16]
+	mi := &file_proto_partner_svc_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1172,7 +1255,7 @@ func (x *TestWebhookRequest) String() string {
 func (*TestWebhookRequest) ProtoMessage() {}
 
 func (x *TestWebhookRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[16]
+	mi := &file_proto_partner_svc_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1185,7 +1268,7 @@ func (x *TestWebhookRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestWebhookRequest.ProtoReflect.Descriptor instead.
 func (*TestWebhookRequest) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{16}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *TestWebhookRequest) GetPartnerId() string {
@@ -1206,7 +1289,7 @@ type TestWebhookResponse struct {
 
 func (x *TestWebhookResponse) Reset() {
 	*x = TestWebhookResponse{}
-	mi := &file_proto_partner_svc_proto_msgTypes[17]
+	mi := &file_proto_partner_svc_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1218,7 +1301,7 @@ func (x *TestWebhookResponse) String() string {
 func (*TestWebhookResponse) ProtoMessage() {}
 
 func (x *TestWebhookResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[17]
+	mi := &file_proto_partner_svc_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1231,7 +1314,7 @@ func (x *TestWebhookResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestWebhookResponse.ProtoReflect.Descriptor instead.
 func (*TestWebhookResponse) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{17}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *TestWebhookResponse) GetSuccess() bool {
@@ -1266,7 +1349,7 @@ type ListWebhookLogsRequest struct {
 
 func (x *ListWebhookLogsRequest) Reset() {
 	*x = ListWebhookLogsRequest{}
-	mi := &file_proto_partner_svc_proto_msgTypes[18]
+	mi := &file_proto_partner_svc_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1278,7 +1361,7 @@ func (x *ListWebhookLogsRequest) String() string {
 func (*ListWebhookLogsRequest) ProtoMessage() {}
 
 func (x *ListWebhookLogsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[18]
+	mi := &file_proto_partner_svc_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1291,7 +1374,7 @@ func (x *ListWebhookLogsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListWebhookLogsRequest.ProtoReflect.Descriptor instead.
 func (*ListWebhookLogsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{18}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ListWebhookLogsRequest) GetPartnerId() string {
@@ -1325,7 +1408,7 @@ type ListWebhookLogsResponse struct {
 
 func (x *ListWebhookLogsResponse) Reset() {
 	*x = ListWebhookLogsResponse{}
-	mi := &file_proto_partner_svc_proto_msgTypes[19]
+	mi := &file_proto_partner_svc_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1337,7 +1420,7 @@ func (x *ListWebhookLogsResponse) String() string {
 func (*ListWebhookLogsResponse) ProtoMessage() {}
 
 func (x *ListWebhookLogsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[19]
+	mi := &file_proto_partner_svc_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1350,7 +1433,7 @@ func (x *ListWebhookLogsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListWebhookLogsResponse.ProtoReflect.Descriptor instead.
 func (*ListWebhookLogsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{19}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *ListWebhookLogsResponse) GetLogs() []*WebhookLog {
@@ -1384,7 +1467,7 @@ type WebhookLog struct {
 
 func (x *WebhookLog) Reset() {
 	*x = WebhookLog{}
-	mi := &file_proto_partner_svc_proto_msgTypes[20]
+	mi := &file_proto_partner_svc_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1396,7 +1479,7 @@ func (x *WebhookLog) String() string {
 func (*WebhookLog) ProtoMessage() {}
 
 func (x *WebhookLog) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[20]
+	mi := &file_proto_partner_svc_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1409,7 +1492,7 @@ func (x *WebhookLog) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WebhookLog.ProtoReflect.Descriptor instead.
 func (*WebhookLog) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{20}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *WebhookLog) GetId() int64 {
@@ -1490,7 +1573,7 @@ type CreatePartnerRequest struct {
 
 func (x *CreatePartnerRequest) Reset() {
 	*x = CreatePartnerRequest{}
-	mi := &file_proto_partner_svc_proto_msgTypes[21]
+	mi := &file_proto_partner_svc_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1502,7 +1585,7 @@ func (x *CreatePartnerRequest) String() string {
 func (*CreatePartnerRequest) ProtoMessage() {}
 
 func (x *CreatePartnerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[21]
+	mi := &file_proto_partner_svc_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1515,7 +1598,7 @@ func (x *CreatePartnerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreatePartnerRequest.ProtoReflect.Descriptor instead.
 func (*CreatePartnerRequest) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{21}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *CreatePartnerRequest) GetName() string {
@@ -1583,7 +1666,7 @@ type UpdatePartnerRequest struct {
 
 func (x *UpdatePartnerRequest) Reset() {
 	*x = UpdatePartnerRequest{}
-	mi := &file_proto_partner_svc_proto_msgTypes[22]
+	mi := &file_proto_partner_svc_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1595,7 +1678,7 @@ func (x *UpdatePartnerRequest) String() string {
 func (*UpdatePartnerRequest) ProtoMessage() {}
 
 func (x *UpdatePartnerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[22]
+	mi := &file_proto_partner_svc_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1608,7 +1691,7 @@ func (x *UpdatePartnerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdatePartnerRequest.ProtoReflect.Descriptor instead.
 func (*UpdatePartnerRequest) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{22}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *UpdatePartnerRequest) GetId() string {
@@ -1676,7 +1759,7 @@ type DeletePartnerRequest struct {
 
 func (x *DeletePartnerRequest) Reset() {
 	*x = DeletePartnerRequest{}
-	mi := &file_proto_partner_svc_proto_msgTypes[23]
+	mi := &file_proto_partner_svc_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1688,7 +1771,7 @@ func (x *DeletePartnerRequest) String() string {
 func (*DeletePartnerRequest) ProtoMessage() {}
 
 func (x *DeletePartnerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[23]
+	mi := &file_proto_partner_svc_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1701,7 +1784,7 @@ func (x *DeletePartnerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeletePartnerRequest.ProtoReflect.Descriptor instead.
 func (*DeletePartnerRequest) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{23}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *DeletePartnerRequest) GetId() string {
@@ -1720,7 +1803,7 @@ type PartnerResponse struct {
 
 func (x *PartnerResponse) Reset() {
 	*x = PartnerResponse{}
-	mi := &file_proto_partner_svc_proto_msgTypes[24]
+	mi := &file_proto_partner_svc_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1732,7 +1815,7 @@ func (x *PartnerResponse) String() string {
 func (*PartnerResponse) ProtoMessage() {}
 
 func (x *PartnerResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[24]
+	mi := &file_proto_partner_svc_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1745,7 +1828,7 @@ func (x *PartnerResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PartnerResponse.ProtoReflect.Descriptor instead.
 func (*PartnerResponse) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{24}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *PartnerResponse) GetPartner() *Partner {
@@ -1764,7 +1847,7 @@ type DeletePartnerResponse struct {
 
 func (x *DeletePartnerResponse) Reset() {
 	*x = DeletePartnerResponse{}
-	mi := &file_proto_partner_svc_proto_msgTypes[25]
+	mi := &file_proto_partner_svc_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1776,7 +1859,7 @@ func (x *DeletePartnerResponse) String() string {
 func (*DeletePartnerResponse) ProtoMessage() {}
 
 func (x *DeletePartnerResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[25]
+	mi := &file_proto_partner_svc_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1789,7 +1872,7 @@ func (x *DeletePartnerResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeletePartnerResponse.ProtoReflect.Descriptor instead.
 func (*DeletePartnerResponse) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{25}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *DeletePartnerResponse) GetSuccess() bool {
@@ -1817,7 +1900,7 @@ type PartnerUser struct {
 
 func (x *PartnerUser) Reset() {
 	*x = PartnerUser{}
-	mi := &file_proto_partner_svc_proto_msgTypes[26]
+	mi := &file_proto_partner_svc_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1829,7 +1912,7 @@ func (x *PartnerUser) String() string {
 func (*PartnerUser) ProtoMessage() {}
 
 func (x *PartnerUser) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[26]
+	mi := &file_proto_partner_svc_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1842,7 +1925,7 @@ func (x *PartnerUser) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PartnerUser.ProtoReflect.Descriptor instead.
 func (*PartnerUser) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{26}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *PartnerUser) GetId() string {
@@ -1929,7 +2012,7 @@ type CreatePartnerUserRequest struct {
 
 func (x *CreatePartnerUserRequest) Reset() {
 	*x = CreatePartnerUserRequest{}
-	mi := &file_proto_partner_svc_proto_msgTypes[27]
+	mi := &file_proto_partner_svc_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1941,7 +2024,7 @@ func (x *CreatePartnerUserRequest) String() string {
 func (*CreatePartnerUserRequest) ProtoMessage() {}
 
 func (x *CreatePartnerUserRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[27]
+	mi := &file_proto_partner_svc_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1954,7 +2037,7 @@ func (x *CreatePartnerUserRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreatePartnerUserRequest.ProtoReflect.Descriptor instead.
 func (*CreatePartnerUserRequest) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{27}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *CreatePartnerUserRequest) GetPartnerId() string {
@@ -2014,7 +2097,7 @@ type UpdatePartnerUserRequest struct {
 
 func (x *UpdatePartnerUserRequest) Reset() {
 	*x = UpdatePartnerUserRequest{}
-	mi := &file_proto_partner_svc_proto_msgTypes[28]
+	mi := &file_proto_partner_svc_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2026,7 +2109,7 @@ func (x *UpdatePartnerUserRequest) String() string {
 func (*UpdatePartnerUserRequest) ProtoMessage() {}
 
 func (x *UpdatePartnerUserRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[28]
+	mi := &file_proto_partner_svc_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2039,7 +2122,7 @@ func (x *UpdatePartnerUserRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdatePartnerUserRequest.ProtoReflect.Descriptor instead.
 func (*UpdatePartnerUserRequest) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{28}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *UpdatePartnerUserRequest) GetId() string {
@@ -2100,7 +2183,7 @@ type PartnerUserResponse struct {
 
 func (x *PartnerUserResponse) Reset() {
 	*x = PartnerUserResponse{}
-	mi := &file_proto_partner_svc_proto_msgTypes[29]
+	mi := &file_proto_partner_svc_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2112,7 +2195,7 @@ func (x *PartnerUserResponse) String() string {
 func (*PartnerUserResponse) ProtoMessage() {}
 
 func (x *PartnerUserResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[29]
+	mi := &file_proto_partner_svc_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2125,7 +2208,7 @@ func (x *PartnerUserResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PartnerUserResponse.ProtoReflect.Descriptor instead.
 func (*PartnerUserResponse) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{29}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *PartnerUserResponse) GetUser() *PartnerUser {
@@ -2145,7 +2228,7 @@ type DeletePartnerUsersRequest struct {
 
 func (x *DeletePartnerUsersRequest) Reset() {
 	*x = DeletePartnerUsersRequest{}
-	mi := &file_proto_partner_svc_proto_msgTypes[30]
+	mi := &file_proto_partner_svc_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2157,7 +2240,7 @@ func (x *DeletePartnerUsersRequest) String() string {
 func (*DeletePartnerUsersRequest) ProtoMessage() {}
 
 func (x *DeletePartnerUsersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[30]
+	mi := &file_proto_partner_svc_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2170,7 +2253,7 @@ func (x *DeletePartnerUsersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeletePartnerUsersRequest.ProtoReflect.Descriptor instead.
 func (*DeletePartnerUsersRequest) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{30}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *DeletePartnerUsersRequest) GetPartnerId() string {
@@ -2197,7 +2280,7 @@ type DeletePartnerUsersResponse struct {
 
 func (x *DeletePartnerUsersResponse) Reset() {
 	*x = DeletePartnerUsersResponse{}
-	mi := &file_proto_partner_svc_proto_msgTypes[31]
+	mi := &file_proto_partner_svc_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2209,7 +2292,7 @@ func (x *DeletePartnerUsersResponse) String() string {
 func (*DeletePartnerUsersResponse) ProtoMessage() {}
 
 func (x *DeletePartnerUsersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[31]
+	mi := &file_proto_partner_svc_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2222,7 +2305,7 @@ func (x *DeletePartnerUsersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeletePartnerUsersResponse.ProtoReflect.Descriptor instead.
 func (*DeletePartnerUsersResponse) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{31}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *DeletePartnerUsersResponse) GetDeletedIds() []string {
@@ -2249,7 +2332,7 @@ type FailedUserDeletion struct {
 
 func (x *FailedUserDeletion) Reset() {
 	*x = FailedUserDeletion{}
-	mi := &file_proto_partner_svc_proto_msgTypes[32]
+	mi := &file_proto_partner_svc_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2261,7 +2344,7 @@ func (x *FailedUserDeletion) String() string {
 func (*FailedUserDeletion) ProtoMessage() {}
 
 func (x *FailedUserDeletion) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[32]
+	mi := &file_proto_partner_svc_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2274,7 +2357,7 @@ func (x *FailedUserDeletion) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FailedUserDeletion.ProtoReflect.Descriptor instead.
 func (*FailedUserDeletion) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{32}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *FailedUserDeletion) GetUserId() string {
@@ -2300,7 +2383,7 @@ type GetPartnersRequest struct {
 
 func (x *GetPartnersRequest) Reset() {
 	*x = GetPartnersRequest{}
-	mi := &file_proto_partner_svc_proto_msgTypes[33]
+	mi := &file_proto_partner_svc_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2312,7 +2395,7 @@ func (x *GetPartnersRequest) String() string {
 func (*GetPartnersRequest) ProtoMessage() {}
 
 func (x *GetPartnersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[33]
+	mi := &file_proto_partner_svc_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2325,7 +2408,7 @@ func (x *GetPartnersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPartnersRequest.ProtoReflect.Descriptor instead.
 func (*GetPartnersRequest) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{33}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *GetPartnersRequest) GetPartnerIds() []string {
@@ -2344,7 +2427,7 @@ type GetPartnersResponse struct {
 
 func (x *GetPartnersResponse) Reset() {
 	*x = GetPartnersResponse{}
-	mi := &file_proto_partner_svc_proto_msgTypes[34]
+	mi := &file_proto_partner_svc_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2356,7 +2439,7 @@ func (x *GetPartnersResponse) String() string {
 func (*GetPartnersResponse) ProtoMessage() {}
 
 func (x *GetPartnersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[34]
+	mi := &file_proto_partner_svc_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2369,7 +2452,7 @@ func (x *GetPartnersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPartnersResponse.ProtoReflect.Descriptor instead.
 func (*GetPartnersResponse) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{34}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *GetPartnersResponse) GetPartners() []*Partner {
@@ -2388,7 +2471,7 @@ type GetPartnerUsersRequest struct {
 
 func (x *GetPartnerUsersRequest) Reset() {
 	*x = GetPartnerUsersRequest{}
-	mi := &file_proto_partner_svc_proto_msgTypes[35]
+	mi := &file_proto_partner_svc_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2400,7 +2483,7 @@ func (x *GetPartnerUsersRequest) String() string {
 func (*GetPartnerUsersRequest) ProtoMessage() {}
 
 func (x *GetPartnerUsersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[35]
+	mi := &file_proto_partner_svc_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2413,7 +2496,7 @@ func (x *GetPartnerUsersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPartnerUsersRequest.ProtoReflect.Descriptor instead.
 func (*GetPartnerUsersRequest) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{35}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *GetPartnerUsersRequest) GetPartnerId() string {
@@ -2432,7 +2515,7 @@ type GetPartnerUsersResponse struct {
 
 func (x *GetPartnerUsersResponse) Reset() {
 	*x = GetPartnerUsersResponse{}
-	mi := &file_proto_partner_svc_proto_msgTypes[36]
+	mi := &file_proto_partner_svc_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2444,7 +2527,7 @@ func (x *GetPartnerUsersResponse) String() string {
 func (*GetPartnerUsersResponse) ProtoMessage() {}
 
 func (x *GetPartnerUsersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[36]
+	mi := &file_proto_partner_svc_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2457,7 +2540,7 @@ func (x *GetPartnerUsersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPartnerUsersResponse.ProtoReflect.Descriptor instead.
 func (*GetPartnerUsersResponse) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{36}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *GetPartnerUsersResponse) GetUsers() []*PartnerUser {
@@ -2476,7 +2559,7 @@ type GetPartnersByServiceRequest struct {
 
 func (x *GetPartnersByServiceRequest) Reset() {
 	*x = GetPartnersByServiceRequest{}
-	mi := &file_proto_partner_svc_proto_msgTypes[37]
+	mi := &file_proto_partner_svc_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2488,7 +2571,7 @@ func (x *GetPartnersByServiceRequest) String() string {
 func (*GetPartnersByServiceRequest) ProtoMessage() {}
 
 func (x *GetPartnersByServiceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[37]
+	mi := &file_proto_partner_svc_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2501,7 +2584,7 @@ func (x *GetPartnersByServiceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPartnersByServiceRequest.ProtoReflect.Descriptor instead.
 func (*GetPartnersByServiceRequest) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{37}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *GetPartnersByServiceRequest) GetService() string {
@@ -2515,7 +2598,10 @@ var File_proto_partner_svc_proto protoreflect.FileDescriptor
 
 const file_proto_partner_svc_proto_rawDesc = "" +
 	"\n" +
-	"\x17proto/partner/svc.proto\x12\vpartner.svc\x1a\x1fgoogle/protobuf/timestamp.proto\"\x86\x04\n" +
+	"\x17proto/partner/svc.proto\x12\vpartner.svc\x1a\x1fgoogle/protobuf/timestamp.proto\"9\n" +
+	"\x18StreamAllPartnersRequest\x12\x1d\n" +
+	"\n" +
+	"batch_size\x18\x01 \x01(\x05R\tbatchSize\"\xa6\x05\n" +
 	"\aPartner\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
@@ -2524,19 +2610,24 @@ const file_proto_partner_svc_proto_rawDesc = "" +
 	"\rcontact_phone\x18\x05 \x01(\tR\fcontactPhone\x12\x16\n" +
 	"\x06status\x18\x06 \x01(\tR\x06status\x12\x18\n" +
 	"\aservice\x18\a \x01(\tR\aservice\x12\x1a\n" +
-	"\bcurrency\x18\b \x01(\tR\bcurrency\x12$\n" +
-	"\x0eis_api_enabled\x18\t \x01(\bR\fisApiEnabled\x12\x1f\n" +
-	"\vwebhook_url\x18\n" +
-	" \x01(\tR\n" +
+	"\bcurrency\x18\b \x01(\tR\bcurrency\x12%\n" +
+	"\x0elocal_currency\x18\t \x01(\tR\rlocalCurrency\x12\x12\n" +
+	"\x04rate\x18\n" +
+	" \x01(\tR\x04rate\x12!\n" +
+	"\finverse_rate\x18\v \x01(\tR\vinverseRate\x12'\n" +
+	"\x0fcommission_rate\x18\f \x01(\x01R\x0ecommissionRate\x12\x17\n" +
+	"\aapi_key\x18\r \x01(\tR\x06apiKey\x12$\n" +
+	"\x0eis_api_enabled\x18\x0e \x01(\bR\fisApiEnabled\x12$\n" +
+	"\x0eapi_rate_limit\x18\x0f \x01(\x05R\fapiRateLimit\x12\x1f\n" +
+	"\vwebhook_url\x18\x10 \x01(\tR\n" +
 	"webhookUrl\x12!\n" +
-	"\fcallback_url\x18\v \x01(\tR\vcallbackUrl\x12$\n" +
-	"\x0eapi_rate_limit\x18\f \x01(\x05R\fapiRateLimit\x12\x1f\n" +
-	"\vallowed_ips\x18\r \x03(\tR\n" +
-	"allowedIps\x129\n" +
+	"\fcallback_url\x18\x11 \x01(\tR\vcallbackUrl\x129\n" +
 	"\n" +
-	"created_at\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"created_at\x18\x12 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\x0f \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xd0\x03\n" +
+	"updated_at\x18\x13 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x1f\n" +
+	"\vallowed_ips\x18\x14 \x03(\tR\n" +
+	"allowedIps\"\xd0\x03\n" +
 	"\x12PartnerTransaction\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1d\n" +
 	"\n" +
@@ -2740,7 +2831,7 @@ const file_proto_partner_svc_proto_rawDesc = "" +
 	"\x17GetPartnerUsersResponse\x12.\n" +
 	"\x05users\x18\x01 \x03(\v2\x18.partner.svc.PartnerUserR\x05users\"7\n" +
 	"\x1bGetPartnersByServiceRequest\x12\x18\n" +
-	"\aservice\x18\x01 \x01(\tR\aservice2\x8f\x0e\n" +
+	"\aservice\x18\x01 \x01(\tR\aservice2\xe3\x0e\n" +
 	"\x0ePartnerService\x12P\n" +
 	"\rCreatePartner\x12!.partner.svc.CreatePartnerRequest\x1a\x1c.partner.svc.PartnerResponse\x12P\n" +
 	"\rUpdatePartner\x12!.partner.svc.UpdatePartnerRequest\x1a\x1c.partner.svc.PartnerResponse\x12V\n" +
@@ -2760,7 +2851,8 @@ const file_proto_partner_svc_proto_rawDesc = "" +
 	"\x12DeletePartnerUsers\x12&.partner.svc.DeletePartnerUsersRequest\x1a'.partner.svc.DeletePartnerUsersResponse\x12P\n" +
 	"\vGetPartners\x12\x1f.partner.svc.GetPartnersRequest\x1a .partner.svc.GetPartnersResponse\x12\\\n" +
 	"\x0fGetPartnerUsers\x12#.partner.svc.GetPartnerUsersRequest\x1a$.partner.svc.GetPartnerUsersResponse\x12b\n" +
-	"\x14GetPartnersByService\x12(.partner.svc.GetPartnersByServiceRequest\x1a .partner.svc.GetPartnersResponseB%Z#genproto/partner/svcpb;partnersvcpbb\x06proto3"
+	"\x14GetPartnersByService\x12(.partner.svc.GetPartnersByServiceRequest\x1a .partner.svc.GetPartnersResponse\x12R\n" +
+	"\x11StreamAllPartners\x12%.partner.svc.StreamAllPartnersRequest\x1a\x14.partner.svc.Partner0\x01B%Z#genproto/partner/svcpb;partnersvcpbb\x06proto3"
 
 var (
 	file_proto_partner_svc_proto_rawDescOnce sync.Once
@@ -2774,111 +2866,114 @@ func file_proto_partner_svc_proto_rawDescGZIP() []byte {
 	return file_proto_partner_svc_proto_rawDescData
 }
 
-var file_proto_partner_svc_proto_msgTypes = make([]protoimpl.MessageInfo, 39)
+var file_proto_partner_svc_proto_msgTypes = make([]protoimpl.MessageInfo, 40)
 var file_proto_partner_svc_proto_goTypes = []any{
-	(*Partner)(nil),                       // 0: partner.svc.Partner
-	(*PartnerTransaction)(nil),            // 1: partner.svc.PartnerTransaction
-	(*GenerateAPICredentialsRequest)(nil), // 2: partner.svc.GenerateAPICredentialsRequest
-	(*APICredentialsResponse)(nil),        // 3: partner.svc.APICredentialsResponse
-	(*RevokeAPICredentialsRequest)(nil),   // 4: partner.svc.RevokeAPICredentialsRequest
-	(*RevokeAPICredentialsResponse)(nil),  // 5: partner.svc.RevokeAPICredentialsResponse
-	(*RotateAPISecretRequest)(nil),        // 6: partner.svc.RotateAPISecretRequest
-	(*UpdateAPISettingsRequest)(nil),      // 7: partner.svc.UpdateAPISettingsRequest
-	(*InitiateDepositRequest)(nil),        // 8: partner.svc.InitiateDepositRequest
-	(*InitiateDepositResponse)(nil),       // 9: partner.svc.InitiateDepositResponse
-	(*GetTransactionStatusRequest)(nil),   // 10: partner.svc.GetTransactionStatusRequest
-	(*TransactionStatusResponse)(nil),     // 11: partner.svc.TransactionStatusResponse
-	(*ListTransactionsRequest)(nil),       // 12: partner.svc.ListTransactionsRequest
-	(*ListTransactionsResponse)(nil),      // 13: partner.svc.ListTransactionsResponse
-	(*UpdateWebhookConfigRequest)(nil),    // 14: partner.svc.UpdateWebhookConfigRequest
-	(*WebhookConfigResponse)(nil),         // 15: partner.svc.WebhookConfigResponse
-	(*TestWebhookRequest)(nil),            // 16: partner.svc.TestWebhookRequest
-	(*TestWebhookResponse)(nil),           // 17: partner.svc.TestWebhookResponse
-	(*ListWebhookLogsRequest)(nil),        // 18: partner.svc.ListWebhookLogsRequest
-	(*ListWebhookLogsResponse)(nil),       // 19: partner.svc.ListWebhookLogsResponse
-	(*WebhookLog)(nil),                    // 20: partner.svc.WebhookLog
-	(*CreatePartnerRequest)(nil),          // 21: partner.svc.CreatePartnerRequest
-	(*UpdatePartnerRequest)(nil),          // 22: partner.svc.UpdatePartnerRequest
-	(*DeletePartnerRequest)(nil),          // 23: partner.svc.DeletePartnerRequest
-	(*PartnerResponse)(nil),               // 24: partner.svc.PartnerResponse
-	(*DeletePartnerResponse)(nil),         // 25: partner.svc.DeletePartnerResponse
-	(*PartnerUser)(nil),                   // 26: partner.svc.PartnerUser
-	(*CreatePartnerUserRequest)(nil),      // 27: partner.svc.CreatePartnerUserRequest
-	(*UpdatePartnerUserRequest)(nil),      // 28: partner.svc.UpdatePartnerUserRequest
-	(*PartnerUserResponse)(nil),           // 29: partner.svc.PartnerUserResponse
-	(*DeletePartnerUsersRequest)(nil),     // 30: partner.svc.DeletePartnerUsersRequest
-	(*DeletePartnerUsersResponse)(nil),    // 31: partner.svc.DeletePartnerUsersResponse
-	(*FailedUserDeletion)(nil),            // 32: partner.svc.FailedUserDeletion
-	(*GetPartnersRequest)(nil),            // 33: partner.svc.GetPartnersRequest
-	(*GetPartnersResponse)(nil),           // 34: partner.svc.GetPartnersResponse
-	(*GetPartnerUsersRequest)(nil),        // 35: partner.svc.GetPartnerUsersRequest
-	(*GetPartnerUsersResponse)(nil),       // 36: partner.svc.GetPartnerUsersResponse
-	(*GetPartnersByServiceRequest)(nil),   // 37: partner.svc.GetPartnersByServiceRequest
-	nil,                                   // 38: partner.svc.InitiateDepositRequest.MetadataEntry
-	(*timestamppb.Timestamp)(nil),         // 39: google.protobuf.Timestamp
+	(*StreamAllPartnersRequest)(nil),      // 0: partner.svc.StreamAllPartnersRequest
+	(*Partner)(nil),                       // 1: partner.svc.Partner
+	(*PartnerTransaction)(nil),            // 2: partner.svc.PartnerTransaction
+	(*GenerateAPICredentialsRequest)(nil), // 3: partner.svc.GenerateAPICredentialsRequest
+	(*APICredentialsResponse)(nil),        // 4: partner.svc.APICredentialsResponse
+	(*RevokeAPICredentialsRequest)(nil),   // 5: partner.svc.RevokeAPICredentialsRequest
+	(*RevokeAPICredentialsResponse)(nil),  // 6: partner.svc.RevokeAPICredentialsResponse
+	(*RotateAPISecretRequest)(nil),        // 7: partner.svc.RotateAPISecretRequest
+	(*UpdateAPISettingsRequest)(nil),      // 8: partner.svc.UpdateAPISettingsRequest
+	(*InitiateDepositRequest)(nil),        // 9: partner.svc.InitiateDepositRequest
+	(*InitiateDepositResponse)(nil),       // 10: partner.svc.InitiateDepositResponse
+	(*GetTransactionStatusRequest)(nil),   // 11: partner.svc.GetTransactionStatusRequest
+	(*TransactionStatusResponse)(nil),     // 12: partner.svc.TransactionStatusResponse
+	(*ListTransactionsRequest)(nil),       // 13: partner.svc.ListTransactionsRequest
+	(*ListTransactionsResponse)(nil),      // 14: partner.svc.ListTransactionsResponse
+	(*UpdateWebhookConfigRequest)(nil),    // 15: partner.svc.UpdateWebhookConfigRequest
+	(*WebhookConfigResponse)(nil),         // 16: partner.svc.WebhookConfigResponse
+	(*TestWebhookRequest)(nil),            // 17: partner.svc.TestWebhookRequest
+	(*TestWebhookResponse)(nil),           // 18: partner.svc.TestWebhookResponse
+	(*ListWebhookLogsRequest)(nil),        // 19: partner.svc.ListWebhookLogsRequest
+	(*ListWebhookLogsResponse)(nil),       // 20: partner.svc.ListWebhookLogsResponse
+	(*WebhookLog)(nil),                    // 21: partner.svc.WebhookLog
+	(*CreatePartnerRequest)(nil),          // 22: partner.svc.CreatePartnerRequest
+	(*UpdatePartnerRequest)(nil),          // 23: partner.svc.UpdatePartnerRequest
+	(*DeletePartnerRequest)(nil),          // 24: partner.svc.DeletePartnerRequest
+	(*PartnerResponse)(nil),               // 25: partner.svc.PartnerResponse
+	(*DeletePartnerResponse)(nil),         // 26: partner.svc.DeletePartnerResponse
+	(*PartnerUser)(nil),                   // 27: partner.svc.PartnerUser
+	(*CreatePartnerUserRequest)(nil),      // 28: partner.svc.CreatePartnerUserRequest
+	(*UpdatePartnerUserRequest)(nil),      // 29: partner.svc.UpdatePartnerUserRequest
+	(*PartnerUserResponse)(nil),           // 30: partner.svc.PartnerUserResponse
+	(*DeletePartnerUsersRequest)(nil),     // 31: partner.svc.DeletePartnerUsersRequest
+	(*DeletePartnerUsersResponse)(nil),    // 32: partner.svc.DeletePartnerUsersResponse
+	(*FailedUserDeletion)(nil),            // 33: partner.svc.FailedUserDeletion
+	(*GetPartnersRequest)(nil),            // 34: partner.svc.GetPartnersRequest
+	(*GetPartnersResponse)(nil),           // 35: partner.svc.GetPartnersResponse
+	(*GetPartnerUsersRequest)(nil),        // 36: partner.svc.GetPartnerUsersRequest
+	(*GetPartnerUsersResponse)(nil),       // 37: partner.svc.GetPartnerUsersResponse
+	(*GetPartnersByServiceRequest)(nil),   // 38: partner.svc.GetPartnersByServiceRequest
+	nil,                                   // 39: partner.svc.InitiateDepositRequest.MetadataEntry
+	(*timestamppb.Timestamp)(nil),         // 40: google.protobuf.Timestamp
 }
 var file_proto_partner_svc_proto_depIdxs = []int32{
-	39, // 0: partner.svc.Partner.created_at:type_name -> google.protobuf.Timestamp
-	39, // 1: partner.svc.Partner.updated_at:type_name -> google.protobuf.Timestamp
-	39, // 2: partner.svc.PartnerTransaction.processed_at:type_name -> google.protobuf.Timestamp
-	39, // 3: partner.svc.PartnerTransaction.created_at:type_name -> google.protobuf.Timestamp
-	39, // 4: partner.svc.PartnerTransaction.updated_at:type_name -> google.protobuf.Timestamp
-	39, // 5: partner.svc.APICredentialsResponse.expires_at:type_name -> google.protobuf.Timestamp
-	38, // 6: partner.svc.InitiateDepositRequest.metadata:type_name -> partner.svc.InitiateDepositRequest.MetadataEntry
-	1,  // 7: partner.svc.TransactionStatusResponse.transaction:type_name -> partner.svc.PartnerTransaction
-	39, // 8: partner.svc.ListTransactionsRequest.from:type_name -> google.protobuf.Timestamp
-	39, // 9: partner.svc.ListTransactionsRequest.to:type_name -> google.protobuf.Timestamp
-	1,  // 10: partner.svc.ListTransactionsResponse.transactions:type_name -> partner.svc.PartnerTransaction
-	20, // 11: partner.svc.ListWebhookLogsResponse.logs:type_name -> partner.svc.WebhookLog
-	39, // 12: partner.svc.WebhookLog.created_at:type_name -> google.protobuf.Timestamp
-	39, // 13: partner.svc.WebhookLog.last_attempt_at:type_name -> google.protobuf.Timestamp
-	0,  // 14: partner.svc.PartnerResponse.partner:type_name -> partner.svc.Partner
-	39, // 15: partner.svc.PartnerUser.created_at:type_name -> google.protobuf.Timestamp
-	39, // 16: partner.svc.PartnerUser.updated_at:type_name -> google.protobuf.Timestamp
-	26, // 17: partner.svc.PartnerUserResponse.user:type_name -> partner.svc.PartnerUser
-	32, // 18: partner.svc.DeletePartnerUsersResponse.failed_users:type_name -> partner.svc.FailedUserDeletion
-	0,  // 19: partner.svc.GetPartnersResponse.partners:type_name -> partner.svc.Partner
-	26, // 20: partner.svc.GetPartnerUsersResponse.users:type_name -> partner.svc.PartnerUser
-	21, // 21: partner.svc.PartnerService.CreatePartner:input_type -> partner.svc.CreatePartnerRequest
-	22, // 22: partner.svc.PartnerService.UpdatePartner:input_type -> partner.svc.UpdatePartnerRequest
-	23, // 23: partner.svc.PartnerService.DeletePartner:input_type -> partner.svc.DeletePartnerRequest
-	2,  // 24: partner.svc.PartnerService.GenerateAPICredentials:input_type -> partner.svc.GenerateAPICredentialsRequest
-	4,  // 25: partner.svc.PartnerService.RevokeAPICredentials:input_type -> partner.svc.RevokeAPICredentialsRequest
-	6,  // 26: partner.svc.PartnerService.RotateAPISecret:input_type -> partner.svc.RotateAPISecretRequest
-	7,  // 27: partner.svc.PartnerService.UpdateAPISettings:input_type -> partner.svc.UpdateAPISettingsRequest
-	8,  // 28: partner.svc.PartnerService.InitiateDeposit:input_type -> partner.svc.InitiateDepositRequest
-	10, // 29: partner.svc.PartnerService.GetTransactionStatus:input_type -> partner.svc.GetTransactionStatusRequest
-	12, // 30: partner.svc.PartnerService.ListTransactions:input_type -> partner.svc.ListTransactionsRequest
-	14, // 31: partner.svc.PartnerService.UpdateWebhookConfig:input_type -> partner.svc.UpdateWebhookConfigRequest
-	16, // 32: partner.svc.PartnerService.TestWebhook:input_type -> partner.svc.TestWebhookRequest
-	18, // 33: partner.svc.PartnerService.ListWebhookLogs:input_type -> partner.svc.ListWebhookLogsRequest
-	27, // 34: partner.svc.PartnerService.CreatePartnerUser:input_type -> partner.svc.CreatePartnerUserRequest
-	28, // 35: partner.svc.PartnerService.UpdatePartnerUser:input_type -> partner.svc.UpdatePartnerUserRequest
-	30, // 36: partner.svc.PartnerService.DeletePartnerUsers:input_type -> partner.svc.DeletePartnerUsersRequest
-	33, // 37: partner.svc.PartnerService.GetPartners:input_type -> partner.svc.GetPartnersRequest
-	35, // 38: partner.svc.PartnerService.GetPartnerUsers:input_type -> partner.svc.GetPartnerUsersRequest
-	37, // 39: partner.svc.PartnerService.GetPartnersByService:input_type -> partner.svc.GetPartnersByServiceRequest
-	24, // 40: partner.svc.PartnerService.CreatePartner:output_type -> partner.svc.PartnerResponse
-	24, // 41: partner.svc.PartnerService.UpdatePartner:output_type -> partner.svc.PartnerResponse
-	25, // 42: partner.svc.PartnerService.DeletePartner:output_type -> partner.svc.DeletePartnerResponse
-	3,  // 43: partner.svc.PartnerService.GenerateAPICredentials:output_type -> partner.svc.APICredentialsResponse
-	5,  // 44: partner.svc.PartnerService.RevokeAPICredentials:output_type -> partner.svc.RevokeAPICredentialsResponse
-	3,  // 45: partner.svc.PartnerService.RotateAPISecret:output_type -> partner.svc.APICredentialsResponse
-	24, // 46: partner.svc.PartnerService.UpdateAPISettings:output_type -> partner.svc.PartnerResponse
-	9,  // 47: partner.svc.PartnerService.InitiateDeposit:output_type -> partner.svc.InitiateDepositResponse
-	11, // 48: partner.svc.PartnerService.GetTransactionStatus:output_type -> partner.svc.TransactionStatusResponse
-	13, // 49: partner.svc.PartnerService.ListTransactions:output_type -> partner.svc.ListTransactionsResponse
-	15, // 50: partner.svc.PartnerService.UpdateWebhookConfig:output_type -> partner.svc.WebhookConfigResponse
-	17, // 51: partner.svc.PartnerService.TestWebhook:output_type -> partner.svc.TestWebhookResponse
-	19, // 52: partner.svc.PartnerService.ListWebhookLogs:output_type -> partner.svc.ListWebhookLogsResponse
-	29, // 53: partner.svc.PartnerService.CreatePartnerUser:output_type -> partner.svc.PartnerUserResponse
-	29, // 54: partner.svc.PartnerService.UpdatePartnerUser:output_type -> partner.svc.PartnerUserResponse
-	31, // 55: partner.svc.PartnerService.DeletePartnerUsers:output_type -> partner.svc.DeletePartnerUsersResponse
-	34, // 56: partner.svc.PartnerService.GetPartners:output_type -> partner.svc.GetPartnersResponse
-	36, // 57: partner.svc.PartnerService.GetPartnerUsers:output_type -> partner.svc.GetPartnerUsersResponse
-	34, // 58: partner.svc.PartnerService.GetPartnersByService:output_type -> partner.svc.GetPartnersResponse
-	40, // [40:59] is the sub-list for method output_type
-	21, // [21:40] is the sub-list for method input_type
+	40, // 0: partner.svc.Partner.created_at:type_name -> google.protobuf.Timestamp
+	40, // 1: partner.svc.Partner.updated_at:type_name -> google.protobuf.Timestamp
+	40, // 2: partner.svc.PartnerTransaction.processed_at:type_name -> google.protobuf.Timestamp
+	40, // 3: partner.svc.PartnerTransaction.created_at:type_name -> google.protobuf.Timestamp
+	40, // 4: partner.svc.PartnerTransaction.updated_at:type_name -> google.protobuf.Timestamp
+	40, // 5: partner.svc.APICredentialsResponse.expires_at:type_name -> google.protobuf.Timestamp
+	39, // 6: partner.svc.InitiateDepositRequest.metadata:type_name -> partner.svc.InitiateDepositRequest.MetadataEntry
+	2,  // 7: partner.svc.TransactionStatusResponse.transaction:type_name -> partner.svc.PartnerTransaction
+	40, // 8: partner.svc.ListTransactionsRequest.from:type_name -> google.protobuf.Timestamp
+	40, // 9: partner.svc.ListTransactionsRequest.to:type_name -> google.protobuf.Timestamp
+	2,  // 10: partner.svc.ListTransactionsResponse.transactions:type_name -> partner.svc.PartnerTransaction
+	21, // 11: partner.svc.ListWebhookLogsResponse.logs:type_name -> partner.svc.WebhookLog
+	40, // 12: partner.svc.WebhookLog.created_at:type_name -> google.protobuf.Timestamp
+	40, // 13: partner.svc.WebhookLog.last_attempt_at:type_name -> google.protobuf.Timestamp
+	1,  // 14: partner.svc.PartnerResponse.partner:type_name -> partner.svc.Partner
+	40, // 15: partner.svc.PartnerUser.created_at:type_name -> google.protobuf.Timestamp
+	40, // 16: partner.svc.PartnerUser.updated_at:type_name -> google.protobuf.Timestamp
+	27, // 17: partner.svc.PartnerUserResponse.user:type_name -> partner.svc.PartnerUser
+	33, // 18: partner.svc.DeletePartnerUsersResponse.failed_users:type_name -> partner.svc.FailedUserDeletion
+	1,  // 19: partner.svc.GetPartnersResponse.partners:type_name -> partner.svc.Partner
+	27, // 20: partner.svc.GetPartnerUsersResponse.users:type_name -> partner.svc.PartnerUser
+	22, // 21: partner.svc.PartnerService.CreatePartner:input_type -> partner.svc.CreatePartnerRequest
+	23, // 22: partner.svc.PartnerService.UpdatePartner:input_type -> partner.svc.UpdatePartnerRequest
+	24, // 23: partner.svc.PartnerService.DeletePartner:input_type -> partner.svc.DeletePartnerRequest
+	3,  // 24: partner.svc.PartnerService.GenerateAPICredentials:input_type -> partner.svc.GenerateAPICredentialsRequest
+	5,  // 25: partner.svc.PartnerService.RevokeAPICredentials:input_type -> partner.svc.RevokeAPICredentialsRequest
+	7,  // 26: partner.svc.PartnerService.RotateAPISecret:input_type -> partner.svc.RotateAPISecretRequest
+	8,  // 27: partner.svc.PartnerService.UpdateAPISettings:input_type -> partner.svc.UpdateAPISettingsRequest
+	9,  // 28: partner.svc.PartnerService.InitiateDeposit:input_type -> partner.svc.InitiateDepositRequest
+	11, // 29: partner.svc.PartnerService.GetTransactionStatus:input_type -> partner.svc.GetTransactionStatusRequest
+	13, // 30: partner.svc.PartnerService.ListTransactions:input_type -> partner.svc.ListTransactionsRequest
+	15, // 31: partner.svc.PartnerService.UpdateWebhookConfig:input_type -> partner.svc.UpdateWebhookConfigRequest
+	17, // 32: partner.svc.PartnerService.TestWebhook:input_type -> partner.svc.TestWebhookRequest
+	19, // 33: partner.svc.PartnerService.ListWebhookLogs:input_type -> partner.svc.ListWebhookLogsRequest
+	28, // 34: partner.svc.PartnerService.CreatePartnerUser:input_type -> partner.svc.CreatePartnerUserRequest
+	29, // 35: partner.svc.PartnerService.UpdatePartnerUser:input_type -> partner.svc.UpdatePartnerUserRequest
+	31, // 36: partner.svc.PartnerService.DeletePartnerUsers:input_type -> partner.svc.DeletePartnerUsersRequest
+	34, // 37: partner.svc.PartnerService.GetPartners:input_type -> partner.svc.GetPartnersRequest
+	36, // 38: partner.svc.PartnerService.GetPartnerUsers:input_type -> partner.svc.GetPartnerUsersRequest
+	38, // 39: partner.svc.PartnerService.GetPartnersByService:input_type -> partner.svc.GetPartnersByServiceRequest
+	0,  // 40: partner.svc.PartnerService.StreamAllPartners:input_type -> partner.svc.StreamAllPartnersRequest
+	25, // 41: partner.svc.PartnerService.CreatePartner:output_type -> partner.svc.PartnerResponse
+	25, // 42: partner.svc.PartnerService.UpdatePartner:output_type -> partner.svc.PartnerResponse
+	26, // 43: partner.svc.PartnerService.DeletePartner:output_type -> partner.svc.DeletePartnerResponse
+	4,  // 44: partner.svc.PartnerService.GenerateAPICredentials:output_type -> partner.svc.APICredentialsResponse
+	6,  // 45: partner.svc.PartnerService.RevokeAPICredentials:output_type -> partner.svc.RevokeAPICredentialsResponse
+	4,  // 46: partner.svc.PartnerService.RotateAPISecret:output_type -> partner.svc.APICredentialsResponse
+	25, // 47: partner.svc.PartnerService.UpdateAPISettings:output_type -> partner.svc.PartnerResponse
+	10, // 48: partner.svc.PartnerService.InitiateDeposit:output_type -> partner.svc.InitiateDepositResponse
+	12, // 49: partner.svc.PartnerService.GetTransactionStatus:output_type -> partner.svc.TransactionStatusResponse
+	14, // 50: partner.svc.PartnerService.ListTransactions:output_type -> partner.svc.ListTransactionsResponse
+	16, // 51: partner.svc.PartnerService.UpdateWebhookConfig:output_type -> partner.svc.WebhookConfigResponse
+	18, // 52: partner.svc.PartnerService.TestWebhook:output_type -> partner.svc.TestWebhookResponse
+	20, // 53: partner.svc.PartnerService.ListWebhookLogs:output_type -> partner.svc.ListWebhookLogsResponse
+	30, // 54: partner.svc.PartnerService.CreatePartnerUser:output_type -> partner.svc.PartnerUserResponse
+	30, // 55: partner.svc.PartnerService.UpdatePartnerUser:output_type -> partner.svc.PartnerUserResponse
+	32, // 56: partner.svc.PartnerService.DeletePartnerUsers:output_type -> partner.svc.DeletePartnerUsersResponse
+	35, // 57: partner.svc.PartnerService.GetPartners:output_type -> partner.svc.GetPartnersResponse
+	37, // 58: partner.svc.PartnerService.GetPartnerUsers:output_type -> partner.svc.GetPartnerUsersResponse
+	35, // 59: partner.svc.PartnerService.GetPartnersByService:output_type -> partner.svc.GetPartnersResponse
+	1,  // 60: partner.svc.PartnerService.StreamAllPartners:output_type -> partner.svc.Partner
+	41, // [41:61] is the sub-list for method output_type
+	21, // [21:41] is the sub-list for method input_type
 	21, // [21:21] is the sub-list for extension type_name
 	21, // [21:21] is the sub-list for extension extendee
 	0,  // [0:21] is the sub-list for field type_name
@@ -2895,7 +2990,7 @@ func file_proto_partner_svc_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_partner_svc_proto_rawDesc), len(file_proto_partner_svc_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   39,
+			NumMessages:   40,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             v6.32.0--rc1
-// source: proto/auth/auth.proto
+// source: proto/user/auth/auth.proto
 
 package authpb
 
@@ -22,6 +22,7 @@ const (
 	AuthService_RegisterUser_FullMethodName   = "/auth.AuthService/RegisterUser"
 	AuthService_GetUserProfile_FullMethodName = "/auth.AuthService/GetUserProfile"
 	AuthService_DeleteUser_FullMethodName     = "/auth.AuthService/DeleteUser"
+	AuthService_StreamAllUsers_FullMethodName = "/auth.AuthService/StreamAllUsers"
 )
 
 // AuthServiceClient is the client API for AuthService service.
@@ -34,6 +35,7 @@ type AuthServiceClient interface {
 	GetUserProfile(ctx context.Context, in *GetUserProfileRequest, opts ...grpc.CallOption) (*GetUserProfileResponse, error)
 	// Delete a user and all associated auth records
 	DeleteUser(ctx context.Context, in *DeleteUserRequest, opts ...grpc.CallOption) (*DeleteUserResponse, error)
+	StreamAllUsers(ctx context.Context, in *StreamAllUsersRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[UserProfile], error)
 }
 
 type authServiceClient struct {
@@ -74,6 +76,25 @@ func (c *authServiceClient) DeleteUser(ctx context.Context, in *DeleteUserReques
 	return out, nil
 }
 
+func (c *authServiceClient) StreamAllUsers(ctx context.Context, in *StreamAllUsersRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[UserProfile], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &AuthService_ServiceDesc.Streams[0], AuthService_StreamAllUsers_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[StreamAllUsersRequest, UserProfile]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type AuthService_StreamAllUsersClient = grpc.ServerStreamingClient[UserProfile]
+
 // AuthServiceServer is the server API for AuthService service.
 // All implementations must embed UnimplementedAuthServiceServer
 // for forward compatibility.
@@ -84,6 +105,7 @@ type AuthServiceServer interface {
 	GetUserProfile(context.Context, *GetUserProfileRequest) (*GetUserProfileResponse, error)
 	// Delete a user and all associated auth records
 	DeleteUser(context.Context, *DeleteUserRequest) (*DeleteUserResponse, error)
+	StreamAllUsers(*StreamAllUsersRequest, grpc.ServerStreamingServer[UserProfile]) error
 	mustEmbedUnimplementedAuthServiceServer()
 }
 
@@ -102,6 +124,9 @@ func (UnimplementedAuthServiceServer) GetUserProfile(context.Context, *GetUserPr
 }
 func (UnimplementedAuthServiceServer) DeleteUser(context.Context, *DeleteUserRequest) (*DeleteUserResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteUser not implemented")
+}
+func (UnimplementedAuthServiceServer) StreamAllUsers(*StreamAllUsersRequest, grpc.ServerStreamingServer[UserProfile]) error {
+	return status.Errorf(codes.Unimplemented, "method StreamAllUsers not implemented")
 }
 func (UnimplementedAuthServiceServer) mustEmbedUnimplementedAuthServiceServer() {}
 func (UnimplementedAuthServiceServer) testEmbeddedByValue()                     {}
@@ -178,6 +203,17 @@ func _AuthService_DeleteUser_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AuthService_StreamAllUsers_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(StreamAllUsersRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(AuthServiceServer).StreamAllUsers(m, &grpc.GenericServerStream[StreamAllUsersRequest, UserProfile]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type AuthService_StreamAllUsersServer = grpc.ServerStreamingServer[UserProfile]
+
 // AuthService_ServiceDesc is the grpc.ServiceDesc for AuthService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -198,6 +234,12 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _AuthService_DeleteUser_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/auth/auth.proto",
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "StreamAllUsers",
+			Handler:       _AuthService_StreamAllUsers_Handler,
+			ServerStreams: true,
+		},
+	},
+	Metadata: "proto/user/auth/auth.proto",
 }

@@ -38,6 +38,7 @@ const (
 	PartnerService_GetPartners_FullMethodName            = "/partner.svc.PartnerService/GetPartners"
 	PartnerService_GetPartnerUsers_FullMethodName        = "/partner.svc.PartnerService/GetPartnerUsers"
 	PartnerService_GetPartnersByService_FullMethodName   = "/partner.svc.PartnerService/GetPartnersByService"
+	PartnerService_StreamAllPartners_FullMethodName      = "/partner.svc.PartnerService/StreamAllPartners"
 )
 
 // PartnerServiceClient is the client API for PartnerService service.
@@ -67,6 +68,7 @@ type PartnerServiceClient interface {
 	GetPartners(ctx context.Context, in *GetPartnersRequest, opts ...grpc.CallOption) (*GetPartnersResponse, error)
 	GetPartnerUsers(ctx context.Context, in *GetPartnerUsersRequest, opts ...grpc.CallOption) (*GetPartnerUsersResponse, error)
 	GetPartnersByService(ctx context.Context, in *GetPartnersByServiceRequest, opts ...grpc.CallOption) (*GetPartnersResponse, error)
+	StreamAllPartners(ctx context.Context, in *StreamAllPartnersRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Partner], error)
 }
 
 type partnerServiceClient struct {
@@ -267,6 +269,25 @@ func (c *partnerServiceClient) GetPartnersByService(ctx context.Context, in *Get
 	return out, nil
 }
 
+func (c *partnerServiceClient) StreamAllPartners(ctx context.Context, in *StreamAllPartnersRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Partner], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &PartnerService_ServiceDesc.Streams[0], PartnerService_StreamAllPartners_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[StreamAllPartnersRequest, Partner]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type PartnerService_StreamAllPartnersClient = grpc.ServerStreamingClient[Partner]
+
 // PartnerServiceServer is the server API for PartnerService service.
 // All implementations must embed UnimplementedPartnerServiceServer
 // for forward compatibility.
@@ -294,6 +315,7 @@ type PartnerServiceServer interface {
 	GetPartners(context.Context, *GetPartnersRequest) (*GetPartnersResponse, error)
 	GetPartnerUsers(context.Context, *GetPartnerUsersRequest) (*GetPartnerUsersResponse, error)
 	GetPartnersByService(context.Context, *GetPartnersByServiceRequest) (*GetPartnersResponse, error)
+	StreamAllPartners(*StreamAllPartnersRequest, grpc.ServerStreamingServer[Partner]) error
 	mustEmbedUnimplementedPartnerServiceServer()
 }
 
@@ -360,6 +382,9 @@ func (UnimplementedPartnerServiceServer) GetPartnerUsers(context.Context, *GetPa
 }
 func (UnimplementedPartnerServiceServer) GetPartnersByService(context.Context, *GetPartnersByServiceRequest) (*GetPartnersResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetPartnersByService not implemented")
+}
+func (UnimplementedPartnerServiceServer) StreamAllPartners(*StreamAllPartnersRequest, grpc.ServerStreamingServer[Partner]) error {
+	return status.Errorf(codes.Unimplemented, "method StreamAllPartners not implemented")
 }
 func (UnimplementedPartnerServiceServer) mustEmbedUnimplementedPartnerServiceServer() {}
 func (UnimplementedPartnerServiceServer) testEmbeddedByValue()                        {}
@@ -724,6 +749,17 @@ func _PartnerService_GetPartnersByService_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PartnerService_StreamAllPartners_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(StreamAllPartnersRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(PartnerServiceServer).StreamAllPartners(m, &grpc.GenericServerStream[StreamAllPartnersRequest, Partner]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type PartnerService_StreamAllPartnersServer = grpc.ServerStreamingServer[Partner]
+
 // PartnerService_ServiceDesc is the grpc.ServiceDesc for PartnerService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -808,6 +844,12 @@ var PartnerService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _PartnerService_GetPartnersByService_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "StreamAllPartners",
+			Handler:       _PartnerService_StreamAllPartners_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "proto/partner/svc.proto",
 }

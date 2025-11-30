@@ -3,7 +3,9 @@ package hgrpc
 import (
 	"context"
 	"errors"
-	//"fmt"
+	"fmt"
+	"reflect"
+	"strconv"
 	"time"
 
 	"accounting-service/internal/domain"
@@ -884,4 +886,455 @@ func ptrOwnerType(t domain.OwnerType) *domain.OwnerType {
 
 func ptrAccountType(t domain.AccountType) *domain.AccountType {
 	return &t
+}
+
+
+//additional helper functions
+
+func (h *AccountingHandler) Credit(
+	ctx context.Context,
+	req *accountingpb.CreditRequest,
+) (*accountingpb.CreditResponse, error) {
+	// Validate
+	if req.AccountNumber == "" {
+		return nil, status.Error(codes.InvalidArgument, "account_number is required")
+	}
+	if req.Amount <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "amount must be positive")
+	}
+	if req.Currency == "" {
+		return nil, status.Error(codes.InvalidArgument, "currency is required")
+	}
+
+	// Convert to domain
+	domainReq := &domain.CreditRequest{
+		AccountNumber:       req.AccountNumber,
+		Amount:              req.Amount,
+		Currency:            req.Currency,
+		AccountType:         convertAccountTypeToDomain(req.AccountType),
+		Description:         req.Description,
+		IdempotencyKey:      req.IdempotencyKey,
+		ExternalRef:         req.ExternalRef,
+		CreatedByExternalID: req.CreatedByExternalId,
+		CreatedByType:       convertOwnerTypeToDomain(req.CreatedByType),
+	}
+
+	// Execute
+	aggregate, err := h.txUC.Credit(ctx, domainReq)
+	if err != nil {
+		return nil, handleUsecaseError(err)
+	}
+
+	// Get balance after
+	var balanceAfter int64
+	if len(aggregate.Ledgers) > 0 {
+		for _, ledger := range aggregate.Ledgers {
+			if ledger.DrCr == domain.DrCrCredit && ledger.BalanceAfter != nil {
+				balanceAfter = *ledger.BalanceAfter
+				break
+			}
+		}
+	}
+
+	receiptCode := ""
+	if aggregate.Journal.ExternalRef != nil {
+		receiptCode = *aggregate.Journal.ExternalRef
+	}
+
+	return &accountingpb.CreditResponse{
+		JournalId:    aggregate.Journal.ID,
+		ReceiptCode:  receiptCode,
+		BalanceAfter: balanceAfter,
+		CreatedAt:    timestamppb.New(aggregate.Journal.CreatedAt),
+	}, nil
+}
+
+// Debit removes money from account (user → system)
+func (h *AccountingHandler) Debit(
+	ctx context.Context,
+	req *accountingpb.DebitRequest,
+) (*accountingpb.DebitResponse, error) {
+	// Validate
+	if req.AccountNumber == "" {
+		return nil, status.Error(codes.InvalidArgument, "account_number is required")
+	}
+	if req.Amount <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "amount must be positive")
+	}
+	if req.Currency == "" {
+		return nil, status.Error(codes.InvalidArgument, "currency is required")
+	}
+
+	// Convert to domain
+	domainReq := &domain.DebitRequest{
+		AccountNumber:       req.AccountNumber,
+		Amount:              req.Amount,
+		Currency:            req.Currency,
+		AccountType:         convertAccountTypeToDomain(req.AccountType),
+		Description:         req.Description,
+		IdempotencyKey:      req.IdempotencyKey,
+		ExternalRef:         req.ExternalRef,
+		CreatedByExternalID: req.CreatedByExternalId,
+		CreatedByType:       convertOwnerTypeToDomain(req.CreatedByType),
+	}
+
+	// Execute
+	aggregate, err := h.txUC.Debit(ctx, domainReq)
+	if err != nil {
+		return nil, handleUsecaseError(err)
+	}
+
+	// Get balance after
+	var balanceAfter int64
+	if len(aggregate.Ledgers) > 0 {
+		for _, ledger := range aggregate.Ledgers {
+			if ledger.DrCr == domain.DrCrDebit && ledger.BalanceAfter != nil {
+				balanceAfter = *ledger.BalanceAfter
+				break
+			}
+		}
+	}
+
+	receiptCode := ""
+	if aggregate.Journal.ExternalRef != nil {
+		receiptCode = *aggregate.Journal.ExternalRef
+	}
+
+	return &accountingpb.DebitResponse{
+		JournalId:    aggregate.Journal.ID,
+		ReceiptCode:  receiptCode,
+		BalanceAfter: balanceAfter,
+		CreatedAt:    timestamppb.New(aggregate.Journal.CreatedAt),
+	}, nil
+}
+
+// Transfer moves money between accounts (P2P)
+func (h *AccountingHandler) Transfer(
+	ctx context.Context,
+	req *accountingpb.TransferRequest,
+) (*accountingpb.TransferResponse, error) {
+	// Validate
+	if req.FromAccountNumber == "" || req.ToAccountNumber == "" {
+		return nil, status.Error(codes.InvalidArgument, "from_account_number and to_account_number are required")
+	}
+	if req.FromAccountNumber == req.ToAccountNumber {
+		return nil, status.Error(codes.InvalidArgument, "cannot transfer to same account")
+	}
+	if req.Amount <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "amount must be positive")
+	}
+
+	// Convert to domain
+	domainReq := &domain.TransferRequest{
+		FromAccountNumber:   req.FromAccountNumber,
+		ToAccountNumber:     req.ToAccountNumber,
+		Amount:              req.Amount,
+		AccountType:         convertAccountTypeToDomain(req.AccountType),
+		Description:         req.Description,
+		IdempotencyKey:      req.IdempotencyKey,
+		ExternalRef:         req.ExternalRef,
+		CreatedByExternalID: req.CreatedByExternalId,
+		CreatedByType:       convertOwnerTypeToDomain(req.CreatedByType),
+		AgentExternalID:     req.AgentExternalId,
+	}
+
+	// Execute
+	aggregate, err := h.txUC.Transfer(ctx, domainReq)
+	if err != nil {
+		return nil, handleUsecaseError(err)
+	}
+
+	receiptCode := ""
+	if aggregate.Journal.ExternalRef != nil {
+		receiptCode = *aggregate.Journal.ExternalRef
+	}
+
+	// Get fees if available
+	var feeAmount int64
+	var agentCommission int64
+	if len(aggregate.Fees) > 0 {
+		for _, fee := range aggregate.Fees {
+			if fee.FeeType == domain.FeeTypePlatform {
+				feeAmount = fee.Amount
+			}
+			if fee.FeeType == domain.FeeTypeAgentCommission {
+				agentCommission = fee.Amount
+			}
+		}
+	}
+
+	return &accountingpb.TransferResponse{
+		JournalId:        aggregate.Journal.ID,
+		ReceiptCode:      receiptCode,
+		FeeAmount:        feeAmount,
+		AgentCommission:  agentCommission,
+		CreatedAt:        timestamppb.New(aggregate.Journal.CreatedAt),
+	}, nil
+}
+
+// ConvertAndTransfer performs currency conversion
+func (h *AccountingHandler) ConvertAndTransfer(
+	ctx context.Context,
+	req *accountingpb.ConversionRequest,
+) (*accountingpb.ConversionResponse, error) {
+	// Validate
+	if req.FromAccountNumber == "" || req.ToAccountNumber == "" {
+		return nil, status.Error(codes.InvalidArgument, "from_account_number and to_account_number are required")
+	}
+	if req.Amount <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "amount must be positive")
+	}
+
+	// Convert to domain
+	domainReq := &domain.ConversionRequest{
+		FromAccountNumber:   req.FromAccountNumber,
+		ToAccountNumber:     req.ToAccountNumber,
+		Amount:              req.Amount,
+		AccountType:         convertAccountTypeToDomain(req.AccountType),
+		IdempotencyKey:      req.IdempotencyKey,
+		ExternalRef:         req.ExternalRef,
+		CreatedByExternalID: req.CreatedByExternalId,
+		CreatedByType:       convertOwnerTypeToDomain(req.CreatedByType),
+		AgentExternalID:     req.AgentExternalId,
+	}
+
+	// Execute
+	aggregate, err := h.txUC.ConvertAndTransfer(ctx, domainReq)
+	if err != nil {
+		return nil, handleUsecaseError(err)
+	}
+
+	receiptCode := ""
+	if aggregate.Journal.ExternalRef != nil {
+		receiptCode = *aggregate.Journal.ExternalRef
+	}
+
+	// Extract metadata from ledgers
+	var sourceCurrency, destCurrency string
+	var sourceAmount, convertedAmount int64
+	var fxRate string
+	var fxRateID int64
+	var feeAmount int64
+
+	if len(aggregate.Ledgers) >= 2 {
+		// Source ledger (debit)
+		sourceCurrency = aggregate.Ledgers[0].Currency
+		sourceAmount = aggregate.Ledgers[0].Amount
+
+		// Destination ledger (credit)
+		destCurrency = aggregate.Ledgers[1].Currency
+		convertedAmount = aggregate.Ledgers[1].Amount
+		if aggregate.Ledgers[0].Metadata != nil {
+			// Use reflection to safely iterate metadata map without assuming key/value types.
+			metaVal := reflect.ValueOf(aggregate.Ledgers[0].Metadata)
+			if metaVal.IsValid() && metaVal.Kind() == reflect.Map {
+				for _, k := range metaVal.MapKeys() {
+					v := metaVal.MapIndex(k)
+					keyStr := fmt.Sprint(k.Interface())
+					// Match common key names and extract values robustly
+					switch keyStr {
+					case "fx_rate", "fxRate", "rate":
+						fxRate = fmt.Sprint(v.Interface())
+					case "fx_rate_id", "fxRateId", "fx_rateid", "fxRateID":
+						idStr := fmt.Sprint(v.Interface())
+						if id, err := strconv.ParseInt(idStr, 10, 64); err == nil {
+							fxRateID = id
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Get fees
+	if len(aggregate.Fees) > 0 {
+		for _, fee := range aggregate.Fees {
+			if fee.FeeType == domain.FeeTypePlatform || fee.FeeType == domain.FeeTypeConversion {
+				feeAmount = fee.Amount
+				break
+			}
+		}
+	}
+
+	return &accountingpb.ConversionResponse{
+		JournalId:        aggregate.Journal.ID,
+		ReceiptCode:      receiptCode,
+		SourceCurrency:   sourceCurrency,
+		DestCurrency:     destCurrency,
+		SourceAmount:     sourceAmount,
+		ConvertedAmount:  convertedAmount,
+		FxRate:           fxRate,
+		FxRateId:         fxRateID,
+		FeeAmount:        feeAmount,
+		CreatedAt:        timestamppb.New(aggregate.Journal.CreatedAt),
+	}, nil
+}
+
+// ProcessTradeWin credits account for trade win
+func (h *AccountingHandler) ProcessTradeWin(
+	ctx context.Context,
+	req *accountingpb.TradeRequest,
+) (*accountingpb.TradeResponse, error) {
+	// Validate
+	if req.AccountNumber == "" {
+		return nil, status.Error(codes.InvalidArgument, "account_number is required")
+	}
+	if req.Amount <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "amount must be positive")
+	}
+	if req.TradeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "trade_id is required")
+	}
+
+	// Convert to domain
+	domainReq := &domain.TradeRequest{
+		AccountNumber:       req.AccountNumber,
+		Amount:              req.Amount,
+		Currency:            req.Currency,
+		AccountType:         convertAccountTypeToDomain(req.AccountType),
+		TradeID:             req.TradeId,
+		TradeType:           req.TradeType,
+		IdempotencyKey:      req.IdempotencyKey,
+		CreatedByExternalID: req.CreatedByExternalId,
+		CreatedByType:       convertOwnerTypeToDomain(req.CreatedByType),
+	}
+
+	// Execute
+	aggregate, err := h.txUC.ProcessTradeWin(ctx, domainReq)
+	if err != nil {
+		return nil, handleUsecaseError(err)
+	}
+
+	receiptCode := ""
+	if aggregate.Journal.ExternalRef != nil {
+		receiptCode = *aggregate.Journal.ExternalRef
+	}
+
+	// Get balance after
+	var balanceAfter int64
+	if len(aggregate.Ledgers) > 0 {
+		for _, ledger := range aggregate.Ledgers {
+			if ledger.DrCr == domain.DrCrCredit && ledger.BalanceAfter != nil {
+				balanceAfter = *ledger.BalanceAfter
+				break
+			}
+		}
+	}
+
+	return &accountingpb.TradeResponse{
+		JournalId:    aggregate.Journal.ID,
+		ReceiptCode:  receiptCode,
+		TradeId:      req.TradeId,
+		TradeResult:  "win",
+		BalanceAfter: balanceAfter,
+		CreatedAt:    timestamppb.New(aggregate.Journal.CreatedAt),
+	}, nil
+}
+
+// ProcessTradeLoss debits account for trade loss
+func (h *AccountingHandler) ProcessTradeLoss(
+	ctx context.Context,
+	req *accountingpb.TradeRequest,
+) (*accountingpb.TradeResponse, error) {
+	// Validate
+	if req.AccountNumber == "" {
+		return nil, status.Error(codes.InvalidArgument, "account_number is required")
+	}
+	if req.Amount <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "amount must be positive")
+	}
+	if req.TradeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "trade_id is required")
+	}
+
+	// Convert to domain
+	domainReq := &domain.TradeRequest{
+		AccountNumber:       req.AccountNumber,
+		Amount:              req.Amount,
+		Currency:            req.Currency,
+		AccountType:         convertAccountTypeToDomain(req.AccountType),
+		TradeID:             req.TradeId,
+		TradeType:           req.TradeType,
+		IdempotencyKey:      req.IdempotencyKey,
+		CreatedByExternalID: req.CreatedByExternalId,
+		CreatedByType:       convertOwnerTypeToDomain(req.CreatedByType),
+	}
+
+	// Execute
+	aggregate, err := h.txUC.ProcessTradeLoss(ctx, domainReq)
+	if err != nil {
+		return nil, handleUsecaseError(err)
+	}
+
+	receiptCode := ""
+	if aggregate.Journal.ExternalRef != nil {
+		receiptCode = *aggregate.Journal.ExternalRef
+	}
+
+	// Get balance after
+	var balanceAfter int64
+	if len(aggregate.Ledgers) > 0 {
+		for _, ledger := range aggregate.Ledgers {
+			if ledger.DrCr == domain.DrCrDebit && ledger.BalanceAfter != nil {
+				balanceAfter = *ledger.BalanceAfter
+				break
+			}
+		}
+	}
+
+	return &accountingpb.TradeResponse{
+		JournalId:    aggregate.Journal.ID,
+		ReceiptCode:  receiptCode,
+		TradeId:      req.TradeId,
+		TradeResult:  "loss",
+		BalanceAfter: balanceAfter,
+		CreatedAt:    timestamppb.New(aggregate.Journal.CreatedAt),
+	}, nil
+}
+
+// ProcessAgentCommission pays commission to agent
+func (h *AccountingHandler) ProcessAgentCommission(
+	ctx context.Context,
+	req *accountingpb.AgentCommissionRequest,
+) (*accountingpb.AgentCommissionResponse, error) {
+	// Validate
+	if req.AgentExternalId == "" {
+		return nil, status.Error(codes.InvalidArgument, "agent_external_id is required")
+	}
+	if req.TransactionRef == "" {
+		return nil, status.Error(codes.InvalidArgument, "transaction_ref is required")
+	}
+	if req.CommissionAmount <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "commission_amount must be positive")
+	}
+
+	// Convert to domain
+	domainReq := &domain.AgentCommissionRequest{
+		AgentExternalID:   req.AgentExternalId,
+		TransactionRef:    req.TransactionRef,
+		Currency:          req.Currency,
+		TransactionAmount: req.TransactionAmount,
+		CommissionAmount:  req.CommissionAmount,
+		CommissionRate:    req.CommissionRate,
+		IdempotencyKey:    req.IdempotencyKey,
+	}
+
+	// Execute
+	aggregate, err := h.txUC.ProcessAgentCommission(ctx, domainReq)
+	if err != nil {
+		return nil, handleUsecaseError(err)
+	}
+
+	receiptCode := ""
+	if aggregate.Journal.ExternalRef != nil {
+		receiptCode = *aggregate.Journal.ExternalRef
+	}
+
+	return &accountingpb.AgentCommissionResponse{
+		JournalId:        aggregate.Journal.ID,
+		ReceiptCode:      receiptCode,
+		AgentExternalId:  req.AgentExternalId,
+		CommissionAmount: req.CommissionAmount,
+		CreatedAt:        timestamppb.New(aggregate.Journal.CreatedAt),
+	}, nil
 }

@@ -605,3 +605,75 @@ func (r *PartnerRepo) GetAPIUsageStats(ctx context.Context, partnerID string, fr
 		"requests_by_day":      requestsByDay,
 	}, nil
 }
+
+func (r *PartnerRepo) StreamAllPartners(
+    ctx context.Context,
+    batchSize int,
+    callback func(*domain.Partner) error,
+) error {
+
+    query := `
+        SELECT id, name, country, contact_email, contact_phone,
+               status, service, currency, local_currency,
+               rate, inverse_rate, commission_rate,
+               api_key, is_api_enabled, api_rate_limit,
+               webhook_url, callback_url,
+               created_at, updated_at
+        FROM partners
+        ORDER BY id
+    `
+
+    rows, err := r.db.Query(ctx, query)
+    if err != nil {
+        return err
+    }
+    defer rows.Close()
+
+    count := 0
+
+    for rows.Next() {
+        var p domain.Partner
+
+        if err := rows.Scan(
+            &p.ID,
+            &p.Name,
+            &p.Country,
+            &p.ContactEmail,
+            &p.ContactPhone,
+            &p.Status,
+            &p.Service,
+            &p.Currency,
+            &p.LocalCurrency,
+            &p.Rate,
+            &p.InverseRate,
+            &p.CommissionRate,
+            &p.APIKey,
+            &p.IsAPIEnabled,
+            &p.APIRateLimit,
+            &p.WebhookURL,
+            &p.CallbackURL,
+            &p.CreatedAt,
+            &p.UpdatedAt,
+        ); err != nil {
+            return err
+        }
+
+        // Respect context cancellation
+        select {
+        case <-ctx.Done():
+            return ctx.Err()
+        default:
+        }
+
+        if err := callback(&p); err != nil {
+            return err
+        }
+
+        count++
+        if batchSize > 0 && count >= batchSize {
+            count = 0 // resets after each batch
+        }
+    }
+
+    return rows.Err()
+}

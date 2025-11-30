@@ -46,6 +46,13 @@ const (
 	AccountingService_GetFeesByReceipt_FullMethodName          = "/accounting.v1.AccountingService/GetFeesByReceipt"
 	AccountingService_GetAgentCommissionSummary_FullMethodName = "/accounting.v1.AccountingService/GetAgentCommissionSummary"
 	AccountingService_StreamTransactionEvents_FullMethodName   = "/accounting.v1.AccountingService/StreamTransactionEvents"
+	AccountingService_Credit_FullMethodName                    = "/accounting.v1.AccountingService/Credit"
+	AccountingService_Debit_FullMethodName                     = "/accounting.v1.AccountingService/Debit"
+	AccountingService_Transfer_FullMethodName                  = "/accounting.v1.AccountingService/Transfer"
+	AccountingService_ConvertAndTransfer_FullMethodName        = "/accounting.v1.AccountingService/ConvertAndTransfer"
+	AccountingService_ProcessTradeWin_FullMethodName           = "/accounting.v1.AccountingService/ProcessTradeWin"
+	AccountingService_ProcessTradeLoss_FullMethodName          = "/accounting.v1.AccountingService/ProcessTradeLoss"
+	AccountingService_ProcessAgentCommission_FullMethodName    = "/accounting.v1.AccountingService/ProcessAgentCommission"
 	AccountingService_HealthCheck_FullMethodName               = "/accounting.v1.AccountingService/HealthCheck"
 )
 
@@ -107,6 +114,20 @@ type AccountingServiceClient interface {
 	GetAgentCommissionSummary(ctx context.Context, in *GetAgentCommissionSummaryRequest, opts ...grpc.CallOption) (*GetAgentCommissionSummaryResponse, error)
 	// Stream transaction events (for real-time updates)
 	StreamTransactionEvents(ctx context.Context, in *StreamTransactionEventsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[TransactionEvent], error)
+	// Credit account (system → user, NO FEES)
+	Credit(ctx context.Context, in *CreditRequest, opts ...grpc.CallOption) (*CreditResponse, error)
+	// Debit account (user → system, NO FEES)
+	Debit(ctx context.Context, in *DebitRequest, opts ...grpc.CallOption) (*DebitResponse, error)
+	// Transfer between accounts (P2P, FEES APPLY)
+	Transfer(ctx context.Context, in *TransferRequest, opts ...grpc.CallOption) (*TransferResponse, error)
+	// Currency conversion transfer (FEES APPLY)
+	ConvertAndTransfer(ctx context.Context, in *ConversionRequest, opts ...grpc.CallOption) (*ConversionResponse, error)
+	// Process trade win (NO FEES)
+	ProcessTradeWin(ctx context.Context, in *TradeRequest, opts ...grpc.CallOption) (*TradeResponse, error)
+	// Process trade loss (NO FEES)
+	ProcessTradeLoss(ctx context.Context, in *TradeRequest, opts ...grpc.CallOption) (*TradeResponse, error)
+	// Process agent commission (NO FEES)
+	ProcessAgentCommission(ctx context.Context, in *AgentCommissionRequest, opts ...grpc.CallOption) (*AgentCommissionResponse, error)
 	// Health check
 	HealthCheck(ctx context.Context, in *HealthCheckRequest, opts ...grpc.CallOption) (*HealthCheckResponse, error)
 }
@@ -398,6 +419,76 @@ func (c *accountingServiceClient) StreamTransactionEvents(ctx context.Context, i
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type AccountingService_StreamTransactionEventsClient = grpc.ServerStreamingClient[TransactionEvent]
 
+func (c *accountingServiceClient) Credit(ctx context.Context, in *CreditRequest, opts ...grpc.CallOption) (*CreditResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreditResponse)
+	err := c.cc.Invoke(ctx, AccountingService_Credit_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountingServiceClient) Debit(ctx context.Context, in *DebitRequest, opts ...grpc.CallOption) (*DebitResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DebitResponse)
+	err := c.cc.Invoke(ctx, AccountingService_Debit_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountingServiceClient) Transfer(ctx context.Context, in *TransferRequest, opts ...grpc.CallOption) (*TransferResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TransferResponse)
+	err := c.cc.Invoke(ctx, AccountingService_Transfer_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountingServiceClient) ConvertAndTransfer(ctx context.Context, in *ConversionRequest, opts ...grpc.CallOption) (*ConversionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ConversionResponse)
+	err := c.cc.Invoke(ctx, AccountingService_ConvertAndTransfer_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountingServiceClient) ProcessTradeWin(ctx context.Context, in *TradeRequest, opts ...grpc.CallOption) (*TradeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TradeResponse)
+	err := c.cc.Invoke(ctx, AccountingService_ProcessTradeWin_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountingServiceClient) ProcessTradeLoss(ctx context.Context, in *TradeRequest, opts ...grpc.CallOption) (*TradeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TradeResponse)
+	err := c.cc.Invoke(ctx, AccountingService_ProcessTradeLoss_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountingServiceClient) ProcessAgentCommission(ctx context.Context, in *AgentCommissionRequest, opts ...grpc.CallOption) (*AgentCommissionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AgentCommissionResponse)
+	err := c.cc.Invoke(ctx, AccountingService_ProcessAgentCommission_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *accountingServiceClient) HealthCheck(ctx context.Context, in *HealthCheckRequest, opts ...grpc.CallOption) (*HealthCheckResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(HealthCheckResponse)
@@ -466,6 +557,20 @@ type AccountingServiceServer interface {
 	GetAgentCommissionSummary(context.Context, *GetAgentCommissionSummaryRequest) (*GetAgentCommissionSummaryResponse, error)
 	// Stream transaction events (for real-time updates)
 	StreamTransactionEvents(*StreamTransactionEventsRequest, grpc.ServerStreamingServer[TransactionEvent]) error
+	// Credit account (system → user, NO FEES)
+	Credit(context.Context, *CreditRequest) (*CreditResponse, error)
+	// Debit account (user → system, NO FEES)
+	Debit(context.Context, *DebitRequest) (*DebitResponse, error)
+	// Transfer between accounts (P2P, FEES APPLY)
+	Transfer(context.Context, *TransferRequest) (*TransferResponse, error)
+	// Currency conversion transfer (FEES APPLY)
+	ConvertAndTransfer(context.Context, *ConversionRequest) (*ConversionResponse, error)
+	// Process trade win (NO FEES)
+	ProcessTradeWin(context.Context, *TradeRequest) (*TradeResponse, error)
+	// Process trade loss (NO FEES)
+	ProcessTradeLoss(context.Context, *TradeRequest) (*TradeResponse, error)
+	// Process agent commission (NO FEES)
+	ProcessAgentCommission(context.Context, *AgentCommissionRequest) (*AgentCommissionResponse, error)
 	// Health check
 	HealthCheck(context.Context, *HealthCheckRequest) (*HealthCheckResponse, error)
 	mustEmbedUnimplementedAccountingServiceServer()
@@ -558,6 +663,27 @@ func (UnimplementedAccountingServiceServer) GetAgentCommissionSummary(context.Co
 }
 func (UnimplementedAccountingServiceServer) StreamTransactionEvents(*StreamTransactionEventsRequest, grpc.ServerStreamingServer[TransactionEvent]) error {
 	return status.Errorf(codes.Unimplemented, "method StreamTransactionEvents not implemented")
+}
+func (UnimplementedAccountingServiceServer) Credit(context.Context, *CreditRequest) (*CreditResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Credit not implemented")
+}
+func (UnimplementedAccountingServiceServer) Debit(context.Context, *DebitRequest) (*DebitResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Debit not implemented")
+}
+func (UnimplementedAccountingServiceServer) Transfer(context.Context, *TransferRequest) (*TransferResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Transfer not implemented")
+}
+func (UnimplementedAccountingServiceServer) ConvertAndTransfer(context.Context, *ConversionRequest) (*ConversionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ConvertAndTransfer not implemented")
+}
+func (UnimplementedAccountingServiceServer) ProcessTradeWin(context.Context, *TradeRequest) (*TradeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ProcessTradeWin not implemented")
+}
+func (UnimplementedAccountingServiceServer) ProcessTradeLoss(context.Context, *TradeRequest) (*TradeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ProcessTradeLoss not implemented")
+}
+func (UnimplementedAccountingServiceServer) ProcessAgentCommission(context.Context, *AgentCommissionRequest) (*AgentCommissionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ProcessAgentCommission not implemented")
 }
 func (UnimplementedAccountingServiceServer) HealthCheck(context.Context, *HealthCheckRequest) (*HealthCheckResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method HealthCheck not implemented")
@@ -1062,6 +1188,132 @@ func _AccountingService_StreamTransactionEvents_Handler(srv interface{}, stream 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type AccountingService_StreamTransactionEventsServer = grpc.ServerStreamingServer[TransactionEvent]
 
+func _AccountingService_Credit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreditRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountingServiceServer).Credit(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountingService_Credit_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountingServiceServer).Credit(ctx, req.(*CreditRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountingService_Debit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DebitRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountingServiceServer).Debit(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountingService_Debit_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountingServiceServer).Debit(ctx, req.(*DebitRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountingService_Transfer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TransferRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountingServiceServer).Transfer(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountingService_Transfer_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountingServiceServer).Transfer(ctx, req.(*TransferRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountingService_ConvertAndTransfer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ConversionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountingServiceServer).ConvertAndTransfer(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountingService_ConvertAndTransfer_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountingServiceServer).ConvertAndTransfer(ctx, req.(*ConversionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountingService_ProcessTradeWin_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TradeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountingServiceServer).ProcessTradeWin(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountingService_ProcessTradeWin_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountingServiceServer).ProcessTradeWin(ctx, req.(*TradeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountingService_ProcessTradeLoss_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TradeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountingServiceServer).ProcessTradeLoss(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountingService_ProcessTradeLoss_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountingServiceServer).ProcessTradeLoss(ctx, req.(*TradeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountingService_ProcessAgentCommission_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AgentCommissionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountingServiceServer).ProcessAgentCommission(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountingService_ProcessAgentCommission_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountingServiceServer).ProcessAgentCommission(ctx, req.(*AgentCommissionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _AccountingService_HealthCheck_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(HealthCheckRequest)
 	if err := dec(in); err != nil {
@@ -1190,6 +1442,34 @@ var AccountingService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetAgentCommissionSummary",
 			Handler:    _AccountingService_GetAgentCommissionSummary_Handler,
+		},
+		{
+			MethodName: "Credit",
+			Handler:    _AccountingService_Credit_Handler,
+		},
+		{
+			MethodName: "Debit",
+			Handler:    _AccountingService_Debit_Handler,
+		},
+		{
+			MethodName: "Transfer",
+			Handler:    _AccountingService_Transfer_Handler,
+		},
+		{
+			MethodName: "ConvertAndTransfer",
+			Handler:    _AccountingService_ConvertAndTransfer_Handler,
+		},
+		{
+			MethodName: "ProcessTradeWin",
+			Handler:    _AccountingService_ProcessTradeWin_Handler,
+		},
+		{
+			MethodName: "ProcessTradeLoss",
+			Handler:    _AccountingService_ProcessTradeLoss_Handler,
+		},
+		{
+			MethodName: "ProcessAgentCommission",
+			Handler:    _AccountingService_ProcessAgentCommission_Handler,
 		},
 		{
 			MethodName: "HealthCheck",

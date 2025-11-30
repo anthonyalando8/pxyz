@@ -406,3 +406,64 @@ func (r *UserRepository) IdentifierExists(ctx context.Context, identifier string
 	
 	return exists, err
 }
+
+func (r *UserRepository) StreamAllUsers(
+    ctx context.Context,
+    batchSize int,
+    fn func(*domain.UserProfile) error,
+) error {
+
+    lastID := int64(0)
+
+    for {
+        rows, err := r.db.Query(ctx, `
+            SELECT 
+                u.id,
+                u.account_status,
+                u.account_type,
+                c.email,
+                c.phone,
+                c.is_email_verified,
+                c.is_phone_verified,
+                u.created_at,
+                u.updated_at
+            FROM users u
+            JOIN user_credentials c ON u.id = c.user_id
+            WHERE u.id > $1
+            ORDER BY u.id
+            LIMIT $2
+        `, lastID, batchSize)
+        if err != nil {
+            return err
+        }
+
+        batchCount := 0
+
+        for rows.Next() {
+            user, err := scanUserProfile(rows)
+            if err != nil {
+                rows.Close()
+                return err
+            }
+
+            // send to caller
+            if err := fn(user); err != nil {
+                rows.Close()
+                return err
+            }
+
+            // update lastID for next page
+            uid, _ := strconv.ParseInt(user.ID, 10, 64)
+            lastID = uid
+            batchCount++
+        }
+
+        rows.Close()
+
+        if batchCount == 0 {
+            break // no more rows
+        }
+    }
+
+    return nil
+}
