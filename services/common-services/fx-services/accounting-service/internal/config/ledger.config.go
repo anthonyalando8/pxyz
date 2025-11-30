@@ -35,10 +35,10 @@ func Load() AppConfig {
 		RedisPass: getEnv("REDIS_PASS", ""),
 		KafkaBrokers:   getEnvSlice("KAFKA_BROKERS", []string{"kafka:9092"}),
 
-		AuthServiceAddr:         getEnv("AUTH_SERVICE_ADDR", "localhost:50052"),
-		PartnerServiceAddr:      getEnv("PARTNER_SERVICE_ADDR", "localhost:50053"),
-		ReceiptServiceAddr:      getEnv("RECEIPT_SERVICE_ADDR", "localhost:50054"),
-		NotificationServiceAddr: getEnv("NOTIFICATION_SERVICE_ADDR", "localhost:50055"),
+		AuthServiceAddr:         getEnv("AUTH_SERVICE_ADDR", "auth-service:8006"),
+		PartnerServiceAddr:      getEnv("PARTNER_SERVICE_ADDR", "partner-service:7511"),
+		ReceiptServiceAddr:      getEnv("RECEIPT_SERVICE_ADDR", "receipt-service:8026"),
+		NotificationServiceAddr: getEnv("NOTIFICATION_SERVICE_ADDR", "notification-service:8014"),
 		
 		// Feature flags
 		SeedOnStartup: getEnvBool("SEED_ON_STARTUP", true), // Default: enabled
