@@ -73,3 +73,10 @@ func ptrStrToStr(s *string) string {
 	}
 	return *s
 }
+
+func ptrIntToInt(i *int64) int64 {
+	if i == nil {
+		return 0
+	}
+	return *i
+}

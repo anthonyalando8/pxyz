@@ -2,197 +2,58 @@ package handler
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math/rand"
-	"net/http"
-	"strconv"
 	"sync"
 	"time"
 
 	partnersvcpb "x/shared/genproto/partner/svcpb"
-	accountingpb "x/shared/genproto/shared/accounting/accountingpb"
-
-	//"google.golang.org/protobuf/types/known/timestamppb"
-
-	"x/shared/auth/middleware"
-	"x/shared/response"
+	accountingpb "x/shared/genproto/shared/accounting/v1"
 )
 
-func (h *PaymentHandler) DepositHandler(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Amount   float64 `json:"amount"`
-		Method   string  `json:"method"`
-		Service  string  `json:"service"`  // service to pick partner from
-		Currency string  `json:"currency"` // user wallet currency
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, fmt.Sprintf("invalid request body: %v", err))
-		return
-	}
-
-	// For now hardcoding, later you can extend
-	req.Currency = "USD"        // user wallet currency
-	depositCurrency := "KES"    // partner account currency
-
-	// Get authenticated user
-	userID, ok := r.Context().Value(middleware.ContextUserID).(string)
-	if !ok || userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
-
-	// Get both accounts concurrently
-	partnerAccount, userAccount, err := h.GetPartnerAndUserAccounts(r.Context(), req.Service, req.Currency, userID)
-	if err != nil {
-		response.Error(w, http.StatusBadRequest, "your request has been declined: "+err.Error())
-		return
-	}
-
-	// Parse userID to int64 for gRPC
-	userIDInt, err := strconv.ParseInt(userID, 10, 64)
-	if err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid user ID")
-		return
-	}
-
-	// Construct accounting transaction (User → Partner)
-	grpcReq := &accountingpb.CreateTransactionRequest{
-		Description:   fmt.Sprintf("Deposit by user %s via %s", userID, req.Method),
-		CreatedByType: accountingpb.OwnerType_USER,
-		CreatedByUser: userIDInt,
-		DepositCurrency: depositCurrency,
-		Entries: []*accountingpb.TransactionEntry{
-			{
-				AccountNumber: userAccount,
-				DrCr:          accountingpb.DrCr_CR, // debit user
-				Amount:        req.Amount,
-				Currency:      req.Currency,
-			},
-			{
-				AccountNumber: partnerAccount,
-				DrCr:          accountingpb.DrCr_DR, // credit partner
-				Amount:        req.Amount,
-				Currency:      req.Currency,
-			},
-		},
-	}
-
-	// Call gRPC to post transaction
-	resp, err := h.accountingClient.Client.PostTransaction(r.Context(), grpcReq)
-	if err != nil {
-		response.Error(w, http.StatusBadGateway, "failed to post transaction: "+err.Error())
-		return
-	}
-
-	// Success response
-	response.JSON(w, http.StatusOK, map[string]interface{}{
-		"message":         "deposit successful",
-		"user_account":    userAccount,
-		"partner_account": partnerAccount,
-		"transaction":     resp,
-	})
-}
-func (h *PaymentHandler) WithdrawHandler(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Amount   float64 `json:"amount"`
-		Method   string  `json:"method"`
-		Service  string  `json:"service"`  // service to pick partner from
-		Currency string  `json:"currency"` // user wallet currency
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, fmt.Sprintf("invalid request body: %v", err))
-		return
-	}
-
-	// For now, assume user withdraws from USD wallet → partner KES account
-	req.Currency = "USD"     // user wallet currency
-	withdrawCurrency := "KES" // partner account currency
-
-	// Get authenticated user
-	userID, ok := r.Context().Value(middleware.ContextUserID).(string)
-	if !ok || userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
-	}
-
-	// Get both accounts concurrently
-	partnerAccount, userAccount, err := h.GetPartnerAndUserAccounts(r.Context(), req.Service, req.Currency, userID)
-	if err != nil {
-		response.Error(w, http.StatusBadRequest, "your request has been declined: "+err.Error())
-		return
-	}
-
-	// Parse userID to int64 for gRPC
-	userIDInt, err := strconv.ParseInt(userID, 10, 64)
-	if err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid user ID")
-		return
-	}
-
-	// Construct accounting transaction (User → Partner)
-	grpcReq := &accountingpb.CreateTransactionRequest{
-		Description:   fmt.Sprintf("Withdrawal by user %s via %s", userID, req.Method),
-		CreatedByType: accountingpb.OwnerType_USER,
-		CreatedByUser: userIDInt,
-		DepositCurrency: withdrawCurrency,
-		Entries: []*accountingpb.TransactionEntry{
-			{
-				AccountNumber: userAccount,
-				DrCr:          accountingpb.DrCr_DR, // Debit user wallet (money leaves)
-				Amount:        req.Amount,
-				Currency:      req.Currency,
-			},
-			{
-				AccountNumber: partnerAccount,
-				DrCr:          accountingpb.DrCr_CR, // Credit partner account (money arrives in M-Pesa)
-				Amount:        req.Amount,
-				Currency:      req.Currency,
-			},
-		},
-	}
-
-	// Call gRPC to post transaction
-	resp, err := h.accountingClient.Client.PostTransaction(r.Context(), grpcReq)
-	if err != nil {
-		response.Error(w, http.StatusBadGateway, "failed to post transaction: "+err.Error())
-		return
-	}
-
-	// Success response
-	response.JSON(w, http.StatusOK, map[string]interface{}{
-		"message":         "withdrawal successful",
-		"user_account":    userAccount,
-		"partner_account": partnerAccount,
-		"transaction":     resp,
-	})
-}
-
-
+// ============================================================================
+// ENUM MAPPERS
+// ============================================================================
 
 func mapOwnerType(s string) accountingpb.OwnerType {
 	switch s {
 	case "user":
-		return accountingpb.OwnerType_USER
+		return accountingpb.OwnerType_OWNER_TYPE_USER
 	case "partner":
-		return accountingpb.OwnerType_PARTNER
+		return accountingpb.OwnerType_OWNER_TYPE_PARTNER
 	case "system":
-		return accountingpb.OwnerType_SYSTEM
+		return accountingpb.OwnerType_OWNER_TYPE_SYSTEM
 	case "admin":
-		return accountingpb.OwnerType_ADMIN
+		return accountingpb.OwnerType_OWNER_TYPE_ADMIN
+	case "agent":
+		return accountingpb.OwnerType_OWNER_TYPE_AGENT
 	default:
 		return accountingpb.OwnerType_OWNER_TYPE_UNSPECIFIED
 	}
 }
-// GetPartnersByService fetches partners offering a specific service
-// GetPartnersByService fetches partners by service
+
+func mapAccountType(s string) accountingpb.AccountType {
+	switch s {
+	case "demo":
+		return accountingpb.AccountType_ACCOUNT_TYPE_DEMO
+	case "real":
+		return accountingpb.AccountType_ACCOUNT_TYPE_REAL
+	default:
+		return accountingpb.AccountType_ACCOUNT_TYPE_REAL // Default to real
+	}
+}
+
+// ============================================================================
+// PARTNER HELPERS
+// ============================================================================
+
 // GetPartnersByService fetches partners offering a specific service
 func (h *PaymentHandler) GetPartnersByService(ctx context.Context, service string) ([]*partnersvcpb.Partner, error) {
 	if service == "" {
 		return nil, fmt.Errorf("service cannot be empty")
 	}
 
-	req := &partnersvcpb.GetPartnersByServiceRequest{
+	req := &partnersvcpb. GetPartnersByServiceRequest{
 		Service: service,
 	}
 
@@ -201,47 +62,61 @@ func (h *PaymentHandler) GetPartnersByService(ctx context.Context, service strin
 		return nil, fmt.Errorf("failed to fetch partners by service '%s': %w", service, err)
 	}
 
+	if len(res.Partners) == 0 {
+		return nil, fmt.Errorf("no partners found for service '%s'", service)
+	}
+
 	return res.Partners, nil
 }
 
-func (h *PaymentHandler) GetUserAccountsHandler(w http.ResponseWriter, r *http.Request) {
-	// Extract user ID from context
-	userID, ok := r.Context().Value(middleware.ContextUserID).(string)
-	if !ok || userID == "" {
-		response.Error(w, http.StatusUnauthorized, "user not authenticated")
-		return
+// GetPartnerByID fetches a specific partner by ID
+func (h *PaymentHandler) GetPartnerByID(ctx context.Context, partnerID string) (*partnersvcpb.Partner, error) {
+	if partnerID == "" {
+		return nil, fmt. Errorf("partner_id cannot be empty")
 	}
 
-	// Default owner type = user
-	ownerType := "user"
+	req := &partnersvcpb.GetPartnersRequest{
+		PartnerIds: []string{partnerID},
+	}
 
-	// Call helper
-	accountsResp, err := h.GetAccounts(r.Context(), userID, ownerType)
+	res, err := h.partnerClient.Client.GetPartners(ctx, req)
 	if err != nil {
-		response.Error(w, http.StatusBadGateway, "failed to fetch accounts: "+err.Error())
-		return
+		return nil, fmt.Errorf("failed to fetch partner '%s': %w", partnerID, err)
 	}
 
-	// Success
-	response.JSON(w, http.StatusOK, map[string]interface{}{
-		"message":  "accounts retrieved successfully",
-		"accounts": accountsResp.Accounts,
-	})
+	if len(res.Partners) == 0 {
+		return nil, fmt.Errorf("partner '%s' not found", partnerID)
+	}
+
+	return res.Partners[0], nil
 }
 
+// SelectRandomPartner selects a random partner from a list
+func SelectRandomPartner(partners []*partnersvcpb.Partner) *partnersvcpb.Partner {
+	if len(partners) == 0 {
+		return nil
+	}
+	rand.Seed(time.Now(). UnixNano())
+	return partners[rand.Intn(len(partners))]
+}
+
+// ============================================================================
+// ACCOUNTING HELPERS
+// ============================================================================
 
 // GetAccounts fetches accounts for a given owner ID and ownerType
-func (h *PaymentHandler) GetAccounts(ctx context.Context, ownerID, ownerType string) (*accountingpb.GetAccountsResponse, error) {
+func (h *PaymentHandler) GetAccounts(ctx context.Context, ownerID, ownerType string) (*accountingpb.GetAccountsByOwnerResponse, error) {
 	if ownerID == "" || ownerType == "" {
 		return nil, fmt.Errorf("ownerID and ownerType cannot be empty")
 	}
 
-	req := &accountingpb.GetAccountsRequest{
-		OwnerType: mapOwnerType(ownerType),
-		OwnerId:   ownerID,
+	req := &accountingpb.GetAccountsByOwnerRequest{
+		OwnerType:   mapOwnerType(ownerType),
+		OwnerId:     ownerID,
+		AccountType: accountingpb.AccountType_ACCOUNT_TYPE_REAL, // Default to real accounts
 	}
 
-	resp, err := h.accountingClient.Client.GetUserAccounts(ctx, req)
+	resp, err := h.accountingClient.Client.GetAccountsByOwner(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch accounts for ownerID=%s, ownerType=%s: %w", ownerID, ownerType, err)
 	}
@@ -260,26 +135,76 @@ func (h *PaymentHandler) GetAccountByCurrency(ctx context.Context, ownerID, owne
 		return "", err
 	}
 
+	// Find account with matching currency and wallet purpose
+	for _, acct := range resp.Accounts {
+		if acct.Currency == currency && acct.Purpose == accountingpb.AccountPurpose_ACCOUNT_PURPOSE_WALLET {
+			return acct.AccountNumber, nil
+		}
+	}
+
+	// If no wallet account found, return first account with matching currency
 	for _, acct := range resp.Accounts {
 		if acct.Currency == currency {
 			return acct.AccountNumber, nil
 		}
 	}
 
-	return "", fmt.Errorf("no account found for ownerID=%s, ownerType=%s with currency=%s", ownerID, ownerType, currency)
+	return "", fmt. Errorf("no account found for ownerID=%s, ownerType=%s with currency=%s", ownerID, ownerType, currency)
 }
 
+// GetAccountByPurpose fetches an account by owner and purpose
+func (h *PaymentHandler) GetAccountByPurpose(ctx context.Context, ownerID, ownerType string, purpose accountingpb.AccountPurpose) (string, error) {
+	if ownerID == "" || ownerType == "" {
+		return "", fmt.Errorf("ownerID and ownerType cannot be empty")
+	}
 
-// Concurrent helper: fetch random partner and their account + user account
-func (h *PaymentHandler) GetPartnerAndUserAccounts(ctx context.Context, service, currency, userID string) (partnerAccount, userAccount string, err error) {
+	resp, err := h.GetAccounts(ctx, ownerID, ownerType)
+	if err != nil {
+		return "", err
+	}
+
+	for _, acct := range resp.Accounts {
+		if acct.Purpose == purpose {
+			return acct.AccountNumber, nil
+		}
+	}
+
+	return "", fmt. Errorf("no account found for ownerID=%s, ownerType=%s with purpose=%s", ownerID, ownerType, purpose. String())
+}
+
+// GetAccountBalance fetches the balance for a specific account number
+func (h *PaymentHandler) GetAccountBalance(ctx context.Context, accountNumber string) (*accountingpb.Balance, error) {
+	if accountNumber == "" {
+		return nil, fmt.Errorf("account_number cannot be empty")
+	}
+
+	req := &accountingpb.GetBalanceRequest{
+		Identifier: &accountingpb.GetBalanceRequest_AccountNumber{
+			AccountNumber: accountNumber,
+		},
+	}
+
+	resp, err := h.accountingClient.Client.GetBalance(ctx, req)
+	if err != nil {
+		return nil, fmt. Errorf("failed to fetch balance for account %s: %w", accountNumber, err)
+	}
+
+	return resp.Balance, nil
+}
+
+// ============================================================================
+// COMBINED HELPERS
+// ============================================================================
+
+// GetPartnerAndUserAccounts fetches random partner and their account + user account concurrently
+func (h *PaymentHandler) GetPartnerAndUserAccounts(ctx context.Context, service, currency, userID string) (partnerAccount, userAccount string, partner *partnersvcpb.Partner, err error) {
 	if service == "" || currency == "" || userID == "" {
-		return "", "", fmt.Errorf("service, currency, and userID cannot be empty")
+		return "", "", nil, fmt.Errorf("service, currency, and userID cannot be empty")
 	}
 
 	var wg sync.WaitGroup
 	var partnerErr, userErr error
-	var partners []*partnersvcpb.Partner
-	var selectedPartner *partnersvcpb.Partner
+	var partners []*partnersvcpb. Partner
 
 	wg.Add(2)
 
@@ -293,8 +218,7 @@ func (h *PaymentHandler) GetPartnerAndUserAccounts(ctx context.Context, service,
 			}
 			return
 		}
-		rand.Seed(time.Now().UnixNano())
-		selectedPartner = partners[rand.Intn(len(partners))]
+		partner = SelectRandomPartner(partners)
 	}()
 
 	// Fetch user account concurrently
@@ -306,17 +230,128 @@ func (h *PaymentHandler) GetPartnerAndUserAccounts(ctx context.Context, service,
 	wg.Wait()
 
 	if partnerErr != nil {
-		return "", "", fmt.Errorf("partner error: %w", partnerErr)
+		return "", "", nil, fmt.Errorf("partner error: %w", partnerErr)
 	}
 	if userErr != nil {
-		return "", "", fmt.Errorf("user account error: %w", userErr)
+		return "", "", nil, fmt.Errorf("user account error: %w", userErr)
+	}
+	if partner == nil {
+		return "", "", nil, fmt. Errorf("failed to select partner")
 	}
 
 	// Fetch selected partner's account
-	partnerAccount, err = h.GetAccountByCurrency(ctx, selectedPartner.Id, "partner", currency)
+	partnerAccount, err = h.GetAccountByCurrency(ctx, partner.Id, "partner", currency)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to fetch partner account: %w", err)
+		return "", "", nil, fmt. Errorf("failed to fetch partner account: %w", err)
 	}
 
-	return partnerAccount, userAccount, nil
+	return partnerAccount, userAccount, partner, nil
+}
+
+// GetPartnerAndUserAccountsByPartnerID fetches specific partner and accounts
+func (h *PaymentHandler) GetPartnerAndUserAccountsByPartnerID(ctx context.Context, partnerID, currency, userID string) (partnerAccount, userAccount string, partner *partnersvcpb.Partner, err error) {
+	if partnerID == "" || currency == "" || userID == "" {
+		return "", "", nil, fmt. Errorf("partnerID, currency, and userID cannot be empty")
+	}
+
+	var wg sync.WaitGroup
+	var partnerErr, partnerAcctErr, userErr error
+
+	wg.Add(3)
+
+	// Fetch partner details
+	go func() {
+		defer wg.Done()
+		partner, partnerErr = h.GetPartnerByID(ctx, partnerID)
+	}()
+
+	// Fetch partner account
+	go func() {
+		defer wg.Done()
+		partnerAccount, partnerAcctErr = h.GetAccountByCurrency(ctx, partnerID, "partner", currency)
+	}()
+
+	// Fetch user account
+	go func() {
+		defer wg.Done()
+		userAccount, userErr = h.GetAccountByCurrency(ctx, userID, "user", currency)
+	}()
+
+	wg.Wait()
+
+	if partnerErr != nil {
+		return "", "", nil, fmt. Errorf("failed to fetch partner: %w", partnerErr)
+	}
+	if partnerAcctErr != nil {
+		return "", "", nil, fmt.Errorf("failed to fetch partner account: %w", partnerAcctErr)
+	}
+	if userErr != nil {
+		return "", "", nil, fmt.Errorf("failed to fetch user account: %w", userErr)
+	}
+
+	return partnerAccount, userAccount, partner, nil
+}
+
+// ============================================================================
+// VALIDATION HELPERS
+// ============================================================================
+
+// ValidatePartnerService checks if a partner offers a specific service
+func (h *PaymentHandler) ValidatePartnerService(ctx context.Context, partnerID, service string) error {
+	partners, err := h.GetPartnersByService(ctx, service)
+	if err != nil {
+		return err
+	}
+
+	for _, p := range partners {
+		if p.Id == partnerID {
+			return nil // Partner found and offers this service
+		}
+	}
+
+	return fmt.Errorf("partner '%s' does not offer service '%s'", partnerID, service)
+}
+
+// ValidateAccountOwnership verifies that an account belongs to a specific owner
+func (h *PaymentHandler) ValidateAccountOwnership(ctx context.Context, accountNumber, ownerID, ownerType string) error {
+	req := &accountingpb.GetAccountRequest{
+		Identifier: &accountingpb. GetAccountRequest_AccountNumber{
+			AccountNumber: accountNumber,
+		},
+	}
+
+	resp, err := h.accountingClient.Client.GetAccount(ctx, req)
+	if err != nil {
+		return fmt.Errorf("failed to fetch account: %w", err)
+	}
+
+	if resp.Account.OwnerId != ownerID {
+		return fmt.Errorf("account does not belong to owner %s", ownerID)
+	}
+
+	expectedOwnerType := mapOwnerType(ownerType)
+	if resp. Account.OwnerType != expectedOwnerType {
+		return fmt.Errorf("account owner type mismatch")
+	}
+
+	return nil
+}
+
+// ============================================================================
+// CONVERSION HELPERS
+// ============================================================================
+
+// ToAtomicUnits converts a decimal amount to atomic units (cents)
+func ToAtomicUnits(amount float64) int64 {
+	return int64(amount * 100)
+}
+
+// FromAtomicUnits converts atomic units (cents) to decimal amount
+func FromAtomicUnits(amount int64) float64 {
+	return float64(amount) / 100.0
+}
+
+// FormatCurrency formats an amount with currency symbol
+func FormatCurrency(amount float64, currency string) string {
+	return fmt.Sprintf("%.2f %s", amount, currency)
 }

@@ -15,6 +15,8 @@ import (
 	"time"
 	"x/shared/auth/middleware"
 	accountclient "x/shared/genproto/accountpb"
+		accountingpb "x/shared/genproto/shared/accounting/v1"
+
 	"x/shared/response"
 	xerrors "x/shared/utils/errors"
 	"x/shared/utils/image"
@@ -29,24 +31,174 @@ import (
 
 func (h *AuthHandler) postAccountCreationTask(userID, currentRole string) {
 	go func(userID, currentRole string) {
-		bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		bgCtx, cancel := context. WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
 
-		// 2a. Role upgrade
+		// 1. Role upgrade (if needed)
 		if currentRole == "any" {
 			if err := h.handleRoleUpgrade(bgCtx, userID, currentRole); err != nil {
-				log.Printf("[SetPassword] ⚠️ Role upgrade failed for user %s: %v", userID, err)
+				log.Printf("[PostRegistration] ⚠️ Role upgrade failed for user %s: %v", userID, err)
 			} else {
-				log.Printf("[SetPassword] ✅ Role upgraded successfully for user %s", userID)
+				log.Printf("[PostRegistration] ✅ Role upgraded successfully for user %s", userID)
 			}
 		}
 
-		// 2b. Profile cache refresh
+		// 2. Profile cache refresh
 		if _, err := h.GetFullUserProfile(bgCtx, userID); err != nil {
-			log.Printf("[SetPassword] ⚠️ Failed to refresh profile cache for user %s: %v", userID, err)
+			log.Printf("[PostRegistration] ⚠️ Failed to refresh profile cache for user %s: %v", userID, err)
 		}
+
+		// 3. Create user accounts asynchronously
+		go h.createUserAccounts(userID)
+
 	}(userID, currentRole)
 }
+
+// createUserAccounts creates default accounts for a new user
+func (h *AuthHandler) createUserAccounts(userID string) {
+	defer func() {
+		if r := recover(); r != nil {
+			log. Printf("[PANIC RECOVERED] Account creation goroutine crashed for user=%s: %v", userID, r)
+		}
+	}()
+
+	ctxBg, cancel := context. WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	// Create 4 accounts: BTC, USD, USDT (real) + USD (demo)
+	reqAcc := &accountingpb.CreateAccountsRequest{
+		Accounts: []*accountingpb.CreateAccountRequest{
+			// 1. BTC Real Wallet
+			{
+				OwnerType:   accountingpb. OwnerType_OWNER_TYPE_USER,
+				OwnerId:     userID,
+				Currency:    "BTC",
+				Purpose:     accountingpb. AccountPurpose_ACCOUNT_PURPOSE_WALLET,
+				AccountType: accountingpb.AccountType_ACCOUNT_TYPE_REAL,
+			},
+			// 2. USD Real Wallet
+			{
+				OwnerType:   accountingpb.OwnerType_OWNER_TYPE_USER,
+				OwnerId:     userID,
+				Currency:    "USD",
+				Purpose:     accountingpb.AccountPurpose_ACCOUNT_PURPOSE_WALLET,
+				AccountType: accountingpb.AccountType_ACCOUNT_TYPE_REAL,
+			},
+			// 3. USDT Real Wallet
+			{
+				OwnerType:   accountingpb.OwnerType_OWNER_TYPE_USER,
+				OwnerId:     userID,
+				Currency:    "USDT",
+				Purpose:     accountingpb.AccountPurpose_ACCOUNT_PURPOSE_WALLET,
+				AccountType: accountingpb.AccountType_ACCOUNT_TYPE_REAL,
+			},
+			// 4.  USD Demo Wallet
+			{
+				OwnerType:   accountingpb.OwnerType_OWNER_TYPE_USER,
+				OwnerId:     userID,
+				Currency:    "USD",
+				Purpose:     accountingpb.AccountPurpose_ACCOUNT_PURPOSE_WALLET,
+				AccountType: accountingpb.AccountType_ACCOUNT_TYPE_DEMO,
+			},
+		},
+	}
+
+	resp, err := h.accountingClient.Client.CreateAccounts(ctxBg, reqAcc)
+	if err != nil {
+		log.Printf("[ERROR] Failed to create accounts for user=%s: %v", userID, err)
+		return
+	}
+	if resp == nil {
+		log.Printf("[ERROR] Nil response from Accounting service for user=%s", userID)
+		return
+	}
+
+	// Check for errors in batch creation
+	if len(resp. Errors) > 0 {
+		log.Printf("[WARN] Errors creating account(s) for user=%s:", userID)
+		for idx, errMsg := range resp.Errors {
+			log.Printf("  [ERROR] Account %d failed: %s", idx, errMsg)
+		}
+		// Continue - partial success is acceptable
+	}
+
+	if len(resp.Accounts) == 0 {
+		log. Printf("[WARN] Accounting service returned no accounts for user=%s", userID)
+		return
+	}
+
+	// Log successful account creations
+	log.Printf("[INFO] ✅ Created %d/%d accounts for user=%s:", 
+		len(resp.Accounts), len(reqAcc. Accounts), userID)
+	
+	for _, acc := range resp.Accounts {
+		accountTypeStr := "REAL"
+		if acc.AccountType == accountingpb.AccountType_ACCOUNT_TYPE_DEMO {
+			accountTypeStr = "DEMO"
+		}
+		
+		log.Printf("  ✓ %s %s Wallet: accountId=%d, accountNumber=%s",
+			acc.Currency,
+			accountTypeStr,
+			acc.Id,
+			acc. AccountNumber,
+		)
+	}
+
+	// Optional: Credit demo account with initial balance
+	//go h.creditDemoAccount(userID, resp.Accounts)
+}
+
+// creditDemoAccount credits the demo USD account with initial play money
+// func (h *AuthHandler) creditDemoAccount(userID string, accounts []*accountingpb.Account) {
+// 	defer func() {
+// 		if r := recover(); r != nil {
+// 			log.Printf("[PANIC RECOVERED] Demo credit goroutine crashed for user=%s: %v", userID, r)
+// 		}
+// 	}()
+
+// 	// Find demo USD account
+// 	var demoAccount *accountingpb.Account
+// 	for _, acc := range accounts {
+// 		if acc.Currency == "USD" && acc.AccountType == accountingpb.AccountType_ACCOUNT_TYPE_DEMO {
+// 			demoAccount = acc
+// 			break
+// 		}
+// 	}
+
+// 	if demoAccount == nil {
+// 		log.Printf("[WARN] No demo account found for user=%s to credit", userID)
+// 		return
+// 	}
+
+// 	ctxBg, cancel := context. WithTimeout(context.Background(), 10*time.Second)
+// 	defer cancel()
+
+// 	// Credit $10,000 demo money
+// 	demoAmount := int64(1000000) // $10,000. 00 in cents
+
+// 	creditReq := &accountingpb.CreditRequest{
+// 		AccountNumber:       demoAccount.AccountNumber,
+// 		Amount:              demoAmount,
+// 		Currency:            "USD",
+// 		AccountType:         accountingpb. AccountType_ACCOUNT_TYPE_DEMO,
+// 		Description:         "Welcome bonus - Demo account initial balance",
+// 		CreatedByExternalId: "system",
+// 		CreatedByType:       accountingpb. OwnerType_OWNER_TYPE_SYSTEM,
+// 	}
+
+// 	resp, err := h.accountingClient.Client.Credit(ctxBg, creditReq)
+// 	if err != nil {
+// 		log.Printf("[ERROR] Failed to credit demo account for user=%s: %v", userID, err)
+// 		return
+// 	}
+
+// 	log.Printf("[INFO] ✅ Credited demo account for user=%s: $%.2f (receipt=%s)",
+// 		userID,
+// 		float64(demoAmount)/100,
+// 		resp.ReceiptCode,
+// 	)
+// }
 
 // GetFullUserProfile fetches and merges user + account-service profile into a map
 func (h *AuthHandler) GetFullUserProfile(ctx context.Context, userID string) (*domain.UserProfile, error) {

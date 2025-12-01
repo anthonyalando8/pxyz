@@ -53,6 +53,10 @@ const (
 	AccountingService_ProcessTradeWin_FullMethodName           = "/accounting.v1.AccountingService/ProcessTradeWin"
 	AccountingService_ProcessTradeLoss_FullMethodName          = "/accounting.v1.AccountingService/ProcessTradeLoss"
 	AccountingService_ProcessAgentCommission_FullMethodName    = "/accounting.v1.AccountingService/ProcessAgentCommission"
+	AccountingService_CreateTransactionApproval_FullMethodName = "/accounting.v1.AccountingService/CreateTransactionApproval"
+	AccountingService_GetPendingApprovals_FullMethodName       = "/accounting.v1.AccountingService/GetPendingApprovals"
+	AccountingService_ApproveTransaction_FullMethodName        = "/accounting.v1.AccountingService/ApproveTransaction"
+	AccountingService_GetApprovalHistory_FullMethodName        = "/accounting.v1.AccountingService/GetApprovalHistory"
 	AccountingService_HealthCheck_FullMethodName               = "/accounting.v1.AccountingService/HealthCheck"
 )
 
@@ -128,6 +132,14 @@ type AccountingServiceClient interface {
 	ProcessTradeLoss(ctx context.Context, in *TradeRequest, opts ...grpc.CallOption) (*TradeResponse, error)
 	// Process agent commission (NO FEES)
 	ProcessAgentCommission(ctx context.Context, in *AgentCommissionRequest, opts ...grpc.CallOption) (*AgentCommissionResponse, error)
+	// Create transaction approval request (for regular admins)
+	CreateTransactionApproval(ctx context.Context, in *CreateTransactionApprovalRequest, opts ...grpc.CallOption) (*CreateTransactionApprovalResponse, error)
+	// Get pending approvals (for super admins)
+	GetPendingApprovals(ctx context.Context, in *GetPendingApprovalsRequest, opts ...grpc.CallOption) (*GetPendingApprovalsResponse, error)
+	// Approve or reject transaction (for super admins)
+	ApproveTransaction(ctx context.Context, in *ApproveTransactionRequest, opts ...grpc.CallOption) (*ApproveTransactionResponse, error)
+	// Get approval history
+	GetApprovalHistory(ctx context.Context, in *GetApprovalHistoryRequest, opts ...grpc.CallOption) (*GetApprovalHistoryResponse, error)
 	// Health check
 	HealthCheck(ctx context.Context, in *HealthCheckRequest, opts ...grpc.CallOption) (*HealthCheckResponse, error)
 }
@@ -489,6 +501,46 @@ func (c *accountingServiceClient) ProcessAgentCommission(ctx context.Context, in
 	return out, nil
 }
 
+func (c *accountingServiceClient) CreateTransactionApproval(ctx context.Context, in *CreateTransactionApprovalRequest, opts ...grpc.CallOption) (*CreateTransactionApprovalResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateTransactionApprovalResponse)
+	err := c.cc.Invoke(ctx, AccountingService_CreateTransactionApproval_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountingServiceClient) GetPendingApprovals(ctx context.Context, in *GetPendingApprovalsRequest, opts ...grpc.CallOption) (*GetPendingApprovalsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetPendingApprovalsResponse)
+	err := c.cc.Invoke(ctx, AccountingService_GetPendingApprovals_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountingServiceClient) ApproveTransaction(ctx context.Context, in *ApproveTransactionRequest, opts ...grpc.CallOption) (*ApproveTransactionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ApproveTransactionResponse)
+	err := c.cc.Invoke(ctx, AccountingService_ApproveTransaction_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountingServiceClient) GetApprovalHistory(ctx context.Context, in *GetApprovalHistoryRequest, opts ...grpc.CallOption) (*GetApprovalHistoryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetApprovalHistoryResponse)
+	err := c.cc.Invoke(ctx, AccountingService_GetApprovalHistory_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *accountingServiceClient) HealthCheck(ctx context.Context, in *HealthCheckRequest, opts ...grpc.CallOption) (*HealthCheckResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(HealthCheckResponse)
@@ -571,6 +623,14 @@ type AccountingServiceServer interface {
 	ProcessTradeLoss(context.Context, *TradeRequest) (*TradeResponse, error)
 	// Process agent commission (NO FEES)
 	ProcessAgentCommission(context.Context, *AgentCommissionRequest) (*AgentCommissionResponse, error)
+	// Create transaction approval request (for regular admins)
+	CreateTransactionApproval(context.Context, *CreateTransactionApprovalRequest) (*CreateTransactionApprovalResponse, error)
+	// Get pending approvals (for super admins)
+	GetPendingApprovals(context.Context, *GetPendingApprovalsRequest) (*GetPendingApprovalsResponse, error)
+	// Approve or reject transaction (for super admins)
+	ApproveTransaction(context.Context, *ApproveTransactionRequest) (*ApproveTransactionResponse, error)
+	// Get approval history
+	GetApprovalHistory(context.Context, *GetApprovalHistoryRequest) (*GetApprovalHistoryResponse, error)
 	// Health check
 	HealthCheck(context.Context, *HealthCheckRequest) (*HealthCheckResponse, error)
 	mustEmbedUnimplementedAccountingServiceServer()
@@ -684,6 +744,18 @@ func (UnimplementedAccountingServiceServer) ProcessTradeLoss(context.Context, *T
 }
 func (UnimplementedAccountingServiceServer) ProcessAgentCommission(context.Context, *AgentCommissionRequest) (*AgentCommissionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ProcessAgentCommission not implemented")
+}
+func (UnimplementedAccountingServiceServer) CreateTransactionApproval(context.Context, *CreateTransactionApprovalRequest) (*CreateTransactionApprovalResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateTransactionApproval not implemented")
+}
+func (UnimplementedAccountingServiceServer) GetPendingApprovals(context.Context, *GetPendingApprovalsRequest) (*GetPendingApprovalsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetPendingApprovals not implemented")
+}
+func (UnimplementedAccountingServiceServer) ApproveTransaction(context.Context, *ApproveTransactionRequest) (*ApproveTransactionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ApproveTransaction not implemented")
+}
+func (UnimplementedAccountingServiceServer) GetApprovalHistory(context.Context, *GetApprovalHistoryRequest) (*GetApprovalHistoryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetApprovalHistory not implemented")
 }
 func (UnimplementedAccountingServiceServer) HealthCheck(context.Context, *HealthCheckRequest) (*HealthCheckResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method HealthCheck not implemented")
@@ -1314,6 +1386,78 @@ func _AccountingService_ProcessAgentCommission_Handler(srv interface{}, ctx cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AccountingService_CreateTransactionApproval_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateTransactionApprovalRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountingServiceServer).CreateTransactionApproval(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountingService_CreateTransactionApproval_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountingServiceServer).CreateTransactionApproval(ctx, req.(*CreateTransactionApprovalRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountingService_GetPendingApprovals_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetPendingApprovalsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountingServiceServer).GetPendingApprovals(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountingService_GetPendingApprovals_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountingServiceServer).GetPendingApprovals(ctx, req.(*GetPendingApprovalsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountingService_ApproveTransaction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ApproveTransactionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountingServiceServer).ApproveTransaction(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountingService_ApproveTransaction_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountingServiceServer).ApproveTransaction(ctx, req.(*ApproveTransactionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountingService_GetApprovalHistory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetApprovalHistoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountingServiceServer).GetApprovalHistory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountingService_GetApprovalHistory_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountingServiceServer).GetApprovalHistory(ctx, req.(*GetApprovalHistoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _AccountingService_HealthCheck_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(HealthCheckRequest)
 	if err := dec(in); err != nil {
@@ -1470,6 +1614,22 @@ var AccountingService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ProcessAgentCommission",
 			Handler:    _AccountingService_ProcessAgentCommission_Handler,
+		},
+		{
+			MethodName: "CreateTransactionApproval",
+			Handler:    _AccountingService_CreateTransactionApproval_Handler,
+		},
+		{
+			MethodName: "GetPendingApprovals",
+			Handler:    _AccountingService_GetPendingApprovals_Handler,
+		},
+		{
+			MethodName: "ApproveTransaction",
+			Handler:    _AccountingService_ApproveTransaction_Handler,
+		},
+		{
+			MethodName: "GetApprovalHistory",
+			Handler:    _AccountingService_GetApprovalHistory_Handler,
 		},
 		{
 			MethodName: "HealthCheck",

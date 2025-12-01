@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"log"
 	"net/http"
 
@@ -8,13 +9,16 @@ import (
 	"cashier-service/internal/domain"
 	"cashier-service/internal/handler"
 	"cashier-service/internal/provider/mpesa"
+	"cashier-service/internal/repository"
 	"cashier-service/internal/router"
 	mpesausecase "cashier-service/internal/usecase/mpesa"
-	partnerclient "x/shared/partner"
+	usecase "cashier-service/internal/usecase/transaction"
+
+	"cashier-service/internal/sub"
+	"x/shared/auth/middleware"
 	accountingclient "x/shared/common/accounting"
 	notificationclient "x/shared/notification"
-
-	"x/shared/auth/middleware"
+	partnerclient "x/shared/partner"
 	"x/shared/utils/id"
 
 	"github.com/go-chi/chi/v5"
@@ -24,17 +28,16 @@ import (
 func NewServer(cfg config.AppConfig) *http.Server {
 	// --- Connect Postgres ---
 	db, err := config.ConnectDB()
-	_ = db
 	if err != nil {
-		log.Fatalf("failed to connect DB: %v", err)
+		log. Fatalf("failed to connect DB: %v", err)
 	}
 
 	// --- Init ID generator ---
 	sf, err := id.NewSnowflake(9)
-	_ = sf
 	if err != nil {
 		log.Fatalf("failed to init snowflake: %v", err)
 	}
+	_ = sf
 
 	// --- Init Redis ---
 	rdb := redis.NewClient(&redis.Options{
@@ -42,10 +45,16 @@ func NewServer(cfg config.AppConfig) *http.Server {
 		Password: cfg.RedisPass,
 		DB:       0,
 	})
-
-	partnerSvc := partnerclient.NewPartnerService()
-	accountingClient := accountingclient.NewAccountingClient()
-	notificationCli := notificationclient.NewNotificationService() // ✅ create notification client
+	// Test Redis connection
+	ctx := context.Background()
+	if err := rdb.Ping(ctx).Err(); err != nil {
+		log.Fatalf("failed to connect to Redis: %v", err)
+	}
+	log.Println("[Redis] ✅ Connected successfully")
+	// --- Init gRPC Clients ---
+	partnerSvc := partnerclient. NewPartnerService()
+	accountingClient := accountingclient. NewAccountingClient()
+	notificationCli := notificationclient.NewNotificationService()
 
 	// --- Init Payment Providers ---
 	mpesaClient := mpesa.NewMpesaClient(
@@ -57,22 +66,43 @@ func NewServer(cfg config.AppConfig) *http.Server {
 	)
 	mpesaProvider := mpesa.NewMpesaProvider(mpesaClient)
 
-	// Register providers in usecase
-	paymentUC := mpesausecase.NewPaymentUsecase([]domain.Provider{mpesaProvider})
+	// --- Init Repositories ---
+	userRepo := repository.NewUserRepository(db)
 
+	// --- Init Usecases ---
+	paymentUC := mpesausecase.NewPaymentUsecase([]domain.Provider{mpesaProvider})
+	userUC := usecase.NewUserUsecase(userRepo)
+
+	// --- Init WebSocket Hub ---
+	hub := handler.NewHub()
+	go hub.Run() // Start hub in background goroutine
+	log. Println("[WebSocket] Hub started")
+
+	transactionSub := subscriber.NewTransactionEventSubscriber(rdb, hub)
+	if err := transactionSub.Start(ctx); err != nil {
+		log.Fatalf("failed to start transaction subscriber: %v", err)
+	}
+	log.Println("[TransactionSubscriber] ✅ Started")
 
 	// --- Init Middleware ---
 	auth := middleware.RequireAuth()
 
-	// --- Handlers ---
-	paymentHandler := handler.NewPaymentHandler(paymentUC, partnerSvc, accountingClient,notificationCli,)
+	// --- Init Handlers ---
+	paymentHandler := handler.NewPaymentHandler(
+		paymentUC,partnerSvc,
+		accountingClient,
+		notificationCli,
+		userUC,
+		hub,
+		//sf,
+	)
 
 	// --- Router ---
-	r := chi.NewRouter()
+	r := chi. NewRouter()
 	r = router.SetupRoutes(r, paymentHandler, auth, rdb).(*chi.Mux)
 
 	return &http.Server{
-		Addr:    cfg.HTTPAddr,
+		Addr:    cfg. HTTPAddr,
 		Handler: r,
 	}
 }

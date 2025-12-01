@@ -20,6 +20,7 @@ import (
 
 	receiptpb "x/shared/genproto/shared/accounting/receipt/v3"
 	notificationpb "x/shared/genproto/shared/notificationpb"
+	"accounting-service/internal/pub"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/segmentio/kafka-go"
@@ -71,6 +72,9 @@ type TransactionUsecase struct {
 	notificationBatcher *NotificationBatcher
 	statusTracker       *TransactionStatusTracker
 	processorPool       *ProcessorPool
+
+	// Publishers
+	eventPublisher *publisher.TransactionEventPublisher //  NEW
 }
 
 // NewTransactionUsecase creates a new transaction usecase
@@ -90,6 +94,7 @@ func NewTransactionUsecase(
 	partnerClient *partnerclient.PartnerService,
 	redisClient *redis.Client,
 	kafkaWriter *kafka.Writer,
+	eventPublisher *publisher.TransactionEventPublisher, //  NEW PARAMETER
 ) *TransactionUsecase {
 	uc := &TransactionUsecase{
 		transactionRepo:    transactionRepo,
@@ -108,6 +113,7 @@ func NewTransactionUsecase(
 		redisClient:        redisClient,
 		kafkaWriter:        kafkaWriter,
 		profileFetch:       helpers.NewProfileFetcher(authClient),
+		eventPublisher:     eventPublisher,
 	}
 
 	// Initialize batchers
@@ -371,7 +377,7 @@ func (uc *TransactionUsecase) processTransaction(workerID int, task *ProcessorTa
 
 	// Assign receipt code to entries
 	for _, entry := range req.Entries {
-		entry.ReceiptCode = &receiptCode
+		entry. ReceiptCode = &receiptCode
 	}
 
 	// Store receipt code in request for journal creation
@@ -385,8 +391,12 @@ func (uc *TransactionUsecase) processTransaction(workerID int, task *ProcessorTa
 	if err != nil {
 		// Transaction failed
 		uc.statusTracker.Update(receiptCode, "failed", err.Error())
-		uc.receiptBatcher.UpdateStatus(receiptCode, receiptpb.TransactionStatus_TRANSACTION_STATUS_FAILED, err.Error())
-		uc.publishTransactionEvent(ctx, receiptCode, "failed", err.Error())
+		uc. receiptBatcher.UpdateStatus(receiptCode, receiptpb.TransactionStatus_TRANSACTION_STATUS_FAILED, err.Error())
+		
+		// Publish failure to both Kafka and Redis
+		uc.publishTransactionEvent(ctx, receiptCode, "failed", err. Error())
+		uc.publishRedisFailureEvent(receiptCode, req, err) // ✅ NEW
+		
 		uc.logTransactionError(receiptCode, err)
 		return
 	}
@@ -398,14 +408,90 @@ func (uc *TransactionUsecase) processTransaction(workerID int, task *ProcessorTa
 	// Queue notifications (batched)
 	uc.queueNotifications(receiptCode, aggregate)
 
-	// Publish success event
+	// Publish success event to both Kafka and Redis
 	uc.publishTransactionEvent(ctx, receiptCode, "completed", "")
+	uc.publishRedisCompletionEvent(aggregate, req) // ✅ NEW
 
 	// Log success with metrics
-	uc.logTransactionSuccessWithMetrics(workerID, receiptCode, aggregate.Journal.ID, duration)
+	uc.logTransactionSuccessWithMetrics(workerID, receiptCode, aggregate. Journal.ID, duration)
 
 	// Invalidate caches
 	uc.invalidateTransactionCaches(ctx, aggregate)
+}
+
+// ✅ NEW: Publish generic transaction completion to Redis
+func (uc *TransactionUsecase) publishRedisCompletionEvent(aggregate *domain.LedgerAggregate, req *domain.TransactionRequest) {
+	if uc. eventPublisher == nil || aggregate == nil {
+		return
+	}
+
+	ctx, cancel := context. WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var totalAmount int64
+	var currency string
+	var balanceAfter int64
+
+	for _, ledger := range aggregate.Ledgers {
+		if ledger.DrCr == domain.DrCrDebit {
+			totalAmount = ledger.Amount
+			currency = ledger.Currency
+			balanceAfter = ptrIntToInt(ledger.BalanceAfter)
+			break
+		}
+	}
+
+	err := uc.eventPublisher. PublishTransactionCompleted(
+		ctx,
+		ptrStrToStr(req.CreatedByExternalID),
+		ptrStrToStr(aggregate. Journal.ExternalRef),
+		aggregate.Journal.ID,
+		string(req.TransactionType),
+		currency,
+		totalAmount,
+		balanceAfter,
+		0, // fee - you can calculate from aggregate.Fees
+	)
+
+	if err != nil {
+		fmt.Printf("[ERROR] Failed to publish transaction completion event: %v\n", err)
+	}
+}
+
+// ✅ NEW: Publish transaction failure to Redis
+func (uc *TransactionUsecase) publishRedisFailureEvent(receiptCode string, req *domain.TransactionRequest, txErr error) {
+	if uc.eventPublisher == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var totalAmount int64
+	var currency string
+
+	for _, entry := range req.Entries {
+		if entry.DrCr == domain.DrCrDebit {
+			totalAmount = entry.Amount
+			currency = entry.Currency
+			break
+		}
+	}
+
+	err := uc.eventPublisher.PublishTransactionFailed(
+		ctx,
+		ptrStrToStr(req.CreatedByExternalID),
+		receiptCode,
+		0, // transaction ID not available on failure
+		string(req.TransactionType),
+		currency,
+		totalAmount,
+		txErr.Error(),
+	)
+
+	if err != nil {
+		fmt.Printf("[ERROR] Failed to publish transaction failure event: %v\n", err)
+	}
 }
 
 // ===============================
@@ -813,23 +899,103 @@ func (uc *TransactionUsecase) Credit(
 	if err := req.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid credit request: %w", err)
 	}
-	
-	return uc.transactionRepo.Credit(ctx, req)
+
+	// Execute credit
+	aggregate, err := uc.transactionRepo.Credit(ctx, req)
+	if err != nil {
+		return nil, fmt. Errorf("credit failed: %w", err)
+	}
+
+	// Publish Redis event asynchronously
+	go uc. publishCreditEvent(aggregate, req)
+
+	return aggregate, nil
+}
+
+func (uc *TransactionUsecase) publishCreditEvent(aggregate *domain.LedgerAggregate, req *domain.CreditRequest) {
+	if uc.eventPublisher == nil || aggregate == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Find the credited ledger
+	var balanceAfter int64
+	for _, ledger := range aggregate.Ledgers {
+		if ledger.DrCr == domain.DrCrCredit {
+			balanceAfter = ptrIntToInt(ledger.BalanceAfter)
+			break
+		}
+	}
+
+	err := uc.eventPublisher. PublishDepositCompleted(
+		ctx,
+		req.CreatedByExternalID,
+		ptrStrToStr(aggregate.Journal.ExternalRef),
+		req.AccountNumber,
+		req.Amount,
+		req.Currency,
+		balanceAfter,
+	)
+
+	if err != nil {
+		fmt.Printf("[ERROR] Failed to publish credit event: %v\n", err)
+	}
 }
 
 // Debit removes money from account (user → system, NO FEES)
 func (uc *TransactionUsecase) Debit(
-	ctx context.Context,
-	req *domain.DebitRequest,
+	ctx context. Context,
+	req *domain. DebitRequest,
 ) (*domain.LedgerAggregate, error) {
 	if err := req.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid debit request: %w", err)
+		return nil, fmt. Errorf("invalid debit request: %w", err)
 	}
-	
-	return uc.transactionRepo.Debit(ctx, req)
+
+	// Execute debit
+	aggregate, err := uc. transactionRepo.Debit(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("debit failed: %w", err)
+	}
+
+	// Publish Redis event asynchronously
+	go uc.publishDebitEvent(aggregate, req)
+
+	return aggregate, nil
+}
+func (uc *TransactionUsecase) publishDebitEvent(aggregate *domain. LedgerAggregate, req *domain.DebitRequest) {
+	if uc.eventPublisher == nil || aggregate == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Find the debited ledger
+	var balanceAfter int64
+	for _, ledger := range aggregate.Ledgers {
+		if ledger.DrCr == domain.DrCrDebit {
+			balanceAfter = ptrIntToInt(ledger.BalanceAfter)
+			break
+		}
+	}
+
+	err := uc.eventPublisher.PublishWithdrawalCompleted(
+		ctx,
+		req.CreatedByExternalID,
+		ptrStrToStr(aggregate.Journal.ExternalRef),
+		req.AccountNumber,
+		req. Amount,
+		req.Currency,
+		balanceAfter,
+	)
+
+	if err != nil {
+		fmt.Printf("[ERROR] Failed to publish debit event: %v\n", err)
+	}
 }
 
-// Transfer moves money between accounts (P2P, FEES APPLY)
 func (uc *TransactionUsecase) Transfer(
 	ctx context.Context,
 	req *domain.TransferRequest,
@@ -837,22 +1003,115 @@ func (uc *TransactionUsecase) Transfer(
 	if err := req.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid transfer request: %w", err)
 	}
-	
-	return uc.transactionRepo.Transfer(ctx, req)
+
+	// Execute transfer
+	aggregate, err := uc.transactionRepo.Transfer(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("transfer failed: %w", err)
+	}
+
+	// Publish Redis event asynchronously
+	go uc.publishTransferEvent(aggregate, req)
+
+	return aggregate, nil
+}
+
+func (uc *TransactionUsecase) publishTransferEvent(aggregate *domain.LedgerAggregate, req *domain.TransferRequest) {
+	if uc.eventPublisher == nil || aggregate == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Calculate fee (if any)
+	var feeAmount int64 = 0
+	// You can fetch fee from aggregate. Fees if available
+
+	err := uc.eventPublisher.PublishTransferCompleted(
+		ctx,
+		req.CreatedByExternalID,
+		ptrStrToStr(aggregate.Journal.ExternalRef),
+		req.FromAccountNumber,
+		req.ToAccountNumber,
+		req.Amount,
+		"", // Currency - you may need to get this from accounts
+		feeAmount,
+	)
+
+	if err != nil {
+		fmt.Printf("[ERROR] Failed to publish transfer event: %v\n", err)
+	}
 }
 
 // ConvertAndTransfer performs currency conversion (FEES APPLY)
 func (uc *TransactionUsecase) ConvertAndTransfer(
-	ctx context.Context,
-	req *domain.ConversionRequest,
+	ctx context. Context,
+	req *domain. ConversionRequest,
 ) (*domain.LedgerAggregate, error) {
 	if err := req.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid conversion request: %w", err)
 	}
-	
-	return uc.transactionRepo.ConvertAndTransfer(ctx, req)
+
+	// Execute conversion
+	aggregate, err := uc.transactionRepo.ConvertAndTransfer(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("conversion failed: %w", err)
+	}
+
+	// Publish Redis event asynchronously
+	go uc.publishConversionEvent(aggregate, req)
+
+	return aggregate, nil
 }
 
+func (uc *TransactionUsecase) publishConversionEvent(aggregate *domain.LedgerAggregate, req *domain.ConversionRequest) {
+	if uc.eventPublisher == nil || aggregate == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Get currencies from ledgers
+	var sourceCurrency, destCurrency string
+	var sourceAmount, convertedAmount int64
+
+	for _, ledger := range aggregate.Ledgers {
+		if ledger. AccountData.AccountNumber == req.FromAccountNumber {
+			sourceCurrency = ledger. Currency
+			sourceAmount = ledger.Amount
+		}
+		if ledger.AccountData.AccountNumber == req.ToAccountNumber {
+			destCurrency = ledger. Currency
+			convertedAmount = ledger.Amount
+		}
+	}
+
+	// Publish as a custom event
+	event := &publisher.TransactionEvent{
+		EventType:       "conversion.completed",
+		UserID:          req.CreatedByExternalID,
+		ReceiptCode:     ptrStrToStr(aggregate.Journal.ExternalRef),
+		TransactionID:   aggregate.Journal.ID,
+		TransactionType: "conversion",
+		Status:          "completed",
+		Amount:          sourceAmount,
+		Currency:        sourceCurrency,
+		FromAccount:     req.FromAccountNumber,
+		ToAccount:       req.ToAccountNumber,
+		Metadata: map[string]interface{}{
+			"source_currency":   sourceCurrency,
+			"dest_currency":     destCurrency,
+			"source_amount":     sourceAmount,
+			"converted_amount":  convertedAmount,
+		},
+	}
+
+	if err := uc.eventPublisher.PublishTransactionEvent(ctx, event); err != nil {
+		fmt.Printf("[ERROR] Failed to publish conversion event: %v\n", err)
+	}
+}
 // ProcessTradeWin credits account for trade win (NO FEES)
 func (uc *TransactionUsecase) ProcessTradeWin(
 	ctx context.Context,
@@ -861,11 +1120,18 @@ func (uc *TransactionUsecase) ProcessTradeWin(
 	if err := req.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid trade request: %w", err)
 	}
-	
-	return uc.transactionRepo.ProcessTradeWin(ctx, req)
+
+	aggregate, err := uc.transactionRepo.ProcessTradeWin(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("trade win processing failed: %w", err)
+	}
+
+	// Publish Redis event
+	go uc.publishTradeEvent(aggregate, req, "win")
+
+	return aggregate, nil
 }
 
-// ProcessTradeLoss debits account for trade loss (NO FEES)
 func (uc *TransactionUsecase) ProcessTradeLoss(
 	ctx context.Context,
 	req *domain.TradeRequest,
@@ -873,8 +1139,53 @@ func (uc *TransactionUsecase) ProcessTradeLoss(
 	if err := req.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid trade request: %w", err)
 	}
-	
-	return uc.transactionRepo.ProcessTradeLoss(ctx, req)
+
+	aggregate, err := uc.transactionRepo.ProcessTradeLoss(ctx, req)
+	if err != nil {
+		return nil, fmt. Errorf("trade loss processing failed: %w", err)
+	}
+
+	// Publish Redis event
+	go uc.publishTradeEvent(aggregate, req, "loss")
+
+	return aggregate, nil
+}
+
+func (uc *TransactionUsecase) publishTradeEvent(aggregate *domain. LedgerAggregate, req *domain.TradeRequest, result string) {
+	if uc.eventPublisher == nil || aggregate == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var balanceAfter int64
+	for _, ledger := range aggregate. Ledgers {
+		balanceAfter = ptrIntToInt(ledger. BalanceAfter)
+		break
+	}
+
+	event := &publisher.TransactionEvent{
+		EventType:       fmt.Sprintf("trade.%s", result),
+		UserID:          req.CreatedByExternalID,
+		ReceiptCode:     ptrStrToStr(aggregate.Journal.ExternalRef),
+		TransactionID:   aggregate. Journal.ID,
+		TransactionType: "trade",
+		Status:          "completed",
+		Amount:          req.Amount,
+		Currency:        req.Currency,
+		AccountNumber:   req.AccountNumber,
+		BalanceAfter:    balanceAfter,
+		Metadata: map[string]interface{}{
+			"trade_id":     req.TradeID,
+			"trade_type":   req.TradeType,
+			"trade_result": result,
+		},
+	}
+
+	if err := uc.eventPublisher.PublishTransactionEvent(ctx, event); err != nil {
+		fmt.Printf("[ERROR] Failed to publish trade event: %v\n", err)
+	}
 }
 
 // ProcessAgentCommission pays commission to agent (NO FEES)

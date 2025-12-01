@@ -88,6 +88,7 @@ type PartnerTransaction struct {
 	PaymentMethod  *string
 	ExternalRef    *string
 	Metadata       map[string]interface{}
+	ErrorMessage   string                 `json:"error_message,omitempty"`
 	ProcessedAt    *time.Time
 	CreatedAt      time.Time
 	UpdatedAt      time.Time

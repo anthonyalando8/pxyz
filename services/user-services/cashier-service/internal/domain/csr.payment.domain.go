@@ -11,14 +11,6 @@ var (
 )
 
 
-type DepositRequest struct {
-    Provider   string `json:"provider"` // e.g., "mpesa"
-    UserID     string `json:"user_id"`
-    Phone      string `json:"phone"`
-    Amount     float64 `json:"amount"`
-    AccountRef string `json:"account_ref"`
-}
-
 type DepositResponse struct {
     TransactionID string
     Status        string

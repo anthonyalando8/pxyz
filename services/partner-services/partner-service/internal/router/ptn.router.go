@@ -17,15 +17,15 @@ import (
 
 func SetupRoutes(
 	r chi.Router,
-	h *handler.PartnerHandler,
-	auth *middleware.MiddlewareWithClient,
-	rdb *redis.Client,
+	h *handler. PartnerHandler,
+	auth *middleware. MiddlewareWithClient,
+	rdb *redis. Client,
 ) chi.Router {
 	// ---- Global Middleware ----
-	r.Use(cors.Handler(cors.Options{
+	r. Use(cors.Handler(cors. Options{
 		AllowedOrigins:   []string{"*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "ngrok-skip-browser-warning"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "X-API-Key", "X-API-Secret", "ngrok-skip-browser-warning"},
 		ExposedHeaders:   []string{"Link"},
 		AllowCredentials: false,
 		MaxAge:           300,
@@ -37,7 +37,26 @@ func SetupRoutes(
 		os.MkdirAll(uploadDir, 0755)
 	}
 
-	// ---- Mount all routes under /partner/svc ----
+	// ============================================================================
+	// API KEY AUTHENTICATED ROUTES (External Partner API)
+	// ============================================================================
+	r.Route("/partner/api/v1", func(api chi.Router) {
+		// Use API key authentication middleware for these routes
+		//api.Use(auth.RequireAPIKey()) // You'll need to implement this middleware
+
+		// Credit user wallet (external API call)
+		api.Post("/transactions/credit", h.CreditUser)
+		
+		// Query transaction status by partner reference
+		api.Get("/transactions/{ref}", h.GetTransactionByRef)
+		
+		// List partner transactions
+		api.Get("/transactions", h.ListPartnerTransactions)
+	})
+
+	// ============================================================================
+	// INTERNAL AUTHENTICATED ROUTES (Partner Portal)
+	// ============================================================================
 	r.Route("/partner/svc", func(pr chi.Router) {
 
 		// ---- Public routes ----
@@ -50,11 +69,11 @@ func SetupRoutes(
 
 		// ---- Admin-only routes ----
 		pr.Group(func(admin chi.Router) {
-			admin.Use(auth.Require([]string{"main"}, nil, []string{"partner_admin"}))
+			admin. Use(auth.Require([]string{"main"}, nil, []string{"partner_admin"}))
 
-			admin.Handle("/uploads/*", http.StripPrefix("/partner/svc/uploads/", http.FileServer(http.Dir(uploadDir))))
+			admin.Handle("/uploads/*", http.StripPrefix("/partner/svc/uploads/", http. FileServer(http.Dir(uploadDir))))
 			
-			// User management (admin only)
+			// ---------------- User Management (admin only) ----------------
 			admin.Post("/users/create", h.CreatePartnerUser)
 			admin.Delete("/users/delete/{id}", h.DeletePartnerUser)
 			admin.Put("/users/{id}/status", h.UpdatePartnerUserStatus)
@@ -67,45 +86,63 @@ func SetupRoutes(
 			admin.Post("/users/search", h.SearchPartnerUsers)
 			admin.Post("/users/email", h.GetPartnerUserByEmail)
 
-			// ---- API Credentials Management (admin only) ----
-			admin.Route("/api", func(api chi.Router) {
+			// ---------------- API Credentials Management (admin only) ----------------
+			admin.Route("/api", func(api chi. Router) {
 				api.Post("/credentials/generate", h.GenerateAPICredentials)
 				api.Delete("/credentials/revoke", h.RevokeAPICredentials)
 				api.Post("/credentials/rotate", h.RotateAPISecret)
 				api.Get("/settings", h.GetAPISettings)
 				api.Put("/settings", h.UpdateAPISettings)
+				api.Get("/logs", h.GetAPILogs)
+				api.Post("/usage", h.GetAPIUsageStats)
 			})
 
-			// ---- Webhook Management (admin only) ----
+			// ---------------- Webhook Management (admin only) ----------------
 			admin.Route("/webhooks", func(wh chi.Router) {
 				wh.Put("/config", h.UpdateWebhookConfig)
-				wh.Post("/test", h.TestWebhook)
-				wh.Get("/logs", h.ListWebhookLogs)
+				wh.Post("/test", h. TestWebhook)
+				wh.Get("/logs", h. ListWebhookLogs)
 				wh.Post("/{id}/retry", h.RetryFailedWebhook)
 			})
-
-			// ---- API Logs & Analytics (admin only) ----
-			admin.Get("/api/logs", h.GetAPILogs)
-			admin.Post("/api/usage", h.GetAPIUsageStats)
 		})
 
-		// ---- Admin + User routes ----
+		// ---- Admin + User routes (Shared Access) ----
 		pr.Group(func(shared chi.Router) {
 			shared.Use(auth.Require([]string{"main"}, nil, []string{"partner_admin", "partner_user"}))
 
-			// ---- Transaction Management (admin + user) ----
+			// ---------------- Transaction Management ----------------
 			shared.Route("/transactions", func(txn chi.Router) {
+				// Partner transaction operations
 				txn.Post("/deposit", h.InitiateDeposit)
-				txn.Get("/{ref}", h.GetTransactionStatus)
-				txn.Get("/", h.ListTransactions)
+				txn.Get("/{ref}", h.GetTransactionByRef)
+				txn.Get("/", h.ListPartnerTransactions)
 				txn.Post("/search", h.GetTransactionsByDateRange)
 			})
 
-			// Accounting routes
-			shared.Route("/accounting", func(a chi.Router) {
-				a.Get("/accounts/get", h.GetUserAccounts)
-				a.Post("/account/statement", h.GetAccountStatement)
-				a.Post("/owner/statement", h.GetOwnerStatement)
+			// ---------------- Accounting Routes ----------------
+			shared.Route("/accounting", func(acc chi.Router) {
+				// Account Management
+				acc.Get("/accounts", h.GetUserAccounts)                    // List partner accounts
+				acc.Get("/accounts/{number}/balance", h.GetAccountBalance) // Get account balance
+				acc.Get("/summary", h.GetOwnerSummary)                     // Get consolidated summary
+
+				// Statements
+				acc.Route("/statements", func(stmt chi.Router) {
+					stmt.Post("/account", h.GetAccountStatement) // Get account statement
+					stmt. Post("/owner", h.GetOwnerStatement)     // Get owner statement (all accounts)
+				})
+
+				// Transaction Queries
+				acc.Route("/transactions", func(tx chi.Router) {
+					tx.Get("/{receipt}", h.GetTransactionByReceipt)    // Get transaction by receipt code
+					tx.Get("/", h.ListPartnerTransactions)             // List all partner transactions
+					tx.Get("/ref/{ref}", h.GetTransactionByRef)        // Get by partner reference
+				})
+
+				// Ledger Queries
+				acc.Route("/ledgers", func(ledg chi.Router) {
+					ledg.Get("/account/{number}", h.GetAccountLedgers) // Get ledgers for account
+				})
 			})
 		})
 	})

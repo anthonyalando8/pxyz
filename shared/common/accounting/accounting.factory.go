@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	accountingpb "x/shared/genproto/shared/accounting/accountingpb" // <-- adjust path to your proto
+	accountingpb "x/shared/genproto/shared/accounting/v1" // <-- adjust path to your proto
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

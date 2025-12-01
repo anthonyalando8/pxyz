@@ -10,10 +10,10 @@ import (
 
 	domain "partner-service/internal/domain"
 	"partner-service/internal/usecase"
-	accountingclient "x/shared/common/accounting" // 👈 added
 	partnerauthpb "x/shared/genproto/partner/authpb"
 	partnersvcpb "x/shared/genproto/partner/svcpb"
-	accountingpb "x/shared/genproto/shared/accounting/accountingpb"
+	accountingpb "x/shared/genproto/shared/accounting/v1"
+	accountingclient "x/shared/common/accounting" // 👈 added
 
 	authclient "x/shared/auth"
 	otpclient "x/shared/auth/otp"
@@ -60,13 +60,13 @@ func NewGRPCPartnerHandler(
 func (h *GRPCPartnerHandler) CreatePartner(
 	ctx context.Context,
 	req *partnersvcpb.CreatePartnerRequest,
-) (*partnersvcpb.PartnerResponse, error) {
+) (*partnersvcpb. PartnerResponse, error) {
 	// --- 1. Build partner domain object ---
 	// Convert to lowercase if the identifier looks like an email
 	req.ContactEmail = strings.ToLower(req.ContactEmail)
 	partner := &domain.Partner{
 		ID:           id.GenerateID("PTN"),
-		Name:         req.Name,
+		Name:         req. Name,
 		Country:      req.Country,
 		ContactEmail: req.ContactEmail,
 		ContactPhone: req.ContactPhone,
@@ -77,8 +77,8 @@ func (h *GRPCPartnerHandler) CreatePartner(
 		UpdatedAt:    time.Now(),
 	}
 
-	// --- 2. Persist partner in DB ---
-	if err := h.uc.CreatePartner(ctx, partner); err != nil {
+	// --- 2.  Persist partner in DB ---
+	if err := h. uc.CreatePartner(ctx, partner); err != nil {
 		log.Printf("[ERROR] CreatePartner failed: %v", err)
 		return nil, err
 	}
@@ -86,7 +86,7 @@ func (h *GRPCPartnerHandler) CreatePartner(
 	// --- 3. Generate password for default admin ---
 	password, err := id.GeneratePassword()
 	if err != nil {
-		log.Printf("[ERROR] Failed to generate password: %v", err)
+		log. Printf("[ERROR] Failed to generate password: %v", err)
 		return nil, status.Errorf(codes.Internal, "failed to generate admin password")
 	}
 
@@ -101,35 +101,34 @@ func (h *GRPCPartnerHandler) CreatePartner(
 		ctxBg, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		userResp, err := h.authClient.PartnerClient.RegisterUser(ctxBg, &partnerauthpb.RegisterUserRequest{
+		userResp, err := h.authClient. PartnerClient.RegisterUser(ctxBg, &partnerauthpb.RegisterUserRequest{
 			Email:     p.ContactEmail,
 			Password:  pwd,
-			FirstName: p.Name,
+			FirstName: p. Name,
 			LastName:  "Admin",
 			Role:      "partner_admin",
 			PartnerId: p.ID,
 		})
 		if err != nil {
-			log.Printf("[ERROR] Failed to create default partner admin for partner=%s: %v", p.ID, err)
+			log.Printf("[ERROR] Failed to create default partner admin for partner=%s: %v", p. ID, err)
 			return
 		}
 		if userResp == nil {
-			log.Printf("[ERROR] Nil response from Auth service for partner=%s", p.ID)
+			log.Printf("[ERROR] Nil response from Auth service for partner=%s", p. ID)
 			return
 		}
-		if !userResp.Ok {
-			log.Printf("[ERROR] Auth service rejected default admin creation for partner=%s: %s", p.ID, userResp.Error)
+		if ! userResp.Ok {
+			log.Printf("[ERROR] Auth service rejected default admin creation for partner=%s: %s", p.ID, userResp. Error)
 			return
 		}
 
 		// Send notification email
-		sendPartnerCreatedEmail(h.uc, h.emailClient, p, pwd)
-		
+		sendPartnerCreatedEmail(h. uc, h.emailClient, p, pwd)
 
-		log.Printf("[INFO] Default partner admin created + email sent for partner=%s", p.ID)
+		log.Printf("[INFO] Default partner admin created + email sent for partner=%s", p. ID)
 	}(partner, password)
 
-	// --- 5. Create default account in Accounting service (async, resilient) ---
+	// --- 5. Create liquidity account in Accounting service (async, resilient) ---
 	go func(p *domain.Partner) {
 		defer func() {
 			if r := recover(); r != nil {
@@ -137,25 +136,25 @@ func (h *GRPCPartnerHandler) CreatePartner(
 			}
 		}()
 
-		ctxBg, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		ctxBg, cancel := context.WithTimeout(context. Background(), 15*time.Second)
 		defer cancel()
 
-		reqAcc := &accountingpb.CreateAccountRequest{
-			Accounts: []*accountingpb.Account{
+		// Create single liquidity account for the partner
+		reqAcc := &accountingpb.CreateAccountsRequest{
+			Accounts: []*accountingpb.CreateAccountRequest{
 				{
-					OwnerType:   accountingpb.OwnerType_PARTNER,
+					OwnerType:   accountingpb.OwnerType_OWNER_TYPE_PARTNER,
 					OwnerId:     p.ID,
 					Currency:    p.Currency,
-					Purpose:     "wallet",
-					AccountType: "real",
-					IsActive:    true,
+					Purpose:     accountingpb.AccountPurpose_ACCOUNT_PURPOSE_LIQUIDITY,
+					AccountType: accountingpb.AccountType_ACCOUNT_TYPE_REAL,
 				},
 			},
 		}
 
 		resp, err := h.accountingClient.Client.CreateAccounts(ctxBg, reqAcc)
 		if err != nil {
-			log.Printf("[ERROR] Failed to create default account for partner=%s: %v", p.ID, err)
+			log.Printf("[ERROR] Failed to create liquidity account for partner=%s: %v", p.ID, err)
 			return
 		}
 		if resp == nil {
@@ -163,22 +162,26 @@ func (h *GRPCPartnerHandler) CreatePartner(
 			return
 		}
 
+		// Check for errors in creation
 		if len(resp.Errors) > 0 {
-			log.Printf("[WARN] Errors creating account(s) for partner=%s: %+v", p.ID, resp.Errors)
-			return
-		}
-		if len(resp.Accounts) == 0 {
-			log.Printf("[WARN] Accounting service returned no accounts for partner=%s", p.ID)
+			log.Printf("[ERROR] Failed to create liquidity account for partner=%s: %+v", p.ID, resp. Errors)
 			return
 		}
 
-		log.Printf("[INFO] Created default account for partner=%s accountId=%d",
-			p.ID, resp.Accounts[0].Id)
+		if len(resp.Accounts) == 0 {
+			log. Printf("[WARN] Accounting service returned no accounts for partner=%s", p. ID)
+			return
+		}
+
+		// Log successful account creation
+		acc := resp.Accounts[0]
+		log.Printf("[INFO] Created liquidity account for partner=%s: accountId=%d, accountNumber=%s, currency=%s",
+			p.ID, acc. Id, acc.AccountNumber, acc.Currency)
 	}(partner)
 
-	// --- 6. Respond immediately ---
+	// --- 6.  Respond immediately ---
 	return &partnersvcpb.PartnerResponse{
-		Partner: partner.ToProto(),
+		Partner: partner. ToProto(),
 	}, nil
 }
 

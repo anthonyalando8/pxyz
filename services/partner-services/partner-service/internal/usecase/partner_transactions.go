@@ -62,6 +62,16 @@ func (uc *PartnerUsecase) InitiateDeposit(ctx context.Context, req *domain.Partn
 	return nil
 }
 
+// CreateTransaction creates a new partner transaction record
+func (uc *PartnerUsecase) CreateTransaction(ctx context.Context, tx *domain.PartnerTransaction) error {
+	return uc.partnerRepo.CreateTransaction(ctx, tx)
+}
+
+// UpdateTransactionStatus updates the status of a partner transaction
+func (uc *PartnerUsecase) UpdateTransactionStatus(ctx context.Context, txID int64, status, errorMsg string) error {
+	return uc.partnerRepo.UpdateTransactionStatus(ctx, txID, status, errorMsg)
+}
+
 // GetTransactionStatus retrieves transaction by reference
 func (uc *PartnerUsecase) GetTransactionStatus(ctx context.Context, partnerID, transactionRef string) (*domain.PartnerTransaction, error) {
 	if partnerID == "" || transactionRef == "" {

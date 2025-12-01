@@ -12,6 +12,7 @@ import (
 	"accounting-service/internal/service"
 	"accounting-service/internal/usecase"
 	accountingpb "x/shared/genproto/shared/accounting/v1"
+	"accounting-service/internal/pub"
 	authclient "x/shared/auth"
 	receiptclient "x/shared/common/receipt"
 	notificationclient "x/shared/notification"
@@ -188,6 +189,7 @@ func NewAccountingGRPCServer(cfg config.AppConfig) {
 	
 	// 7. Transaction Usecase - Main transaction processing
 	// This is the most complex usecase with many dependencies
+	pub := publisher.NewTransactionEventPublisher(rdb)
 	transactionUC := usecase.NewTransactionUsecase(
 		transactionRepo,    // Repository for transactions (or journalRepo)
 		accountRepo,        // Repository for account operations
@@ -204,6 +206,7 @@ func NewAccountingGRPCServer(cfg config.AppConfig) {
 		partnerSvc,         // Partner service for partner operations
 		rdb,                // Redis for caching and status tracking
 		kafkaWriter,        // Kafka for event streaming
+		pub,
 		//sf,                 // Snowflake for ID generation
 	)
 	log.Println("✅ Transaction usecase initialized")

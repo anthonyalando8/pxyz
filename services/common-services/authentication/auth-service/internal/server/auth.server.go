@@ -36,6 +36,7 @@ import (
 	authpb "x/shared/genproto/authpb"
 
 	oauths "auth-service/internal/service/app_oauth2_client"
+	accountingclient "x/shared/common/accounting" // 👈 added
 
 	"github.com/go-chi/chi/v5"
 	"github.com/redis/go-redis/v9"
@@ -71,6 +72,8 @@ func NewServer(cfg config.AppConfig) *http.Server {
 	telegramClient := telegramclient.NewTelegramClient(cfg.TelegramBotToken)
 	urbacSvc := urbacservice.NewService(auth.RBACClient, rdb)
 
+	accountingClient := accountingclient.NewAccountingClient()
+
 	authEvPub := ws.NewAuthEventPublisher(rdb)
 
 	producer, err := kafka.NewUserRegistrationProducer(cfg.KafkaBrokers)
@@ -99,6 +102,7 @@ func NewServer(cfg config.AppConfig) *http.Server {
 		telegramClient,
 		oauth2Svc,
 		authEvPub,
+		accountingClient,
 	)
 
 	grpcAuthHandler := handler.NewGRPCAuthHandler(

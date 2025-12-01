@@ -11,7 +11,7 @@ import (
 	accountingclient "x/shared/common/accounting"
 
 	"x/shared/response"
-
+    "cashier-service/internal/usecase/transaction"
     notificationclient "x/shared/notification"
 
 	// notificationpb "x/shared/genproto/shared/notificationpb"
@@ -25,6 +25,8 @@ type PaymentHandler struct {
     partnerClient    *partnerclient.PartnerService
 	accountingClient *accountingclient.AccountingClient
     notificationClient *notificationclient.NotificationService
+    userUc *usecase.UserUsecase
+    hub *Hub
 }
 
 func NewPaymentHandler(
@@ -32,6 +34,8 @@ func NewPaymentHandler(
     partnerClient    *partnerclient.PartnerService,
 	accountingClient *accountingclient.AccountingClient,
     notificationClient *notificationclient.NotificationService,
+    userUc *usecase.UserUsecase,
+    hub *Hub,
 
 ) *PaymentHandler {
     return &PaymentHandler{
@@ -39,6 +43,8 @@ func NewPaymentHandler(
         partnerClient:    partnerClient,
 		accountingClient: accountingClient,
         notificationClient: notificationClient,
+        userUc: userUc,
+        hub: hub,
     }
 }
 

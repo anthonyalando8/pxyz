@@ -2,7 +2,7 @@ package handler
 
 import (
 	"encoding/json"
-	"io"
+	//"io"
 	"net/http"
 	"strings"
 	"time"
@@ -21,10 +21,8 @@ import (
 
 	accountingclient "x/shared/common/accounting"
 	authpb "x/shared/genproto/partner/authpb"
-	accountingpb "x/shared/genproto/shared/accounting/accountingpb"
 
 	"github.com/go-chi/chi/v5"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type PartnerHandler struct {
@@ -60,141 +58,6 @@ func decodeJSON(r *http.Request, v interface{}) error {
 	decoder.DisallowUnknownFields()
 	return decoder.Decode(v)
 }
-
-
-// ----------------- ACCOUNTING ENDPOINTS -----------------
-
-// GetUserAccounts returns all accounts for the partner linked to the current user
-func (h *PartnerHandler) GetUserAccounts(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	// extract user id
-	userID, ok := ctx.Value(middleware.ContextUserID).(string)
-	if !ok || userID == "" {
-		response.Error(w, http.StatusUnauthorized, "missing or invalid user ID")
-		return
-	}
-
-	// fetch partner ID from profile
-	profileResp, err := h.authClient.PartnerClient.GetUserProfile(ctx, &authpb.GetUserProfileRequest{
-		UserId: userID,
-	})
-	if err != nil || profileResp == nil || profileResp.User == nil {
-		response.Error(w, http.StatusInternalServerError, "failed to fetch user profile from auth service")
-		return
-	}
-	partnerID := profileResp.User.PartnerId
-	if partnerID == "" {
-		response.Error(w, http.StatusForbidden, "your account is not linked to a partner")
-		return
-	}
-
-	req := &accountingpb.GetAccountsRequest{
-		OwnerType: accountingpb.OwnerType_PARTNER,
-		OwnerId:   partnerID,
-	}
-
-	resp, err := h.accountingClient.Client.GetUserAccounts(ctx, req)
-	if err != nil {
-		response.Error(w, http.StatusBadGateway, "failed to fetch accounts: "+err.Error())
-		return
-	}
-
-	response.JSON(w, http.StatusOK, resp)
-}
-
-// GetAccountStatement fetches statement for a specific account
-func (h *PartnerHandler) GetAccountStatement(w http.ResponseWriter, r *http.Request) {
-	var in struct {
-		AccountNumber string     `json:"account_number"`
-		From      time.Time `json:"from"`
-		To        time.Time `json:"to"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	req := &accountingpb.AccountStatementRequest{
-		AccountNumber: in.AccountNumber,
-		From:      timestamppb.New(in.From),
-		To:        timestamppb.New(in.To),
-	}
-
-	resp, err := h.accountingClient.Client.GetAccountStatement(r.Context(), req)
-	if err != nil {
-		response.Error(w, http.StatusBadGateway, "failed to fetch account statement: "+err.Error())
-		return
-	}
-
-	response.JSON(w, http.StatusOK, resp)
-}
-
-// GetOwnerStatement fetches all account statements for the current partner
-func (h *PartnerHandler) GetOwnerStatement(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	// extract user id
-	userID, ok := ctx.Value(middleware.ContextUserID).(string)
-	if !ok || userID == "" {
-		response.Error(w, http.StatusUnauthorized, "missing or invalid user ID")
-		return
-	}
-
-	// fetch partner ID
-	profileResp, err := h.authClient.PartnerClient.GetUserProfile(ctx, &authpb.GetUserProfileRequest{
-		UserId: userID,
-	})
-	if err != nil || profileResp == nil || profileResp.User == nil {
-		response.Error(w, http.StatusInternalServerError, "failed to fetch user profile from auth service")
-		return
-	}
-	partnerID := profileResp.User.PartnerId
-	if partnerID == "" {
-		response.Error(w, http.StatusForbidden, "your account is not linked to a partner")
-		return
-	}
-
-	var in struct {
-		From time.Time `json:"from"`
-		To   time.Time `json:"to"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	req := &accountingpb.OwnerStatementRequest{
-		OwnerType: accountingpb.OwnerType_PARTNER,
-		OwnerId:   partnerID,
-		From:      timestamppb.New(in.From),
-		To:        timestamppb.New(in.To),
-	}
-
-	stream, err := h.accountingClient.Client.GetOwnerStatement(ctx, req)
-	if err != nil {
-		response.Error(w, http.StatusBadGateway, "failed to request owner statement: "+err.Error())
-		return
-	}
-
-	var results []*accountingpb.AccountStatement
-	for {
-		stmt, err := stream.Recv()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			response.Error(w, http.StatusBadGateway, "error receiving owner statement stream: "+err.Error())
-			return
-		}
-		results = append(results, stmt)
-	}
-
-	response.JSON(w, http.StatusOK, results)
-}
-
-
-
 
 // CreatePartnerUser (calls auth service to create user first)
 func (h *PartnerHandler) CreatePartnerUser(w http.ResponseWriter, r *http.Request) {

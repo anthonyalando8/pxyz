@@ -17,6 +17,7 @@ import (
 
 	sessionpb "x/shared/genproto/sessionpb"
 	"auth-service/internal/ws"
+	accountingclient "x/shared/common/accounting" // 👈 added
 
 	"github.com/redis/go-redis/v9"
 	oauth2s "auth-service/internal/service/app_oauth2_client"
@@ -44,6 +45,7 @@ type AuthHandler struct {
 	telegramClient     *telegramclient.TelegramClient
 	oauth2Svc *oauth2s.OAuth2Service
 	publisher *ws.AuthEventPublisher
+	accountingClient *accountingclient.AccountingClient
 }
 
 func NewAuthHandler(
@@ -62,6 +64,8 @@ func NewAuthHandler(
 	telegramClient *telegramclient.TelegramClient,
 	oauth2Svc *oauth2s.OAuth2Service,
 	publisher *ws.AuthEventPublisher,
+	accountingClient *accountingclient.AccountingClient,
+
 ) *AuthHandler {
 	return &AuthHandler{
 		uc:                 uc,
@@ -79,6 +83,7 @@ func NewAuthHandler(
 		telegramClient:     telegramClient,
 		oauth2Svc: oauth2Svc,
 		publisher: 		publisher,
+		accountingClient: accountingClient,
 	}
 }
 

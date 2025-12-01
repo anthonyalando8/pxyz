@@ -18,14 +18,14 @@ func SetupRoutes(
 	h *handler.PaymentHandler,
 	auth *middleware.MiddlewareWithClient,
 	rdb *redis.Client,
-) chi.Router {
+) chi. Router {
 	// ---- Global Middleware ----
-	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"*"}, // allow all origins
+	r. Use(cors.Handler(cors. Options{
+		AllowedOrigins:   []string{"*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "ngrok-skip-browser-warning"},
 		ExposedHeaders:   []string{"Link"},
-		AllowCredentials: false, // must be false when using "*"
+		AllowCredentials: false,
 		MaxAge:           300,
 	}))
 
@@ -38,27 +38,38 @@ func SetupRoutes(
 	}
 
 	// ============================================================
-	// Public Endpoints (Mpesa webhook/callbacks)
+	// Public Endpoints (Webhooks & Callbacks)
 	// ============================================================
-	r.Group(func(pr chi.Router) {
-		pr.Post("/cashier/mpesa/callback", h.MpesaCallback)
+	r.Group(func(pub chi.Router) {
+		pub.Get("/cashier/health", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("ok"))
+		})
+
+		// M-Pesa callback
+		pub.Post("/cashier/mpesa/callback", h. MpesaCallback)
+
+		// Partner deposit callback (when partner credits user)
+		// pub.Post("/cashier/partner/deposit/callback", h.HandlePartnerDepositCallback)
 	})
 
 	// ============================================================
-	// Authenticated Endpoints (User actions)
+	// Authenticated Endpoints (User Portal)
 	// ============================================================
-	r.Group(func(pr chi.Router) {
-		pr.Use(auth.Require([]string{"main"}, nil, nil)) // <--- Updated to include roles (nil for now)
+	r.Route("/cashier/svc", func(pr chi.Router) {
+		pr.Use(auth.Require([]string{"main"}, nil, /*[]string{"user"}*/ nil))
 
-		// Uploads (proof of payment, receipts, etc.)
-		pr.Handle("/cashier/uploads/*", http.StripPrefix("/cashier/uploads/", http.FileServer(http.Dir(uploadDir))))
+		// ---- WebSocket Endpoint ----
+		pr.Get("/ws", h.HandleWebSocket)
 
-		// Deposit & Withdraw (generic, provider decided in request body)
-		pr.Post("/cashier/deposit", h.DepositHandler)
-		pr.Post("/cashier/withdraw", h.WithdrawHandler)
-		pr.Post("/cashier/accounts/get", h.GetUserAccountsHandler)
+		// ---- File Uploads ----
+		pr.Handle("/uploads/*", http.StripPrefix("/cashier/svc/uploads/", http.FileServer(http.Dir(uploadDir))))
+
+		// ---- Legacy HTTP Endpoints (Optional - can be deprecated) ----
+		// pr.Post("/deposit", h.DepositHandler)
+		// pr.Post("/withdraw", h.WithdrawHandler)
+		// pr.Get("/accounts", h.GetUserAccountsHandler)
 	})
 
 	return r
 }
-
