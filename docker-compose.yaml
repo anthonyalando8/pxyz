@@ -924,7 +924,7 @@ services:
       DB_PORT: 5432
       DB_USER: sam
       DB_PASSWORD: Kenya_2025!
-      DB_NAME: pxyz
+      DB_NAME: pxyz_fx
       REDIS_ADDR: redis:6379
       REDIS_PASS:
       JWT_PRIVATE_KEY_PATH: /app/secrets/jwt_private.pem
