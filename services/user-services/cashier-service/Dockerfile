@@ -5,7 +5,7 @@ FROM golang:1.24 AS builder
 WORKDIR /app
 
 # Copy go.mod and go.sum for cashier-service
-COPY services/cashier-service/go.mod services/cashier-service/go.sum ./
+COPY services/common-services/fx-service/cashier-service/go.mod services/common-services/fx-service/cashier-service/go.sum ./
 
 # Copy shared package so deps are resolvable
 COPY shared /shared
@@ -15,10 +15,10 @@ RUN go mod download
 RUN go mod tidy
 
 # Copy secrets (if needed at build time)
-COPY services/cashier-service/secrets ./secrets
+COPY services/common-services/fx-service/cashier-service/secrets ./secrets
 
 # Copy cashier-service source
-COPY services/cashier-service/ ./
+COPY services/common-services/fx-service/cashier-service/ ./
 
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
@@ -28,21 +28,24 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
 FROM debian:bookworm-slim
 
 WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates passwd \
+ && rm -rf /var/lib/apt/lists/*
 
 # Copy only the binary from builder stage
 COPY --from=builder /app/cashier-service /app/cashier-service
 
 # Non-root user for security
-RUN apt-get update && apt-get install -y --no-install-recommends passwd && \
-    rm -rf /var/lib/apt/lists/*
-
-RUN id -u nonroot &>/dev/null || adduser --uid 10001 --disabled-password --gecos "" nonroot && \
+RUN set -eux; \
+    if ! id -u nonroot >/dev/null 2>&1; then \
+        adduser --system --uid 10001 --group --no-create-home nonroot; \
+    fi; \
     chown -R nonroot:nonroot /app
 
 USER nonroot
 
 # Expose REST/gRPC port
-EXPOSE 8005
+EXPOSE 8021
 
 # Run the service
 ENTRYPOINT ["/app/cashier-service"]
