@@ -906,16 +906,16 @@ services:
   cashier-service:
     build:
       context: .
-      dockerfile: services/common-services/user-services/cashier-service/Dockerfile
+      dockerfile: services/user-services/cashier-service/Dockerfile
     container_name: cashier-service
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.cashier.rule=PathPrefix(`/api/v1/cashier/`)"
       - "traefik.http.services.cashier.loadbalancer.server.port=8021"
     env_file:
-      - ./services/common-services/user-services/cashier-service/.env
+      - ./services/user-services/cashier-service/.env
     volumes:
-      - ./services/common-services/user-services/cashier-service/secrets:/app/secrets:ro
+      - ./services/user-services/cashier-service/secrets:/app/secrets:ro
     networks:
       - micro_net
     environment:

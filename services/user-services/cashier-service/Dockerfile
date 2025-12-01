@@ -5,7 +5,7 @@ FROM golang:1.24 AS builder
 WORKDIR /app
 
 # Copy go.mod and go.sum for cashier-service
-COPY services/common-services/user-services/cashier-service/go.mod services/common-services/user-services/cashier-service/go.sum ./
+COPY services/user-services/cashier-service/go.mod services/user-services/cashier-service/go.sum ./
 
 # Copy shared package so deps are resolvable
 COPY shared /shared
@@ -15,10 +15,10 @@ RUN go mod download
 RUN go mod tidy
 
 # Copy secrets (if needed at build time)
-COPY services/common-services/user-services/cashier-service/secrets ./secrets
+COPY services/user-services/cashier-service/secrets ./secrets
 
 # Copy cashier-service source
-COPY services/common-services/user-services/cashier-service/ ./
+COPY services/user-services/cashier-service/ ./
 
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
