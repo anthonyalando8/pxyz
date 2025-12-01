@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strconv"
 	"time"
+	log "github.com/sirupsen/logrus"
 
 	"accounting-service/internal/domain"
 	"accounting-service/internal/usecase"
@@ -854,24 +855,48 @@ func handleUsecaseError(err error) error {
 		return nil
 	}
 
+	// Create a base logger with the original error and function context
+	logger := log.WithFields(log.Fields{
+		"function": "handleUsecaseError",
+		"error":    err. Error(),
+		"error_type": fmt.Sprintf("%T", err),
+	})
+
 	switch {
 	case errors.Is(err, xerrors.ErrNotFound):
+		logger.WithField("grpc_code", codes.NotFound).Warn("resource not found")
 		return status.Error(codes.NotFound, err.Error())
+		
 	case errors.Is(err, xerrors.ErrInsufficientBalance):
+		logger.WithField("grpc_code", codes.FailedPrecondition).Warn("insufficient balance for transaction")
 		return status.Error(codes.FailedPrecondition, err.Error())
+		
 	case errors.Is(err, xerrors.ErrAccountLocked):
+		logger.WithField("grpc_code", codes. PermissionDenied). Warn("attempted operation on locked account")
 		return status.Error(codes.PermissionDenied, "account is locked")
+		
 	case errors.Is(err, xerrors.ErrAccountInactive):
-		return status.Error(codes.PermissionDenied, "account is inactive")
+		logger.WithField("grpc_code", codes. PermissionDenied).Warn("attempted operation on inactive account")
+		return status.Error(codes. PermissionDenied, "account is inactive")
+		
 	case errors.Is(err, xerrors.ErrDuplicateIdempotencyKey):
+		logger.WithField("grpc_code", codes.AlreadyExists).Warn("duplicate idempotency key detected")
 		return status.Error(codes.AlreadyExists, "duplicate idempotency key")
-	case errors.Is(err, xerrors.ErrConcurrentModification):
+		
+	case errors.Is(err, xerrors. ErrConcurrentModification):
+		logger.WithField("grpc_code", codes.Aborted).Warn("concurrent modification detected, client should retry")
 		return status.Error(codes.Aborted, "concurrent modification, retry")
+		
 	case errors.Is(err, context.DeadlineExceeded):
-		return status.Error(codes.DeadlineExceeded, "request timeout")
-	case errors.Is(err, context.Canceled):
-		return status.Error(codes.Canceled, "request canceled")
+		logger. WithField("grpc_code", codes.DeadlineExceeded).Error("request deadline exceeded")
+		return status.Error(codes. DeadlineExceeded, "request timeout")
+		
+	case errors.Is(err, context. Canceled):
+		logger.WithField("grpc_code", codes.Canceled).Info("request canceled by client")
+		return status. Error(codes.Canceled, "request canceled")
+		
 	default:
+		logger.WithField("grpc_code", codes.Internal).Error("unhandled error - internal server error")
 		return status.Error(codes.Internal, "internal server error")
 	}
 }
