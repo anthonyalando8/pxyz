@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 )
 
 type TransactionRepository interface {
@@ -49,6 +50,7 @@ type transactionRepo struct {
 	balanceRepo  BalanceRepository
 	currencyRepo CurrencyRepository  // Use existing currency repo for FX
 	feeRepo      TransactionFeeRepository
+	logger       *zap.Logger
 }
 
 func NewTransactionRepo(
@@ -59,6 +61,7 @@ func NewTransactionRepo(
 	balanceRepo BalanceRepository,
 	currencyRepo CurrencyRepository,  // FX operations
 	feeRepo TransactionFeeRepository,
+	logger *zap.Logger,
 ) TransactionRepository {
 	return &transactionRepo{
 		db:           db,
@@ -68,6 +71,7 @@ func NewTransactionRepo(
 		balanceRepo:  balanceRepo,
 		currencyRepo: currencyRepo,
 		feeRepo:      feeRepo,
+		logger:       logger,
 	}
 }
 
@@ -1016,22 +1020,43 @@ func (r *transactionRepo) updateBalancesPessimistic(
 func (r *transactionRepo) createFees(
 	ctx context.Context, 
 	tx pgx.Tx, 
-	journal *domain.Journal, 
+	journal *domain. Journal, 
 	req *domain.TransactionRequest,
 ) error {
 	if r.feeRepo == nil {
 		return nil // Fee repo not configured
 	}
 	
-	receiptCode := req.ReceiptCode
-	if journal.ExternalRef != nil && *journal.ExternalRef != "" && (receiptCode == nil || *receiptCode == "") {
-		receiptCode = journal.ExternalRef
+	// 🔥 FIX: Safely determine receipt code with proper nil checks
+	var receiptCode string
+	
+	// Priority 1: Use req.ReceiptCode if available
+	if req.ReceiptCode != nil && *req.ReceiptCode != "" {
+		receiptCode = *req.ReceiptCode
+	} else if journal.ExternalRef != nil && *journal.ExternalRef != "" {
+		// Priority 2: Fall back to journal.ExternalRef
+		receiptCode = *journal.ExternalRef
+	} else if req. ExternalRef != nil && *req.ExternalRef != "" {
+		// Priority 3: Fall back to req.ExternalRef
+
+		receiptCode = *req. ExternalRef
+	}
+	
+	// 🔥 CRITICAL: If no receipt code available, return error or skip fee creation
+	if receiptCode == "" {
+		// Option 1: Return error (strict)
+		// return fmt.Errorf("cannot create fee: no receipt code available")
+		
+		// Option 2: Skip fee creation (lenient)
+		r.logger.Warn("skipping fee creation: no receipt code available",
+			zap.Int64("journal_id", journal.ID))
+		return nil
 	}
 	
 	if req.IsSystemTransaction {
-		// Create 0-fee record
+		// Create 0-fee record for system transactions
 		fee := &domain.TransactionFee{
-			ReceiptCode: *receiptCode,
+			ReceiptCode: receiptCode,  // ✅ Safe - guaranteed non-empty
 			FeeType:     domain.FeeTypePlatform,
 			Amount:      0,
 			Currency:    req.GetCurrency(),
@@ -1039,13 +1064,12 @@ func (r *transactionRepo) createFees(
 		return r.feeRepo.Create(ctx, tx, fee)
 	}
 	
-	// Calculate and create actual fees
+	// Calculate and create actual fees for non-system transactions
 	// This would call your fee calculation logic
 	// For now, just create a placeholder
 	
 	return nil
 }
-
 // GetByIdempotencyKey retrieves transaction by idempotency key
 func (r *transactionRepo) GetByIdempotencyKey(
 	ctx context.Context, 

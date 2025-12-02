@@ -24,6 +24,7 @@ import (
 	"github.com/segmentio/kafka-go"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+	"go.uber.org/zap"
 )
 
 // NewAccountingGRPCServer initializes and starts the accounting gRPC server
@@ -40,6 +41,8 @@ func NewAccountingGRPCServer(cfg config.AppConfig) {
 	}
 	defer dbpool.Close()
 	log.Println("✅ Database connected successfully")
+	logger, _ := zap.NewProduction()
+	defer logger.Sync()
 
 	// ===============================
 	// SNOWFLAKE ID GENERATOR
@@ -128,7 +131,7 @@ func NewAccountingGRPCServer(cfg config.AppConfig) {
 	statementRepo := repository.NewStatementRepo(dbpool, ledgerRepo)
 	_ = currencyRepo  // Currently unused, but initialized for completeness
 
-	transactionRepo := repository.NewTransactionRepo(dbpool, accountRepo, journalRepo, ledgerRepo, balanceRepo, currencyRepo, feeRepo)
+	transactionRepo := repository.NewTransactionRepo(dbpool, accountRepo, journalRepo, ledgerRepo, balanceRepo, currencyRepo, feeRepo, logger)
 
 	log.Println("✅ All repositories initialized")
 
