@@ -9,11 +9,11 @@ import (
 type FeeType string
 
 const (
-	FeeTypePlatform         FeeType = "platform"
-	FeeTypeNetwork          FeeType = "network"
-	FeeTypeConversion       FeeType = "conversion"
-	FeeTypeWithdrawal       FeeType = "withdrawal"
-	FeeTypeAgentCommission  FeeType = "agent_commission"
+	FeeTypePlatform        FeeType = "platform"
+	FeeTypeNetwork         FeeType = "network"
+	FeeTypeConversion      FeeType = "conversion"
+	FeeTypeWithdrawal      FeeType = "withdrawal"
+	FeeTypeAgentCommission FeeType = "agent_commission"
 )
 
 // FeeCalculationMethod represents how the fee is calculated
@@ -27,48 +27,48 @@ const (
 
 // TransactionFeeRule represents a fee rule configuration
 type TransactionFeeRule struct {
-	ID                 int64                `json:"id" db:"id"`
-	RuleName           string               `json:"rule_name" db:"rule_name"`
-	TransactionType    TransactionType      `json:"transaction_type" db:"transaction_type"`
-	SourceCurrency     *string              `json:"source_currency,omitempty" db:"source_currency"` // Max 8 chars
-	TargetCurrency     *string              `json:"target_currency,omitempty" db:"target_currency"` // Max 8 chars
-	AccountType        *AccountType         `json:"account_type,omitempty" db:"account_type"`       // NULL or 'real'
-	OwnerType          *OwnerType           `json:"owner_type,omitempty" db:"owner_type"`
-	FeeType            FeeType              `json:"fee_type" db:"fee_type"`
-	CalculationMethod  FeeCalculationMethod `json:"calculation_method" db:"calculation_method"`
-	FeeValue           string               `json:"fee_value" db:"fee_value"`     // NUMERIC(10,6) as string
-	MinFee             *int64               `json:"min_fee,omitempty" db:"min_fee"` // In smallest unit
-	MaxFee             *int64               `json:"max_fee,omitempty" db:"max_fee"` // In smallest unit
-	Tiers              json.RawMessage      `json:"tiers,omitempty" db:"tiers"`     // JSONB for tiered fees
-	ValidFrom          time.Time            `json:"valid_from" db:"valid_from"`
-	ValidTo            *time.Time           `json:"valid_to,omitempty" db:"valid_to"`
-	IsActive           bool                 `json:"is_active" db:"is_active"`
-	Priority           int                  `json:"priority" db:"priority"` // Higher = selected first
-	CreatedAt          time.Time            `json:"created_at" db:"created_at"`
-	UpdatedAt          time.Time            `json:"updated_at" db:"updated_at"`
+	ID                int64                `json:"id" db:"id"`
+	RuleName          string               `json:"rule_name" db:"rule_name"`
+	TransactionType   TransactionType      `json:"transaction_type" db:"transaction_type"`
+	SourceCurrency    *string              `json:"source_currency,omitempty" db:"source_currency"` // Max 8 chars
+	TargetCurrency    *string              `json:"target_currency,omitempty" db:"target_currency"` // Max 8 chars
+	AccountType       *AccountType         `json:"account_type,omitempty" db:"account_type"`       // NULL or 'real'
+	OwnerType         *OwnerType           `json:"owner_type,omitempty" db:"owner_type"`
+	FeeType           FeeType              `json:"fee_type" db:"fee_type"`
+	CalculationMethod FeeCalculationMethod `json:"calculation_method" db:"calculation_method"`
+	FeeValue          string               `json:"fee_value" db:"fee_value"`       // NUMERIC(10,6) as string
+	MinFee            *float64             `json:"min_fee,omitempty" db:"min_fee"` // In smallest unit
+	MaxFee            *float64             `json:"max_fee,omitempty" db:"max_fee"` // In smallest unit
+	Tiers             json.RawMessage      `json:"tiers,omitempty" db:"tiers"`     // JSONB for tiered fees
+	ValidFrom         time.Time            `json:"valid_from" db:"valid_from"`
+	ValidTo           *time.Time           `json:"valid_to,omitempty" db:"valid_to"`
+	IsActive          bool                 `json:"is_active" db:"is_active"`
+	Priority          int                  `json:"priority" db:"priority"` // Higher = selected first
+	CreatedAt         time.Time            `json:"created_at" db:"created_at"`
+	UpdatedAt         time.Time            `json:"updated_at" db:"updated_at"`
 }
 
 // FeeTier represents a tier in tiered fee structure
 type FeeTier struct {
-	MinAmount int64   `json:"min_amount"`
-	MaxAmount *int64  `json:"max_amount,omitempty"` // NULL means unlimited
-	Rate      *string `json:"rate,omitempty"`       // Percentage rate as string
-	FixedFee  *int64  `json:"fixed_fee,omitempty"`  // Fixed fee in smallest unit
+	MinAmount float64  `json:"min_amount"`
+	MaxAmount *float64 `json:"max_amount,omitempty"` // NULL means unlimited
+	Rate      *string  `json:"rate,omitempty"`       // Percentage rate as string
+	FixedFee  *float64 `json:"fixed_fee,omitempty"`  // Fixed fee in smallest unit
 }
 
 // TransactionFee represents an applied fee
 type TransactionFee struct {
-	ID                    int64     `json:"id" db:"id"`
-	ReceiptCode           string    `json:"receipt_code" db:"receipt_code"` // FK → receipt_lookup.code
-	FeeRuleID             *int64    `json:"fee_rule_id,omitempty" db:"fee_rule_id"`
-	FeeType               FeeType   `json:"fee_type" db:"fee_type"`
-	Amount                int64     `json:"amount" db:"amount"`     // In smallest unit
-	Currency              string    `json:"currency" db:"currency"` // Max 8 chars
-	CollectedByAccountID  *int64    `json:"collected_by_account_id,omitempty" db:"collected_by_account_id"`
-	LedgerID              *int64    `json:"ledger_id,omitempty" db:"ledger_id"`
-	AgentExternalID       *string   `json:"agent_external_id,omitempty" db:"agent_external_id"`
-	CommissionRate        *string   `json:"commission_rate,omitempty" db:"commission_rate"` // NUMERIC(5,4) as string
-	CreatedAt             time.Time `json:"created_at" db:"created_at"`
+	ID                   int64     `json:"id" db:"id"`
+	ReceiptCode          string    `json:"receipt_code" db:"receipt_code"` // FK → receipt_lookup.code
+	FeeRuleID            *int64    `json:"fee_rule_id,omitempty" db:"fee_rule_id"`
+	FeeType              FeeType   `json:"fee_type" db:"fee_type"`
+	Amount               float64   `json:"amount" db:"amount"`     // In smallest unit
+	Currency             string    `json:"currency" db:"currency"` // Max 8 chars
+	CollectedByAccountID *int64    `json:"collected_by_account_id,omitempty" db:"collected_by_account_id"`
+	LedgerID             *int64    `json:"ledger_id,omitempty" db:"ledger_id"`
+	AgentExternalID      *string   `json:"agent_external_id,omitempty" db:"agent_external_id"`
+	CommissionRate       *string   `json:"commission_rate,omitempty" db:"commission_rate"` // NUMERIC(5,4) as string
+	CreatedAt            time.Time `json:"created_at" db:"created_at"`
 }
 
 // FeeRuleCreate represents data needed to create a new fee rule
@@ -82,8 +82,8 @@ type FeeRuleCreate struct {
 	FeeType           FeeType
 	CalculationMethod FeeCalculationMethod
 	FeeValue          string
-	MinFee            *int64
-	MaxFee            *int64
+	MinFee            *float64
+	MaxFee            *float64
 	Tiers             json.RawMessage
 	ValidFrom         time.Time
 	ValidTo           *time.Time
@@ -109,7 +109,7 @@ type FeeRuleFilter struct {
 type FeeCalculation struct {
 	RuleID         *int64
 	FeeType        FeeType
-	Amount         int64
+	Amount         float64
 	Currency       string
 	AppliedRate    *string // For percentage fees
 	CalculatedFrom string  // Description of how fee was calculated
@@ -176,10 +176,8 @@ func (r *TransactionFeeRule) SetTiers(tiers []FeeTier) error {
 // DefaultTransactionFeeRules returns realistic fee rules matching the schema
 func DefaultTransactionFeeRules() []*TransactionFeeRule {
 	now := time.Now()
-	
-	// Helper for account type
 	realAccountType := AccountTypeReal
-	
+
 	return []*TransactionFeeRule{
 		// ===== DEPOSIT FEES =====
 		{
@@ -190,8 +188,8 @@ func DefaultTransactionFeeRules() []*TransactionFeeRule {
 			FeeType:           FeeTypePlatform,
 			CalculationMethod: FeeCalculationPercentage,
 			FeeValue:          "0.001",
-			MinFee:            int64Ptr(100),
-			MaxFee:            int64Ptr(50000),
+			MinFee:            float64Ptr(1.00),    // ✅ $1.00
+			MaxFee:            float64Ptr(500.00),  // ✅ $500.00
 			ValidFrom:         now,
 			IsActive:          true,
 			Priority:          1,
@@ -206,7 +204,7 @@ func DefaultTransactionFeeRules() []*TransactionFeeRule {
 			FeeType:           FeeTypeNetwork,
 			CalculationMethod: FeeCalculationFixed,
 			FeeValue:          "0",
-			MinFee:            int64Ptr(500000),
+			MinFee:            float64Ptr(0.005),  // ✅ 0.005 BTC (500,000 satoshis)
 			ValidFrom:         now,
 			IsActive:          true,
 			Priority:          1,
@@ -223,7 +221,7 @@ func DefaultTransactionFeeRules() []*TransactionFeeRule {
 			FeeType:           FeeTypePlatform,
 			CalculationMethod: FeeCalculationFixed,
 			FeeValue:          "0",
-			MinFee:            int64Ptr(200),
+			MinFee:            float64Ptr(2.00),  // ✅ $2.00
 			ValidFrom:         now,
 			IsActive:          true,
 			Priority:          1,
@@ -238,8 +236,8 @@ func DefaultTransactionFeeRules() []*TransactionFeeRule {
 			FeeType:           FeeTypeNetwork,
 			CalculationMethod: FeeCalculationPercentage,
 			FeeValue:          "0.0005",
-			MinFee:            int64Ptr(50000),
-			MaxFee:            int64Ptr(500000),
+			MinFee:            float64Ptr(0.0005),  // ✅ 0.0005 BTC
+			MaxFee:            float64Ptr(0.005),   // ✅ 0. 005 BTC
 			ValidFrom:         now,
 			IsActive:          true,
 			Priority:          1,
@@ -257,8 +255,8 @@ func DefaultTransactionFeeRules() []*TransactionFeeRule {
 			FeeType:           FeeTypeConversion,
 			CalculationMethod: FeeCalculationPercentage,
 			FeeValue:          "0.003",
-			MinFee:            int64Ptr(50),
-			MaxFee:            int64Ptr(5000),
+			MinFee:            float64Ptr(0.50),   // ✅ $0.50
+			MaxFee:            float64Ptr(50.00),  // ✅ $50.00
 			ValidFrom:         now,
 			IsActive:          true,
 			Priority:          1,
@@ -274,8 +272,8 @@ func DefaultTransactionFeeRules() []*TransactionFeeRule {
 			FeeType:           FeeTypeConversion,
 			CalculationMethod: FeeCalculationPercentage,
 			FeeValue:          "0.005",
-			MinFee:            int64Ptr(100),
-			MaxFee:            int64Ptr(50000),
+			MinFee:            float64Ptr(1.00),    // ✅ $1. 00
+			MaxFee:            float64Ptr(500.00),  // ✅ $500.00
 			ValidFrom:         now,
 			IsActive:          true,
 			Priority:          1,
@@ -291,8 +289,8 @@ func DefaultTransactionFeeRules() []*TransactionFeeRule {
 			FeeType:           FeeTypePlatform,
 			CalculationMethod: FeeCalculationPercentage,
 			FeeValue:          "0.002",
-			MinFee:            int64Ptr(50),
-			MaxFee:            int64Ptr(10000),
+			MinFee:            float64Ptr(0.50),    // ✅ $0. 50
+			MaxFee:            float64Ptr(100.00),  // ✅ $100.00
 			ValidFrom:         now,
 			IsActive:          true,
 			Priority:          1,
@@ -309,7 +307,7 @@ func DefaultTransactionFeeRules() []*TransactionFeeRule {
 			FeeType:           FeeTypePlatform,
 			CalculationMethod: FeeCalculationFixed,
 			FeeValue:          "0",
-			MinFee:            int64Ptr(50),
+			MinFee:            float64Ptr(0.50),  // ✅ $0. 50
 			ValidFrom:         now,
 			IsActive:          true,
 			Priority:          2,
@@ -320,7 +318,12 @@ func DefaultTransactionFeeRules() []*TransactionFeeRule {
 }
 
 // Helper functions for nullable fields
+
 func int64Ptr(v int64) *int64 {
+	return &v
+}
+
+func float64Ptr(v float64) *float64 {
 	return &v
 }
 

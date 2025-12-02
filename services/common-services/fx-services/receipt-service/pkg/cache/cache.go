@@ -14,7 +14,7 @@ import (
 type CacheService struct {
 	client *redis.Client
 	logger *zap.Logger
-	
+
 	// Metrics
 	hits   int64
 	misses int64
@@ -23,32 +23,32 @@ type CacheService struct {
 // NewCacheService creates a new cache service
 func NewCacheService(addr, password string, db int, logger *zap.Logger) (*CacheService, error) {
 	client := redis.NewClient(&redis.Options{
-		Addr:            addr,
-		Password:        password,
-		DB:              db,
-		PoolSize:        100,        // Connection pool size
-		MinIdleConns:    10,         // Minimum idle connections
-		PoolTimeout:     4 * time.Second,
+		Addr:         addr,
+		Password:     password,
+		DB:           db,
+		PoolSize:     100, // Connection pool size
+		MinIdleConns: 10,  // Minimum idle connections
+		PoolTimeout:  4 * time.Second,
 		//IdleTimeout:     5 * time.Minute,
 		ConnMaxIdleTime: 5 * time.Minute,
 		ConnMaxLifetime: 30 * time.Minute,
-		
+
 		// Retry configuration
 		MaxRetries:      3,
 		MinRetryBackoff: 8 * time.Millisecond,
 		MaxRetryBackoff: 512 * time.Millisecond,
 	})
-	
+
 	// Test connection
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	
+
 	if err := client.Ping(ctx).Err(); err != nil {
 		return nil, fmt.Errorf("redis ping failed: %w", err)
 	}
-	
+
 	logger.Info("redis connected", zap.String("addr", addr))
-	
+
 	return &CacheService{
 		client: client,
 		logger: logger,
@@ -72,7 +72,7 @@ func IdempotencyKey(key string) string {
 // GetReceipt retrieves a cached receipt
 func (c *CacheService) GetReceipt(ctx context.Context, code string) ([]byte, error) {
 	key := CacheKey(code)
-	
+
 	data, err := c.client.Get(ctx, key).Bytes()
 	if err != nil {
 		if err == redis.Nil {
@@ -81,7 +81,7 @@ func (c *CacheService) GetReceipt(ctx context.Context, code string) ([]byte, err
 		}
 		return nil, fmt.Errorf("cache get: %w", err)
 	}
-	
+
 	c.hits++
 	return data, nil
 }
@@ -107,22 +107,22 @@ func (c *CacheService) GetReceiptsBatch(ctx context.Context, codes []string) (ma
 	if len(codes) == 0 {
 		return nil, nil
 	}
-	
+
 	// Use pipeline for parallel execution
 	pipe := c.client.Pipeline()
-	
+
 	// Queue all GET commands
 	cmds := make(map[string]*redis.StringCmd, len(codes))
 	for _, code := range codes {
 		key := CacheKey(code)
 		cmds[code] = pipe.Get(ctx, key)
 	}
-	
+
 	// Execute all at once
 	if _, err := pipe.Exec(ctx); err != nil && err != redis.Nil {
 		return nil, fmt.Errorf("pipeline exec: %w", err)
 	}
-	
+
 	// Collect results
 	results := make(map[string][]byte, len(codes))
 	for code, cmd := range cmds {
@@ -133,7 +133,7 @@ func (c *CacheService) GetReceiptsBatch(ctx context.Context, codes []string) (ma
 			c.misses++
 		}
 	}
-	
+
 	return results, nil
 }
 
@@ -142,14 +142,14 @@ func (c *CacheService) SetReceiptsBatch(ctx context.Context, receipts map[string
 	if len(receipts) == 0 {
 		return nil
 	}
-	
+
 	pipe := c.client.Pipeline()
-	
+
 	for code, data := range receipts {
 		key := CacheKey(code)
 		pipe.Set(ctx, key, data, ttl)
 	}
-	
+
 	_, err := pipe.Exec(ctx)
 	return err
 }
@@ -159,14 +159,14 @@ func (c *CacheService) DeleteReceiptsBatch(ctx context.Context, codes []string) 
 	if len(codes) == 0 {
 		return nil
 	}
-	
+
 	pipe := c.client.Pipeline()
-	
+
 	for _, code := range codes {
 		key := CacheKey(code)
 		pipe.Del(ctx, key)
 	}
-	
+
 	_, err := pipe.Exec(ctx)
 	return err
 }
@@ -178,7 +178,7 @@ func (c *CacheService) DeleteReceiptsBatch(ctx context.Context, codes []string) 
 // GetIdempotent retrieves an idempotency cached result
 func (c *CacheService) GetIdempotent(ctx context.Context, idemKey string) ([]byte, error) {
 	key := IdempotencyKey(idemKey)
-	
+
 	data, err := c.client.Get(ctx, key).Bytes()
 	if err != nil {
 		if err == redis.Nil {
@@ -186,7 +186,7 @@ func (c *CacheService) GetIdempotent(ctx context.Context, idemKey string) ([]byt
 		}
 		return nil, fmt.Errorf("get idempotent: %w", err)
 	}
-	
+
 	c.logger.Info("idempotency cache hit", zap.String("key", idemKey))
 	return data, nil
 }
@@ -213,22 +213,22 @@ type Lock struct {
 func (c *CacheService) AcquireLock(ctx context.Context, resourceID string, ttl time.Duration) (*Lock, error) {
 	key := fmt.Sprintf("lock:%s", resourceID)
 	token := fmt.Sprintf("%d", time.Now().UnixNano())
-	
+
 	// SET key value NX EX ttl (atomic)
 	success, err := c.client.SetNX(ctx, key, token, ttl).Result()
 	if err != nil {
 		return nil, fmt.Errorf("acquire lock: %w", err)
 	}
-	
+
 	if !success {
 		return nil, fmt.Errorf("lock already held by another process")
 	}
-	
-	c.logger.Debug("lock acquired", 
+
+	c.logger.Debug("lock acquired",
 		zap.String("resource", resourceID),
 		zap.Duration("ttl", ttl),
 	)
-	
+
 	return &Lock{
 		client: c.client,
 		key:    key,
@@ -247,16 +247,16 @@ func (l *Lock) Release(ctx context.Context) error {
 			return 0
 		end
 	`
-	
+
 	result, err := l.client.Eval(ctx, script, []string{l.key}, l.token).Int()
 	if err != nil {
 		return fmt.Errorf("release lock: %w", err)
 	}
-	
+
 	if result == 0 {
 		return fmt.Errorf("lock not owned by this token (expired or stolen)")
 	}
-	
+
 	return nil
 }
 
@@ -269,17 +269,17 @@ func (l *Lock) Extend(ctx context.Context, additionalTTL time.Duration) error {
 			return 0
 		end
 	`
-	
+
 	ttlSeconds := int(additionalTTL.Seconds())
 	result, err := l.client.Eval(ctx, script, []string{l.key}, l.token, ttlSeconds).Int()
 	if err != nil {
 		return fmt.Errorf("extend lock: %w", err)
 	}
-	
+
 	if result == 0 {
 		return fmt.Errorf("lock not owned by this token")
 	}
-	
+
 	l.ttl = additionalTTL
 	return nil
 }
@@ -291,7 +291,7 @@ func (l *Lock) Extend(ctx context.Context, additionalTTL time.Duration) error {
 // RateLimit checks if a request is allowed (token bucket algorithm)
 func (c *CacheService) RateLimit(ctx context.Context, userID string, maxRequests int, window time.Duration) (bool, error) {
 	key := fmt.Sprintf("ratelimit:%s", userID)
-	
+
 	// Lua script for atomic rate limiting
 	script := `
 		local key = KEYS[1]
@@ -309,20 +309,20 @@ func (c *CacheService) RateLimit(ctx context.Context, userID string, maxRequests
 			return 1  -- Request allowed
 		end
 	`
-	
+
 	ttlSeconds := int(window.Seconds())
 	result, err := c.client.Eval(ctx, script, []string{key}, maxRequests, ttlSeconds).Int()
 	if err != nil {
 		return false, fmt.Errorf("rate limit check: %w", err)
 	}
-	
+
 	return result == 1, nil
 }
 
 // GetRateLimitStatus returns current rate limit status
 func (c *CacheService) GetRateLimitStatus(ctx context.Context, userID string) (int, error) {
 	key := fmt.Sprintf("ratelimit:%s", userID)
-	
+
 	count, err := c.client.Get(ctx, key).Int()
 	if err != nil {
 		if err == redis.Nil {
@@ -330,7 +330,7 @@ func (c *CacheService) GetRateLimitStatus(ctx context.Context, userID string) (i
 		}
 		return 0, fmt.Errorf("get rate limit: %w", err)
 	}
-	
+
 	return count, nil
 }
 
@@ -341,12 +341,12 @@ func (c *CacheService) GetRateLimitStatus(ctx context.Context, userID string) (i
 // PublishReceiptEvent publishes a receipt event to subscribers
 func (c *CacheService) PublishReceiptEvent(ctx context.Context, event string, data map[string]interface{}) error {
 	channel := "receipt:events"
-	
+
 	payload, err := json.Marshal(data)
 	if err != nil {
 		return fmt.Errorf("marshal event: %w", err)
 	}
-	
+
 	return c.client.Publish(ctx, channel, payload).Err()
 }
 
@@ -354,12 +354,12 @@ func (c *CacheService) PublishReceiptEvent(ctx context.Context, event string, da
 func (c *CacheService) SubscribeToReceiptEvents(ctx context.Context, handler func(event []byte)) error {
 	pubsub := c.client.Subscribe(ctx, "receipt:events")
 	defer pubsub.Close()
-	
+
 	ch := pubsub.Channel()
 	for msg := range ch {
 		handler([]byte(msg.Payload))
 	}
-	
+
 	return nil
 }
 
@@ -382,16 +382,16 @@ func (c *CacheService) GetCounter(ctx context.Context, metric string) (int64, er
 // RecordLatency records a latency measurement
 func (c *CacheService) RecordLatency(ctx context.Context, operation string, latencyMs float64) error {
 	key := fmt.Sprintf("latency:%s", operation)
-	
+
 	// Use sorted set to track latencies (for percentile calculations)
 	now := time.Now().Unix()
 	member := fmt.Sprintf("%d:%.2f", now, latencyMs)
-	
+
 	pipe := c.client.Pipeline()
 	pipe.ZAdd(ctx, key, redis.Z{Score: latencyMs, Member: member})
 	pipe.ZRemRangeByScore(ctx, key, "-inf", fmt.Sprintf("%d", time.Now().Add(-1*time.Hour).Unix()))
 	pipe.Expire(ctx, key, 24*time.Hour)
-	
+
 	_, err := pipe.Exec(ctx)
 	return err
 }
@@ -399,25 +399,25 @@ func (c *CacheService) RecordLatency(ctx context.Context, operation string, late
 // GetLatencyPercentile calculates latency percentile
 func (c *CacheService) GetLatencyPercentile(ctx context.Context, operation string, percentile float64) (float64, error) {
 	key := fmt.Sprintf("latency:%s", operation)
-	
+
 	// Get total count
 	count, err := c.client.ZCard(ctx, key).Result()
 	if err != nil || count == 0 {
 		return 0, err
 	}
-	
+
 	// Calculate index for percentile
-	index := int64(float64(count) * percentile / 100.0)
+	index := int64(float64(count) * percentile / 1.0)
 	if index >= count {
 		index = count - 1
 	}
-	
+
 	// Get value at index
 	values, err := c.client.ZRange(ctx, key, index, index).Result()
 	if err != nil || len(values) == 0 {
 		return 0, err
 	}
-	
+
 	// Parse latency from "timestamp:latency" format
 	var latency float64
 	fmt.Sscanf(values[0], "%*d:%f", &latency)
@@ -435,12 +435,12 @@ func (c *CacheService) GetStats() map[string]interface{} {
 	if total > 0 {
 		hitRate = float64(c.hits) / float64(total)
 	}
-	
+
 	return map[string]interface{}{
-		"hits":      c.hits,
-		"misses":    c.misses,
-		"total":     total,
-		"hit_rate":  hitRate,
+		"hits":     c.hits,
+		"misses":   c.misses,
+		"total":    total,
+		"hit_rate": hitRate,
 	}
 }
 
@@ -458,17 +458,17 @@ func (c *CacheService) ResetStats() {
 func (c *CacheService) Health(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
-	
+
 	start := time.Now()
 	if err := c.client.Ping(ctx).Err(); err != nil {
 		return fmt.Errorf("redis ping failed: %w", err)
 	}
-	
+
 	latency := time.Since(start)
 	if latency > 100*time.Millisecond {
 		c.logger.Warn("redis high latency", zap.Duration("latency", latency))
 	}
-	
+
 	return nil
 }
 

@@ -462,10 +462,10 @@ type Receipt struct {
 	Code            string                 `protobuf:"bytes,2,opt,name=code,proto3" json:"code,omitempty"`                                                                                          // Unique receipt code (indexed)
 	TransactionType TransactionType        `protobuf:"varint,3,opt,name=transaction_type,json=transactionType,proto3,enum=accounting.receipt.v3.TransactionType" json:"transaction_type,omitempty"` // Enum for better performance
 	CodedType       string                 `protobuf:"bytes,4,opt,name=coded_type,json=codedType,proto3" json:"coded_type,omitempty"`                                                               // Optional subtype
-	// Amounts (stored as int64 in atomic units)
-	Amount          int64 `protobuf:"varint,5,opt,name=amount,proto3" json:"amount,omitempty"`                                          // In smallest currency unit
-	OriginalAmount  int64 `protobuf:"varint,6,opt,name=original_amount,json=originalAmount,proto3" json:"original_amount,omitempty"`    // For conversions
-	TransactionCost int64 `protobuf:"varint,7,opt,name=transaction_cost,json=transactionCost,proto3" json:"transaction_cost,omitempty"` // Fees
+	// Amounts (stored as double in atomic units)
+	Amount          float64 `protobuf:"fixed64,5,opt,name=amount,proto3" json:"amount,omitempty"`                                          // In smallest currency unit
+	OriginalAmount  float64 `protobuf:"fixed64,6,opt,name=original_amount,json=originalAmount,proto3" json:"original_amount,omitempty"`    // For conversions
+	TransactionCost float64 `protobuf:"fixed64,7,opt,name=transaction_cost,json=transactionCost,proto3" json:"transaction_cost,omitempty"` // Fees
 	// Currency
 	Currency            string `protobuf:"bytes,8,opt,name=currency,proto3" json:"currency,omitempty"`                                                     // Currency code
 	OriginalCurrency    string `protobuf:"bytes,9,opt,name=original_currency,json=originalCurrency,proto3" json:"original_currency,omitempty"`             // For conversions
@@ -557,21 +557,21 @@ func (x *Receipt) GetCodedType() string {
 	return ""
 }
 
-func (x *Receipt) GetAmount() int64 {
+func (x *Receipt) GetAmount() float64 {
 	if x != nil {
 		return x.Amount
 	}
 	return 0
 }
 
-func (x *Receipt) GetOriginalAmount() int64 {
+func (x *Receipt) GetOriginalAmount() float64 {
 	if x != nil {
 		return x.OriginalAmount
 	}
 	return 0
 }
 
-func (x *Receipt) GetTransactionCost() int64 {
+func (x *Receipt) GetTransactionCost() float64 {
 	if x != nil {
 		return x.TransactionCost
 	}
@@ -723,7 +723,7 @@ type ReceiptSummary struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	Code            string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
 	TransactionType TransactionType        `protobuf:"varint,2,opt,name=transaction_type,json=transactionType,proto3,enum=accounting.receipt.v3.TransactionType" json:"transaction_type,omitempty"`
-	Amount          int64                  `protobuf:"varint,3,opt,name=amount,proto3" json:"amount,omitempty"`
+	Amount          float64                `protobuf:"fixed64,3,opt,name=amount,proto3" json:"amount,omitempty"`
 	Currency        string                 `protobuf:"bytes,4,opt,name=currency,proto3" json:"currency,omitempty"`
 	Status          TransactionStatus      `protobuf:"varint,5,opt,name=status,proto3,enum=accounting.receipt.v3.TransactionStatus" json:"status,omitempty"`
 	CreatedAt       *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
@@ -775,7 +775,7 @@ func (x *ReceiptSummary) GetTransactionType() TransactionType {
 	return TransactionType_TRANSACTION_TYPE_UNSPECIFIED
 }
 
-func (x *ReceiptSummary) GetAmount() int64 {
+func (x *ReceiptSummary) GetAmount() float64 {
 	if x != nil {
 		return x.Amount
 	}
@@ -809,9 +809,9 @@ type CreateReceiptRequest struct {
 	TransactionType TransactionType        `protobuf:"varint,1,opt,name=transaction_type,json=transactionType,proto3,enum=accounting.receipt.v3.TransactionType" json:"transaction_type,omitempty"`
 	CodedType       string                 `protobuf:"bytes,2,opt,name=coded_type,json=codedType,proto3" json:"coded_type,omitempty"`
 	// Amounts (in atomic units)
-	Amount          int64 `protobuf:"varint,3,opt,name=amount,proto3" json:"amount,omitempty"`
-	OriginalAmount  int64 `protobuf:"varint,4,opt,name=original_amount,json=originalAmount,proto3" json:"original_amount,omitempty"`
-	TransactionCost int64 `protobuf:"varint,5,opt,name=transaction_cost,json=transactionCost,proto3" json:"transaction_cost,omitempty"`
+	Amount          float64 `protobuf:"fixed64,3,opt,name=amount,proto3" json:"amount,omitempty"`
+	OriginalAmount  float64 `protobuf:"fixed64,4,opt,name=original_amount,json=originalAmount,proto3" json:"original_amount,omitempty"`
+	TransactionCost float64 `protobuf:"fixed64,5,opt,name=transaction_cost,json=transactionCost,proto3" json:"transaction_cost,omitempty"`
 	// Currency
 	Currency            string `protobuf:"bytes,6,opt,name=currency,proto3" json:"currency,omitempty"`
 	OriginalCurrency    string `protobuf:"bytes,7,opt,name=original_currency,json=originalCurrency,proto3" json:"original_currency,omitempty"`
@@ -876,21 +876,21 @@ func (x *CreateReceiptRequest) GetCodedType() string {
 	return ""
 }
 
-func (x *CreateReceiptRequest) GetAmount() int64 {
+func (x *CreateReceiptRequest) GetAmount() float64 {
 	if x != nil {
 		return x.Amount
 	}
 	return 0
 }
 
-func (x *CreateReceiptRequest) GetOriginalAmount() int64 {
+func (x *CreateReceiptRequest) GetOriginalAmount() float64 {
 	if x != nil {
 		return x.OriginalAmount
 	}
 	return 0
 }
 
-func (x *CreateReceiptRequest) GetTransactionCost() int64 {
+func (x *CreateReceiptRequest) GetTransactionCost() float64 {
 	if x != nil {
 		return x.TransactionCost
 	}
@@ -2233,9 +2233,9 @@ const file_proto_shared_accounting_receipt_v3_proto_rawDesc = "" +
 	"\x10transaction_type\x18\x03 \x01(\x0e2&.accounting.receipt.v3.TransactionTypeR\x0ftransactionType\x12\x1d\n" +
 	"\n" +
 	"coded_type\x18\x04 \x01(\tR\tcodedType\x12\x16\n" +
-	"\x06amount\x18\x05 \x01(\x03R\x06amount\x12'\n" +
-	"\x0foriginal_amount\x18\x06 \x01(\x03R\x0eoriginalAmount\x12)\n" +
-	"\x10transaction_cost\x18\a \x01(\x03R\x0ftransactionCost\x12\x1a\n" +
+	"\x06amount\x18\x05 \x01(\x01R\x06amount\x12'\n" +
+	"\x0foriginal_amount\x18\x06 \x01(\x01R\x0eoriginalAmount\x12)\n" +
+	"\x10transaction_cost\x18\a \x01(\x01R\x0ftransactionCost\x12\x1a\n" +
 	"\bcurrency\x18\b \x01(\tR\bcurrency\x12+\n" +
 	"\x11original_currency\x18\t \x01(\tR\x10originalCurrency\x122\n" +
 	"\x15exchange_rate_decimal\x18\n" +
@@ -2265,7 +2265,7 @@ const file_proto_shared_accounting_receipt_v3_proto_rawDesc = "" +
 	"\x0eReceiptSummary\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\tR\x04code\x12Q\n" +
 	"\x10transaction_type\x18\x02 \x01(\x0e2&.accounting.receipt.v3.TransactionTypeR\x0ftransactionType\x12\x16\n" +
-	"\x06amount\x18\x03 \x01(\x03R\x06amount\x12\x1a\n" +
+	"\x06amount\x18\x03 \x01(\x01R\x06amount\x12\x1a\n" +
 	"\bcurrency\x18\x04 \x01(\tR\bcurrency\x12@\n" +
 	"\x06status\x18\x05 \x01(\x0e2(.accounting.receipt.v3.TransactionStatusR\x06status\x129\n" +
 	"\n" +
@@ -2274,9 +2274,9 @@ const file_proto_shared_accounting_receipt_v3_proto_rawDesc = "" +
 	"\x10transaction_type\x18\x01 \x01(\x0e2&.accounting.receipt.v3.TransactionTypeR\x0ftransactionType\x12\x1d\n" +
 	"\n" +
 	"coded_type\x18\x02 \x01(\tR\tcodedType\x12\x16\n" +
-	"\x06amount\x18\x03 \x01(\x03R\x06amount\x12'\n" +
-	"\x0foriginal_amount\x18\x04 \x01(\x03R\x0eoriginalAmount\x12)\n" +
-	"\x10transaction_cost\x18\x05 \x01(\x03R\x0ftransactionCost\x12\x1a\n" +
+	"\x06amount\x18\x03 \x01(\x01R\x06amount\x12'\n" +
+	"\x0foriginal_amount\x18\x04 \x01(\x01R\x0eoriginalAmount\x12)\n" +
+	"\x10transaction_cost\x18\x05 \x01(\x01R\x0ftransactionCost\x12\x1a\n" +
 	"\bcurrency\x18\x06 \x01(\tR\bcurrency\x12+\n" +
 	"\x11original_currency\x18\a \x01(\tR\x10originalCurrency\x122\n" +
 	"\x15exchange_rate_decimal\x18\b \x01(\tR\x13exchangeRateDecimal\x12E\n" +

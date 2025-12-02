@@ -49,12 +49,12 @@ func (uc *StatementUsecase) GetAccountBalance(
 	ctx context.Context,
 	accountNumber string,
 	accountType domain.AccountType,
-) (int64, error) {
+) (float64, error) {
 	// Try cache first
 	cacheKey := fmt.Sprintf("balance:account:%s", accountNumber)
-	
+
 	if val, err := uc.redisClient.Get(ctx, cacheKey).Result(); err == nil {
-		var balance int64
+		var balance float64
 		if jsonErr := json.Unmarshal([]byte(val), &balance); jsonErr == nil {
 			return balance, nil
 		}
@@ -81,7 +81,7 @@ func (uc *StatementUsecase) GetAccountBalance(
 func (uc *StatementUsecase) GetCachedBalance(ctx context.Context, accountID int64) (*domain.Balance, error) {
 	// Try cache first
 	cacheKey := fmt.Sprintf("balance:id:%d", accountID)
-	
+
 	if val, err := uc.redisClient.Get(ctx, cacheKey).Result(); err == nil {
 		var balance domain.Balance
 		if jsonErr := json.Unmarshal([]byte(val), &balance); jsonErr == nil {
@@ -115,9 +115,9 @@ func (uc *StatementUsecase) GetAccountStatement(
 	from, to time.Time,
 ) (*domain.AccountStatement, error) {
 	// Try cache for recent statements (1 minute)
-	cacheKey := fmt.Sprintf("statement:account:%s:%s:%d:%d", 
+	cacheKey := fmt.Sprintf("statement:account:%s:%s:%d:%d",
 		accountNumber, accountType, from.Unix(), to.Unix())
-	
+
 	if val, err := uc.redisClient.Get(ctx, cacheKey).Result(); err == nil {
 		var statement domain.AccountStatement
 		if jsonErr := json.Unmarshal([]byte(val), &statement); jsonErr == nil {
@@ -198,14 +198,14 @@ func (uc *StatementUsecase) GetOwnerStatement(
 
 	// Fetch statement for each account
 	var statements []*domain.AccountStatement
-	
+
 	for _, account := range accounts {
 		statement, err := uc.GetAccountStatement(ctx, account.AccountNumber, accountType, from, to)
 		if err != nil {
 			// Log error but continue with other accounts
 			continue
 		}
-		
+
 		statements = append(statements, statement)
 	}
 
@@ -221,7 +221,7 @@ func (uc *StatementUsecase) GetOwnerSummary(
 ) (*domain.OwnerSummary, error) {
 	// Try cache first (2 minutes)
 	cacheKey := fmt.Sprintf("summary:owner:%s:%s:%s", ownerType, ownerID, accountType)
-	
+
 	if val, err := uc.redisClient.Get(ctx, cacheKey).Result(); err == nil {
 		var summary domain.OwnerSummary
 		if jsonErr := json.Unmarshal([]byte(val), &summary); jsonErr == nil {
@@ -242,7 +242,6 @@ func (uc *StatementUsecase) GetOwnerSummary(
 
 	return summary, nil
 }
-
 
 // ListOwnerLedgers fetches all ledger entries for an owner in a period
 func (uc *StatementUsecase) ListOwnerLedgers(
@@ -276,7 +275,7 @@ func (uc *StatementUsecase) GenerateDailyReport(
 	// Try cache first (daily reports are stable)
 	dateKey := date.Format("2006-01-02")
 	cacheKey := fmt.Sprintf("report:daily:%s:%s", dateKey, accountType)
-	
+
 	if val, err := uc.redisClient.Get(ctx, cacheKey).Result(); err == nil {
 		var reports []*domain.DailyReport
 		if jsonErr := json.Unmarshal([]byte(val), &reports); jsonErr == nil {
@@ -296,13 +295,13 @@ func (uc *StatementUsecase) GenerateDailyReport(
 	// Cache for 1 hour (historical data doesn't change)
 	if data, err := json.Marshal(reports); err == nil {
 		ttl := 1 * time.Hour
-		
+
 		// If date is today, use shorter TTL (5 minutes)
 		today := time.Now().Format("2006-01-02")
 		if dateKey == today {
 			ttl = 5 * time.Minute
 		}
-		
+
 		_ = uc.redisClient.Set(ctx, cacheKey, data, ttl).Err()
 	}
 
@@ -320,7 +319,7 @@ func (uc *StatementUsecase) GenerateOwnerDailyReport(
 	// Try cache first
 	dateKey := date.Format("2006-01-02")
 	cacheKey := fmt.Sprintf("report:owner:%s:%s:%s:%s", ownerType, ownerID, accountType, dateKey)
-	
+
 	if val, err := uc.redisClient.Get(ctx, cacheKey).Result(); err == nil {
 		var report domain.DailyReport
 		if jsonErr := json.Unmarshal([]byte(val), &report); jsonErr == nil {
@@ -358,7 +357,7 @@ func (uc *StatementUsecase) GetTransactionSummary(
 ) ([]*domain.TransactionSummary, error) {
 	// Try cache first
 	cacheKey := fmt.Sprintf("summary:transactions:%s:%d:%d", accountType, from.Unix(), to.Unix())
-	
+
 	if val, err := uc.redisClient.Get(ctx, cacheKey).Result(); err == nil {
 		var summaries []*domain.TransactionSummary
 		if jsonErr := json.Unmarshal([]byte(val), &summaries); jsonErr == nil {
@@ -389,12 +388,12 @@ func (uc *StatementUsecase) GetTransactionSummary(
 func (uc *StatementUsecase) GetSystemHoldings(
 	ctx context.Context,
 	accountType domain.AccountType,
-) (map[string]int64, error) {
+) (map[string]float64, error) {
 	// Try cache first (5 minutes)
 	cacheKey := fmt.Sprintf("holdings:system:%s", accountType)
-	
+
 	if val, err := uc.redisClient.Get(ctx, cacheKey).Result(); err == nil {
-		var holdings map[string]int64
+		var holdings map[string]float64
 		if jsonErr := json.Unmarshal([]byte(val), &holdings); jsonErr == nil {
 			return holdings, nil
 		}
@@ -423,7 +422,7 @@ func (uc *StatementUsecase) GetDailyTransactionVolume(
 	// Try cache first (1 hour for historical, 5 min for today)
 	dateKey := date.Format("2006-01-02")
 	cacheKey := fmt.Sprintf("volume:daily:%s:%s", accountType, dateKey)
-	
+
 	if val, err := uc.redisClient.Get(ctx, cacheKey).Result(); err == nil {
 		var summaries []*domain.TransactionSummary
 		if jsonErr := json.Unmarshal([]byte(val), &summaries); jsonErr == nil {
@@ -457,36 +456,36 @@ func (uc *StatementUsecase) GetDailyTransactionVolume(
 // InvalidateAccountCache invalidates all cache entries for an account
 func (uc *StatementUsecase) InvalidateAccountCache(ctx context.Context, accountNumber string) error {
 	pattern := fmt.Sprintf("*:account:%s*", accountNumber)
-	
+
 	iter := uc.redisClient.Scan(ctx, 0, pattern, 0).Iterator()
 	for iter.Next(ctx) {
 		if err := uc.redisClient.Del(ctx, iter.Val()).Err(); err != nil {
 			return fmt.Errorf("failed to delete cache key %s: %w", iter.Val(), err)
 		}
 	}
-	
+
 	if err := iter.Err(); err != nil {
 		return fmt.Errorf("failed to scan cache keys: %w", err)
 	}
-	
+
 	return nil
 }
 
 // InvalidateOwnerCache invalidates all cache entries for an owner
 func (uc *StatementUsecase) InvalidateOwnerCache(ctx context.Context, ownerType domain.OwnerType, ownerID string) error {
 	pattern := fmt.Sprintf("*:owner:%s:%s*", ownerType, ownerID)
-	
+
 	iter := uc.redisClient.Scan(ctx, 0, pattern, 0).Iterator()
 	for iter.Next(ctx) {
 		if err := uc.redisClient.Del(ctx, iter.Val()).Err(); err != nil {
 			return fmt.Errorf("failed to delete cache key %s: %w", iter.Val(), err)
 		}
 	}
-	
+
 	if err := iter.Err(); err != nil {
 		return fmt.Errorf("failed to scan cache keys: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -527,5 +526,5 @@ func (uc *StatementUsecase) GetAccountBalanceHistory(
 // BalanceSnapshot represents balance at a point in time
 type BalanceSnapshot struct {
 	Timestamp time.Time `json:"timestamp"`
-	Balance   int64     `json:"balance"`
+	Balance   float64   `json:"balance"`
 }

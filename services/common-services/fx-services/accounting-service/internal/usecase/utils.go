@@ -95,3 +95,11 @@ func ptrString(s string) *string {
 func ptrOwnerType(t domain.OwnerType) *domain.OwnerType {
 	return &t
 }
+
+// Helper to convert *float64 to float64
+func ptrFloat64ToFloat64(p *float64) float64 {
+	if p == nil {
+		return 0
+	}
+	return *p
+}

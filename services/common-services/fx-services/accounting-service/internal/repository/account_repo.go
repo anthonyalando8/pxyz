@@ -241,7 +241,7 @@ func (r *accountRepo) GetOrCreateUserAccounts(
 		// For demo accounts, get all demo-enabled currencies
 		var demoCurrencies []struct {
 			Code               string
-			DemoInitialBalance int64
+			DemoInitialBalance float64
 		}
 
 		rows, err := tx.Query(ctx, `
@@ -257,7 +257,7 @@ func (r *accountRepo) GetOrCreateUserAccounts(
 		for rows.Next() {
 			var curr struct {
 				Code               string
-				DemoInitialBalance int64
+				DemoInitialBalance float64
 			}
 			if err := rows.Scan(&curr.Code, &curr.DemoInitialBalance); err != nil {
 				return nil, fmt.Errorf("failed to scan currency: %w", err)
@@ -312,13 +312,13 @@ func (r *accountRepo) GetOrCreateUserAccounts(
 	if accountType == domain.AccountTypeDemo {
 		for _, acc := range accountsToCreate {
 			// Get demo initial balance for this currency
-			var demoBalance int64
+			var demoBalance float64
 			err := tx.QueryRow(ctx, `
 				SELECT demo_initial_balance
 				FROM currencies
 				WHERE code = $1
 			`, acc.Currency).Scan(&demoBalance)
-			
+
 			if err != nil {
 				return nil, fmt.Errorf("failed to get demo balance: %w", err)
 			}
@@ -704,7 +704,6 @@ func (r *accountRepo) Unlock(ctx context.Context, accountID int64, tx pgx.Tx) er
 	return nil
 }
 
-
 func (r *accountRepo) GetSystemAccount(
 	ctx context.Context,
 	currency string,
@@ -712,20 +711,20 @@ func (r *accountRepo) GetSystemAccount(
 ) (*domain.Account, error) {
 	// System accounts follow pattern: SYS-LIQ-{CURRENCY}
 	accountNumber := fmt.Sprintf("SYS-LIQ-%s", currency)
-	
+
 	account, err := r.GetByAccountNumber(ctx, accountNumber)
 	if err != nil {
 		return nil, fmt.Errorf("system account not found for currency %s: %w", currency, err)
 	}
-	
+
 	if account.OwnerType != domain.OwnerTypeSystem {
 		return nil, errors.New("account is not a system account")
 	}
-	
+
 	if account.Purpose != domain.PurposeLiquidity {
 		return nil, fmt.Errorf("expected liquidity account, got %s", account.Purpose)
 	}
-	
+
 	return account, nil
 }
 
@@ -738,20 +737,20 @@ func (r *accountRepo) GetSystemFeeAccount(
 ) (*domain.Account, error) {
 	// System fee accounts follow pattern: SYS-FEE-{CURRENCY}
 	accountNumber := fmt.Sprintf("SYS-FEE-%s", currency)
-	
+
 	account, err := r.GetByAccountNumber(ctx, accountNumber)
 	if err != nil {
 		return nil, fmt.Errorf("system fee account not found for currency %s: %w", currency, err)
 	}
-	
+
 	if account.OwnerType != domain.OwnerTypeSystem {
 		return nil, errors.New("account is not a system account")
 	}
-	
+
 	if account.Purpose != domain.PurposeFees {
 		return nil, fmt.Errorf("expected fees account, got %s", account.Purpose)
 	}
-	
+
 	return account, nil
 }
 
@@ -783,7 +782,7 @@ func (r *accountRepo) GetAgentAccount(
 	account, err := scanAccount(row)
 	if err != nil {
 		if errors.Is(err, xerrors.ErrNotFound) {
-			return nil, fmt.Errorf("agent commission account not found for agent %s, currency %s: %w", 
+			return nil, fmt.Errorf("agent commission account not found for agent %s, currency %s: %w",
 				agentExternalID, currency, xerrors.ErrAgentNotFound)
 		}
 		return nil, fmt.Errorf("failed to get agent account: %w", err)
@@ -869,16 +868,16 @@ func (r *accountRepo) GetSystemAccountTx(
 	accountType domain.AccountType,
 ) (*domain.Account, error) {
 	accountNumber := fmt.Sprintf("SYS-LIQ-%s", currency)
-	
+
 	account, err := r.GetByAccountNumberTx(ctx, accountNumber, tx)
 	if err != nil {
 		return nil, fmt.Errorf("system account not found for currency %s: %w", currency, err)
 	}
-	
+
 	if account.OwnerType != domain.OwnerTypeSystem {
 		return nil, errors.New("account is not a system account")
 	}
-	
+
 	return account, nil
 }
 
@@ -889,16 +888,16 @@ func (r *accountRepo) GetSystemFeeAccountTx(
 	currency string,
 ) (*domain.Account, error) {
 	accountNumber := fmt.Sprintf("SYS-FEE-%s", currency)
-	
+
 	account, err := r.GetByAccountNumberTx(ctx, accountNumber, tx)
 	if err != nil {
 		return nil, fmt.Errorf("system fee account not found for currency %s: %w", currency, err)
 	}
-	
+
 	if account.OwnerType != domain.OwnerTypeSystem {
 		return nil, errors.New("account is not a system account")
 	}
-	
+
 	return account, nil
 }
 
@@ -929,7 +928,7 @@ func (r *accountRepo) GetAgentAccountTx(
 	account, err := scanAccount(row)
 	if err != nil {
 		if errors.Is(err, xerrors.ErrNotFound) {
-			return nil, fmt.Errorf("agent commission account not found for agent %s, currency %s: %w", 
+			return nil, fmt.Errorf("agent commission account not found for agent %s, currency %s: %w",
 				agentExternalID, currency, xerrors.ErrAgentNotFound)
 		}
 		return nil, fmt.Errorf("failed to get agent account: %w", err)
@@ -960,7 +959,7 @@ func (r *accountRepo) GetSystemAccountsForCurrencies(
 	}
 
 	query := baseSelectQuery + ` WHERE account_number = ANY($1) AND owner_type = $2`
-	
+
 	rows, err := r.db.Query(ctx, query, accountNumbers, domain.OwnerTypeSystem)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query system accounts: %w", err)
@@ -987,58 +986,58 @@ func (r *accountRepo) CreateSystemAccounts(
 	ctx context.Context,
 	tx pgx.Tx,
 	currency string,
-	initialBalance int64,
+	initialBalance float64,
 ) ([]*domain.Account, error) {
 	if tx == nil {
 		return nil, errors.New("transaction cannot be nil")
 	}
 
 	now := time.Now()
-	
+
 	systemAccounts := []*domain.Account{
 		{
-			OwnerType:      domain.OwnerTypeSystem,
-			OwnerID:        "system",
-			Currency:       currency,
-			Purpose:        domain.PurposeLiquidity,
-			AccountType:    domain.AccountTypeReal,
-			IsActive:       true,
-			AccountNumber:  fmt.Sprintf("SYS-LIQ-%s", currency),
-			CreatedAt:      now,
-			UpdatedAt:      now,
+			OwnerType:     domain.OwnerTypeSystem,
+			OwnerID:       "system",
+			Currency:      currency,
+			Purpose:       domain.PurposeLiquidity,
+			AccountType:   domain.AccountTypeReal,
+			IsActive:      true,
+			AccountNumber: fmt.Sprintf("SYS-LIQ-%s", currency),
+			CreatedAt:     now,
+			UpdatedAt:     now,
 		},
 		{
-			OwnerType:      domain.OwnerTypeSystem,
-			OwnerID:        "system",
-			Currency:       currency,
-			Purpose:        domain.PurposeFees,
-			AccountType:    domain.AccountTypeReal,
-			IsActive:       true,
-			AccountNumber:  fmt.Sprintf("SYS-FEE-%s", currency),
-			CreatedAt:      now,
-			UpdatedAt:      now,
+			OwnerType:     domain.OwnerTypeSystem,
+			OwnerID:       "system",
+			Currency:      currency,
+			Purpose:       domain.PurposeFees,
+			AccountType:   domain.AccountTypeReal,
+			IsActive:      true,
+			AccountNumber: fmt.Sprintf("SYS-FEE-%s", currency),
+			CreatedAt:     now,
+			UpdatedAt:     now,
 		},
 		{
-			OwnerType:      domain.OwnerTypeSystem,
-			OwnerID:        "system",
-			Currency:       currency,
-			Purpose:        domain.PurposeClearing,
-			AccountType:    domain.AccountTypeReal,
-			IsActive:       true,
-			AccountNumber:  fmt.Sprintf("SYS-CLR-%s", currency),
-			CreatedAt:      now,
-			UpdatedAt:      now,
+			OwnerType:     domain.OwnerTypeSystem,
+			OwnerID:       "system",
+			Currency:      currency,
+			Purpose:       domain.PurposeClearing,
+			AccountType:   domain.AccountTypeReal,
+			IsActive:      true,
+			AccountNumber: fmt.Sprintf("SYS-CLR-%s", currency),
+			CreatedAt:     now,
+			UpdatedAt:     now,
 		},
 		{
-			OwnerType:      domain.OwnerTypeSystem,
-			OwnerID:        "system",
-			Currency:       currency,
-			Purpose:        domain.PurposeSettlement,
-			AccountType:    domain.AccountTypeReal,
-			IsActive:       true,
-			AccountNumber:  fmt.Sprintf("SYS-SET-%s", currency),
-			CreatedAt:      now,
-			UpdatedAt:      now,
+			OwnerType:     domain.OwnerTypeSystem,
+			OwnerID:       "system",
+			Currency:      currency,
+			Purpose:       domain.PurposeSettlement,
+			AccountType:   domain.AccountTypeReal,
+			IsActive:      true,
+			AccountNumber: fmt.Sprintf("SYS-SET-%s", currency),
+			CreatedAt:     now,
+			UpdatedAt:     now,
 		},
 	}
 

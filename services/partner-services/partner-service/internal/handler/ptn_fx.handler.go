@@ -56,14 +56,6 @@ func (h *PartnerHandler) getPartnerContext(r *http. Request) (partnerID string, 
 	return partnerID, userID, true
 }
 
-func toAtomicUnits(amount float64) int64 {
-	return int64(amount * 100)
-}
-
-func fromAtomicUnits(amount int64) float64 {
-	return float64(amount) / 100.0
-}
-
 // ============================================================================
 // ACCOUNT MANAGEMENT ENDPOINTS
 // ============================================================================
@@ -241,7 +233,7 @@ func (h *PartnerHandler) CreditUser(w http.ResponseWriter, r *http.Request) {
 	// 3. Credit user account via accounting service
 	creditReq := &accountingpb.CreditRequest{
 		AccountNumber:       targetAccount.AccountNumber,
-		Amount:              toAtomicUnits(req. Amount),
+		Amount:              req. Amount,
 		Currency:            req.Currency,
 		AccountType:         accountingpb. AccountType_ACCOUNT_TYPE_REAL,
 		Description:         req.Description,
@@ -272,7 +264,7 @@ func (h *PartnerHandler) CreditUser(w http.ResponseWriter, r *http.Request) {
 		"currency":        req.Currency,
 		"receipt_code":    creditResp.ReceiptCode,
 		"journal_id":      creditResp.JournalId,
-		"balance_after":   fromAtomicUnits(creditResp.BalanceAfter),
+		"balance_after":   creditResp.BalanceAfter,
 		"timestamp":       creditResp.CreatedAt.AsTime(). Unix(),
 	})
 
@@ -285,7 +277,7 @@ func (h *PartnerHandler) CreditUser(w http.ResponseWriter, r *http.Request) {
 		"transaction_ref": req.TransactionRef,
 		"receipt_code":    creditResp. ReceiptCode,
 		"journal_id":      creditResp.JournalId,
-		"balance_after":   fromAtomicUnits(creditResp.BalanceAfter),
+		"balance_after":   creditResp.BalanceAfter,
 		"created_at":      creditResp.CreatedAt. AsTime(),
 	})
 }

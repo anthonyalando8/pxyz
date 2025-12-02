@@ -8,22 +8,22 @@ import (
 
 // LedgerAggregate represents a complete transaction with all its parts
 type LedgerAggregate struct {
-	Journal  *Journal
-	Ledgers  []*Ledger  // Double-entry ledger entries
-	Receipt  *Receipt   // Optional receipt reference
-	Fees     []*TransactionFee // Applied fees
+	Journal *Journal
+	Ledgers []*Ledger         // Double-entry ledger entries
+	Receipt *Receipt          // Optional receipt reference
+	Fees    []*TransactionFee // Applied fees
 }
 
 // Receipt represents a transaction receipt (optional)
 type Receipt struct {
-	Code         string
-	ReceiptType  TransactionType
-	AccountType  AccountType
-	Amount       int64
-	Currency     string
-	Status       string
-	ExternalRef  *string
-	CreatedAt    string
+	Code        string
+	ReceiptType TransactionType
+	AccountType AccountType
+	Amount      float64
+	Currency    string
+	Status      string
+	ExternalRef *string
+	CreatedAt   string
 }
 
 // TransactionRequest represents a request to create a transaction
@@ -38,30 +38,29 @@ type TransactionRequest struct {
 	CreatedByType       *OwnerType
 	IPAddress           *string
 	UserAgent           *string
-	
+
 	// Ledger entries (must balance)
 	Entries []*LedgerEntryRequest
-	
+
 	// Optional receipt
 	GenerateReceipt bool
-	ReceiptCode	*string
+	ReceiptCode     *string
 
-	AgentExternalID     *string `json:"agent_external_id,omitempty"`     // Agent who facilitated transaction
-	IsSystemTransaction bool    `json:"is_system_transaction"`           // If true, no fees applied
-	Metadata            map[string]interface{} `json:"metadata,omitempty"`              // Additional metadata
+	AgentExternalID     *string                `json:"agent_external_id,omitempty"` // Agent who facilitated transaction
+	IsSystemTransaction bool                   `json:"is_system_transaction"`       // If true, no fees applied
+	Metadata            map[string]interface{} `json:"metadata,omitempty"`          // Additional metadata
 }
 
 // LedgerEntryRequest represents a single ledger entry
 type LedgerEntryRequest struct {
-	AccountNumber string      // Account to debit/credit
-	Amount        int64       // Amount in smallest unit
-	DrCr          DrCr        // DR or CR
-	Currency      string      // Currency code
-	Description   *string     // Optional description
-	ReceiptCode   *string     // Optional receipt code
-	Metadata            map[string]interface{} `json:"metadata,omitempty"`              // Additional metadata
+	AccountNumber string                 // Account to debit/credit
+	Amount        float64                // Amount in smallest unit
+	DrCr          DrCr                   // DR or CR
+	Currency      string                 // Currency code
+	Description   *string                // Optional description
+	ReceiptCode   *string                // Optional receipt code
+	Metadata      map[string]interface{} `json:"metadata,omitempty"` // Additional metadata
 }
-
 
 // ===============================
 // TRANSACTION RESULT TYPES
@@ -72,9 +71,9 @@ type TransactionResult struct {
 	ReceiptCode    string
 	TransactionID  int64
 	Status         string
-	Amount         int64
+	Amount         float64
 	Currency       string
-	Fee            int64
+	Fee            float64
 	ProcessingTime time.Duration
 	CreatedAt      time.Time
 }
@@ -91,7 +90,7 @@ type TransactionStatus struct {
 // CreditRequest represents a simple credit operation (add money to account)
 type CreditRequest struct {
 	AccountNumber       string                 `json:"account_number"`
-	Amount              int64                  `json:"amount"`
+	Amount              float64                `json:"amount"`
 	Currency            string                 `json:"currency"`
 	AccountType         AccountType            `json:"account_type"`
 	Description         string                 `json:"description"`
@@ -100,14 +99,13 @@ type CreditRequest struct {
 	CreatedByExternalID string                 `json:"created_by_external_id"`
 	CreatedByType       OwnerType              `json:"created_by_type"`
 	Metadata            map[string]interface{} `json:"metadata,omitempty"`
-		ReceiptCode	*string
-
+	ReceiptCode         *string
 }
 
 // DebitRequest represents a simple debit operation (remove money from account)
 type DebitRequest struct {
 	AccountNumber       string                 `json:"account_number"`
-	Amount              int64                  `json:"amount"`
+	Amount              float64                `json:"amount"`
 	Currency            string                 `json:"currency"`
 	AccountType         AccountType            `json:"account_type"`
 	Description         string                 `json:"description"`
@@ -116,15 +114,14 @@ type DebitRequest struct {
 	CreatedByExternalID string                 `json:"created_by_external_id"`
 	CreatedByType       OwnerType              `json:"created_by_type"`
 	Metadata            map[string]interface{} `json:"metadata,omitempty"`
-		ReceiptCode	*string
-
+	ReceiptCode         *string
 }
 
 // TransferRequest represents a transfer between two accounts (same currency)
 type TransferRequest struct {
 	FromAccountNumber   string                 `json:"from_account_number"`
 	ToAccountNumber     string                 `json:"to_account_number"`
-	Amount              int64                  `json:"amount"`
+	Amount              float64                `json:"amount"`
 	AccountType         AccountType            `json:"account_type"`
 	Description         string                 `json:"description"`
 	IdempotencyKey      *string                `json:"idempotency_key,omitempty"`
@@ -133,15 +130,14 @@ type TransferRequest struct {
 	CreatedByType       OwnerType              `json:"created_by_type"`
 	AgentExternalID     *string                `json:"agent_external_id,omitempty"` // Agent who facilitated
 	Metadata            map[string]interface{} `json:"metadata,omitempty"`
-		ReceiptCode	*string
-
+	ReceiptCode         *string
 }
 
 // ConversionRequest represents a currency conversion transfer
 type ConversionRequest struct {
-	FromAccountNumber   string                 `json:"from_account_number"`   // USD account
-	ToAccountNumber     string                 `json:"to_account_number"`     // EUR account
-	Amount              int64                  `json:"amount"`                // Amount in source currency
+	FromAccountNumber   string                 `json:"from_account_number"` // USD account
+	ToAccountNumber     string                 `json:"to_account_number"`   // EUR account
+	Amount              float64                `json:"amount"`              // Amount in source currency
 	AccountType         AccountType            `json:"account_type"`
 	IdempotencyKey      *string                `json:"idempotency_key,omitempty"`
 	ExternalRef         *string                `json:"external_ref,omitempty"`
@@ -149,34 +145,31 @@ type ConversionRequest struct {
 	CreatedByType       OwnerType              `json:"created_by_type"`
 	AgentExternalID     *string                `json:"agent_external_id,omitempty"`
 	Metadata            map[string]interface{} `json:"metadata,omitempty"`
-		ReceiptCode	*string
-
+	ReceiptCode         *string
 }
 
 type AgentCommissionRequest struct {
 	AgentExternalID   string  `json:"agent_external_id"`
-	TransactionRef    string  `json:"transaction_ref"`    // Reference to original transaction
+	TransactionRef    string  `json:"transaction_ref"` // Reference to original transaction
 	Currency          string  `json:"currency"`
-	TransactionAmount int64   `json:"transaction_amount"` // Original transaction amount
-	CommissionAmount  int64   `json:"commission_amount"`  // Calculated commission
+	TransactionAmount float64 `json:"transaction_amount"` // Original transaction amount
+	CommissionAmount  float64 `json:"commission_amount"`  // Calculated commission
 	CommissionRate    *string `json:"commission_rate"`    // Rate used for calculation
 	IdempotencyKey    *string `json:"idempotency_key,omitempty"`
-		ReceiptCode	*string
-
+	ReceiptCode       *string
 }
 type TradeRequest struct {
 	AccountNumber       string                 `json:"account_number"`
-	Amount              int64                  `json:"amount"`
+	Amount              float64                `json:"amount"`
 	Currency            string                 `json:"currency"`
 	AccountType         AccountType            `json:"account_type"`
 	TradeID             string                 `json:"trade_id"`
-	TradeType           string                 `json:"trade_type"`           // e.g., "forex", "crypto", "sports"
+	TradeType           string                 `json:"trade_type"` // e.g., "forex", "crypto", "sports"
 	IdempotencyKey      *string                `json:"idempotency_key,omitempty"`
 	CreatedByExternalID string                 `json:"created_by_external_id"`
 	CreatedByType       OwnerType              `json:"created_by_type"`
 	Metadata            map[string]interface{} `json:"metadata,omitempty"`
-		ReceiptCode	*string
-
+	ReceiptCode         *string
 }
 
 // ========================================
@@ -287,7 +280,7 @@ func (r *AgentCommissionRequest) Validate() error {
 // ========================================
 
 // GetTotalAmount returns the debit amount (transaction amount)
-func (r *TransactionRequest) GetTotalAmount() int64 {
+func (r *TransactionRequest) GetTotalAmount() float64 {
 	for _, entry := range r.Entries {
 		if entry.DrCr == DrCrDebit {
 			return entry.Amount
@@ -301,14 +294,14 @@ func (r *TransactionRequest) IsConversion() bool {
 	if len(r.Entries) < 2 {
 		return false
 	}
-	
+
 	currency := r.Entries[0].Currency
 	for _, entry := range r.Entries[1:] {
 		if entry.Currency != currency {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -323,11 +316,11 @@ func (r *TransactionRequest) Validate() error {
 	if len(r.Entries) < 2 {
 		return errors.New("at least 2 ledger entries required for double-entry")
 	}
-	
+
 	// Validate entries balance (debits = credits)
-	var totalDebits, totalCredits int64
+	var totalDebits, totalCredits float64
 	currencyMap := make(map[string]bool)
-	
+
 	for _, entry := range r.Entries {
 		if entry.AccountNumber == "" {
 			return errors.New("account_number required for all entries")
@@ -341,33 +334,33 @@ func (r *TransactionRequest) Validate() error {
 		if entry.Currency == "" {
 			return errors.New("currency required for all entries")
 		}
-		
+
 		currencyMap[entry.Currency] = true
-		
+
 		if entry.DrCr == DrCrDebit {
 			totalDebits += entry.Amount
 		} else {
 			totalCredits += entry.Amount
 		}
 	}
-	
+
 	// Check balance
 	if totalDebits != totalCredits {
 		return ErrUnbalancedEntry
 	}
-	
+
 	// All entries must be same currency for now (multi-currency later)
 	if len(currencyMap) > 1 {
 		return errors.New("all entries must be in same currency")
 	}
-	
+
 	return nil
 }
 
 // IsBalanced checks if debits equal credits
 func (r *TransactionRequest) IsBalanced() bool {
-	var totalDebits, totalCredits int64
-	
+	var totalDebits, totalCredits float64
+
 	for _, entry := range r.Entries {
 		if entry.DrCr == DrCrDebit {
 			totalDebits += entry.Amount
@@ -375,7 +368,7 @@ func (r *TransactionRequest) IsBalanced() bool {
 			totalCredits += entry.Amount
 		}
 	}
-	
+
 	return totalDebits == totalCredits
 }
 
@@ -388,7 +381,7 @@ func (r *TransactionRequest) GetCurrency() string {
 }
 
 // SimpleTransfer creates a simple A->B transfer request
-func SimpleTransfer(fromAccount, toAccount string, amount int64, currency string, accountType AccountType) *TransactionRequest {
+func SimpleTransfer(fromAccount, toAccount string, amount float64, currency string, accountType AccountType) *TransactionRequest {
 	return &TransactionRequest{
 		TransactionType: TransactionTypeTransfer,
 		AccountType:     accountType,

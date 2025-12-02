@@ -11,7 +11,7 @@ import (
 // ReceiptUpdate holds update information for a receipt
 type ReceiptUpdate struct {
 	Code                string
-	Status              string  // "pending", "processing", "completed", etc.
+	Status              string // "pending", "processing", "completed", etc.
 	CreditorStatus      string
 	CreditorLedgerID    int64
 	DebitorStatus       string
@@ -67,7 +67,7 @@ type Receipt struct {
 	// Status
 	Status         string `json:"status"`          // "pending", "processing", "completed", etc.
 	CreditorStatus string `json:"creditor_status"` // "pending", "completed", etc.
-	DebitorStatus  string `json:"debitor_status"`  // "pending", "completed", etc. 
+	DebitorStatus  string `json:"debitor_status"`  // "pending", "completed", etc.
 	ErrorMessage   string `json:"error_message,omitempty"`
 
 	// Timestamps
@@ -90,9 +90,9 @@ type Receipt struct {
 
 // ReceiptFilters for querying receipts
 type ReceiptFilters struct {
-	TransactionTypes []string   // Array of string transaction types
-	Statuses         []string   // Array of string statuses
-	AccountType      string     // "real", "demo", or empty for all
+	TransactionTypes []string // Array of string transaction types
+	Statuses         []string // Array of string statuses
+	AccountType      string   // "real", "demo", or empty for all
 	Currency         string
 	ExternalID       string
 	FromDate         *time.Time
@@ -127,14 +127,14 @@ func StringToAccountType(s string) receiptpb.AccountType {
 	case "demo":
 		return receiptpb.AccountType_ACCOUNT_TYPE_DEMO
 	default:
-		return receiptpb. AccountType_ACCOUNT_TYPE_UNSPECIFIED
+		return receiptpb.AccountType_ACCOUNT_TYPE_UNSPECIFIED
 	}
 }
 
 // TransactionTypeToString converts proto enum to database string
 func TransactionTypeToString(tt receiptpb.TransactionType) string {
 	switch tt {
-	case receiptpb. TransactionType_TRANSACTION_TYPE_DEPOSIT:
+	case receiptpb.TransactionType_TRANSACTION_TYPE_DEPOSIT:
 		return "deposit"
 	case receiptpb.TransactionType_TRANSACTION_TYPE_WITHDRAWAL:
 		return "withdrawal"
@@ -175,7 +175,7 @@ func StringToTransactionType(s string) receiptpb.TransactionType {
 	case "fee":
 		return receiptpb.TransactionType_TRANSACTION_TYPE_FEE
 	case "commission":
-		return receiptpb. TransactionType_TRANSACTION_TYPE_COMMISSION
+		return receiptpb.TransactionType_TRANSACTION_TYPE_COMMISSION
 	case "reversal":
 		return receiptpb.TransactionType_TRANSACTION_TYPE_REVERSAL
 	case "adjustment":
@@ -188,7 +188,7 @@ func StringToTransactionType(s string) receiptpb.TransactionType {
 }
 
 // TransactionStatusToString converts proto enum to database string
-func TransactionStatusToString(ts receiptpb. TransactionStatus) string {
+func TransactionStatusToString(ts receiptpb.TransactionStatus) string {
 	switch ts {
 	case receiptpb.TransactionStatus_TRANSACTION_STATUS_PENDING:
 		return "pending"
@@ -225,7 +225,7 @@ func StringToTransactionStatus(s string) receiptpb.TransactionStatus {
 	case "suspended":
 		return receiptpb.TransactionStatus_TRANSACTION_STATUS_SUSPENDED
 	case "expired":
-		return receiptpb. TransactionStatus_TRANSACTION_STATUS_EXPIRED
+		return receiptpb.TransactionStatus_TRANSACTION_STATUS_EXPIRED
 	default:
 		return receiptpb.TransactionStatus_TRANSACTION_STATUS_UNSPECIFIED
 	}
@@ -234,13 +234,13 @@ func StringToTransactionStatus(s string) receiptpb.TransactionStatus {
 // OwnerTypeToString converts proto enum to database string
 func OwnerTypeToString(ot receiptpb.OwnerType) string {
 	switch ot {
-	case receiptpb. OwnerType_OWNER_TYPE_SYSTEM:
+	case receiptpb.OwnerType_OWNER_TYPE_SYSTEM:
 		return "system"
 	case receiptpb.OwnerType_OWNER_TYPE_USER:
 		return "user"
 	case receiptpb.OwnerType_OWNER_TYPE_AGENT:
 		return "agent"
-	case receiptpb. OwnerType_OWNER_TYPE_PARTNER:
+	case receiptpb.OwnerType_OWNER_TYPE_PARTNER:
 		return "partner"
 	default:
 		return "user" // Default
@@ -253,9 +253,9 @@ func StringToOwnerType(s string) receiptpb.OwnerType {
 	case "system":
 		return receiptpb.OwnerType_OWNER_TYPE_SYSTEM
 	case "user":
-		return receiptpb. OwnerType_OWNER_TYPE_USER
+		return receiptpb.OwnerType_OWNER_TYPE_USER
 	case "agent":
-		return receiptpb. OwnerType_OWNER_TYPE_AGENT
+		return receiptpb.OwnerType_OWNER_TYPE_AGENT
 	case "partner":
 		return receiptpb.OwnerType_OWNER_TYPE_PARTNER
 	default:
@@ -271,10 +271,10 @@ func (p *PartyInfo) ToProto() *receiptpb.PartyInfo {
 	if p == nil {
 		return nil
 	}
-	return &receiptpb. PartyInfo{
+	return &receiptpb.PartyInfo{
 		AccountId:  p.AccountID,
 		LedgerId:   p.LedgerID,
-		OwnerType:  StringToOwnerType(p. OwnerType),
+		OwnerType:  StringToOwnerType(p.OwnerType),
 		Status:     StringToTransactionStatus(p.Status),
 		ExternalId: p.ExternalID,
 		IsCreditor: p.IsCreditor,
@@ -299,125 +299,115 @@ func PartyInfoFromProto(pb *receiptpb.PartyInfo) PartyInfo {
 // Receipt Proto Converters
 // ===============================
 
-func (r *Receipt) ToProto() *receiptpb. Receipt {
-	if r == nil {
-		return nil
-	}
+func (r *Receipt) ToProto() *receiptpb.Receipt {
+    if r == nil {
+        return nil
+    }
 
-	metadata, _ := structpb.NewStruct(r.Metadata)
+    metadata, _ := structpb.NewStruct(r.Metadata)
 
-	var updatedAt, completedAt, reversedAt *timestamppb.Timestamp
-	if r.UpdatedAt != nil {
-		updatedAt = timestamppb.New(*r.UpdatedAt)
-	}
-	if r.CompletedAt != nil {
-		completedAt = timestamppb. New(*r.CompletedAt)
-	}
-	if r.ReversedAt != nil {
-		reversedAt = timestamppb.New(*r.ReversedAt)
-	}
+    var updatedAt, completedAt, reversedAt *timestamppb.Timestamp
+    if r.UpdatedAt != nil {
+        updatedAt = timestamppb. New(*r.UpdatedAt)
+    }
+    if r.CompletedAt != nil {
+        completedAt = timestamppb. New(*r.CompletedAt)
+    }
+    if r.ReversedAt != nil {
+        reversedAt = timestamppb.New(*r.ReversedAt)
+    }
 
-	// Convert float64 amounts to int64 (multiply by 100 for cents)
-	amount := int64(r.Amount * 100)
-	originalAmount := int64(r. OriginalAmount * 100)
-	transactionCost := int64(r.TransactionCost * 100)
-
-	return &receiptpb.Receipt{
-		LookupId:            r.LookupID,
-		Code:                r.Code,
-		TransactionType:     StringToTransactionType(r.TransactionType),
-		CodedType:           r.CodedType,
-		Amount:              amount,
-		OriginalAmount:      originalAmount,
-		TransactionCost:     transactionCost,
-		Currency:            r.Currency,
-		OriginalCurrency:    r.OriginalCurrency,
-		ExchangeRateDecimal: r.ExchangeRate,
-		AccountType:         StringToAccountType(r.AccountType),
-		Creditor:            r.Creditor.ToProto(),
-		Debitor:             r.Debitor.ToProto(),
-		Status:              StringToTransactionStatus(r.Status),
-		CreditorStatus:      StringToTransactionStatus(r.CreditorStatus),
-		DebitorStatus:       StringToTransactionStatus(r.DebitorStatus),
-		ExternalRef:         r.ExternalRef,
-		ParentReceiptCode:   r.ParentReceiptCode,
-		ReversalReceiptCode: r.ReversalReceiptCode,
-		CreatedAt:           timestamppb.New(r.CreatedAt),
-		UpdatedAt:           updatedAt,
-		CompletedAt:         completedAt,
-		ReversedAt:          reversedAt,
-		CreatedBy:           r.CreatedBy,
-		ReversedBy:          r.ReversedBy,
-		ErrorMessage:        r.ErrorMessage,
-		Metadata:            metadata,
-	}
+    return &receiptpb. Receipt{
+        LookupId:            r.LookupID,
+        Code:                r.Code,
+        TransactionType:     StringToTransactionType(r.TransactionType),
+        CodedType:           r.CodedType,
+        Amount:              r.Amount,              // ✅ Direct assignment (no conversion)
+        OriginalAmount:      r.OriginalAmount,      // ✅ Direct assignment
+        TransactionCost:     r.TransactionCost,     // ✅ Direct assignment
+        Currency:            r.Currency,
+        OriginalCurrency:    r.OriginalCurrency,
+        ExchangeRateDecimal: r.ExchangeRate,
+        AccountType:         StringToAccountType(r.AccountType),
+        Creditor:            r.Creditor. ToProto(),
+        Debitor:             r.Debitor.ToProto(),
+        Status:              StringToTransactionStatus(r. Status),
+        CreditorStatus:      StringToTransactionStatus(r. CreditorStatus),
+        DebitorStatus:       StringToTransactionStatus(r.DebitorStatus),
+        ExternalRef:         r.ExternalRef,
+        ParentReceiptCode:   r.ParentReceiptCode,
+        ReversalReceiptCode: r. ReversalReceiptCode,
+        CreatedAt:           timestamppb.New(r.CreatedAt),
+        UpdatedAt:           updatedAt,
+        CompletedAt:         completedAt,
+        ReversedAt:          reversedAt,
+        CreatedBy:           r.CreatedBy,
+        ReversedBy:          r.ReversedBy,
+        ErrorMessage:        r.ErrorMessage,
+        Metadata:            metadata,
+    }
 }
 
 func ReceiptFromProto(pb *receiptpb.Receipt) Receipt {
-	if pb == nil {
-		return Receipt{}
-	}
+    if pb == nil {
+        return Receipt{}
+    }
 
-	var updatedAt, completedAt, reversedAt *time.Time
-	if pb.GetUpdatedAt() != nil {
-		t := pb.GetUpdatedAt(). AsTime()
-		updatedAt = &t
-	}
-	if pb.GetCompletedAt() != nil {
-		t := pb.GetCompletedAt(). AsTime()
-		completedAt = &t
-	}
-	if pb.GetReversedAt() != nil {
-		t := pb.GetReversedAt(). AsTime()
-		reversedAt = &t
-	}
+    var updatedAt, completedAt, reversedAt *time.Time
+    if pb.GetUpdatedAt() != nil {
+        t := pb.GetUpdatedAt().AsTime()
+        updatedAt = &t
+    }
+    if pb.GetCompletedAt() != nil {
+        t := pb. GetCompletedAt().AsTime()
+        completedAt = &t
+    }
+    if pb.GetReversedAt() != nil {
+        t := pb. GetReversedAt().AsTime()
+        reversedAt = &t
+    }
 
-	metadata := map[string]interface{}{}
-	if pb.GetMetadata() != nil {
-		metadata = pb.GetMetadata(). AsMap()
-	}
+    metadata := map[string]interface{}{}
+    if pb.GetMetadata() != nil {
+        metadata = pb.GetMetadata(). AsMap()
+    }
 
-	// Convert int64 amounts (cents) to float64 (dollars)
-	amount := float64(pb.GetAmount()) / 100.0
-	originalAmount := float64(pb.GetOriginalAmount()) / 100.0
-	transactionCost := float64(pb.GetTransactionCost()) / 100.0
-
-	return Receipt{
-		LookupID:            pb.GetLookupId(),
-		Code:                pb.GetCode(),
-		TransactionType:     TransactionTypeToString(pb.GetTransactionType()),
-		CodedType:           pb.GetCodedType(),
-		Amount:              amount,
-		OriginalAmount:      originalAmount,
-		TransactionCost:     transactionCost,
-		Currency:            pb. GetCurrency(),
-		OriginalCurrency:    pb.GetOriginalCurrency(),
-		ExchangeRate:        pb.GetExchangeRateDecimal(),
-		AccountType:         AccountTypeToString(pb.GetAccountType()),
-		Creditor:            PartyInfoFromProto(pb. GetCreditor()),
-		Debitor:             PartyInfoFromProto(pb.GetDebitor()),
-		Status:              TransactionStatusToString(pb.GetStatus()),
-		CreditorStatus:      TransactionStatusToString(pb. GetCreditorStatus()),
-		DebitorStatus:       TransactionStatusToString(pb.GetDebitorStatus()),
-		ExternalRef:         pb.GetExternalRef(),
-		ParentReceiptCode:   pb.GetParentReceiptCode(),
-		ReversalReceiptCode: pb.GetReversalReceiptCode(),
-		CreatedAt:           pb.GetCreatedAt().AsTime(),
-		UpdatedAt:           updatedAt,
-		CompletedAt:         completedAt,
-		ReversedAt:          reversedAt,
-		CreatedBy:           pb.GetCreatedBy(),
-		ReversedBy:          pb.GetReversedBy(),
-		ErrorMessage:        pb.GetErrorMessage(),
-		Metadata:            metadata,
-	}
+    return Receipt{
+        LookupID:            pb.GetLookupId(),
+        Code:                pb.GetCode(),
+        TransactionType:     TransactionTypeToString(pb.GetTransactionType()),
+        CodedType:           pb.GetCodedType(),
+        Amount:              pb.GetAmount(),              // ✅ Direct assignment
+        OriginalAmount:      pb.GetOriginalAmount(),      // ✅ Direct assignment
+        TransactionCost:     pb. GetTransactionCost(),     // ✅ Direct assignment
+        Currency:            pb.GetCurrency(),
+        OriginalCurrency:    pb.GetOriginalCurrency(),
+        ExchangeRate:        pb.GetExchangeRateDecimal(),
+        AccountType:         AccountTypeToString(pb.GetAccountType()),
+        Creditor:            PartyInfoFromProto(pb.GetCreditor()),
+        Debitor:             PartyInfoFromProto(pb.GetDebitor()),
+        Status:              TransactionStatusToString(pb.GetStatus()),
+        CreditorStatus:      TransactionStatusToString(pb.GetCreditorStatus()),
+        DebitorStatus:       TransactionStatusToString(pb.GetDebitorStatus()),
+        ExternalRef:         pb. GetExternalRef(),
+        ParentReceiptCode:   pb. GetParentReceiptCode(),
+        ReversalReceiptCode: pb.GetReversalReceiptCode(),
+        CreatedAt:           pb.GetCreatedAt().AsTime(),
+        UpdatedAt:           updatedAt,
+        CompletedAt:         completedAt,
+        ReversedAt:          reversedAt,
+        CreatedBy:           pb.GetCreatedBy(),
+        ReversedBy:          pb.GetReversedBy(),
+        ErrorMessage:        pb.GetErrorMessage(),
+        Metadata:            metadata,
+    }
 }
 
 // ===============================
 // ReceiptUpdate Proto Converters
 // ===============================
 
-func (ru *ReceiptUpdate) ToProto() *receiptpb. UpdateReceiptRequest {
+func (ru *ReceiptUpdate) ToProto() *receiptpb.UpdateReceiptRequest {
 	if ru == nil {
 		return nil
 	}
@@ -427,7 +417,7 @@ func (ru *ReceiptUpdate) ToProto() *receiptpb. UpdateReceiptRequest {
 		reversedAt = timestamppb.New(*ru.ReversedAt)
 	}
 	if ru.CompletedAt != nil {
-		completedAt = timestamppb. New(*ru.CompletedAt)
+		completedAt = timestamppb.New(*ru.CompletedAt)
 	}
 
 	metadataPatch := &structpb.Struct{}
@@ -444,7 +434,7 @@ func (ru *ReceiptUpdate) ToProto() *receiptpb. UpdateReceiptRequest {
 		DebitorLedgerId:     ru.DebitorLedgerID,
 		ReversedBy:          ru.ReversedBy,
 		ReversedAt:          reversedAt,
-		ReversalReceiptCode: ru. ReversalReceiptCode,
+		ReversalReceiptCode: ru.ReversalReceiptCode,
 		ErrorMessage:        ru.ErrorMessage,
 		CompletedAt:         completedAt,
 		MetadataPatch:       metadataPatch,
@@ -458,17 +448,17 @@ func ReceiptUpdateFromProto(pb *receiptpb.UpdateReceiptRequest) *ReceiptUpdate {
 
 	var reversedAt, completedAt *time.Time
 	if pb.GetReversedAt() != nil {
-		t := pb.GetReversedAt(). AsTime()
+		t := pb.GetReversedAt().AsTime()
 		reversedAt = &t
 	}
 	if pb.GetCompletedAt() != nil {
-		t := pb.GetCompletedAt(). AsTime()
+		t := pb.GetCompletedAt().AsTime()
 		completedAt = &t
 	}
 
 	var metadataPatch map[string]any
 	if pb.GetMetadataPatch() != nil {
-		metadataPatch = pb.GetMetadataPatch(). AsMap()
+		metadataPatch = pb.GetMetadataPatch().AsMap()
 	}
 
 	return &ReceiptUpdate{
@@ -518,7 +508,7 @@ func FiltersFromProto(req *receiptpb.ListReceiptsRequest) *ReceiptFilters {
 		PageSize:         int(req.GetPageSize()),
 		PageToken:        req.GetPageToken(),
 		SummaryOnly:      req.GetSummaryOnly(),
-		IncludeMetadata:  req. GetIncludeMetadata(),
+		IncludeMetadata:  req.GetIncludeMetadata(),
 	}
 
 	// Convert timestamps
@@ -527,7 +517,7 @@ func FiltersFromProto(req *receiptpb.ListReceiptsRequest) *ReceiptFilters {
 		filters.FromDate = &t
 	}
 	if req.GetToDate() != nil {
-		t := req. GetToDate().AsTime()
+		t := req.GetToDate().AsTime()
 		filters.ToDate = &t
 	}
 

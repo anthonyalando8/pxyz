@@ -14,7 +14,6 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-
 type LedgerUsecase struct {
 	ledgerRepo  repository.LedgerRepository
 	accountRepo repository.AccountRepository
@@ -41,7 +40,7 @@ func NewLedgerUsecase(
 func (uc *LedgerUsecase) GetByID(ctx context.Context, id int64) (*domain.Ledger, error) {
 	// Try cache first (5 minutes)
 	cacheKey := fmt.Sprintf("ledger:id:%d", id)
-	
+
 	if val, err := uc.redisClient.Get(ctx, cacheKey).Result(); err == nil {
 		var ledger domain.Ledger
 		if jsonErr := json.Unmarshal([]byte(val), &ledger); jsonErr == nil {
@@ -67,7 +66,7 @@ func (uc *LedgerUsecase) GetByID(ctx context.Context, id int64) (*domain.Ledger,
 func (uc *LedgerUsecase) ListByJournal(ctx context.Context, journalID int64) ([]*domain.Ledger, error) {
 	// Try cache first (5 minutes - ledgers for a journal don't change)
 	cacheKey := fmt.Sprintf("ledger:journal:%d", journalID)
-	
+
 	if val, err := uc.redisClient.Get(ctx, cacheKey).Result(); err == nil {
 		var ledgers []*domain.Ledger
 		if jsonErr := json.Unmarshal([]byte(val), &ledgers); jsonErr == nil {
@@ -108,7 +107,7 @@ func (uc *LedgerUsecase) ListByAccount(
 
 	// Try cache for recent queries (1 minute)
 	cacheKey := uc.buildAccountLedgersCacheKey(accountNumber, accountType, from, to, limit, offset)
-	
+
 	if val, err := uc.redisClient.Get(ctx, cacheKey).Result(); err == nil {
 		var result struct {
 			Ledgers []*domain.Ledger `json:"ledgers"`
@@ -120,7 +119,7 @@ func (uc *LedgerUsecase) ListByAccount(
 	}
 
 	// Fetch from database
-	ledgers,_, err := uc.ledgerRepo.ListByAccount(ctx, accountNumber, accountType, from, to, limit, offset)
+	ledgers, _, err := uc.ledgerRepo.ListByAccount(ctx, accountNumber, accountType, from, to, limit, offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to list ledgers by account: %w", err)
 	}
@@ -156,7 +155,7 @@ func (uc *LedgerUsecase) ListByOwner(
 	// Try cache first (2 minutes)
 	cacheKey := fmt.Sprintf("ledger:owner:%s:%s:%s:%d:%d",
 		ownerType, ownerID, accountType, from.Unix(), to.Unix())
-	
+
 	if val, err := uc.redisClient.Get(ctx, cacheKey).Result(); err == nil {
 		var ledgers []*domain.Ledger
 		if jsonErr := json.Unmarshal([]byte(val), &ledgers); jsonErr == nil {
@@ -182,7 +181,7 @@ func (uc *LedgerUsecase) ListByOwner(
 func (uc *LedgerUsecase) ListByReceipt(ctx context.Context, receiptCode string) ([]*domain.Ledger, error) {
 	// Try cache first (5 minutes)
 	cacheKey := fmt.Sprintf("ledger:receipt:%s", receiptCode)
-	
+
 	if val, err := uc.redisClient.Get(ctx, cacheKey).Result(); err == nil {
 		var ledgers []*domain.Ledger
 		if jsonErr := json.Unmarshal([]byte(val), &ledgers); jsonErr == nil {
@@ -271,7 +270,7 @@ func (uc *LedgerUsecase) GetAccountTotals(
 	// Try cache first (5 minutes)
 	cacheKey := fmt.Sprintf("ledger:totals:%s:%s:%d:%d",
 		accountNumber, accountType, from.Unix(), to.Unix())
-	
+
 	if val, err := uc.redisClient.Get(ctx, cacheKey).Result(); err == nil {
 		var totals domain.AccountTotals
 		if jsonErr := json.Unmarshal([]byte(val), &totals); jsonErr == nil {
@@ -280,13 +279,13 @@ func (uc *LedgerUsecase) GetAccountTotals(
 	}
 
 	// Fetch ledgers
-	ledgers,_, err := uc.ledgerRepo.ListByAccount(ctx, accountNumber, accountType, &from, &to, 10000, 0)
+	ledgers, _, err := uc.ledgerRepo.ListByAccount(ctx, accountNumber, accountType, &from, &to, 10000, 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get ledgers: %w", err)
 	}
 
 	// Calculate totals
-	var totalDebits, totalCredits int64
+	var totalDebits, totalCredits float64
 	var transactionCount int64
 
 	for _, ledger := range ledgers {
@@ -339,7 +338,7 @@ func (uc *LedgerUsecase) GetRecentActivity(
 
 	// Try cache first (1 minute for recent activity)
 	cacheKey := fmt.Sprintf("ledger:recent:%s:%s:%d", accountNumber, accountType, limit)
-	
+
 	if val, err := uc.redisClient.Get(ctx, cacheKey).Result(); err == nil {
 		var ledgers []*domain.Ledger
 		if jsonErr := json.Unmarshal([]byte(val), &ledgers); jsonErr == nil {
@@ -348,7 +347,7 @@ func (uc *LedgerUsecase) GetRecentActivity(
 	}
 
 	// Fetch from database
-	ledgers,_, err := uc.ledgerRepo.ListByAccount(ctx, accountNumber, accountType, nil, nil, limit, 0)
+	ledgers, _, err := uc.ledgerRepo.ListByAccount(ctx, accountNumber, accountType, nil, nil, limit, 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get recent activity: %w", err)
 	}
@@ -413,14 +412,14 @@ func (uc *LedgerUsecase) InvalidateJournalLedgersCache(ctx context.Context, jour
 func (uc *LedgerUsecase) InvalidateAccountLedgersCache(ctx context.Context, accountNumber string) error {
 	// Delete all ledger caches for this account
 	pattern := fmt.Sprintf("ledger:*:%s:*", accountNumber)
-	
+
 	iter := uc.redisClient.Scan(ctx, 0, pattern, 0).Iterator()
 	for iter.Next(ctx) {
 		if err := uc.redisClient.Del(ctx, iter.Val()).Err(); err != nil {
 			return fmt.Errorf("failed to delete cache key: %w", err)
 		}
 	}
-	
+
 	return iter.Err()
 }
 
@@ -463,12 +462,13 @@ func (uc *LedgerUsecase) ValidateDoubleEntry(ledgers []*domain.LedgerCreate) err
 	}
 
 	// Group by currency
-	balancesByCurrency := make(map[string]int64)
+	balancesByCurrency := make(map[string]float64)
 
 	for _, ledger := range ledgers {
-		if ledger.DrCr == domain.DrCrDebit {
+		switch ledger.DrCr {
+		case domain.DrCrDebit:
 			balancesByCurrency[ledger.Currency] -= ledger.Amount
-		} else if ledger.DrCr == domain.DrCrCredit {
+		case domain.DrCrCredit:
 			balancesByCurrency[ledger.Currency] += ledger.Amount
 		}
 	}
@@ -476,7 +476,7 @@ func (uc *LedgerUsecase) ValidateDoubleEntry(ledgers []*domain.LedgerCreate) err
 	// Check that each currency balances
 	for currency, balance := range balancesByCurrency {
 		if balance != 0 {
-			return fmt.Errorf("ledgers don't balance for currency %s: difference = %d", currency, balance)
+			return fmt.Errorf("ledgers don't balance for currency %s: difference = %.2f", currency, balance)
 		}
 	}
 

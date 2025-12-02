@@ -19,14 +19,14 @@ type Ledger struct {
 	ID           int64           `json:"id" db:"id"`
 	JournalID    int64           `json:"journal_id" db:"journal_id"`
 	AccountID    int64           `json:"account_id" db:"account_id"`
-	AccountType  AccountType     `json:"account_type" db:"account_type"`        // real or demo
-	Amount       int64           `json:"amount" db:"amount"`                    // In smallest currency unit
-	DrCr         DrCr            `json:"dr_cr" db:"dr_cr"`                      // DR or CR
-	Currency     string          `json:"currency" db:"currency"`                // Max 8 chars
-	ReceiptCode  *string         `json:"receipt_code,omitempty" db:"receipt_code"` // Link to receipt
-	BalanceAfter *int64          `json:"balance_after,omitempty" db:"balance_after"` // Account balance after this entry
+	AccountType  AccountType     `json:"account_type" db:"account_type"`             // real or demo
+	Amount       float64         `json:"amount" db:"amount"`                         // In smallest currency unit
+	DrCr         DrCr            `json:"dr_cr" db:"dr_cr"`                           // DR or CR
+	Currency     string          `json:"currency" db:"currency"`                     // Max 8 chars
+	ReceiptCode  *string         `json:"receipt_code,omitempty" db:"receipt_code"`   // Link to receipt
+	BalanceAfter *float64        `json:"balance_after,omitempty" db:"balance_after"` // Account balance after this entry
 	Description  *string         `json:"description,omitempty" db:"description"`
-	Metadata     json.RawMessage `json:"metadata,omitempty" db:"metadata"`      // JSONB field
+	Metadata     json.RawMessage `json:"metadata,omitempty" db:"metadata"` // JSONB field
 	CreatedAt    time.Time       `json:"created_at" db:"created_at"`
 
 	// Populated via JOIN (not in DB)
@@ -39,11 +39,11 @@ type LedgerCreate struct {
 	JournalID    int64
 	AccountID    int64
 	AccountType  AccountType
-	Amount       int64
+	Amount       float64
 	DrCr         DrCr
 	Currency     string
 	ReceiptCode  *string
-	BalanceAfter *int64
+	BalanceAfter *float64
 	Description  *string
 	Metadata     json.RawMessage
 }
@@ -70,13 +70,13 @@ type LedgerFilter struct {
 
 // LedgerBalance represents account balance calculation
 type LedgerBalance struct {
-	AccountID     int64     `json:"account_id"`
-	Currency      string    `json:"currency"`
-	TotalDebits   int64     `json:"total_debits"`
-	TotalCredits  int64     `json:"total_credits"`
-	Balance       int64     `json:"balance"` // Credits - Debits
-	LastLedgerID  *int64    `json:"last_ledger_id,omitempty"`
-	LastUpdated   time.Time `json:"last_updated"`
+	AccountID    int64     `json:"account_id"`
+	Currency     string    `json:"currency"`
+	TotalDebits  float64   `json:"total_debits"`
+	TotalCredits float64   `json:"total_credits"`
+	Balance      float64   `json:"balance"` // Credits - Debits
+	LastLedgerID *int64    `json:"last_ledger_id,omitempty"`
+	LastUpdated  time.Time `json:"last_updated"`
 }
 
 // IsValid checks if the ledger entry has valid required fields
@@ -154,9 +154,9 @@ func ValidatePairedEntry(debit, credit *LedgerCreate) error {
 
 // Common errors
 var (
-	ErrUnbalancedEntry    = NewDomainError("unbalanced ledger entry")
-	ErrInvalidDrCr        = NewDomainError("invalid DR/CR value")
-	ErrMixedAccountTypes  = NewDomainError("cannot mix real and demo accounts in same entry")
+	ErrUnbalancedEntry   = NewDomainError("unbalanced ledger entry")
+	ErrInvalidDrCr       = NewDomainError("invalid DR/CR value")
+	ErrMixedAccountTypes = NewDomainError("cannot mix real and demo accounts in same entry")
 )
 
 // DomainError represents a domain-level error

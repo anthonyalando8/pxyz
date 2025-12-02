@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strconv"
 	"time"
+
 	log "github.com/sirupsen/logrus"
 
 	"accounting-service/internal/domain"
@@ -24,13 +25,13 @@ type AccountingHandler struct {
 	accountingpb.UnimplementedAccountingServiceServer
 
 	// Usecases
-	accountUC    *usecase.AccountUsecase
-	txUC         *usecase.TransactionUsecase
-	statementUC  *usecase.StatementUsecase
-	journalUC    *usecase.JournalUsecase
-	ledgerUC     *usecase.LedgerUsecase
-	feeUC        *usecase.TransactionFeeUsecase
-	feeRuleUC    *usecase.TransactionFeeRuleUsecase
+	accountUC   *usecase.AccountUsecase
+	txUC        *usecase.TransactionUsecase
+	statementUC *usecase.StatementUsecase
+	journalUC   *usecase.JournalUsecase
+	ledgerUC    *usecase.LedgerUsecase
+	feeUC       *usecase.TransactionFeeUsecase
+	feeRuleUC   *usecase.TransactionFeeRuleUsecase
 
 	// Infrastructure
 	redisClient *redis.Client
@@ -121,11 +122,11 @@ func (h *AccountingHandler) CreateAccounts(
 			// Account was created successfully
 			// You may want to fetch it back or convert from createReq
 			account := &domain.Account{
-				OwnerType:             createReq.OwnerType,
-				OwnerID:               createReq.OwnerID,
-				Currency:              createReq.Currency,
-				Purpose:               createReq.Purpose,
-				AccountType:           createReq.AccountType,
+				OwnerType:   createReq.OwnerType,
+				OwnerID:     createReq.OwnerID,
+				Currency:    createReq.Currency,
+				Purpose:     createReq.Purpose,
+				AccountType: createReq.AccountType,
 				// IsActive:              createReq.IsActive,
 				// IsLocked:              createReq.IsLocked,
 				OverdraftLimit:        createReq.OverdraftLimit,
@@ -433,7 +434,7 @@ func (h *AccountingHandler) BatchExecuteTransactions(
 
 	for i, txReq := range req.Transactions {
 		domainReq := convertExecuteTransactionRequestToDomain(txReq)
-		
+
 		result, err := h.txUC.ExecuteTransaction(ctx, domainReq)
 		if err != nil {
 			response.Errors[int32(i)] = err.Error()
@@ -857,8 +858,8 @@ func handleUsecaseError(err error) error {
 
 	// Create a base logger with the original error and function context
 	logger := log.WithFields(log.Fields{
-		"function": "handleUsecaseError",
-		"error":    err. Error(),
+		"function":   "handleUsecaseError",
+		"error":      err.Error(),
 		"error_type": fmt.Sprintf("%T", err),
 	})
 
@@ -866,35 +867,35 @@ func handleUsecaseError(err error) error {
 	case errors.Is(err, xerrors.ErrNotFound):
 		logger.WithField("grpc_code", codes.NotFound).Warn("resource not found")
 		return status.Error(codes.NotFound, err.Error())
-		
+
 	case errors.Is(err, xerrors.ErrInsufficientBalance):
 		logger.WithField("grpc_code", codes.FailedPrecondition).Warn("insufficient balance for transaction")
 		return status.Error(codes.FailedPrecondition, err.Error())
-		
+
 	case errors.Is(err, xerrors.ErrAccountLocked):
-		logger.WithField("grpc_code", codes. PermissionDenied). Warn("attempted operation on locked account")
+		logger.WithField("grpc_code", codes.PermissionDenied).Warn("attempted operation on locked account")
 		return status.Error(codes.PermissionDenied, "account is locked")
-		
+
 	case errors.Is(err, xerrors.ErrAccountInactive):
-		logger.WithField("grpc_code", codes. PermissionDenied).Warn("attempted operation on inactive account")
-		return status.Error(codes. PermissionDenied, "account is inactive")
-		
+		logger.WithField("grpc_code", codes.PermissionDenied).Warn("attempted operation on inactive account")
+		return status.Error(codes.PermissionDenied, "account is inactive")
+
 	case errors.Is(err, xerrors.ErrDuplicateIdempotencyKey):
 		logger.WithField("grpc_code", codes.AlreadyExists).Warn("duplicate idempotency key detected")
 		return status.Error(codes.AlreadyExists, "duplicate idempotency key")
-		
-	case errors.Is(err, xerrors. ErrConcurrentModification):
+
+	case errors.Is(err, xerrors.ErrConcurrentModification):
 		logger.WithField("grpc_code", codes.Aborted).Warn("concurrent modification detected, client should retry")
 		return status.Error(codes.Aborted, "concurrent modification, retry")
-		
+
 	case errors.Is(err, context.DeadlineExceeded):
-		logger. WithField("grpc_code", codes.DeadlineExceeded).Error("request deadline exceeded")
-		return status.Error(codes. DeadlineExceeded, "request timeout")
-		
-	case errors.Is(err, context. Canceled):
+		logger.WithField("grpc_code", codes.DeadlineExceeded).Error("request deadline exceeded")
+		return status.Error(codes.DeadlineExceeded, "request timeout")
+
+	case errors.Is(err, context.Canceled):
 		logger.WithField("grpc_code", codes.Canceled).Info("request canceled by client")
-		return status. Error(codes.Canceled, "request canceled")
-		
+		return status.Error(codes.Canceled, "request canceled")
+
 	default:
 		logger.WithField("grpc_code", codes.Internal).Error("unhandled error - internal server error")
 		return status.Error(codes.Internal, "internal server error")
@@ -912,7 +913,6 @@ func ptrOwnerType(t domain.OwnerType) *domain.OwnerType {
 func ptrAccountType(t domain.AccountType) *domain.AccountType {
 	return &t
 }
-
 
 //additional helper functions
 
@@ -951,7 +951,7 @@ func (h *AccountingHandler) Credit(
 	}
 
 	// Get balance after
-	var balanceAfter int64
+	var balanceAfter float64
 	if len(aggregate.Ledgers) > 0 {
 		for _, ledger := range aggregate.Ledgers {
 			if ledger.DrCr == domain.DrCrCredit && ledger.BalanceAfter != nil {
@@ -1010,7 +1010,7 @@ func (h *AccountingHandler) Debit(
 	}
 
 	// Get balance after
-	var balanceAfter int64
+	var balanceAfter float64
 	if len(aggregate.Ledgers) > 0 {
 		for _, ledger := range aggregate.Ledgers {
 			if ledger.DrCr == domain.DrCrDebit && ledger.BalanceAfter != nil {
@@ -1075,8 +1075,8 @@ func (h *AccountingHandler) Transfer(
 	}
 
 	// Get fees if available
-	var feeAmount int64
-	var agentCommission int64
+	var feeAmount float64
+	var agentCommission float64
 	if len(aggregate.Fees) > 0 {
 		for _, fee := range aggregate.Fees {
 			if fee.FeeType == domain.FeeTypePlatform {
@@ -1089,11 +1089,11 @@ func (h *AccountingHandler) Transfer(
 	}
 
 	return &accountingpb.TransferResponse{
-		JournalId:        aggregate.Journal.ID,
-		ReceiptCode:      receiptCode,
-		FeeAmount:        feeAmount,
-		AgentCommission:  agentCommission,
-		CreatedAt:        timestamppb.New(aggregate.Journal.CreatedAt),
+		JournalId:       aggregate.Journal.ID,
+		ReceiptCode:     receiptCode,
+		FeeAmount:       feeAmount,
+		AgentCommission: agentCommission,
+		CreatedAt:       timestamppb.New(aggregate.Journal.CreatedAt),
 	}, nil
 }
 
@@ -1136,10 +1136,10 @@ func (h *AccountingHandler) ConvertAndTransfer(
 
 	// Extract metadata from ledgers
 	var sourceCurrency, destCurrency string
-	var sourceAmount, convertedAmount int64
+	var sourceAmount, convertedAmount float64
 	var fxRate string
 	var fxRateID int64
-	var feeAmount int64
+	var feeAmount float64
 
 	if len(aggregate.Ledgers) >= 2 {
 		// Source ledger (debit)
@@ -1182,16 +1182,16 @@ func (h *AccountingHandler) ConvertAndTransfer(
 	}
 
 	return &accountingpb.ConversionResponse{
-		JournalId:        aggregate.Journal.ID,
-		ReceiptCode:      receiptCode,
-		SourceCurrency:   sourceCurrency,
-		DestCurrency:     destCurrency,
-		SourceAmount:     sourceAmount,
-		ConvertedAmount:  convertedAmount,
-		FxRate:           fxRate,
-		FxRateId:         fxRateID,
-		FeeAmount:        feeAmount,
-		CreatedAt:        timestamppb.New(aggregate.Journal.CreatedAt),
+		JournalId:       aggregate.Journal.ID,
+		ReceiptCode:     receiptCode,
+		SourceCurrency:  sourceCurrency,
+		DestCurrency:    destCurrency,
+		SourceAmount:    sourceAmount,
+		ConvertedAmount: convertedAmount,
+		FxRate:          fxRate,
+		FxRateId:        fxRateID,
+		FeeAmount:       feeAmount,
+		CreatedAt:       timestamppb.New(aggregate.Journal.CreatedAt),
 	}, nil
 }
 
@@ -1236,7 +1236,7 @@ func (h *AccountingHandler) ProcessTradeWin(
 	}
 
 	// Get balance after
-	var balanceAfter int64
+	var balanceAfter float64
 	if len(aggregate.Ledgers) > 0 {
 		for _, ledger := range aggregate.Ledgers {
 			if ledger.DrCr == domain.DrCrCredit && ledger.BalanceAfter != nil {
@@ -1297,7 +1297,7 @@ func (h *AccountingHandler) ProcessTradeLoss(
 	}
 
 	// Get balance after
-	var balanceAfter int64
+	var balanceAfter float64
 	if len(aggregate.Ledgers) > 0 {
 		for _, ledger := range aggregate.Ledgers {
 			if ledger.DrCr == domain.DrCrDebit && ledger.BalanceAfter != nil {

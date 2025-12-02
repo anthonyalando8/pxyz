@@ -90,7 +90,7 @@ message Account {
     AccountType account_type = 7;
     bool is_active = 8;
     bool is_locked = 9;
-    int64 overdraft_limit = 10;
+    double overdraft_limit = 10;
     int64 parent_agent_id = 11;
     string commission_rate = 12; // NUMERIC as string (e.g. "0.0025")
     google.protobuf.Timestamp created_at = 13;
@@ -100,10 +100,10 @@ message Account {
 message Balance {
     int64 account_id = 1;
     string account_number = 2;
-    int64 balance = 3; // Atomic units (e.g., cents)
-    int64 available_balance = 4;
-    int64 pending_debit = 5;
-    int64 pending_credit = 6;
+    double balance = 3; // Atomic units (e.g., cents)
+    double available_balance = 4;
+    double pending_debit = 5;
+    double pending_credit = 6;
     string currency = 7;
     int64 version = 8;
     google.protobuf.Timestamp last_transaction_at = 9;
@@ -115,7 +115,7 @@ message CreateAccountRequest {
     string currency = 3;
     AccountPurpose purpose = 4;
     AccountType account_type = 5;
-    int64 overdraft_limit = 6;
+    double overdraft_limit = 6;
     int64 parent_agent_id = 7;
     string commission_rate = 8;
 }
@@ -168,7 +168,7 @@ message UpdateAccountRequest {
     int64 id = 1;
     optional bool is_active = 2;
     optional bool is_locked = 3;
-    optional int64 overdraft_limit = 4;
+    optional double overdraft_limit = 4;
 }
 
 message UpdateAccountResponse {
@@ -192,7 +192,7 @@ message GetBalanceResponse {
 
 message LedgerEntry {
     string account_number = 1;
-    int64 amount = 2; // Atomic units
+    double amount = 2; // Atomic units
     DrCr dr_cr = 3;
     string currency = 4;
     optional string description = 5;
@@ -216,9 +216,9 @@ message ExecuteTransactionResponse {
     string receipt_code = 1;
     int64 transaction_id = 2;
     TransactionStatus status = 3;
-    int64 amount = 4;
+    double amount = 4;
     string currency = 5;
-    int64 fee = 6;
+    double fee = 6;
     int64 processing_time_ms = 7;
     google.protobuf.Timestamp created_at = 8;
 }
@@ -243,9 +243,9 @@ message ExecuteTransactionSyncResponse {
     string receipt_code = 1;
     int64 transaction_id = 2;
     TransactionStatus status = 3;
-    int64 amount = 4;
+    double amount = 4;
     string currency = 5;
-    int64 fee = 6;
+    double fee = 6;
     int64 processing_time_ms = 7;
     google.protobuf.Timestamp created_at = 8;
 }
@@ -295,10 +295,10 @@ message Ledger {
     int64 journal_id = 2;
     int64 account_id = 3;
     string account_number = 4;
-    int64 amount = 5;
+    double amount = 5;
     DrCr dr_cr = 6;
     string currency = 7;
-    int64 balance_after = 8;
+    double balance_after = 8;
     optional string description = 9;
     optional string receipt_code = 10;
     google.protobuf.Timestamp created_at = 11;
@@ -358,10 +358,10 @@ message AccountStatement {
     string account_number = 1;
     AccountType account_type = 2;
     repeated Ledger ledgers = 3;
-    int64 opening_balance = 4;
-    int64 closing_balance = 5;
-    int64 total_debits = 6;
-    int64 total_credits = 7;
+    double opening_balance = 4;
+    double closing_balance = 5;
+    double total_debits = 6;
+    double total_credits = 7;
     google.protobuf.Timestamp period_start = 8;
     google.protobuf.Timestamp period_end = 9;
 }
@@ -394,15 +394,15 @@ message OwnerSummary {
     string owner_id = 2;
     AccountType account_type = 3;
     repeated AccountBalance account_balances = 4;
-    int64 total_balance_usd_equivalent = 5;
+    double total_balance_usd_equivalent = 5;
 }
 
 message AccountBalance {
     int64 account_id = 1;
     string account_number = 2;
     string currency = 3;
-    int64 balance = 4;
-    int64 available_balance = 5;
+    double balance = 4;
+    double available_balance = 5;
 }
 
 message GetOwnerSummaryRequest {
@@ -424,10 +424,10 @@ message DailyReport {
     string owner_id = 2;
     int64 account_id = 3;
     string currency = 4;
-    int64 total_debit = 5;
-    int64 total_credit = 6;
-    int64 balance = 7;
-    int64 net_change = 8;
+    double total_debit = 5;
+    double total_credit = 6;
+    double balance = 7;
+    double net_change = 8;
     google.protobuf.Timestamp date = 9;
 }
 
@@ -444,10 +444,10 @@ message TransactionSummary {
     TransactionType transaction_type = 1;
     string currency = 2;
     int64 count = 3;
-    int64 total_amount = 4;
-    int64 min_amount = 5;
-    int64 max_amount = 6;
-    int64 avg_amount = 7;
+    double total_amount = 4;
+    double min_amount = 5;
+    double max_amount = 6;
+    double avg_amount = 7;
 }
 
 message GetTransactionSummaryRequest {
@@ -465,7 +465,7 @@ message GetSystemHoldingsRequest {
 }
 
 message GetSystemHoldingsResponse {
-    map<string, int64> holdings = 1; // currency -> amount
+    map<string, double> holdings = 1; // currency -> amount
 }
 
 // ===============================
@@ -477,7 +477,7 @@ message TransactionFee {
     string receipt_code = 2;
     int64 fee_rule_id = 3;
     FeeType fee_type = 4;
-    int64 amount = 5;
+    double amount = 5;
     string currency = 6;
     optional int64 collected_by_account_id = 7;
     optional int64 ledger_id = 8;
@@ -488,7 +488,7 @@ message TransactionFee {
 
 message CalculateFeeRequest {
     TransactionType transaction_type = 1;
-    int64 amount = 2;
+    double amount = 2;
     optional string source_currency = 3;
     optional string target_currency = 4;
     optional AccountType account_type = 5;
@@ -497,7 +497,7 @@ message CalculateFeeRequest {
 
 message FeeCalculation {
     FeeType fee_type = 1;
-    int64 amount = 2;
+    double amount = 2;
     string currency = 3;
     optional string applied_rate = 4;
     optional int64 rule_id = 5;
@@ -523,7 +523,7 @@ message GetAgentCommissionSummaryRequest {
 }
 
 message GetAgentCommissionSummaryResponse {
-    map<string, int64> commissions = 1; // currency -> total commission
+    map<string, double> commissions = 1; // currency -> total commission
 }
 
 // ===============================
@@ -576,7 +576,7 @@ message TransactionEvent {
     string receipt_code = 2;
     int64 transaction_id = 3;
     TransactionStatus status = 4;
-    int64 amount = 5;
+    double amount = 5;
     string currency = 6;
     optional string error_message = 7;
     google.protobuf.Timestamp timestamp = 8;
@@ -589,7 +589,7 @@ message TransactionEvent {
 
 message CreditRequest {
     string account_number = 1;
-    int64 amount = 2;
+    double amount = 2;
     string currency = 3;
     AccountType account_type = 4;
     string description = 5;
@@ -602,13 +602,13 @@ message CreditRequest {
 message CreditResponse {
     int64 journal_id = 1;
     string receipt_code = 2;
-    int64 balance_after = 3;
+    double balance_after = 3;
     google.protobuf.Timestamp created_at = 4;
 }
 
 message DebitRequest {
     string account_number = 1;
-    int64 amount = 2;
+    double amount = 2;
     string currency = 3;
     AccountType account_type = 4;
     string description = 5;
@@ -621,14 +621,14 @@ message DebitRequest {
 message DebitResponse {
     int64 journal_id = 1;
     string receipt_code = 2;
-    int64 balance_after = 3;
+    double balance_after = 3;
     google.protobuf.Timestamp created_at = 4;
 }
 
 message TransferRequest {
     string from_account_number = 1;
     string to_account_number = 2;
-    int64 amount = 3;
+    double amount = 3;
     AccountType account_type = 4;
     string description = 5;
     optional string idempotency_key = 6;
@@ -641,15 +641,15 @@ message TransferRequest {
 message TransferResponse {
     int64 journal_id = 1;
     string receipt_code = 2;
-    int64 fee_amount = 3;
-    int64 agent_commission = 4;
+    double fee_amount = 3;
+    double agent_commission = 4;
     google.protobuf.Timestamp created_at = 5;
 }
 
 message ConversionRequest {
     string from_account_number = 1;
     string to_account_number = 2;
-    int64 amount = 3; // Amount in source currency
+    double amount = 3; // Amount in source currency
     AccountType account_type = 4;
     optional string idempotency_key = 5;
     optional string external_ref = 6;
@@ -663,17 +663,17 @@ message ConversionResponse {
     string receipt_code = 2;
     string source_currency = 3;
     string dest_currency = 4;
-    int64 source_amount = 5;
-    int64 converted_amount = 6;
+    double source_amount = 5;
+    double converted_amount = 6;
     string fx_rate = 7;
     int64 fx_rate_id = 8;
-    int64 fee_amount = 9;
+    double fee_amount = 9;
     google.protobuf.Timestamp created_at = 10;
 }
 
 message TradeRequest {
     string account_number = 1;
-    int64 amount = 2;
+    double amount = 2;
     string currency = 3;
     AccountType account_type = 4;
     string trade_id = 5;
@@ -688,7 +688,7 @@ message TradeResponse {
     string receipt_code = 2;
     string trade_id = 3;
     string trade_result = 4; // "win" or "loss"
-    int64 balance_after = 5;
+    double balance_after = 5;
     google.protobuf.Timestamp created_at = 6;
 }
 
@@ -696,8 +696,8 @@ message AgentCommissionRequest {
     string agent_external_id = 1;
     string transaction_ref = 2; // Receipt code of original transaction
     string currency = 3;
-    int64 transaction_amount = 4;
-    int64 commission_amount = 5;
+    double transaction_amount = 4;
+    double commission_amount = 5;
     optional string commission_rate = 6;
     optional string idempotency_key = 7;
 }
@@ -706,7 +706,7 @@ message AgentCommissionResponse {
     int64 journal_id = 1;
     string receipt_code = 2;
     string agent_external_id = 3;
-    int64 commission_amount = 4;
+    double commission_amount = 4;
     google.protobuf.Timestamp created_at = 5;
 }
 
@@ -725,7 +725,7 @@ message TransactionApproval {
     int64 requested_by = 2;
     TransactionType transaction_type = 3;
     string account_number = 4;
-    int64 amount = 5;
+    double amount = 5;
     string currency = 6;
     string description = 7;
     ApprovalStatus status = 8;
@@ -741,7 +741,7 @@ message CreateTransactionApprovalRequest {
     int64 requested_by = 1;
     TransactionType transaction_type = 2;
     string account_number = 3;
-    int64 amount = 4;
+    double amount = 4;
     string currency = 5;
     string description = 6;
     optional string to_account_number = 7; // For transfers

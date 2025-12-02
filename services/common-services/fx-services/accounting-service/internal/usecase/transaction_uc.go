@@ -18,9 +18,9 @@ import (
 	notificationclient "x/shared/notification"
 	partnerclient "x/shared/partner"
 
+	publisher "accounting-service/internal/pub"
 	receiptpb "x/shared/genproto/shared/accounting/receipt/v3"
 	notificationpb "x/shared/genproto/shared/notificationpb"
-	"accounting-service/internal/pub"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/segmentio/kafka-go"
@@ -377,7 +377,7 @@ func (uc *TransactionUsecase) processTransaction(workerID int, task *ProcessorTa
 
 	// Assign receipt code to entries
 	for _, entry := range req.Entries {
-		entry. ReceiptCode = &receiptCode
+		entry.ReceiptCode = &receiptCode
 	}
 
 	// Store receipt code in request for journal creation
@@ -391,12 +391,12 @@ func (uc *TransactionUsecase) processTransaction(workerID int, task *ProcessorTa
 	if err != nil {
 		// Transaction failed
 		uc.statusTracker.Update(receiptCode, "failed", err.Error())
-		uc. receiptBatcher.UpdateStatus(receiptCode, receiptpb.TransactionStatus_TRANSACTION_STATUS_FAILED, err.Error())
-		
+		uc.receiptBatcher.UpdateStatus(receiptCode, receiptpb.TransactionStatus_TRANSACTION_STATUS_FAILED, err.Error())
+
 		// Publish failure to both Kafka and Redis
-		uc.publishTransactionEvent(ctx, receiptCode, "failed", err. Error())
+		uc.publishTransactionEvent(ctx, receiptCode, "failed", err.Error())
 		uc.publishRedisFailureEvent(receiptCode, req, err) // ✅ NEW
-		
+
 		uc.logTransactionError(receiptCode, err)
 		return
 	}
@@ -413,7 +413,7 @@ func (uc *TransactionUsecase) processTransaction(workerID int, task *ProcessorTa
 	uc.publishRedisCompletionEvent(aggregate, req) // ✅ NEW
 
 	// Log success with metrics
-	uc.logTransactionSuccessWithMetrics(workerID, receiptCode, aggregate. Journal.ID, duration)
+	uc.logTransactionSuccessWithMetrics(workerID, receiptCode, aggregate.Journal.ID, duration)
 
 	// Invalidate caches
 	uc.invalidateTransactionCaches(ctx, aggregate)
@@ -421,30 +421,30 @@ func (uc *TransactionUsecase) processTransaction(workerID int, task *ProcessorTa
 
 // ✅ NEW: Publish generic transaction completion to Redis
 func (uc *TransactionUsecase) publishRedisCompletionEvent(aggregate *domain.LedgerAggregate, req *domain.TransactionRequest) {
-	if uc. eventPublisher == nil || aggregate == nil {
+	if uc.eventPublisher == nil || aggregate == nil {
 		return
 	}
 
-	ctx, cancel := context. WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	var totalAmount int64
+	var totalAmount float64
 	var currency string
-	var balanceAfter int64
+	var balanceAfter float64
 
 	for _, ledger := range aggregate.Ledgers {
 		if ledger.DrCr == domain.DrCrDebit {
 			totalAmount = ledger.Amount
 			currency = ledger.Currency
-			balanceAfter = ptrIntToInt(ledger.BalanceAfter)
+			balanceAfter = ptrFloat64ToFloat64(ledger.BalanceAfter)
 			break
 		}
 	}
 
-	err := uc.eventPublisher. PublishTransactionCompleted(
+	err := uc.eventPublisher.PublishTransactionCompleted(
 		ctx,
 		ptrStrToStr(req.CreatedByExternalID),
-		ptrStrToStr(aggregate. Journal.ExternalRef),
+		ptrStrToStr(aggregate.Journal.ExternalRef),
 		aggregate.Journal.ID,
 		string(req.TransactionType),
 		currency,
@@ -467,7 +467,7 @@ func (uc *TransactionUsecase) publishRedisFailureEvent(receiptCode string, req *
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	var totalAmount int64
+	var totalAmount float64
 	var currency string
 
 	for _, entry := range req.Entries {
@@ -563,12 +563,12 @@ func (uc *TransactionUsecase) queueNotifications(receiptCode string, aggregate *
 		// Determine notification details
 		eventType := "transaction.credit"
 		title := "Credit Transaction"
-		body := fmt.Sprintf("Your account was credited with %d %s", ledger.Amount, ledger.Currency)
+		body := fmt. Sprintf("Your account was credited with %.2f %s", ledger. Amount, ledger.Currency)
 
 		if ledger.DrCr == domain.DrCrDebit {
 			eventType = "transaction.debit"
 			title = "Debit Transaction"
-			body = fmt.Sprintf("Your account was debited %d %s", ledger.Amount, ledger.Currency)
+			body = fmt.Sprintf("Your account was debited %.2f %s", ledger.Amount, ledger. Currency)
 		}
 
 		notif := &notificationpb.Notification{
@@ -618,8 +618,8 @@ func (uc *TransactionUsecase) preValidateTransaction(ctx context.Context, req *d
 		if entry.DrCr == domain.DrCrDebit {
 			balance, err := uc.balanceRepo.GetByAccountNumber(ctx, entry.AccountNumber)
 			if err == nil && balance.AvailableBalance < entry.Amount {
-				return fmt.Errorf("insufficient balance in %s: available=%d, required=%d",
-					entry.AccountNumber, balance.AvailableBalance, entry.Amount)
+				return fmt.Errorf("insufficient balance in %s: available=%.2f, required=%.2f",
+    				entry.AccountNumber, balance.AvailableBalance, entry.Amount)  // ✅ Use %.2f for float64
 			}
 		}
 	}
@@ -636,7 +636,7 @@ type TransactionEvent struct {
 	ReceiptCode   string    `json:"receipt_code"`
 	TransactionID int64     `json:"transaction_id,omitempty"`
 	Status        string    `json:"status"`
-	Amount        int64     `json:"amount,omitempty"`
+	Amount        float64   `json:"amount,omitempty"`
 	Currency      string    `json:"currency,omitempty"`
 	ErrorMessage  string    `json:"error_message,omitempty"`
 	Timestamp     time.Time `json:"timestamp"`
@@ -831,8 +831,9 @@ func (uc *TransactionUsecase) convertReceiptStatus(status receiptpb.TransactionS
 // ===============================
 
 func (uc *TransactionUsecase) logTransactionStart(receiptCode string, req *domain.TransactionRequest) {
-	fmt.Printf("[TRANSACTION START] Receipt: %s | Type: %s | Amount: %d %s | Accounts: %d\n",
-		receiptCode, req.TransactionType, uc.getTotalAmount(req.Entries), req.GetCurrency(), len(req.Entries))
+	fmt.Printf("[TRANSACTION START] Receipt: %s | Type: %s | Amount: %.2f %s | Accounts: %d\n",
+		receiptCode, req.TransactionType, uc.getTotalAmount(req.Entries), req.GetCurrency(), len(req. Entries))
+		// ✅ Use %.2f
 }
 
 func (uc *TransactionUsecase) logTransactionSuccess(receiptCode string, journalID int64) {
@@ -852,7 +853,7 @@ func (uc *TransactionUsecase) logTransactionError(receiptCode string, err error)
 // HELPER METHODS
 // ===============================
 
-func (uc *TransactionUsecase) getTotalAmount(entries []*domain.LedgerEntryRequest) int64 {
+func (uc *TransactionUsecase) getTotalAmount(entries []*domain.LedgerEntryRequest) float64 {
 	for _, entry := range entries {
 		if entry.DrCr == domain.DrCrDebit {
 			return entry.Amount
@@ -917,7 +918,7 @@ func (uc *TransactionUsecase) Credit(
 		txReq,
 		func(ctx context.Context) (*domain.LedgerAggregate, error) {
 			req.ExternalRef = txReq.ExternalRef
-			req.ReceiptCode = txReq.ReceiptCode 
+			req.ReceiptCode = txReq.ReceiptCode
 			return uc.transactionRepo.Credit(ctx, req)
 		},
 		func(agg *domain.LedgerAggregate) {
@@ -935,15 +936,15 @@ func (uc *TransactionUsecase) publishCreditEvent(aggregate *domain.LedgerAggrega
 	defer cancel()
 
 	// Find the credited ledger
-	var balanceAfter int64
+	var balanceAfter float64
 	for _, ledger := range aggregate.Ledgers {
 		if ledger.DrCr == domain.DrCrCredit {
-			balanceAfter = ptrIntToInt(ledger.BalanceAfter)
+			balanceAfter = ptrFloat64ToFloat64(ledger.BalanceAfter)
 			break
 		}
 	}
 
-	err := uc.eventPublisher. PublishDepositCompleted(
+	err := uc.eventPublisher.PublishDepositCompleted(
 		ctx,
 		req.CreatedByExternalID,
 		ptrStrToStr(aggregate.Journal.ExternalRef),
@@ -963,7 +964,7 @@ func (uc *TransactionUsecase) Debit(
 	ctx context.Context,
 	req *domain.DebitRequest,
 ) (*domain.LedgerAggregate, error) {
-	if err := req. Validate(); err != nil {
+	if err := req.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid debit request: %w", err)
 	}
 
@@ -984,7 +985,7 @@ func (uc *TransactionUsecase) Debit(
 		txReq,
 		func(ctx context.Context) (*domain.LedgerAggregate, error) {
 			req.ExternalRef = txReq.ExternalRef
-			req.ReceiptCode = txReq.ReceiptCode 
+			req.ReceiptCode = txReq.ReceiptCode
 
 			return uc.transactionRepo.Debit(ctx, req)
 		},
@@ -994,7 +995,7 @@ func (uc *TransactionUsecase) Debit(
 	)
 }
 
-func (uc *TransactionUsecase) publishDebitEvent(aggregate *domain. LedgerAggregate, req *domain.DebitRequest) {
+func (uc *TransactionUsecase) publishDebitEvent(aggregate *domain.LedgerAggregate, req *domain.DebitRequest) {
 	if uc.eventPublisher == nil || aggregate == nil {
 		return
 	}
@@ -1003,10 +1004,10 @@ func (uc *TransactionUsecase) publishDebitEvent(aggregate *domain. LedgerAggrega
 	defer cancel()
 
 	// Find the debited ledger
-	var balanceAfter int64
+	var balanceAfter float64
 	for _, ledger := range aggregate.Ledgers {
 		if ledger.DrCr == domain.DrCrDebit {
-			balanceAfter = ptrIntToInt(ledger.BalanceAfter)
+			balanceAfter = ptrFloat64ToFloat64(ledger.BalanceAfter)
 			break
 		}
 	}
@@ -1016,7 +1017,7 @@ func (uc *TransactionUsecase) publishDebitEvent(aggregate *domain. LedgerAggrega
 		req.CreatedByExternalID,
 		ptrStrToStr(aggregate.Journal.ExternalRef),
 		req.AccountNumber,
-		req. Amount,
+		req.Amount,
 		req.Currency,
 		balanceAfter,
 	)
@@ -1029,9 +1030,9 @@ func (uc *TransactionUsecase) publishDebitEvent(aggregate *domain. LedgerAggrega
 func (uc *TransactionUsecase) Transfer(
 	ctx context.Context,
 	req *domain.TransferRequest,
-) (*domain. LedgerAggregate, error) {
+) (*domain.LedgerAggregate, error) {
 	if err := req.Validate(); err != nil {
-		return nil, fmt. Errorf("invalid transfer request: %w", err)
+		return nil, fmt.Errorf("invalid transfer request: %w", err)
 	}
 
 	// Fetch accounts
@@ -1057,8 +1058,8 @@ func (uc *TransactionUsecase) Transfer(
 		txReq,
 		func(ctx context.Context) (*domain.LedgerAggregate, error) {
 			req.ExternalRef = txReq.ExternalRef
-			req.ReceiptCode = txReq.ReceiptCode 
-			return uc. transactionRepo.Transfer(ctx, req)
+			req.ReceiptCode = txReq.ReceiptCode
+			return uc.transactionRepo.Transfer(ctx, req)
 		},
 		func(agg *domain.LedgerAggregate) {
 			uc.publishTransferEvent(agg, req)
@@ -1075,7 +1076,7 @@ func (uc *TransactionUsecase) publishTransferEvent(aggregate *domain.LedgerAggre
 	defer cancel()
 
 	// Calculate fee (if any)
-	var feeAmount int64 = 0
+	var feeAmount float64 = 0
 	// You can fetch fee from aggregate. Fees if available
 
 	err := uc.eventPublisher.PublishTransferCompleted(
@@ -1121,9 +1122,9 @@ func (uc *TransactionUsecase) ConvertAndTransfer(
 	return uc.executeWithReceipt(
 		ctx,
 		txReq,
-		func(ctx context.Context) (*domain. LedgerAggregate, error) {
+		func(ctx context.Context) (*domain.LedgerAggregate, error) {
 			req.ExternalRef = txReq.ExternalRef
-			req.ReceiptCode = txReq.ReceiptCode 
+			req.ReceiptCode = txReq.ReceiptCode
 			return uc.transactionRepo.ConvertAndTransfer(ctx, req)
 		},
 		func(agg *domain.LedgerAggregate) {
@@ -1142,15 +1143,15 @@ func (uc *TransactionUsecase) publishConversionEvent(aggregate *domain.LedgerAgg
 
 	// Get currencies from ledgers
 	var sourceCurrency, destCurrency string
-	var sourceAmount, convertedAmount int64
+	var sourceAmount, convertedAmount float64
 
 	for _, ledger := range aggregate.Ledgers {
-		if ledger. AccountData.AccountNumber == req.FromAccountNumber {
-			sourceCurrency = ledger. Currency
+		if ledger.AccountData.AccountNumber == req.FromAccountNumber {
+			sourceCurrency = ledger.Currency
 			sourceAmount = ledger.Amount
 		}
 		if ledger.AccountData.AccountNumber == req.ToAccountNumber {
-			destCurrency = ledger. Currency
+			destCurrency = ledger.Currency
 			convertedAmount = ledger.Amount
 		}
 	}
@@ -1168,10 +1169,10 @@ func (uc *TransactionUsecase) publishConversionEvent(aggregate *domain.LedgerAgg
 		FromAccount:     req.FromAccountNumber,
 		ToAccount:       req.ToAccountNumber,
 		Metadata: map[string]interface{}{
-			"source_currency":   sourceCurrency,
-			"dest_currency":     destCurrency,
-			"source_amount":     sourceAmount,
-			"converted_amount":  convertedAmount,
+			"source_currency":  sourceCurrency,
+			"dest_currency":    destCurrency,
+			"source_amount":    sourceAmount,
+			"converted_amount": convertedAmount,
 		},
 	}
 
@@ -1179,6 +1180,7 @@ func (uc *TransactionUsecase) publishConversionEvent(aggregate *domain.LedgerAgg
 		fmt.Printf("[ERROR] Failed to publish conversion event: %v\n", err)
 	}
 }
+
 // ProcessTradeWin credits account for trade win (NO FEES)
 func (uc *TransactionUsecase) ProcessTradeWin(
 	ctx context.Context,
@@ -1204,7 +1206,7 @@ func (uc *TransactionUsecase) ProcessTradeWin(
 		ctx,
 		txReq,
 		func(ctx context.Context) (*domain.LedgerAggregate, error) {
-			req.ReceiptCode = txReq.ReceiptCode 
+			req.ReceiptCode = txReq.ReceiptCode
 			return uc.transactionRepo.ProcessTradeWin(ctx, req)
 		},
 		func(agg *domain.LedgerAggregate) {
@@ -1244,10 +1246,10 @@ func (uc *TransactionUsecase) ProcessTradeLoss(
 		ctx,
 		txReq,
 		func(ctx context.Context) (*domain.LedgerAggregate, error) {
-			req.ReceiptCode = txReq.ReceiptCode 
+			req.ReceiptCode = txReq.ReceiptCode
 			return uc.transactionRepo.ProcessTradeLoss(ctx, req)
 		},
-		func(agg *domain. LedgerAggregate) {
+		func(agg *domain.LedgerAggregate) {
 			uc.publishTradeEvent(agg, req, "loss")
 		},
 	)
@@ -1260,7 +1262,7 @@ func (uc *TransactionUsecase) ProcessTradeLoss(
 	return aggregate, err
 }
 
-func (uc *TransactionUsecase) publishTradeEvent(aggregate *domain. LedgerAggregate, req *domain.TradeRequest, result string) {
+func (uc *TransactionUsecase) publishTradeEvent(aggregate *domain.LedgerAggregate, req *domain.TradeRequest, result string) {
 	if uc.eventPublisher == nil || aggregate == nil {
 		return
 	}
@@ -1268,9 +1270,9 @@ func (uc *TransactionUsecase) publishTradeEvent(aggregate *domain. LedgerAggrega
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	var balanceAfter int64
-	for _, ledger := range aggregate. Ledgers {
-		balanceAfter = ptrIntToInt(ledger. BalanceAfter)
+	var balanceAfter float64
+	for _, ledger := range aggregate.Ledgers {
+		balanceAfter = ptrFloat64ToFloat64(ledger.BalanceAfter)
 		break
 	}
 
@@ -1278,7 +1280,7 @@ func (uc *TransactionUsecase) publishTradeEvent(aggregate *domain. LedgerAggrega
 		EventType:       fmt.Sprintf("trade.%s", result),
 		UserID:          req.CreatedByExternalID,
 		ReceiptCode:     ptrStrToStr(aggregate.Journal.ExternalRef),
-		TransactionID:   aggregate. Journal.ID,
+		TransactionID:   aggregate.Journal.ID,
 		TransactionType: "trade",
 		Status:          "completed",
 		Amount:          req.Amount,
@@ -1303,7 +1305,7 @@ func (uc *TransactionUsecase) ProcessAgentCommission(
 	req *domain.AgentCommissionRequest,
 ) (*domain.LedgerAggregate, error) {
 	if err := req.Validate(); err != nil {
-		return nil, fmt. Errorf("invalid commission request: %w", err)
+		return nil, fmt.Errorf("invalid commission request: %w", err)
 	}
 
 	// Get agent commission account
@@ -1315,7 +1317,7 @@ func (uc *TransactionUsecase) ProcessAgentCommission(
 	// Get system fee account
 	systemFeeAccount, err := uc.accountUC.GetSystemAccount(ctx, req.Currency, domain.PurposeFees)
 	if err != nil {
-		return nil, fmt. Errorf("failed to get system fee account: %w", err)
+		return nil, fmt.Errorf("failed to get system fee account: %w", err)
 	}
 
 	// Build transaction request
@@ -1326,7 +1328,7 @@ func (uc *TransactionUsecase) ProcessAgentCommission(
 		ctx,
 		txReq,
 		func(ctx context.Context) (*domain.LedgerAggregate, error) {
-			req.ReceiptCode = txReq.ReceiptCode 
+			req.ReceiptCode = txReq.ReceiptCode
 			return uc.transactionRepo.ProcessAgentCommission(ctx, req)
 		},
 		nil, // No specific event publisher for commission yet

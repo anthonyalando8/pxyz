@@ -8,18 +8,18 @@ import (
 // Supports both real and demo accounts with multi-tenancy
 type Account struct {
 	// Primary fields
-	ID            int64       `json:"id" db:"id"`
-	AccountNumber string      `json:"account_number" db:"account_number"` // Unique identifier
-	OwnerType     OwnerType   `json:"owner_type" db:"owner_type"`         // system | user | agent | partner
-	OwnerID       string      `json:"owner_id" db:"owner_id"`             // External ID from auth service (UUID/string)
-	Currency      string      `json:"currency" db:"currency"`             // VARCHAR(8) - e.g., USD, BTC, USDT
-	Purpose       AccountPurpose `json:"purpose" db:"purpose"`            // liquidity | clearing | fees | wallet | escrow | settlement | revenue | contra | commission
-	AccountType   AccountType `json:"account_type" db:"account_type"`     // real | demo
+	ID            int64          `json:"id" db:"id"`
+	AccountNumber string         `json:"account_number" db:"account_number"` // Unique identifier
+	OwnerType     OwnerType      `json:"owner_type" db:"owner_type"`         // system | user | agent | partner
+	OwnerID       string         `json:"owner_id" db:"owner_id"`             // External ID from auth service (UUID/string)
+	Currency      string         `json:"currency" db:"currency"`             // VARCHAR(8) - e.g., USD, BTC, USDT
+	Purpose       AccountPurpose `json:"purpose" db:"purpose"`               // liquidity | clearing | fees | wallet | escrow | settlement | revenue | contra | commission
+	AccountType   AccountType    `json:"account_type" db:"account_type"`     // real | demo
 
 	// Status and control fields
-	IsActive       bool  `json:"is_active" db:"is_active"`
-	IsLocked       bool  `json:"is_locked" db:"is_locked"`
-	OverdraftLimit int64 `json:"overdraft_limit" db:"overdraft_limit"` // In smallest currency unit (cents/satoshis)
+	IsActive       bool    `json:"is_active" db:"is_active"`
+	IsLocked       bool    `json:"is_locked" db:"is_locked"`
+	OverdraftLimit float64 `json:"overdraft_limit" db:"overdraft_limit"` // In smallest currency unit (cents/satoshis)
 
 	// Agent-specific fields (only for accounts owned by agents or user accounts with agent parents)
 	ParentAgentExternalID *string `json:"parent_agent_external_id,omitempty" db:"parent_agent_external_id"` // Agent external ID from auth service
@@ -47,7 +47,7 @@ const (
 	PurposeContra     AccountPurpose = "contra"
 	PurposeCommission AccountPurpose = "commission"
 	PurposeInvestment AccountPurpose = "investment"
-	PurposeSavings   AccountPurpose = "savings"
+	PurposeSavings    AccountPurpose = "savings"
 )
 
 // AccountFilter supports efficient filtering for high-throughput queries
@@ -72,32 +72,29 @@ type CreateAccountRequest struct {
 	AccountType           AccountType
 	ParentAgentExternalID *string
 	CommissionRate        *string // NUMERIC(5,4) as string
-	OverdraftLimit        int64
-	InitialBalance        int64
+	OverdraftLimit        float64
+	InitialBalance        float64
 }
-
 
 // AccountTotals represents calculated totals for an account
 type AccountTotals struct {
-	AccountNumber    string
-	AccountType      AccountType
-	TotalDebits      int64
-	TotalCredits     int64
-	NetChange        int64
-	TransactionCount int64
-	PeriodStart      time.Time
-	PeriodEnd        time.Time
+    AccountNumber    string
+    AccountType      AccountType
+    TotalDebits      float64
+    TotalCredits     float64
+    NetChange        float64
+    TransactionCount int64      // ✅ Changed to int64 (it's a count)
+    PeriodStart      time.  Time
+    PeriodEnd        time. Time
 }
-
-
 
 // AccountBalanceSummary represents a single account's balance in summary
 type AccountBalanceSummary struct {
 	AccountID        int64
 	AccountNumber    string
 	Currency         string
-	Balance          int64
-	AvailableBalance int64
+	Balance          float64
+	AvailableBalance float64
 }
 
 // IsValid checks if the account has valid required fields
@@ -153,7 +150,7 @@ func (a *Account) CanOverdraft() bool {
 // These match the schema's initial data exactly
 func DefaultSystemAccounts() []*Account {
 	now := time.Now()
-	
+
 	return []*Account{
 		// System liquidity accounts
 		{

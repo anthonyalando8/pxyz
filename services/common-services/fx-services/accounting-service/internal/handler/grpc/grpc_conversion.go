@@ -492,7 +492,7 @@ func convertLedgerToProto(l *domain.Ledger) *accountingpb.Ledger {
 		accountNumber = l.AccountData.AccountNumber
 	}
 
-	balanceAfter := int64(0)
+	balanceAfter := float64(0)
 	if l.BalanceAfter != nil {
 		balanceAfter = *l.BalanceAfter
 	}
@@ -568,13 +568,14 @@ func convertOwnerSummaryToProto(s *domain.OwnerSummary) *accountingpb.OwnerSumma
 	}
 
 	return &accountingpb.OwnerSummary{
-		OwnerType:                convertOwnerTypeToProto(s.OwnerType),
-		OwnerId:                  s.OwnerID,
-		AccountType:              convertAccountTypeToProto(s.AccountType),
-		AccountBalances:          accountBalances,
+		OwnerType:                 convertOwnerTypeToProto(s.OwnerType),
+		OwnerId:                   s.OwnerID,
+		AccountType:               convertAccountTypeToProto(s.AccountType),
+		AccountBalances:           accountBalances,
 		TotalBalanceUsdEquivalent: s.TotalBalance,
 	}
 }
+
 // ===============================
 // REPORT CONVERSIONS
 // ===============================

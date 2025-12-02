@@ -39,17 +39,17 @@ type ReceiptUpdateRequest struct {
 }
 
 type ReceiptBatcher struct {
-	uc             *TransactionUsecase
-	client         *receiptclient. ReceiptClientV3
-	createBatch    []*ReceiptRequest
-	updateBatch    []*ReceiptUpdateRequest
-	batchSize      int
-	flushInterval  time.Duration
-	mu             sync. Mutex
-	stopChan       chan struct{}
+	uc            *TransactionUsecase
+	client        *receiptclient.ReceiptClientV3
+	createBatch   []*ReceiptRequest
+	updateBatch   []*ReceiptUpdateRequest
+	batchSize     int
+	flushInterval time.Duration
+	mu            sync.Mutex
+	stopChan      chan struct{}
 }
 
-func NewReceiptBatcher(uc *TransactionUsecase, client *receiptclient. ReceiptClientV3, batchSize int, interval time.Duration) *ReceiptBatcher {
+func NewReceiptBatcher(uc *TransactionUsecase, client *receiptclient.ReceiptClientV3, batchSize int, interval time.Duration) *ReceiptBatcher {
 	return &ReceiptBatcher{
 		uc:            uc,
 		client:        client,
@@ -80,7 +80,7 @@ func (rb *ReceiptBatcher) Add(req *ReceiptRequest) {
 }
 
 // UpdateStatus is a simplified version - use UpdateStatusFull for complete updates
-func (rb *ReceiptBatcher) UpdateStatus(code string, status receiptpb. TransactionStatus, errorMsg string) {
+func (rb *ReceiptBatcher) UpdateStatus(code string, status receiptpb.TransactionStatus, errorMsg string) {
 	rb.UpdateStatusFull(&ReceiptUpdateRequest{
 		Code:         code,
 		Status:       status,
@@ -93,7 +93,7 @@ func (rb *ReceiptBatcher) UpdateStatusFull(req *ReceiptUpdateRequest) {
 	rb.mu.Lock()
 	rb.updateBatch = append(rb.updateBatch, req)
 	shouldFlush := len(rb.updateBatch) >= rb.batchSize
-	rb.mu. Unlock()
+	rb.mu.Unlock()
 
 	if shouldFlush {
 		rb.flushUpdate()
@@ -131,7 +131,7 @@ func (rb *ReceiptBatcher) updateWorker() {
 func (rb *ReceiptBatcher) flushCreate() {
 	rb.mu.Lock()
 	if len(rb.createBatch) == 0 {
-		rb. mu.Unlock()
+		rb.mu.Unlock()
 		return
 	}
 	batch := rb.createBatch
@@ -146,12 +146,12 @@ func (rb *ReceiptBatcher) flushCreate() {
 	validRequests := make([]*ReceiptRequest, 0, len(batch))
 
 	for _, req := range batch {
-		grpcReq, err := rb.buildReceiptRequest(ctx, req. TxnReq)
+		grpcReq, err := rb.buildReceiptRequest(ctx, req.TxnReq)
 		if err != nil {
 			req.ErrorChan <- fmt.Errorf("failed to build receipt request: %w", err)
 			continue
 		}
-		
+
 		grpcReqs = append(grpcReqs, grpcReq)
 		validRequests = append(validRequests, req)
 	}
@@ -161,7 +161,7 @@ func (rb *ReceiptBatcher) flushCreate() {
 	}
 
 	// Call batch API
-	resp, err := rb. client.Client.CreateReceiptsBatch(ctx, &receiptpb.CreateReceiptsBatchRequest{
+	resp, err := rb.client.Client.CreateReceiptsBatch(ctx, &receiptpb.CreateReceiptsBatchRequest{
 		Receipts:         grpcReqs,
 		FailOnFirstError: false,
 	})
@@ -210,16 +210,16 @@ func (rb *ReceiptBatcher) flushUpdate() {
 	for i, req := range batch {
 		// 🔥 Status propagation: If creditor/debitor status not provided, use main status
 		creditorStatus := req.CreditorStatus
-		debitorStatus := req. DebitorStatus
+		debitorStatus := req.DebitorStatus
 
 		// If main status is set but party statuses are not, propagate
 		if req.Status != receiptpb.TransactionStatus_TRANSACTION_STATUS_UNSPECIFIED {
-			if req. CreditorStatus == receiptpb.TransactionStatus_TRANSACTION_STATUS_UNSPECIFIED || 
-			   req.CreditorStatus == 0 {
+			if req.CreditorStatus == receiptpb.TransactionStatus_TRANSACTION_STATUS_UNSPECIFIED ||
+				req.CreditorStatus == 0 {
 				creditorStatus = req.Status
 			}
-			if req.DebitorStatus == receiptpb.TransactionStatus_TRANSACTION_STATUS_UNSPECIFIED || 
-			   req.DebitorStatus == 0{
+			if req.DebitorStatus == receiptpb.TransactionStatus_TRANSACTION_STATUS_UNSPECIFIED ||
+				req.DebitorStatus == 0 {
 				debitorStatus = req.Status
 			}
 		}
@@ -227,9 +227,9 @@ func (rb *ReceiptBatcher) flushUpdate() {
 		updates[i] = &receiptpb.UpdateReceiptRequest{
 			Code:                req.Code,
 			Status:              req.Status,
-			CreditorStatus:      creditorStatus,      // ✅ Propagated if needed
+			CreditorStatus:      creditorStatus, // ✅ Propagated if needed
 			CreditorLedgerId:    req.CreditorLedgerID,
-			DebitorStatus:       debitorStatus,       // ✅ Propagated if needed
+			DebitorStatus:       debitorStatus, // ✅ Propagated if needed
 			DebitorLedgerId:     req.DebitorLedgerID,
 			ErrorMessage:        req.ErrorMessage,
 			ReversedBy:          req.ReversedBy,
@@ -246,19 +246,19 @@ func (rb *ReceiptBatcher) flushUpdate() {
 
 		// 🔥 Auto-set completed_at if status is completed and not provided
 		if req.Status == receiptpb.TransactionStatus_TRANSACTION_STATUS_COMPLETED && req.CompletedAt == nil {
-			now := time. Now()
-			updates[i]. CompletedAt = timestamppb.New(now)
+			now := time.Now()
+			updates[i].CompletedAt = timestamppb.New(now)
 		}
 
 		// 🔥 Auto-set reversed_at if status is reversed and not provided
-		if req.Status == receiptpb. TransactionStatus_TRANSACTION_STATUS_REVERSED && req.ReversedAt == nil {
+		if req.Status == receiptpb.TransactionStatus_TRANSACTION_STATUS_REVERSED && req.ReversedAt == nil {
 			now := time.Now()
 			updates[i].ReversedAt = timestamppb.New(now)
 		}
 
 		// 🔥 Auto-set reversed_by if reversed and not provided
 		if req.Status == receiptpb.TransactionStatus_TRANSACTION_STATUS_REVERSED && req.ReversedBy == "" {
-			updates[i].ReversedBy = "system"  // Default to system
+			updates[i].ReversedBy = "system" // Default to system
 		}
 
 		// Debug log for first update to verify propagation
@@ -266,7 +266,7 @@ func (rb *ReceiptBatcher) flushUpdate() {
 			fmt.Printf("[RECEIPT BATCHER] Update status propagation: main=%s, creditor=%s->%s, debitor=%s->%s\n",
 				req.Status,
 				req.CreditorStatus, creditorStatus,
-				req. DebitorStatus, debitorStatus,
+				req.DebitorStatus, debitorStatus,
 			)
 		}
 	}
@@ -279,9 +279,9 @@ func (rb *ReceiptBatcher) flushUpdate() {
 	if err != nil {
 		fmt.Printf("[RECEIPT BATCHER] Failed to update batch: %v\n", err)
 	} else {
-		fmt.Printf("[RECEIPT BATCHER] Updated %d receipts (success: %d, errors: %d)\n", 
-			len(batch), resp. SuccessCount, resp.ErrorCount)
-		
+		fmt.Printf("[RECEIPT BATCHER] Updated %d receipts (success: %d, errors: %d)\n",
+			len(batch), resp.SuccessCount, resp.ErrorCount)
+
 		// Log any errors
 		for _, receiptErr := range resp.Errors {
 			fmt.Printf("[RECEIPT BATCHER] Update error for receipt at index %d: %s - %s\n",
@@ -293,25 +293,25 @@ func (rb *ReceiptBatcher) flushUpdate() {
 func (rb *ReceiptBatcher) buildReceiptRequest(ctx context.Context, req *domain.TransactionRequest) (*receiptpb.CreateReceiptRequest, error) {
 	// Extract creditor/debitor from entries
 	var creditor, debitor *receiptpb.PartyInfo
-	var amount int64
+	var amount float64
 	var currency string
-	var originalAmount int64
+	var originalAmount float64
 	var originalCurrency string
 	var exchangeRate string
-	var transactionCost int64
+	var transactionCost float64
 
 	for _, entry := range req.Entries {
 		// Fetch account info
-		account, err := rb.uc. accountRepo.GetByAccountNumber(ctx, entry.AccountNumber)
+		account, err := rb.uc.accountRepo.GetByAccountNumber(ctx, entry.AccountNumber)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get account %s: %w", entry.AccountNumber, err)
 		}
 
 		party := &receiptpb.PartyInfo{
 			AccountId:     account.ID,
-			AccountNumber: account. AccountNumber,
+			AccountNumber: account.AccountNumber,
 			OwnerType:     rb.convertOwnerType(account.OwnerType),
-			ExternalId:    account. OwnerID,
+			ExternalId:    account.OwnerID,
 			Status:        receiptpb.TransactionStatus_TRANSACTION_STATUS_PENDING,
 			// LedgerID is NOT set on creation - will be updated after ledger creation
 		}
@@ -325,7 +325,7 @@ func (rb *ReceiptBatcher) buildReceiptRequest(ctx context.Context, req *domain.T
 		}
 
 		// Use debit amount as transaction amount (convert to cents)
-		if entry.DrCr == domain. DrCrDebit {
+		if entry.DrCr == domain.DrCrDebit {
 			amount = entry.Amount
 			currency = entry.Currency
 		}
@@ -337,11 +337,11 @@ func (rb *ReceiptBatcher) buildReceiptRequest(ctx context.Context, req *domain.T
 	}
 
 	// Extract metadata for currency conversion info
-	if len(req.Entries) > 0 && req.Entries[0]. Metadata != nil {
+	if len(req.Entries) > 0 && req.Entries[0].Metadata != nil {
 		if oc, ok := req.Entries[0].Metadata["original_currency"].(string); ok {
 			originalCurrency = oc
 		}
-		if oa, ok := req.Entries[0].Metadata["source_amount"].(int64); ok {
+		if oa, ok := req.Entries[0].Metadata["source_amount"].(float64); ok {
 			originalAmount = oa
 		}
 		if rate, ok := req.Entries[0].Metadata["fx_rate"].(string); ok {
@@ -351,8 +351,8 @@ func (rb *ReceiptBatcher) buildReceiptRequest(ctx context.Context, req *domain.T
 
 	// Build metadata from transaction request
 	var metadata map[string]interface{}
-	if len(req.Entries) > 0 && req.Entries[0]. Metadata != nil {
-		metadata = req.Entries[0]. Metadata
+	if len(req.Entries) > 0 && req.Entries[0].Metadata != nil {
+		metadata = req.Entries[0].Metadata
 	}
 
 	// Convert metadata to proto Struct if present
@@ -362,7 +362,7 @@ func (rb *ReceiptBatcher) buildReceiptRequest(ctx context.Context, req *domain.T
 	}
 
 	return &receiptpb.CreateReceiptRequest{
-		TransactionType:     rb.convertTransactionType(req. TransactionType),
+		TransactionType:     rb.convertTransactionType(req.TransactionType),
 		Amount:              amount,
 		OriginalAmount:      originalAmount,
 		TransactionCost:     transactionCost,
@@ -399,12 +399,12 @@ func getParentReceiptCode(req *domain.TransactionRequest) string {
 
 func (rb *ReceiptBatcher) convertTransactionType(t domain.TransactionType) receiptpb.TransactionType {
 	switch t {
-	case domain. TransactionTypeDeposit:
+	case domain.TransactionTypeDeposit:
 		return receiptpb.TransactionType_TRANSACTION_TYPE_DEPOSIT
 	case domain.TransactionTypeWithdrawal:
 		return receiptpb.TransactionType_TRANSACTION_TYPE_WITHDRAWAL
 	case domain.TransactionTypeTransfer:
-		return receiptpb. TransactionType_TRANSACTION_TYPE_TRANSFER
+		return receiptpb.TransactionType_TRANSACTION_TYPE_TRANSFER
 	case domain.TransactionTypeConversion:
 		return receiptpb.TransactionType_TRANSACTION_TYPE_CONVERSION
 	case domain.TransactionTypeFee:
@@ -431,9 +431,9 @@ func (rb *ReceiptBatcher) convertAccountType(t domain.AccountType) receiptpb.Acc
 	return receiptpb.AccountType_ACCOUNT_TYPE_DEMO
 }
 
-func (rb *ReceiptBatcher) convertOwnerType(t domain.OwnerType) receiptpb. OwnerType {
+func (rb *ReceiptBatcher) convertOwnerType(t domain.OwnerType) receiptpb.OwnerType {
 	switch t {
-	case domain. OwnerTypeSystem:
+	case domain.OwnerTypeSystem:
 		return receiptpb.OwnerType_OWNER_TYPE_SYSTEM
 	case domain.OwnerTypeUser:
 		return receiptpb.OwnerType_OWNER_TYPE_USER

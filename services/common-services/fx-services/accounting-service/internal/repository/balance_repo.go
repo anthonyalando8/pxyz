@@ -1,17 +1,17 @@
 package repository
 
 import (
-	"context"
 	"accounting-service/internal/domain"
+	"context"
 	"errors"
 	"fmt"
 	"time"
 
+	xerrors "x/shared/utils/errors"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	xerrors "x/shared/utils/errors"
 )
-
 
 type BalanceRepository interface {
 	// Basic CRUD
@@ -19,18 +19,18 @@ type BalanceRepository interface {
 	GetByAccountNumber(ctx context.Context, accountNumber string) (*domain.Balance, error)
 	GetByAccountIDWithLock(ctx context.Context, tx pgx.Tx, accountID int64) (*domain.Balance, error)
 	GetMultipleByAccountIDs(ctx context.Context, accountIDs []int64) (map[int64]*domain.Balance, error)
-	
+
 	// Balance updates
 	UpdateBalance(ctx context.Context, tx pgx.Tx, update *domain.BalanceUpdate) error
 	UpdateBalanceBatch(ctx context.Context, tx pgx.Tx, updates []*domain.BalanceUpdate) error
-	
+
 	// Optimistic locking
 	UpdateBalanceOptimistic(ctx context.Context, tx pgx.Tx, update *domain.BalanceUpdate, expectedVersion int64) error
-	
+
 	// Pending balance operations
-	ReserveFunds(ctx context.Context, tx pgx.Tx, accountID int64, amount int64) error
-	ReleaseFunds(ctx context.Context, tx pgx.Tx, accountID int64, amount int64, complete bool) error
-	
+	ReserveFunds(ctx context.Context, tx pgx.Tx, accountID int64, amount float64) error
+	ReleaseFunds(ctx context.Context, tx pgx.Tx, accountID int64, amount float64, complete bool) error
+
 	// Utility methods
 	GetCachedBalance(ctx context.Context, accountNumber string) (*domain.Balance, error)
 	EnsureBalanceExists(ctx context.Context, tx pgx.Tx, accountID int64) error
@@ -61,7 +61,7 @@ func (r *balanceRepo) GetByAccountNumber(ctx context.Context, accountNumber stri
 		WHERE a.account_number = $1 
 		AND a.is_active = true
 	`
-	
+
 	var balance domain.Balance
 	err := r.db.QueryRow(ctx, query).Scan(
 		&balance.AccountID,
@@ -73,14 +73,14 @@ func (r *balanceRepo) GetByAccountNumber(ctx context.Context, accountNumber stri
 		&balance.Version,
 		&balance.UpdatedAt,
 	)
-	
+
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("balance not found for account: %s", accountNumber)
 		}
 		return nil, fmt.Errorf("failed to get balance: %w", err)
 	}
-	
+
 	return &balance, nil
 }
 
@@ -88,12 +88,12 @@ func (r *balanceRepo) GetByAccountNumber(ctx context.Context, accountNumber stri
 // func (r *balanceRepo) GetByAccountNumber(ctx context.Context, accountNumber string) (*domain.Balance, error) {
 // 	// First, get account ID from account number
 // 	query := `
-// 		SELECT a.id 
-// 		FROM accounts a 
-// 		WHERE a.account_number = $1 
+// 		SELECT a.id
+// 		FROM accounts a
+// 		WHERE a.account_number = $1
 // 		AND a.is_active = true
 // 	`
-	
+
 // 	var accountID int64
 // 	err := r.db.QueryRow(ctx, query, accountNumber).Scan(&accountID)
 // 	if err != nil {
@@ -102,7 +102,7 @@ func (r *balanceRepo) GetByAccountNumber(ctx context.Context, accountNumber stri
 // 		}
 // 		return nil, fmt.Errorf("failed to get account: %w", err)
 // 	}
-	
+
 // 	// Now get balance using existing method
 // 	return r.GetByAccountID(ctx, accountID)
 // }
@@ -134,14 +134,14 @@ func (r *balanceRepo) GetByAccountID(ctx context.Context, accountID int64) (*dom
 		&b.Version,
 		&b.UpdatedAt,
 	)
-	
+
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, xerrors.ErrNotFound
 		}
 		return nil, fmt.Errorf("failed to get balance: %w", err)
 	}
-	
+
 	return &b, nil
 }
 
@@ -178,14 +178,14 @@ func (r *balanceRepo) GetByAccountIDWithLock(ctx context.Context, tx pgx.Tx, acc
 		&b.Version,
 		&b.UpdatedAt,
 	)
-	
+
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, xerrors.ErrNotFound
 		}
 		return nil, fmt.Errorf("failed to get balance with lock: %w", err)
 	}
-	
+
 	return &b, nil
 }
 
@@ -264,7 +264,7 @@ func (r *balanceRepo) UpdateBalance(ctx context.Context, tx pgx.Tx, update *doma
 	// Calculate new balance
 	newBalance := balance.Balance
 	newAvailable := balance.AvailableBalance
-	
+
 	if update.DrCr == "CR" {
 		newBalance += update.Amount
 		newAvailable += update.Amount
@@ -290,18 +290,18 @@ func (r *balanceRepo) UpdateBalance(ctx context.Context, tx pgx.Tx, update *doma
 		WHERE account_id = $5
 	`
 
-	cmdTag, err := tx.Exec(ctx, query, 
-		newBalance, 
-		newAvailable, 
-		update.LedgerID, 
-		time.Now(), 
+	cmdTag, err := tx.Exec(ctx, query,
+		newBalance,
+		newAvailable,
+		update.LedgerID,
+		time.Now(),
 		update.AccountID,
 	)
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to update balance: %w", err)
 	}
-	
+
 	if cmdTag.RowsAffected() == 0 {
 		return xerrors.ErrNotFound
 	}
@@ -323,7 +323,7 @@ func (r *balanceRepo) UpdateBalanceBatch(ctx context.Context, tx pgx.Tx, updates
 	// Extract account IDs for bulk lock
 	accountIDs := make([]int64, len(updates))
 	updateMap := make(map[int64]*domain.BalanceUpdate, len(updates))
-	
+
 	for i, update := range updates {
 		accountIDs[i] = update.AccountID
 		updateMap[update.AccountID] = update
@@ -376,7 +376,7 @@ func (r *balanceRepo) UpdateBalanceBatch(ctx context.Context, tx pgx.Tx, updates
 
 	// Build batch update using pgx.Batch for maximum performance
 	batch := &pgx.Batch{}
-	
+
 	updateSQL := `
 		UPDATE balances
 		SET 
@@ -402,7 +402,7 @@ func (r *balanceRepo) UpdateBalanceBatch(ctx context.Context, tx pgx.Tx, updates
 		// Calculate new values
 		newBalance := balance.Balance
 		newAvailable := balance.AvailableBalance
-		
+
 		if update.DrCr == "CR" {
 			newBalance += update.Amount
 			newAvailable += update.Amount
@@ -461,15 +461,16 @@ func (r *balanceRepo) UpdateBalanceOptimistic(ctx context.Context, tx pgx.Tx, up
 		delta = -delta
 	}
 
-	var newBalance, newAvailable, newVersion int64
-	err := tx.QueryRow(ctx, query, 
-		delta, 
-		delta, 
-		update.LedgerID, 
-		time.Now(), 
-		update.AccountID, 
+	var newBalance, newAvailable float64  // ✅ Changed to float64
+	var newVersion int64                   // ✅ Version stays int64
+	err := tx.QueryRow(ctx, query,
+		delta,
+		delta,
+		update.LedgerID,
+		time.Now(),
+		update.AccountID,
 		expectedVersion,
-	).Scan(&newBalance, &newAvailable, &newVersion)
+	). Scan(&newBalance, &newAvailable, &newVersion) 
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -487,7 +488,7 @@ func (r *balanceRepo) UpdateBalanceOptimistic(ctx context.Context, tx pgx.Tx, up
 }
 
 // ReserveFunds reserves funds for pending transactions (locks available balance)
-func (r *balanceRepo) ReserveFunds(ctx context.Context, tx pgx.Tx, accountID int64, amount int64) error {
+func (r *balanceRepo) ReserveFunds(ctx context.Context, tx pgx.Tx, accountID int64, amount float64) error {
 	if tx == nil {
 		return errors.New("transaction cannot be nil")
 	}
@@ -503,9 +504,9 @@ func (r *balanceRepo) ReserveFunds(ctx context.Context, tx pgx.Tx, accountID int
 		RETURNING available_balance
 	`
 
-	var newAvailable int64
+	var newAvailable float64
 	err := tx.QueryRow(ctx, query, amount, time.Now(), accountID).Scan(&newAvailable)
-	
+
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return xerrors.ErrNotFound
@@ -521,7 +522,7 @@ func (r *balanceRepo) ReserveFunds(ctx context.Context, tx pgx.Tx, accountID int
 }
 
 // ReleaseFunds releases reserved funds (complete=true: deduct from balance, complete=false: return to available)
-func (r *balanceRepo) ReleaseFunds(ctx context.Context, tx pgx.Tx, accountID int64, amount int64, complete bool) error {
+func (r *balanceRepo) ReleaseFunds(ctx context.Context, tx pgx.Tx, accountID int64, amount float64, complete bool) error {
 	if tx == nil {
 		return errors.New("transaction cannot be nil")
 	}
@@ -591,7 +592,7 @@ func (r *balanceRepo) GetCachedBalance(ctx context.Context, accountNumber string
 		&b.Version,
 		&b.UpdatedAt,
 	)
-	
+
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, xerrors.ErrNotFound
@@ -624,8 +625,8 @@ func (r *balanceRepo) EnsureBalanceExists(ctx context.Context, tx pgx.Tx, accoun
 
 // createInitialBalance creates a new balance record with initial transaction
 func (r *balanceRepo) createInitialBalance(ctx context.Context, tx pgx.Tx, update *domain.BalanceUpdate) error {
-	initialBalance := int64(0)
-	initialAvailable := int64(0)
+	initialBalance := float64(0)
+	initialAvailable := float64(0)
 
 	if update.DrCr == "CR" {
 		initialBalance = update.Amount
@@ -649,11 +650,11 @@ func (r *balanceRepo) createInitialBalance(ctx context.Context, tx pgx.Tx, updat
 		ON CONFLICT (account_id) DO NOTHING
 	`
 
-	_, err := tx.Exec(ctx, query, 
-		update.AccountID, 
-		initialBalance, 
-		initialAvailable, 
-		update.LedgerID, 
+	_, err := tx.Exec(ctx, query,
+		update.AccountID,
+		initialBalance,
+		initialAvailable,
+		update.LedgerID,
 		time.Now(),
 	)
 

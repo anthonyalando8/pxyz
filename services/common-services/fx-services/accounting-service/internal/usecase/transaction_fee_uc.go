@@ -10,6 +10,7 @@ import (
 
 	"accounting-service/internal/domain"
 	"accounting-service/internal/repository"
+
 	//xerrors "x/shared/utils/errors"
 
 	"github.com/jackc/pgx/v5"
@@ -97,14 +98,14 @@ func (uc *TransactionFeeUsecase) BatchCreate(ctx context.Context, fees []*domain
 func (uc *TransactionFeeUsecase) CalculateFee(
 	ctx context.Context,
 	transactionType domain.TransactionType,
-	amount int64,
+	amount float64,
 	sourceCurrency, targetCurrency *string,
 	accountType *domain.AccountType,
 	ownerType *domain.OwnerType,
 ) (*domain.FeeCalculation, error) {
 	// Try cache first (fee rules are relatively stable)
 	cacheKey := uc.buildFeeCalculationCacheKey(transactionType, sourceCurrency, targetCurrency, accountType, ownerType)
-	
+
 	if val, err := uc.redisClient.Get(ctx, cacheKey).Result(); err == nil {
 		var cachedRule domain.TransactionFeeRule
 		if jsonErr := json.Unmarshal([]byte(val), &cachedRule); jsonErr == nil {
@@ -142,7 +143,7 @@ func (uc *TransactionFeeUsecase) CalculateFee(
 func (uc *TransactionFeeUsecase) CalculateMultipleFees(
 	ctx context.Context,
 	transactionType domain.TransactionType,
-	amount int64,
+	amount float64,
 	sourceCurrency, targetCurrency *string,
 	accountType *domain.AccountType,
 	ownerType *domain.OwnerType,
@@ -159,14 +160,14 @@ func (uc *TransactionFeeUsecase) CalculateMultipleFees(
 
 	// Calculate fee for each rule
 	var calculations []*domain.FeeCalculation
-	
+
 	for _, rule := range rules {
 		calc, err := uc.calculateFeeFromRule(rule, amount)
 		if err != nil {
 			// Log error but continue
 			continue
 		}
-		
+
 		if calc.Amount > 0 {
 			calculations = append(calculations, calc)
 		}
@@ -176,30 +177,29 @@ func (uc *TransactionFeeUsecase) CalculateMultipleFees(
 }
 
 // calculateFeeFromRule calculates fee based on a specific rule
-func (uc *TransactionFeeUsecase) calculateFeeFromRule(rule *domain.TransactionFeeRule, amount int64) (*domain.FeeCalculation, error) {
+func (uc *TransactionFeeUsecase) calculateFeeFromRule(rule *domain.TransactionFeeRule, amount float64) (*domain.FeeCalculation, error) {
 	calc := &domain.FeeCalculation{
 		RuleID:  &rule.ID,
 		FeeType: rule.FeeType,
 	}
 
-	var feeAmount int64
+	var feeAmount float64
 
 	switch rule.CalculationMethod {
 	case domain.FeeCalculationPercentage:
-		// Parse fee value as decimal
+	// Parse fee value as decimal
 		feeRate := new(big.Float)
 		if _, ok := feeRate.SetString(rule.FeeValue); !ok {
 			return nil, fmt.Errorf("invalid fee value: %s", rule.FeeValue)
 		}
 
-		// Calculate: amount * rate
-		amountFloat := new(big.Float).SetInt64(amount)
+		// ✅ Calculate: amount * rate (both float64)
+		amountFloat := new(big.Float).SetFloat64(amount)  // ✅ Use SetFloat64
 		feeFloat := new(big.Float).Mul(amountFloat, feeRate)
-		
-		// Convert back to int64
-		feeInt, _ := feeFloat.Int64()
-		feeAmount = feeInt
-		
+
+		// ✅ Convert back to float64
+		feeAmount, _ = feeFloat.Float64()  // ✅ Direct float64
+
 		calc.AppliedRate = &rule.FeeValue
 		calc.CalculatedFrom = fmt.Sprintf("percentage: %s", rule.FeeValue)
 
@@ -226,23 +226,25 @@ func (uc *TransactionFeeUsecase) calculateFeeFromRule(rule *domain.TransactionFe
 					// Apply tier rate
 					feeRate := new(big.Float)
 					if _, ok := feeRate.SetString(*tier.Rate); !ok {
-						return nil, fmt.Errorf("invalid tier rate: %s", *tier.Rate)
+						return nil, fmt.Errorf("invalid tier rate: %s", *tier. Rate)
 					}
 
-					amountFloat := new(big.Float).SetInt64(amount)
+					// ✅ Use SetFloat64 instead of SetInt64
+					amountFloat := new(big.Float).SetFloat64(amount)
 					feeFloat := new(big.Float).Mul(amountFloat, feeRate)
-					feeInt, _ := feeFloat.Int64()
-					feeAmount = feeInt
+					
+					// ✅ Convert to float64 instead of int64
+					feeAmount, _ = feeFloat.Float64()
 
 					calc.AppliedRate = tier.Rate
-					calc.CalculatedFrom = fmt.Sprintf("tiered rate: %s (amount: %d-%d)", 
-						*tier.Rate, tier.MinAmount, tier.MaxAmount)
+					calc. CalculatedFrom = fmt.Sprintf("tiered rate: %s (amount: %.2f-%.2f)",
+						*tier.Rate, tier.MinAmount, *tier.MaxAmount)  // ✅ Use %. 2f for float
 				}
 
 				if tier.FixedFee != nil {
 					feeAmount += *tier.FixedFee
 				}
-				
+
 				break
 			}
 		}
@@ -263,7 +265,7 @@ func (uc *TransactionFeeUsecase) calculateFeeFromRule(rule *domain.TransactionFe
 	}
 
 	calc.Amount = feeAmount
-	
+
 	return calc, nil
 }
 
@@ -279,7 +281,7 @@ func (uc *TransactionFeeUsecase) GetByReceipt(ctx context.Context, receiptCode s
 
 	// Try cache first (1 minute)
 	cacheKey := fmt.Sprintf("fees:receipt:%s", receiptCode)
-	
+
 	if val, err := uc.redisClient.Get(ctx, cacheKey).Result(); err == nil {
 		var fees []*domain.TransactionFee
 		if jsonErr := json.Unmarshal([]byte(val), &fees); jsonErr == nil {
@@ -323,7 +325,7 @@ func (uc *TransactionFeeUsecase) GetByAgent(ctx context.Context, agentExternalID
 
 	// Try cache first (2 minutes)
 	cacheKey := fmt.Sprintf("fees:agent:%s:%d:%d", agentExternalID, from.Unix(), to.Unix())
-	
+
 	if val, err := uc.redisClient.Get(ctx, cacheKey).Result(); err == nil {
 		var fees []*domain.TransactionFee
 		if jsonErr := json.Unmarshal([]byte(val), &fees); jsonErr == nil {
@@ -354,12 +356,12 @@ func (uc *TransactionFeeUsecase) GetTotalFeesByType(
 	ctx context.Context,
 	feeType domain.FeeType,
 	from, to time.Time,
-) (int64, error) {
+) (float64, error) {
 	// Try cache first (5 minutes)
 	cacheKey := fmt.Sprintf("fees:total:%s:%d:%d", feeType, from.Unix(), to.Unix())
-	
+
 	if val, err := uc.redisClient.Get(ctx, cacheKey).Result(); err == nil {
-		var total int64
+		var total float64
 		if jsonErr := json.Unmarshal([]byte(val), &total); jsonErr == nil {
 			return total, nil
 		}
@@ -384,18 +386,18 @@ func (uc *TransactionFeeUsecase) GetAgentCommissionSummary(
 	ctx context.Context,
 	agentExternalID string,
 	from, to time.Time,
-) (map[string]int64, error) {
+) (map[string]float64, error) {  // ✅ Changed to float64
 	if agentExternalID == "" {
-		return nil, errors.New("agent external ID cannot be empty")
+		return nil, errors. New("agent external ID cannot be empty")
 	}
 
 	// Try cache first (5 minutes)
-	cacheKey := fmt.Sprintf("fees:commission:%s:%d:%d", agentExternalID, from.Unix(), to.Unix())
-	
-	if val, err := uc.redisClient.Get(ctx, cacheKey).Result(); err == nil {
-		var summary map[string]int64
-		if jsonErr := json.Unmarshal([]byte(val), &summary); jsonErr == nil {
-			return summary, nil
+	cacheKey := fmt. Sprintf("fees:commission:%s:%d:%d", agentExternalID, from.Unix(), to. Unix())
+
+	if val, err := uc.redisClient. Get(ctx, cacheKey). Result(); err == nil {
+		var summary map[string]float64  // ✅ Correct
+		if jsonErr := json. Unmarshal([]byte(val), &summary); jsonErr == nil {
+			return summary, nil  // ✅ Now matches
 		}
 	}
 
@@ -407,7 +409,7 @@ func (uc *TransactionFeeUsecase) GetAgentCommissionSummary(
 
 	// Cache result
 	if data, err := json.Marshal(summary); err == nil {
-		_ = uc.redisClient.Set(ctx, cacheKey, data, 5*time.Minute).Err()
+		_ = uc.redisClient. Set(ctx, cacheKey, data, 5*time. Minute).Err()
 	}
 
 	return summary, nil
@@ -456,14 +458,14 @@ func (uc *TransactionFeeUsecase) InvalidateFeeCache(ctx context.Context, receipt
 // InvalidateAgentFeeCache invalidates agent fee cache
 func (uc *TransactionFeeUsecase) InvalidateAgentFeeCache(ctx context.Context, agentExternalID string) error {
 	pattern := fmt.Sprintf("fees:agent:%s:*", agentExternalID)
-	
+
 	iter := uc.redisClient.Scan(ctx, 0, pattern, 0).Iterator()
 	for iter.Next(ctx) {
 		if err := uc.redisClient.Del(ctx, iter.Val()).Err(); err != nil {
 			return fmt.Errorf("failed to delete cache key: %w", err)
 		}
 	}
-	
+
 	return iter.Err()
 }
 
@@ -511,7 +513,7 @@ func (uc *TransactionFeeUsecase) buildFeeCalculationCacheKey(
 func (uc *TransactionFeeUsecase) PreviewFee(
 	ctx context.Context,
 	transactionType domain.TransactionType,
-	amount int64,
+	amount float64,
 	sourceCurrency, targetCurrency *string,
 	accountType *domain.AccountType,
 	ownerType *domain.OwnerType,
@@ -525,11 +527,11 @@ func (uc *TransactionFeeUsecase) CreateFeeForTransaction(
 	tx pgx.Tx,
 	receiptCode string,
 	transactionType domain.TransactionType,
-	amount int64,
+	amount float64,
 	currency string,
 	accountType domain.AccountType,
 	ownerType *domain.OwnerType,
-) (int64, error) {
+) (float64, error) {
 	// Calculate fees
 	calculations, err := uc.CalculateMultipleFees(
 		ctx,
@@ -550,7 +552,7 @@ func (uc *TransactionFeeUsecase) CreateFeeForTransaction(
 
 	// Create fee records
 	var fees []*domain.TransactionFee
-	var totalFee int64
+	var totalFee float64
 
 	for _, calc := range calculations {
 		fee := &domain.TransactionFee{

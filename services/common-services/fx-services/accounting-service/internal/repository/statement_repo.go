@@ -16,25 +16,25 @@ import (
 type StatementRepository interface {
 	// Account-level statements
 	GetAccountStatement(ctx context.Context, accountNumber string, accountType domain.AccountType, from, to time.Time) (*domain.AccountStatement, error)
-	ListLedgersByAccount(ctx context.Context, accountNumber string, accountType domain.AccountType, from, to time.Time) ([]*domain.Ledger, error)
-	
+	ListLedgersByAccount(ctx context.Context, accountNumber string, accountType domain.AccountType, from, to time.Time) ([]*domain. Ledger, error)
+
 	// Owner-level statements
-	ListLedgersByOwner(ctx context.Context, ownerType domain.OwnerType, ownerID string, accountType domain.AccountType, from, to time.Time) ([]*domain.Ledger, error)
+	ListLedgersByOwner(ctx context.Context, ownerType domain. OwnerType, ownerID string, accountType domain.AccountType, from, to time.Time) ([]*domain.Ledger, error)
 	GetOwnerSummary(ctx context.Context, ownerType domain.OwnerType, ownerID string, accountType domain.AccountType) (*domain.OwnerSummary, error)
-	
+
 	// Balance queries
 	GetCurrentBalance(ctx context.Context, accountNumber string, accountType domain.AccountType) (*domain.Balance, error)
 	GetCachedBalance(ctx context.Context, accountID int64) (*domain.Balance, error)
-	
+
 	// Reports and analytics
-	GetDailySummary(ctx context.Context, date time.Time, accountType domain.AccountType) ([]*domain.DailyReport, error)
-	GetTransactionSummary(ctx context.Context, accountType domain.AccountType, from, to time.Time) ([]*domain.TransactionSummary, error)
+	GetDailySummary(ctx context.Context, date time.Time, accountType domain.AccountType) ([]*domain. DailyReport, error)
+	GetTransactionSummary(ctx context. Context, accountType domain.AccountType, from, to time.Time) ([]*domain.TransactionSummary, error)
 	GetOwnerDailySummary(ctx context.Context, ownerType domain.OwnerType, ownerID string, accountType domain.AccountType, date time.Time) (*domain.DailyReport, error)
-	
+
 	// Materialized view queries (fast aggregates)
-	GetSystemHoldings(ctx context.Context, accountType domain.AccountType) (map[string]int64, error) // Currency -> Balance
+	GetSystemHoldings(ctx context.Context, accountType domain.AccountType) (map[string]float64, error)  // ✅ Fixed: Changed to float64
 	GetDailyTransactionVolume(ctx context.Context, accountType domain.AccountType, date time.Time) ([]*domain.TransactionSummary, error)
-	
+
 	// Transaction management
 	BeginTx(ctx context.Context) (pgx.Tx, error)
 }
@@ -73,7 +73,7 @@ func (r *statementRepo) GetAccountStatement(ctx context.Context, accountNumber s
 		FROM accounts a
 		WHERE a.account_number = $1 AND a.account_type = $2
 	`
-	
+
 	err := r.db.QueryRow(ctx, query, accountNumber, accountType).Scan(
 		&stmt.AccountID,
 		&stmt.AccountNumber,
@@ -82,7 +82,7 @@ func (r *statementRepo) GetAccountStatement(ctx context.Context, accountNumber s
 		&stmt.OwnerID,
 		&stmt.Currency,
 	)
-	
+
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, xerrors.ErrNotFound
@@ -278,7 +278,7 @@ func (r *statementRepo) GetOwnerSummary(
 	}
 	defer rows.Close()
 
-	var totalBalanceUSD int64 // You may want to calculate USD equivalent here
+	var totalBalanceUSD float64 // You may want to calculate USD equivalent here
 
 	for rows.Next() {
 		var balance domain.AccountBalanceSummary
@@ -294,7 +294,7 @@ func (r *statementRepo) GetOwnerSummary(
 		}
 
 		summary.Balances = append(summary.Balances, &balance)
-		
+
 		// TODO: Convert to USD equivalent if currency != USD
 		// For now, just sum all balances (assumes USD or add conversion logic)
 		if balance.Currency == "USD" {
@@ -324,7 +324,7 @@ func (r *statementRepo) GetCurrentBalance(ctx context.Context, accountNumber str
 	var accountID int64
 	query := `SELECT id FROM accounts WHERE account_number = $1 AND account_type = $2`
 	err := r.db.QueryRow(ctx, query, accountNumber, accountType).Scan(&accountID)
-	
+
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, xerrors.ErrNotFound
@@ -344,9 +344,9 @@ func (r *statementRepo) GetCurrentBalance(ctx context.Context, accountNumber str
 	var balance domain.Balance
 	balance.AccountID = accountID
 
-	var balanceAmount int64
+	var balanceAmount float64
 	err = r.db.QueryRow(ctx, balanceQuery, accountID, accountType).Scan(&balanceAmount)
-	
+
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			balance.Balance = 0
@@ -358,7 +358,7 @@ func (r *statementRepo) GetCurrentBalance(ctx context.Context, accountNumber str
 
 	balance.Balance = balanceAmount
 	balance.UpdatedAt = time.Now()
-	
+
 	return &balance, nil
 }
 
@@ -383,7 +383,7 @@ func (r *statementRepo) GetCachedBalance(ctx context.Context, accountID int64) (
 		&b.Version,
 		&b.UpdatedAt,
 	)
-	
+
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, xerrors.ErrNotFound
@@ -576,11 +576,11 @@ func (r *statementRepo) GetTransactionSummary(ctx context.Context, accountType d
 // ===============================
 
 // GetSystemHoldings returns total holdings by currency (uses materialized view)
-func (r *statementRepo) GetSystemHoldings(ctx context.Context, accountType domain.AccountType) (map[string]int64, error) {
+func (r *statementRepo) GetSystemHoldings(ctx context.Context, accountType domain.AccountType) (map[string]float64, error) {
 	// Uses materialized view: system_holdings_real
 	// Note: Schema only has system_holdings_real, not separate for demo
 	// For demo, we'll query accounts directly
-	
+
 	var query string
 	if accountType == domain.AccountTypeReal {
 		query = `
@@ -606,11 +606,11 @@ func (r *statementRepo) GetSystemHoldings(ctx context.Context, accountType domai
 	}
 	defer rows.Close()
 
-	holdings := make(map[string]int64)
+	holdings := make(map[string]float64)
 	for rows.Next() {
 		var currency string
-		var balance int64
-		
+		var balance float64
+
 		err := rows.Scan(&currency, &balance)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan holding: %w", err)
@@ -630,7 +630,7 @@ func (r *statementRepo) GetSystemHoldings(ctx context.Context, accountType domai
 func (r *statementRepo) GetDailyTransactionVolume(ctx context.Context, accountType domain.AccountType, date time.Time) ([]*domain.TransactionSummary, error) {
 	// Uses materialized view: daily_transaction_volume_real
 	// Note: Schema only has real version
-	
+
 	if accountType != domain.AccountTypeReal {
 		// Demo accounts don't have materialized view, return empty
 		return []*domain.TransactionSummary{}, nil

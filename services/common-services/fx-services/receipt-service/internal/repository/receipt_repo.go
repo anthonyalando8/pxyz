@@ -207,7 +207,7 @@ func (r *receiptRepo) bulkInsertLookups(ctx context.Context, tx pgx.Tx, receipts
 		[]string{"code", "account_type", "created_at"},
 		pgx.CopyFromSlice(len(receipts), func(i int) ([]interface{}, error) {
 			r := receipts[i]
-			
+
 			// Validate data before copying
 			if r.Code == "" {
 				return nil, fmt.Errorf("receipt at index %d has empty code", i)
@@ -215,10 +215,10 @@ func (r *receiptRepo) bulkInsertLookups(ctx context.Context, tx pgx.Tx, receipts
 			if string(r.AccountType) == "" {
 				return nil, fmt.Errorf("receipt at index %d has empty account_type", i)
 			}
-			if r.CreatedAt. IsZero() {
+			if r.CreatedAt.IsZero() {
 				r.CreatedAt = time.Now() // Set default if missing
 			}
-			
+
 			return []interface{}{r.Code, r.AccountType, r.CreatedAt}, nil
 		}),
 	)
@@ -227,7 +227,7 @@ func (r *receiptRepo) bulkInsertLookups(ctx context.Context, tx pgx.Tx, receipts
 	}
 
 	r.logger.Debug("copied to temp table",
-		zap. Int64("rows_copied", copyCount),
+		zap.Int64("rows_copied", copyCount),
 		zap.Int("expected", len(receipts)),
 	)
 
@@ -242,7 +242,7 @@ func (r *receiptRepo) bulkInsertLookups(ctx context.Context, tx pgx.Tx, receipts
 	if err != nil {
 		return nil, fmt.Errorf("count temp table: %w", err)
 	}
-	
+
 	r.logger.Debug("temp table verified",
 		zap.Int("temp_count", tempCount),
 	)
@@ -254,7 +254,7 @@ func (r *receiptRepo) bulkInsertLookups(ctx context.Context, tx pgx.Tx, receipts
 		INNER JOIN temp_lookup tl ON rl. code = tl.code
 	`)
 	if err != nil {
-		return nil, fmt. Errorf("check existing codes: %w", err)
+		return nil, fmt.Errorf("check existing codes: %w", err)
 	}
 
 	existingCodes := make([]string, 0)
@@ -263,17 +263,17 @@ func (r *receiptRepo) bulkInsertLookups(ctx context.Context, tx pgx.Tx, receipts
 		var code string
 		if err := existingRows.Scan(&id, &code); err != nil {
 			existingRows.Close()
-			return nil, fmt. Errorf("scan existing code: %w", err)
+			return nil, fmt.Errorf("scan existing code: %w", err)
 		}
 		existingCodes = append(existingCodes, code)
 		lookupIDs[code] = id // Store existing IDs
 	}
-	existingRows. Close()
+	existingRows.Close()
 
 	// If any codes already exist, return error with details
 	if len(existingCodes) > 0 {
 		r.logger.Error("duplicate receipt codes detected",
-			zap. Strings("codes", existingCodes),
+			zap.Strings("codes", existingCodes),
 			zap.Int("count", len(existingCodes)),
 		)
 		return nil, fmt.Errorf("%w: codes already exist: %v", ErrDuplicateReceipt, existingCodes)
@@ -290,9 +290,9 @@ func (r *receiptRepo) bulkInsertLookups(ctx context.Context, tx pgx.Tx, receipts
 			WHERE enumtypid = 'account_type_enum'::regtype
 		)
 	`).Scan(&invalidTypeCount)
-	
+
 	if err != nil {
-		r.logger. Warn("could not validate account types", zap.Error(err))
+		r.logger.Warn("could not validate account types", zap.Error(err))
 	} else if invalidTypeCount > 0 {
 		// Get the invalid types for logging
 		invalidRows, _ := tx.Query(ctx, `
@@ -304,7 +304,7 @@ func (r *receiptRepo) bulkInsertLookups(ctx context.Context, tx pgx.Tx, receipts
 				WHERE enumtypid = 'account_type_enum'::regtype
 			)
 		`)
-		
+
 		invalidTypes := make([]string, 0)
 		if invalidRows != nil {
 			for invalidRows.Next() {
@@ -314,13 +314,13 @@ func (r *receiptRepo) bulkInsertLookups(ctx context.Context, tx pgx.Tx, receipts
 			}
 			invalidRows.Close()
 		}
-		
+
 		return nil, fmt.Errorf("invalid account_type values: %v (must be valid enum values)", invalidTypes)
 	}
 
 	// Step 5: Bulk INSERT only NEW codes with explicit error handling
 	r.logger.Debug("attempting bulk insert",
-		zap. Int("codes_to_insert", len(receipts)-len(existingCodes)),
+		zap.Int("codes_to_insert", len(receipts)-len(existingCodes)),
 	)
 
 	rows, err := tx.Query(ctx, `
@@ -332,31 +332,31 @@ func (r *receiptRepo) bulkInsertLookups(ctx context.Context, tx pgx.Tx, receipts
 		FROM temp_lookup
 		RETURNING id, code
 	`)
-	
+
 	if err != nil {
 		// Enhanced error logging
 		r.logger.Error("insert failed",
 			zap.Error(err),
-			zap. Int("receipt_count", len(receipts)),
+			zap.Int("receipt_count", len(receipts)),
 		)
-		
+
 		// Handle specific PostgreSQL errors
 		if pgErr, ok := err.(*pgconn.PgError); ok {
 			r.logger.Error("postgres error details",
-				zap. String("code", pgErr.Code),
+				zap.String("code", pgErr.Code),
 				zap.String("message", pgErr.Message),
 				zap.String("detail", pgErr.Detail),
 				zap.String("hint", pgErr.Hint),
 				zap.String("where", pgErr.Where),
 			)
-			
+
 			switch pgErr.Code {
 			case "23505": // unique_violation
 				return nil, ErrDuplicateReceipt
 			case "22P02": // invalid_text_representation (enum cast failure)
 				return nil, fmt.Errorf("invalid account_type value: %s", pgErr.Message)
 			default:
-				return nil, fmt. Errorf("database error [%s]: %s", pgErr.Code, pgErr.Message)
+				return nil, fmt.Errorf("database error [%s]: %s", pgErr.Code, pgErr.Message)
 			}
 		}
 		return nil, fmt.Errorf("insert lookups: %w", err)
@@ -368,15 +368,15 @@ func (r *receiptRepo) bulkInsertLookups(ctx context.Context, tx pgx.Tx, receipts
 	for rows.Next() {
 		var id int64
 		var code string
-		if err := rows. Scan(&id, &code); err != nil {
+		if err := rows.Scan(&id, &code); err != nil {
 			return nil, fmt.Errorf("scan lookup: %w", err)
 		}
 		lookupIDs[code] = id
 		insertCount++
-		
+
 		r.logger.Debug("inserted lookup",
 			zap.Int64("id", id),
-			zap. String("code", code),
+			zap.String("code", code),
 		)
 	}
 
@@ -387,7 +387,7 @@ func (r *receiptRepo) bulkInsertLookups(ctx context.Context, tx pgx.Tx, receipts
 
 	r.logger.Debug("insert complete",
 		zap.Int("inserted", insertCount),
-		zap. Int("total_ids", len(lookupIDs)),
+		zap.Int("total_ids", len(lookupIDs)),
 		zap.Int("requested", len(receipts)),
 	)
 
@@ -399,7 +399,7 @@ func (r *receiptRepo) bulkInsertLookups(ctx context.Context, tx pgx.Tx, receipts
 			zap.Int("total_ids", len(lookupIDs)),
 			zap.Int("existing", len(existingCodes)),
 		)
-		return nil, fmt.Errorf("expected %d lookups, got %d (inserted: %d, existing: %d)", 
+		return nil, fmt.Errorf("expected %d lookups, got %d (inserted: %d, existing: %d)",
 			len(receipts), len(lookupIDs), insertCount, len(existingCodes))
 	}
 
@@ -437,87 +437,84 @@ func (r *receiptRepo) bulkInsertReceipts(ctx context.Context, tx pgx.Tx, receipt
 			"status", "error_message",
 			"created_at", "created_by", "metadata",
 		},
-		pgx. CopyFromSlice(len(receipts), func(i int) ([]interface{}, error) {
+		pgx.CopyFromSlice(len(receipts), func(i int) ([]interface{}, error) {
 			rec := receipts[i]
-			lookupID, ok := lookupIDs[rec. Code]
+			lookupID, ok := lookupIDs[rec.Code]
 			if !ok {
-				return nil, fmt. Errorf("lookup_id not found for code: %s", rec. Code)
+				return nil, fmt.Errorf("lookup_id not found for code: %s", rec.Code)
 			}
 
-			metadataJSON, _ := json. Marshal(rec.Metadata)
+			metadataJSON, _ := json.Marshal(rec.Metadata)
 
 			// Debug log for first receipt
 			if i == 0 {
 				r.logger.Debug("first receipt data",
 					zap.String("code", rec.Code),
 					zap.String("exchange_rate", rec.ExchangeRate),
-					zap. Float64("amount", rec.Amount),
+					zap.Float64("amount", rec.Amount),
 					zap.String("transaction_type", rec.TransactionType),
 					zap.String("account_type", rec.AccountType),
 				)
 			}
 
-			// Convert float64 amounts to int64 cents (domain uses dollars, DB uses cents)
-			amountCents := int64(rec.Amount * 100)
-			var originalAmountCents interface{}
-			if rec.OriginalAmount > 0 {
-				originalAmountCents = int64(rec.OriginalAmount * 100)
+			amount := rec.Amount  // Already float64, DB is NUMERIC
+			var originalAmount interface{}
+			if rec. OriginalAmount > 0 {
+				originalAmount = rec. OriginalAmount
 			} else {
-				originalAmountCents = nil
+				originalAmount = nil
 			}
-			
-			var transactionCostCents int64
-			if rec.TransactionCost > 0 {
-				transactionCostCents = int64(rec.TransactionCost * 100)
-			} else {
-				transactionCostCents = 0 // NOT NULL with DEFAULT 0
+
+			transactionCost := rec.TransactionCost  // Already float64
+			if transactionCost == 0 {
+				transactionCost = 0  // Default for NOT NULL DEFAULT 0
 			}
 
 			return []interface{}{
 				// Required fields (NOT NULL)
-				lookupID,                    // BIGINT NOT NULL
-				rec. AccountType,             // account_type_enum NOT NULL
-				
+				lookupID,        // BIGINT NOT NULL
+				rec.AccountType, // account_type_enum NOT NULL
+
 				// Creditor (required)
-				rec.Creditor.AccountID,      // BIGINT NOT NULL
+				rec.Creditor.AccountID,              // BIGINT NOT NULL
 				nilIfZeroInt(rec.Creditor.LedgerID), // BIGINT (nullable)
-				rec.Creditor.OwnerType,      // owner_type_enum NOT NULL
-				rec.Creditor. Status,         // transaction_status_enum NOT NULL
-				
+				rec.Creditor.OwnerType,              // owner_type_enum NOT NULL
+				rec.Creditor.Status,                 // transaction_status_enum NOT NULL
+
 				// Debitor (required)
-				rec.Debitor.AccountID,       // BIGINT NOT NULL
-				nilIfZeroInt(rec.Debitor.LedgerID),  // BIGINT (nullable)
-				rec.Debitor. OwnerType,       // owner_type_enum NOT NULL
-				rec.Debitor.Status,          // transaction_status_enum NOT NULL
-				
+				rec.Debitor.AccountID,              // BIGINT NOT NULL
+				nilIfZeroInt(rec.Debitor.LedgerID), // BIGINT (nullable)
+				rec.Debitor.OwnerType,              // owner_type_enum NOT NULL
+				rec.Debitor.Status,                 // transaction_status_enum NOT NULL
+
 				// Transaction details
-				rec.TransactionType,         // transaction_type_enum NOT NULL
-				nilIfEmpty(rec.CodedType),   // TEXT (nullable)
-				amountCents,                 // BIGINT NOT NULL CHECK (amount > 0)
-				originalAmountCents,         // BIGINT (nullable)
-				transactionCostCents,        // BIGINT NOT NULL DEFAULT 0
-				
+				rec.TransactionType,       // transaction_type_enum NOT NULL
+				nilIfEmpty(rec.CodedType), // TEXT (nullable)
+				amount,               // BIGINT NOT NULL CHECK (amount > 0)
+				originalAmount,       // BIGINT (nullable)
+				transactionCost,      // BIGINT NOT NULL DEFAULT 0
+
 				// Currency and exchange
-				rec.Currency,                // TEXT NOT NULL
+				rec.Currency,                     // TEXT NOT NULL
 				nilIfEmpty(rec.OriginalCurrency), // VARCHAR(8) (nullable)
 				nilIfEmpty(rec.ExchangeRate),     // NUMERIC(30,18) (nullable) - THIS WAS THE ERROR
-				
+
 				// References
-				nilIfEmpty(rec.ExternalRef),        // TEXT (nullable)
-				nilIfEmpty(rec.ParentReceiptCode),  // TEXT (nullable)
-				
+				nilIfEmpty(rec.ExternalRef),       // TEXT (nullable)
+				nilIfEmpty(rec.ParentReceiptCode), // TEXT (nullable)
+
 				// Status tracking
-				rec. Status,                  // transaction_status_enum NOT NULL DEFAULT 'pending'
+				rec.Status,                   // transaction_status_enum NOT NULL DEFAULT 'pending'
 				nilIfEmpty(rec.ErrorMessage), // TEXT (nullable)
-				
+
 				// Timestamps
-				rec. CreatedAt,               // TIMESTAMPTZ NOT NULL DEFAULT now()
-				
+				rec.CreatedAt, // TIMESTAMPTZ NOT NULL DEFAULT now()
+
 				// Audit fields
-				nilIfEmpty(rec.CreatedBy),   // TEXT DEFAULT 'system' (but can be NULL)
-				
+				nilIfEmpty(rec.CreatedBy), // TEXT DEFAULT 'system' (but can be NULL)
+
 				// Metadata
-				metadataJSON,                // JSONB (nullable)
+				metadataJSON, // JSONB (nullable)
 			}, nil
 		}),
 	)
@@ -525,29 +522,29 @@ func (r *receiptRepo) bulkInsertReceipts(ctx context.Context, tx pgx.Tx, receipt
 	if err != nil {
 		r.logger.Error("copy receipts failed",
 			zap.Error(err),
-			zap. Int("receipt_count", len(receipts)),
+			zap.Int("receipt_count", len(receipts)),
 		)
 
-		if pgErr, ok := err. (*pgconn.PgError); ok {
+		if pgErr, ok := err.(*pgconn.PgError); ok {
 			r.logger.Error("postgres error details",
 				zap.String("code", pgErr.Code),
 				zap.String("message", pgErr.Message),
 				zap.String("detail", pgErr.Detail),
-				zap.String("column", pgErr. ColumnName),
-				zap.String("constraint", pgErr. ConstraintName),
+				zap.String("column", pgErr.ColumnName),
+				zap.String("constraint", pgErr.ConstraintName),
 			)
 
 			switch pgErr.Code {
 			case "23505": // unique_violation
 				return ErrDuplicateReceipt
 			case "23503": // foreign_key_violation
-				return fmt. Errorf("invalid account reference: %w", err)
+				return fmt.Errorf("invalid account reference: %w", err)
 			case "23514": // check_violation
 				return fmt.Errorf("check constraint failed (%s): %s", pgErr.ConstraintName, pgErr.Message)
 			case "22P02": // invalid_text_representation
-				return fmt. Errorf("invalid data format for column %s: %s", pgErr. ColumnName, pgErr.Message)
+				return fmt.Errorf("invalid data format for column %s: %s", pgErr.ColumnName, pgErr.Message)
 			case "57014": // query_canceled
-				return fmt. Errorf("copy operation failed: %s", pgErr.Message)
+				return fmt.Errorf("copy operation failed: %s", pgErr.Message)
 			}
 		}
 		return fmt.Errorf("copy receipts: %w", err)
@@ -559,6 +556,7 @@ func (r *receiptRepo) bulkInsertReceipts(ctx context.Context, tx pgx.Tx, receipt
 
 	return nil
 }
+
 // populateCacheAsync populates cache asynchronously (non-blocking)
 func (r *receiptRepo) populateCacheAsync(receipts []*domain.Receipt) {
 	if r.cache == nil {
@@ -778,21 +776,34 @@ func (r *receiptRepo) queryReceiptsByCodes(ctx context.Context, codes []string) 
 		var metadataJSON []byte
 		var updatedAt, completedAt, reversedAt *time.Time
 
+		var amount float64
+		var originalAmount sql.NullFloat64  // ✅ Add this
+		var transactionCost float64
+
+		// Line 783-788 - Update scan
 		err := rows.Scan(
 			&rec.LookupID, &rec.Code, &rec.AccountType,
-			&rec.Creditor.AccountID, &rec.Creditor.LedgerID, &rec.Creditor.OwnerType, &rec.Creditor.Status,
+			&rec.Creditor.AccountID, &rec. Creditor.LedgerID, &rec.Creditor. OwnerType, &rec. Creditor.Status,
 			&rec.Debitor.AccountID, &rec.Debitor.LedgerID, &rec.Debitor.OwnerType, &rec.Debitor.Status,
-			&rec.TransactionType, &rec.CodedType, &rec.Amount, &rec.OriginalAmount, &rec.TransactionCost,
+			&rec. TransactionType, &rec.CodedType, 
+			&amount, &originalAmount, &transactionCost,  // ✅ Updated
 			&rec.Currency, &rec.OriginalCurrency, &rec.ExchangeRate,
 			&rec.ExternalRef, &rec.ParentReceiptCode, &rec.ReversalReceiptCode,
-			&rec.Status, &rec.ErrorMessage,
-			&rec.CreatedAt, &updatedAt, &completedAt, &reversedAt,
-			&rec.CreatedBy, &rec.ReversedBy,
+			&rec.Status, &rec. ErrorMessage,
+			&rec. CreatedAt, &updatedAt, &completedAt, &reversedAt,
+			&rec. CreatedBy, &rec.ReversedBy,
 			&metadataJSON,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scan receipt: %w", err)
 		}
+		rec.Amount = amount
+		if originalAmount.Valid {
+			rec. OriginalAmount = originalAmount. Float64
+		} else {
+			rec.OriginalAmount = 0
+		}
+		rec.TransactionCost = transactionCost
 
 		rec.UpdatedAt = updatedAt
 		rec.CompletedAt = completedAt
@@ -871,7 +882,7 @@ func (r *receiptRepo) UpdateBatch(ctx context.Context, updates []*domain.Receipt
 
 	start := time.Now()
 	defer func() {
-		dbQueryDuration. WithLabelValues("update_batch").Observe(time.Since(start).Seconds())
+		dbQueryDuration.WithLabelValues("update_batch").Observe(time.Since(start).Seconds())
 		r.logger.Info("batch update receipts",
 			zap.Int("count", len(updates)),
 			zap.Duration("duration", time.Since(start)),
@@ -941,7 +952,7 @@ func (r *receiptRepo) UpdateBatch(ctx context.Context, updates []*domain.Receipt
 	metadatas := make([]interface{}, len(updates))
 
 	for i, upd := range updates {
-		metadataJSON, _ := json.Marshal(upd. MetadataPatch)
+		metadataJSON, _ := json.Marshal(upd.MetadataPatch)
 		if len(metadataJSON) == 0 || string(metadataJSON) == "null" {
 			metadataJSON = []byte("{}")
 		}
@@ -951,7 +962,7 @@ func (r *receiptRepo) UpdateBatch(ctx context.Context, updates []*domain.Receipt
 		creditorStatuses[i] = nilIfEmpty(upd.CreditorStatus)
 		creditorLedgerIDs[i] = upd.CreditorLedgerID
 		debitorStatuses[i] = nilIfEmpty(upd.DebitorStatus)
-		debitorLedgerIDs[i] = upd. DebitorLedgerID
+		debitorLedgerIDs[i] = upd.DebitorLedgerID
 		reversedBys[i] = nilIfEmpty(upd.ReversedBy)
 		reversedAts[i] = upd.ReversedAt
 		errorMessages[i] = nilIfEmpty(upd.ErrorMessage)
@@ -960,10 +971,10 @@ func (r *receiptRepo) UpdateBatch(ctx context.Context, updates []*domain.Receipt
 
 		// Debug first update
 		if i == 0 {
-			r.logger. Debug("first update data",
+			r.logger.Debug("first update data",
 				zap.String("code", upd.Code),
 				zap.String("status", upd.Status),
-				zap.String("creditor_status", upd. CreditorStatus),
+				zap.String("creditor_status", upd.CreditorStatus),
 				zap.Int64("creditor_ledger_id", upd.CreditorLedgerID),
 				zap.String("debitor_status", upd.DebitorStatus),
 				zap.Int64("debitor_ledger_id", upd.DebitorLedgerID),
@@ -972,26 +983,26 @@ func (r *receiptRepo) UpdateBatch(ctx context.Context, updates []*domain.Receipt
 	}
 
 	rows, err := r.db.Query(ctx, query,
-		codes,              // $1
-		statuses,           // $2
-		creditorStatuses,   // $3
-		creditorLedgerIDs,  // $4
-		debitorStatuses,    // $5
-		debitorLedgerIDs,   // $6
-		reversedBys,        // $7
-		reversedAts,        // $8
-		errorMessages,      // $9
-		completedAts,       // $10
-		metadatas,          // $11
+		codes,             // $1
+		statuses,          // $2
+		creditorStatuses,  // $3
+		creditorLedgerIDs, // $4
+		debitorStatuses,   // $5
+		debitorLedgerIDs,  // $6
+		reversedBys,       // $7
+		reversedAts,       // $8
+		errorMessages,     // $9
+		completedAts,      // $10
+		metadatas,         // $11
 	)
 
 	if err != nil {
 		r.logger.Error("batch update query failed",
-			zap. Error(err),
+			zap.Error(err),
 			zap.Int("update_count", len(updates)),
-			zap. Strings("codes", codes),
+			zap.Strings("codes", codes),
 		)
-		return nil, fmt. Errorf("batch update: %w", err)
+		return nil, fmt.Errorf("batch update: %w", err)
 	}
 	defer rows.Close()
 
@@ -999,49 +1010,50 @@ func (r *receiptRepo) UpdateBatch(ctx context.Context, updates []*domain.Receipt
 	updatedCodes := make([]string, 0, len(updates))
 
 	for rows.Next() {
-		var rec domain. Receipt
+		var rec domain.Receipt
 		var metadataJSON []byte
 		var updatedAt, completedAt, reversedAt *time.Time
 
-		// 🔥 FIX: Use sql.NullInt64 for ALL nullable BIGINT columns
-		var amountCents int64  // NOT NULL, so keep as int64
-		var originalAmountCents sql.NullInt64  // ✅ Nullable, use sql.NullInt64
-		var transactionCostCents int64  // NOT NULL with DEFAULT, keep as int64
-		var creditorLedgerID, debitorLedgerID sql.NullInt64  // ✅ Nullable
-		
 		// Nullable strings
 		var originalCurrency, exchangeRate, externalRef, parentReceiptCode, reversalReceiptCode sql.NullString
 		var codedType, errorMessage, createdBy, reversedBy sql.NullString
+		// 🔥 FIX: Use sql.NullInt64 for ALL nullable BIGINT columns
+		// Scan variables - Line 1038-1041
+		var amount float64                   // NOT NULL
+		var originalAmount sql.NullFloat64   // ✅ Fixed typo
+		var transactionCost float64          // NOT NULL DEFAULT 0
+		var creditorLedgerID, debitorLedgerID sql.NullInt64
 
+		// Scan - Line 1044-1067
 		err := rows.Scan(
-			&rec.LookupID, &rec.Code, &rec.AccountType,
-			&rec.Creditor.AccountID, 
-			&creditorLedgerID,          // ✅ sql.NullInt64
-			&rec.Creditor. OwnerType, 
+			&rec.LookupID, &rec.Code, &rec. AccountType,
+			&rec.Creditor.AccountID,
+			&creditorLedgerID,
+			&rec.Creditor.OwnerType,
 			&rec.Creditor.Status,
-			&rec. Debitor.AccountID, 
-			&debitorLedgerID,           // ✅ sql.NullInt64
-			&rec.Debitor. OwnerType, 
-			&rec.Debitor.Status,
-			&rec.TransactionType, 
-			&codedType,                 // sql.NullString
-			&amountCents,               // int64 (NOT NULL)
-			&originalAmountCents,       // ✅ sql.NullInt64 (nullable)
-			&transactionCostCents,      // int64 (NOT NULL DEFAULT 0)
-			&rec. Currency,
-			&originalCurrency,          // sql.NullString
-			&exchangeRate,              // sql. NullString
-			&externalRef,               // sql.NullString
-			&parentReceiptCode,         // sql.NullString
-			&reversalReceiptCode,       // sql.NullString
-			&rec.Status, 
-			&errorMessage,              // sql.NullString
-			&rec.CreatedAt, 
-			&updatedAt, 
-			&completedAt, 
+			&rec. Debitor.AccountID,
+			&debitorLedgerID,
+			&rec.Debitor.OwnerType,
+			&rec.Debitor. Status,
+			&rec.TransactionType,
+			&codedType,
+			&amount,           // ✅ Direct scan into float64
+			&originalAmount,   // ✅ sql.NullFloat64
+			&transactionCost,  // ✅ Direct scan into float64
+			&rec.Currency,
+			&originalCurrency,
+			&exchangeRate,
+			&externalRef,
+			&parentReceiptCode,
+			&reversalReceiptCode,
+			&rec.Status,
+			&errorMessage,
+			&rec.CreatedAt,
+			&updatedAt,
+			&completedAt,
 			&reversedAt,
-			&createdBy,                 // sql.NullString
-			&reversedBy,                // sql.NullString
+			&createdBy,
+			&reversedBy,
 			&metadataJSON,
 		)
 		if err != nil {
@@ -1051,27 +1063,26 @@ func (r *receiptRepo) UpdateBatch(ctx context.Context, updates []*domain.Receipt
 			return nil, fmt.Errorf("scan updated receipt: %w", err)
 		}
 
-		// Convert amounts from cents to dollars
-		rec.Amount = float64(amountCents) / 100.0
-		
-		// ✅ Handle nullable original_amount
-		if originalAmountCents.Valid {
-			rec.OriginalAmount = float64(originalAmountCents.Int64) / 100.0
+		// Assign to receipt - Lines 1086-1095
+		rec.Amount = amount  // ✅ Direct assignment
+
+		if originalAmount.Valid {
+			rec.OriginalAmount = originalAmount.Float64  // ✅ Direct assignment
 		} else {
-			rec. OriginalAmount = 0  // or leave as is if your domain allows
+			rec. OriginalAmount = 0
 		}
-		
-		rec.TransactionCost = float64(transactionCostCents) / 100.0
+
+		rec.TransactionCost = transactionCost  // ✅ Direct assignment
 
 		// ✅ Handle nullable LedgerIDs
 		if creditorLedgerID.Valid {
-			rec.Creditor. LedgerID = creditorLedgerID.Int64
+			rec.Creditor.LedgerID = creditorLedgerID.Int64
 		} else {
-			rec. Creditor.LedgerID = 0
+			rec.Creditor.LedgerID = 0
 		}
 
 		if debitorLedgerID.Valid {
-			rec. Debitor.LedgerID = debitorLedgerID.Int64
+			rec.Debitor.LedgerID = debitorLedgerID.Int64
 		} else {
 			rec.Debitor.LedgerID = 0
 		}
@@ -1080,20 +1091,20 @@ func (r *receiptRepo) UpdateBatch(ctx context.Context, updates []*domain.Receipt
 		if codedType.Valid {
 			rec.CodedType = codedType.String
 		}
-		if originalCurrency. Valid {
-			rec.OriginalCurrency = originalCurrency. String
+		if originalCurrency.Valid {
+			rec.OriginalCurrency = originalCurrency.String
 		}
 		if exchangeRate.Valid {
 			rec.ExchangeRate = exchangeRate.String
 		}
 		if externalRef.Valid {
-			rec. ExternalRef = externalRef. String
+			rec.ExternalRef = externalRef.String
 		}
 		if parentReceiptCode.Valid {
 			rec.ParentReceiptCode = parentReceiptCode.String
 		}
 		if reversalReceiptCode.Valid {
-			rec. ReversalReceiptCode = reversalReceiptCode.String
+			rec.ReversalReceiptCode = reversalReceiptCode.String
 		}
 		if errorMessage.Valid {
 			rec.ErrorMessage = errorMessage.String
@@ -1110,7 +1121,7 @@ func (r *receiptRepo) UpdateBatch(ctx context.Context, updates []*domain.Receipt
 		rec.ReversedAt = reversedAt
 
 		if len(metadataJSON) > 0 && string(metadataJSON) != "null" {
-			json. Unmarshal(metadataJSON, &rec.Metadata)
+			json.Unmarshal(metadataJSON, &rec.Metadata)
 		}
 
 		rec.Creditor.IsCreditor = true
@@ -1124,12 +1135,12 @@ func (r *receiptRepo) UpdateBatch(ctx context.Context, updates []*domain.Receipt
 		return nil, fmt.Errorf("rows iteration error: %w", err)
 	}
 
-	r.logger. Debug("batch update successful",
+	r.logger.Debug("batch update successful",
 		zap.Int("updated_count", len(results)),
 	)
 
 	// Invalidate cache for updated receipts
-	go r. InvalidateCache(context.Background(), updatedCodes)
+	go r.InvalidateCache(context.Background(), updatedCodes)
 
 	return results, nil
 }
@@ -1379,15 +1390,20 @@ func (r *receiptRepo) scanReceipt(row pgx.Row, includeMetadata bool) (*domain.Re
 	var metadataJSON []byte
 	var updatedAt, completedAt, reversedAt *time.Time
 
+	var amount float64
+	var originalAmount sql.NullFloat64
+	var transactionCost float64
+
 	if includeMetadata {
 		err := row.Scan(
 			&rec.LookupID, &rec.Code, &rec.AccountType,
-			&rec.Creditor.AccountID, &rec.Creditor.LedgerID, &rec.Creditor.OwnerType, &rec.Creditor.Status,
-			&rec.Debitor.AccountID, &rec.Debitor.LedgerID, &rec.Debitor.OwnerType, &rec.Debitor.Status,
-			&rec.TransactionType, &rec.CodedType, &rec.Amount, &rec.OriginalAmount, &rec.TransactionCost,
-			&rec.Currency, &rec.OriginalCurrency, &rec.ExchangeRate,
-			&rec.ExternalRef, &rec.ParentReceiptCode, &rec.ReversalReceiptCode,
-			&rec.Status, &rec.CreditorStatus, &rec.DebitorStatus, &rec.ErrorMessage,
+			&rec. Creditor.AccountID, &rec.Creditor.LedgerID, &rec.Creditor.OwnerType, &rec.Creditor.Status,
+			&rec.Debitor. AccountID, &rec.Debitor.LedgerID, &rec.Debitor.OwnerType, &rec.Debitor.Status,
+			&rec.TransactionType, &rec. CodedType, 
+			&amount, &originalAmount, &transactionCost,  // ✅ Updated
+			&rec. Currency, &rec.OriginalCurrency, &rec.ExchangeRate,
+			&rec. ExternalRef, &rec.ParentReceiptCode, &rec. ReversalReceiptCode,
+			&rec.Status, &rec. CreditorStatus, &rec. DebitorStatus, &rec.ErrorMessage,
 			&rec.CreatedAt, &updatedAt, &completedAt, &reversedAt,
 			&rec.CreatedBy, &rec.ReversedBy,
 			&metadataJSON,
@@ -1404,12 +1420,13 @@ func (r *receiptRepo) scanReceipt(row pgx.Row, includeMetadata bool) (*domain.Re
 	} else {
 		err := row.Scan(
 			&rec.LookupID, &rec.Code, &rec.AccountType,
-			&rec.Creditor.AccountID, &rec.Creditor.LedgerID, &rec.Creditor.OwnerType, &rec.Creditor.Status,
-			&rec.Debitor.AccountID, &rec.Debitor.LedgerID, &rec.Debitor.OwnerType, &rec.Debitor.Status,
-			&rec.TransactionType, &rec.CodedType, &rec.Amount, &rec.OriginalAmount, &rec.TransactionCost,
-			&rec.Currency, &rec.OriginalCurrency, &rec.ExchangeRate,
-			&rec.ExternalRef, &rec.ParentReceiptCode, &rec.ReversalReceiptCode,
-			&rec.Status, &rec.CreditorStatus, &rec.DebitorStatus, &rec.ErrorMessage,
+			&rec. Creditor.AccountID, &rec.Creditor.LedgerID, &rec.Creditor.OwnerType, &rec.Creditor.Status,
+			&rec.Debitor. AccountID, &rec.Debitor.LedgerID, &rec.Debitor.OwnerType, &rec.Debitor.Status,
+			&rec.TransactionType, &rec. CodedType, 
+			&amount, &originalAmount, &transactionCost,  // ✅ Updated
+			&rec. Currency, &rec.OriginalCurrency, &rec.ExchangeRate,
+			&rec. ExternalRef, &rec.ParentReceiptCode, &rec. ReversalReceiptCode,
+			&rec.Status, &rec. CreditorStatus, &rec. DebitorStatus, &rec.ErrorMessage,
 			&rec.CreatedAt, &updatedAt, &completedAt, &reversedAt,
 			&rec.CreatedBy, &rec.ReversedBy,
 		)
@@ -1417,6 +1434,14 @@ func (r *receiptRepo) scanReceipt(row pgx.Row, includeMetadata bool) (*domain.Re
 			return nil, err
 		}
 	}
+
+	rec.Amount = amount
+	if originalAmount.Valid {
+		rec.OriginalAmount = originalAmount.Float64
+	} else {
+		rec.OriginalAmount = 0
+	}
+	rec.TransactionCost = transactionCost
 
 	rec.UpdatedAt = updatedAt
 	rec.CompletedAt = completedAt

@@ -79,9 +79,9 @@ type OwnerStatementJSON struct {
 }
 
 type UpdateAccountDTO struct {
-	IsActive       *bool  `json:"is_active,omitempty"`
-	IsLocked       *bool  `json:"is_locked,omitempty"`
-	OverdraftLimit *int64 `json:"overdraft_limit,omitempty"`
+	IsActive       *bool     `json:"is_active,omitempty"`
+	IsLocked       *bool     `json:"is_locked,omitempty"`
+	OverdraftLimit *float64  `json:"overdraft_limit,omitempty"`  //  Changed to *float64
 }
 
 type DailyReportQuery struct {
@@ -211,13 +211,6 @@ func (h *AdminHandler) isSuperAdmin(role string) bool {
 	return role == "super_admin"
 }
 
-func toAtomicUnits(amount float64) int64 {
-	return int64(amount * 100)
-}
-
-func fromAtomicUnits(amount int64) float64 {
-	return float64(amount) / 100.0
-}
 
 // ============================================================================
 // ACCOUNT MANAGEMENT HANDLERS
@@ -355,7 +348,7 @@ func (h *AdminHandler) CreditAccount(w http.ResponseWriter, r *http.Request) {
 	if h.isSuperAdmin(role) {
 		req := &accountingpb.CreditRequest{
 			AccountNumber:       dto.AccountNumber,
-			Amount:              toAtomicUnits(dto. Amount),
+			Amount:              dto. Amount,
 			Currency:            dto.Currency,
 			AccountType:         accountingpb.AccountType_ACCOUNT_TYPE_REAL,
 			Description:         dto.Description,
@@ -379,7 +372,7 @@ func (h *AdminHandler) CreditAccount(w http.ResponseWriter, r *http.Request) {
 		RequestedBy:     userIDInt,
 		TransactionType: accountingpb.TransactionType_TRANSACTION_TYPE_DEPOSIT,
 		AccountNumber:   dto.AccountNumber,
-		Amount:          toAtomicUnits(dto.Amount),
+		Amount:          dto.Amount,
 		Currency:        dto.Currency,
 		Description:     dto. Description,
 	}
@@ -416,7 +409,7 @@ func (h *AdminHandler) DebitAccount(w http.ResponseWriter, r *http.Request) {
 	if h.isSuperAdmin(role) {
 		req := &accountingpb.DebitRequest{
 			AccountNumber:       dto.AccountNumber,
-			Amount:              toAtomicUnits(dto.Amount),
+			Amount:              dto.Amount,
 			Currency:            dto.Currency,
 			AccountType:         accountingpb.AccountType_ACCOUNT_TYPE_REAL,
 			Description:         dto.Description,
@@ -440,7 +433,7 @@ func (h *AdminHandler) DebitAccount(w http.ResponseWriter, r *http.Request) {
 		RequestedBy:     userIDInt,
 		TransactionType: accountingpb.TransactionType_TRANSACTION_TYPE_WITHDRAWAL,
 		AccountNumber:   dto.AccountNumber,
-		Amount:          toAtomicUnits(dto.Amount),
+		Amount:          dto.Amount,
 		Currency:        dto.Currency,
 		Description:     dto.Description,
 	}
@@ -480,7 +473,7 @@ func (h *AdminHandler) TransferFunds(w http.ResponseWriter, r *http.Request) {
 	req := &accountingpb.TransferRequest{
 		FromAccountNumber:   dto.From,
 		ToAccountNumber:     dto.To,
-		Amount:              toAtomicUnits(dto.Amount),
+		Amount:              dto.Amount,
 		AccountType:         accountingpb. AccountType_ACCOUNT_TYPE_REAL,
 		Description:         dto.Description,
 		CreatedByExternalId: userID,
@@ -522,7 +515,7 @@ func (h *AdminHandler) ConvertAndTransfer(w http.ResponseWriter, r *http.Request
 	req := &accountingpb.ConversionRequest{
 		FromAccountNumber:   dto.FromAccount,
 		ToAccountNumber:     dto. ToAccount,
-		Amount:              toAtomicUnits(dto.Amount),
+		Amount:              dto.Amount,
 		AccountType:         accountingpb.AccountType_ACCOUNT_TYPE_REAL,
 		CreatedByExternalId: userID,
 		CreatedByType:       accountingpb.OwnerType_OWNER_TYPE_ADMIN,
@@ -558,7 +551,7 @@ func (h *AdminHandler) ProcessTradeWin(w http. ResponseWriter, r *http.Request) 
 
 	req := &accountingpb.TradeRequest{
 		AccountNumber:       dto.AccountNumber,
-		Amount:              toAtomicUnits(dto.Amount),
+		Amount:              dto.Amount,
 		Currency:            dto.Currency,
 		AccountType:         accountingpb.AccountType_ACCOUNT_TYPE_REAL,
 		TradeId:             dto.TradeID,
@@ -597,7 +590,7 @@ func (h *AdminHandler) ProcessTradeLoss(w http.ResponseWriter, r *http.Request) 
 
 	req := &accountingpb.TradeRequest{
 		AccountNumber:       dto.AccountNumber,
-		Amount:              toAtomicUnits(dto. Amount),
+		Amount:              dto. Amount,
 		Currency:            dto.Currency,
 		AccountType:         accountingpb.AccountType_ACCOUNT_TYPE_REAL,
 		TradeId:             dto.TradeID,
@@ -632,8 +625,8 @@ func (h *AdminHandler) ProcessAgentCommission(w http.ResponseWriter, r *http.Req
 		AgentExternalId:   dto.AgentExternalID,
 		TransactionRef:    dto.TransactionRef,
 		Currency:          dto.Currency,
-		TransactionAmount: toAtomicUnits(dto.TransactionAmount),
-		CommissionAmount:  toAtomicUnits(dto.CommissionAmount),
+		TransactionAmount: dto.TransactionAmount,
+		CommissionAmount:  dto.CommissionAmount,
 	}
 
 	if dto.CommissionRate != "" {
@@ -1089,7 +1082,7 @@ func (h *AdminHandler) CalculateFee(w http.ResponseWriter, r *http.Request) {
 
 	req := &accountingpb. CalculateFeeRequest{
 		TransactionType: mapTransactionType(transactionType),
-		Amount:          toAtomicUnits(amount),
+		Amount:          amount,
 	}
 
 	if sourceCurrency != "" {

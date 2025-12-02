@@ -78,10 +78,10 @@ message Receipt {
   TransactionType transaction_type = 3;    // Enum for better performance
   string coded_type = 4;                   // Optional subtype
   
-  // Amounts (stored as int64 in atomic units)
-  int64 amount = 5;                        // In smallest currency unit
-  int64 original_amount = 6;               // For conversions
-  int64 transaction_cost = 7;              // Fees
+  // Amounts (stored as double in atomic units)
+  double amount = 5;                        // In smallest currency unit
+  double original_amount = 6;               // For conversions
+  double transaction_cost = 7;              // Fees
   
   // Currency
   string currency = 8;                     // Currency code
@@ -126,7 +126,7 @@ message Receipt {
 message ReceiptSummary {
   string code = 1;
   TransactionType transaction_type = 2;
-  int64 amount = 3;
+  double amount = 3;
   string currency = 4;
   TransactionStatus status = 5;
   google.protobuf.Timestamp created_at = 6;
@@ -142,9 +142,9 @@ message CreateReceiptRequest {
   string coded_type = 2;
   
   // Amounts (in atomic units)
-  int64 amount = 3;
-  int64 original_amount = 4;
-  int64 transaction_cost = 5;
+  double amount = 3;
+  double original_amount = 4;
+  double transaction_cost = 5;
   
   // Currency
   string currency = 6;

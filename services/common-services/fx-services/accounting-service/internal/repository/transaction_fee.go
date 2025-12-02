@@ -8,26 +8,27 @@ import (
 
 	"accounting-service/internal/domain"
 
+	xerrors "x/shared/utils/errors"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	xerrors "x/shared/utils/errors"
 )
 
 type TransactionFeeRepository interface {
 	// Basic CRUD
 	Create(ctx context.Context, tx pgx.Tx, fee *domain.TransactionFee) error
-	CreateBatch(ctx context.Context, tx pgx.Tx, fees []*domain.TransactionFee) map[int]error
+	CreateBatch(ctx context.Context, tx pgx. Tx, fees []*domain. TransactionFee) map[int]error
 	GetByID(ctx context.Context, id int64) (*domain.TransactionFee, error)
-	
+
 	// Query operations
 	GetByReceipt(ctx context.Context, receiptCode string) ([]*domain.TransactionFee, error)
-	GetByFeeRule(ctx context.Context, feeRuleID int64, limit int) ([]*domain.TransactionFee, error)
+	GetByFeeRule(ctx context. Context, feeRuleID int64, limit int) ([]*domain.TransactionFee, error)
 	GetByAgent(ctx context.Context, agentExternalID string, from, to time.Time) ([]*domain.TransactionFee, error)
-	
+
 	// Statistics
-	GetTotalFeesByType(ctx context.Context, feeType domain.FeeType, from, to time.Time) (int64, error)
-	GetAgentCommissionSummary(ctx context.Context, agentExternalID string, from, to time.Time) (map[string]int64, error) // Currency -> Amount
-	
+	GetTotalFeesByType(ctx context.Context, feeType domain.FeeType, from, to time.Time) (float64, error)  // ✅ Changed to float64
+	GetAgentCommissionSummary(ctx context.Context, agentExternalID string, from, to time.Time) (map[string]float64, error)  // ✅ Changed to map[string]float64
+
 	// Transaction management
 	BeginTx(ctx context.Context) (pgx.Tx, error)
 }
@@ -365,7 +366,7 @@ func (r *transactionFeeRepo) GetByAgent(ctx context.Context, agentExternalID str
 // ===============================
 
 // GetTotalFeesByType returns total fees collected by fee type in a date range
-func (r *transactionFeeRepo) GetTotalFeesByType(ctx context.Context, feeType domain.FeeType, from, to time.Time) (int64, error) {
+func (r *transactionFeeRepo) GetTotalFeesByType(ctx context. Context, feeType domain.FeeType, from, to time. Time) (float64, error) {  // ✅ Changed return type
 	query := `
 		SELECT COALESCE(SUM(amount), 0) AS total
 		FROM transaction_fees
@@ -374,9 +375,9 @@ func (r *transactionFeeRepo) GetTotalFeesByType(ctx context.Context, feeType dom
 		  AND created_at <= $3
 	`
 
-	var total int64
-	err := r.db.QueryRow(ctx, query, feeType, from, to).Scan(&total)
-	
+	var total float64  // ✅ Changed to float64
+	err := r. db.QueryRow(ctx, query, feeType, from, to).Scan(&total)
+
 	if err != nil {
 		return 0, fmt.Errorf("failed to get total fees by type: %w", err)
 	}
@@ -385,7 +386,8 @@ func (r *transactionFeeRepo) GetTotalFeesByType(ctx context.Context, feeType dom
 }
 
 // GetAgentCommissionSummary returns agent commission totals grouped by currency
-func (r *transactionFeeRepo) GetAgentCommissionSummary(ctx context.Context, agentExternalID string, from, to time.Time) (map[string]int64, error) {
+// GetAgentCommissionSummary returns agent commission totals grouped by currency
+func (r *transactionFeeRepo) GetAgentCommissionSummary(ctx context.Context, agentExternalID string, from, to time.Time) (map[string]float64, error) {  // ✅ Changed return type
 	query := `
 		SELECT 
 			currency,
@@ -405,11 +407,11 @@ func (r *transactionFeeRepo) GetAgentCommissionSummary(ctx context.Context, agen
 	}
 	defer rows.Close()
 
-	summary := make(map[string]int64)
+	summary := make(map[string]float64)  // ✅ Already correct
 	for rows.Next() {
 		var currency string
-		var total int64
-		
+		var total float64  // ✅ Already correct
+
 		err := rows.Scan(&currency, &total)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan commission summary: %w", err)
@@ -418,7 +420,7 @@ func (r *transactionFeeRepo) GetAgentCommissionSummary(ctx context.Context, agen
 		summary[currency] = total
 	}
 
-	if err := rows.Err(); err != nil {
+	if err := rows. Err(); err != nil {
 		return nil, fmt.Errorf("error iterating commission summary rows: %w", err)
 	}
 

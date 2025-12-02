@@ -503,7 +503,7 @@ type Account struct {
 	AccountType    AccountType            `protobuf:"varint,7,opt,name=account_type,json=accountType,proto3,enum=accounting.v1.AccountType" json:"account_type,omitempty"`
 	IsActive       bool                   `protobuf:"varint,8,opt,name=is_active,json=isActive,proto3" json:"is_active,omitempty"`
 	IsLocked       bool                   `protobuf:"varint,9,opt,name=is_locked,json=isLocked,proto3" json:"is_locked,omitempty"`
-	OverdraftLimit int64                  `protobuf:"varint,10,opt,name=overdraft_limit,json=overdraftLimit,proto3" json:"overdraft_limit,omitempty"`
+	OverdraftLimit float64                `protobuf:"fixed64,10,opt,name=overdraft_limit,json=overdraftLimit,proto3" json:"overdraft_limit,omitempty"`
 	ParentAgentId  int64                  `protobuf:"varint,11,opt,name=parent_agent_id,json=parentAgentId,proto3" json:"parent_agent_id,omitempty"`
 	CommissionRate string                 `protobuf:"bytes,12,opt,name=commission_rate,json=commissionRate,proto3" json:"commission_rate,omitempty"` // NUMERIC as string (e.g. "0.0025")
 	CreatedAt      *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
@@ -605,7 +605,7 @@ func (x *Account) GetIsLocked() bool {
 	return false
 }
 
-func (x *Account) GetOverdraftLimit() int64 {
+func (x *Account) GetOverdraftLimit() float64 {
 	if x != nil {
 		return x.OverdraftLimit
 	}
@@ -644,10 +644,10 @@ type Balance struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	AccountId         int64                  `protobuf:"varint,1,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
 	AccountNumber     string                 `protobuf:"bytes,2,opt,name=account_number,json=accountNumber,proto3" json:"account_number,omitempty"`
-	Balance           int64                  `protobuf:"varint,3,opt,name=balance,proto3" json:"balance,omitempty"` // Atomic units (e.g., cents)
-	AvailableBalance  int64                  `protobuf:"varint,4,opt,name=available_balance,json=availableBalance,proto3" json:"available_balance,omitempty"`
-	PendingDebit      int64                  `protobuf:"varint,5,opt,name=pending_debit,json=pendingDebit,proto3" json:"pending_debit,omitempty"`
-	PendingCredit     int64                  `protobuf:"varint,6,opt,name=pending_credit,json=pendingCredit,proto3" json:"pending_credit,omitempty"`
+	Balance           float64                `protobuf:"fixed64,3,opt,name=balance,proto3" json:"balance,omitempty"` // Atomic units (e.g., cents)
+	AvailableBalance  float64                `protobuf:"fixed64,4,opt,name=available_balance,json=availableBalance,proto3" json:"available_balance,omitempty"`
+	PendingDebit      float64                `protobuf:"fixed64,5,opt,name=pending_debit,json=pendingDebit,proto3" json:"pending_debit,omitempty"`
+	PendingCredit     float64                `protobuf:"fixed64,6,opt,name=pending_credit,json=pendingCredit,proto3" json:"pending_credit,omitempty"`
 	Currency          string                 `protobuf:"bytes,7,opt,name=currency,proto3" json:"currency,omitempty"`
 	Version           int64                  `protobuf:"varint,8,opt,name=version,proto3" json:"version,omitempty"`
 	LastTransactionAt *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=last_transaction_at,json=lastTransactionAt,proto3" json:"last_transaction_at,omitempty"`
@@ -699,28 +699,28 @@ func (x *Balance) GetAccountNumber() string {
 	return ""
 }
 
-func (x *Balance) GetBalance() int64 {
+func (x *Balance) GetBalance() float64 {
 	if x != nil {
 		return x.Balance
 	}
 	return 0
 }
 
-func (x *Balance) GetAvailableBalance() int64 {
+func (x *Balance) GetAvailableBalance() float64 {
 	if x != nil {
 		return x.AvailableBalance
 	}
 	return 0
 }
 
-func (x *Balance) GetPendingDebit() int64 {
+func (x *Balance) GetPendingDebit() float64 {
 	if x != nil {
 		return x.PendingDebit
 	}
 	return 0
 }
 
-func (x *Balance) GetPendingCredit() int64 {
+func (x *Balance) GetPendingCredit() float64 {
 	if x != nil {
 		return x.PendingCredit
 	}
@@ -755,7 +755,7 @@ type CreateAccountRequest struct {
 	Currency       string                 `protobuf:"bytes,3,opt,name=currency,proto3" json:"currency,omitempty"`
 	Purpose        AccountPurpose         `protobuf:"varint,4,opt,name=purpose,proto3,enum=accounting.v1.AccountPurpose" json:"purpose,omitempty"`
 	AccountType    AccountType            `protobuf:"varint,5,opt,name=account_type,json=accountType,proto3,enum=accounting.v1.AccountType" json:"account_type,omitempty"`
-	OverdraftLimit int64                  `protobuf:"varint,6,opt,name=overdraft_limit,json=overdraftLimit,proto3" json:"overdraft_limit,omitempty"`
+	OverdraftLimit float64                `protobuf:"fixed64,6,opt,name=overdraft_limit,json=overdraftLimit,proto3" json:"overdraft_limit,omitempty"`
 	ParentAgentId  int64                  `protobuf:"varint,7,opt,name=parent_agent_id,json=parentAgentId,proto3" json:"parent_agent_id,omitempty"`
 	CommissionRate string                 `protobuf:"bytes,8,opt,name=commission_rate,json=commissionRate,proto3" json:"commission_rate,omitempty"`
 	unknownFields  protoimpl.UnknownFields
@@ -827,7 +827,7 @@ func (x *CreateAccountRequest) GetAccountType() AccountType {
 	return AccountType_ACCOUNT_TYPE_UNSPECIFIED
 }
 
-func (x *CreateAccountRequest) GetOverdraftLimit() int64 {
+func (x *CreateAccountRequest) GetOverdraftLimit() float64 {
 	if x != nil {
 		return x.OverdraftLimit
 	}
@@ -1327,7 +1327,7 @@ type UpdateAccountRequest struct {
 	Id             int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
 	IsActive       *bool                  `protobuf:"varint,2,opt,name=is_active,json=isActive,proto3,oneof" json:"is_active,omitempty"`
 	IsLocked       *bool                  `protobuf:"varint,3,opt,name=is_locked,json=isLocked,proto3,oneof" json:"is_locked,omitempty"`
-	OverdraftLimit *int64                 `protobuf:"varint,4,opt,name=overdraft_limit,json=overdraftLimit,proto3,oneof" json:"overdraft_limit,omitempty"`
+	OverdraftLimit *float64               `protobuf:"fixed64,4,opt,name=overdraft_limit,json=overdraftLimit,proto3,oneof" json:"overdraft_limit,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -1383,7 +1383,7 @@ func (x *UpdateAccountRequest) GetIsLocked() bool {
 	return false
 }
 
-func (x *UpdateAccountRequest) GetOverdraftLimit() int64 {
+func (x *UpdateAccountRequest) GetOverdraftLimit() float64 {
 	if x != nil && x.OverdraftLimit != nil {
 		return *x.OverdraftLimit
 	}
@@ -1563,7 +1563,7 @@ func (x *GetBalanceResponse) GetBalance() *Balance {
 type LedgerEntry struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	AccountNumber string                 `protobuf:"bytes,1,opt,name=account_number,json=accountNumber,proto3" json:"account_number,omitempty"`
-	Amount        int64                  `protobuf:"varint,2,opt,name=amount,proto3" json:"amount,omitempty"` // Atomic units
+	Amount        float64                `protobuf:"fixed64,2,opt,name=amount,proto3" json:"amount,omitempty"` // Atomic units
 	DrCr          DrCr                   `protobuf:"varint,3,opt,name=dr_cr,json=drCr,proto3,enum=accounting.v1.DrCr" json:"dr_cr,omitempty"`
 	Currency      string                 `protobuf:"bytes,4,opt,name=currency,proto3" json:"currency,omitempty"`
 	Description   *string                `protobuf:"bytes,5,opt,name=description,proto3,oneof" json:"description,omitempty"`
@@ -1608,7 +1608,7 @@ func (x *LedgerEntry) GetAccountNumber() string {
 	return ""
 }
 
-func (x *LedgerEntry) GetAmount() int64 {
+func (x *LedgerEntry) GetAmount() float64 {
 	if x != nil {
 		return x.Amount
 	}
@@ -1765,9 +1765,9 @@ type ExecuteTransactionResponse struct {
 	ReceiptCode      string                 `protobuf:"bytes,1,opt,name=receipt_code,json=receiptCode,proto3" json:"receipt_code,omitempty"`
 	TransactionId    int64                  `protobuf:"varint,2,opt,name=transaction_id,json=transactionId,proto3" json:"transaction_id,omitempty"`
 	Status           TransactionStatus      `protobuf:"varint,3,opt,name=status,proto3,enum=accounting.v1.TransactionStatus" json:"status,omitempty"`
-	Amount           int64                  `protobuf:"varint,4,opt,name=amount,proto3" json:"amount,omitempty"`
+	Amount           float64                `protobuf:"fixed64,4,opt,name=amount,proto3" json:"amount,omitempty"`
 	Currency         string                 `protobuf:"bytes,5,opt,name=currency,proto3" json:"currency,omitempty"`
-	Fee              int64                  `protobuf:"varint,6,opt,name=fee,proto3" json:"fee,omitempty"`
+	Fee              float64                `protobuf:"fixed64,6,opt,name=fee,proto3" json:"fee,omitempty"`
 	ProcessingTimeMs int64                  `protobuf:"varint,7,opt,name=processing_time_ms,json=processingTimeMs,proto3" json:"processing_time_ms,omitempty"`
 	CreatedAt        *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	unknownFields    protoimpl.UnknownFields
@@ -1825,7 +1825,7 @@ func (x *ExecuteTransactionResponse) GetStatus() TransactionStatus {
 	return TransactionStatus_TRANSACTION_STATUS_UNSPECIFIED
 }
 
-func (x *ExecuteTransactionResponse) GetAmount() int64 {
+func (x *ExecuteTransactionResponse) GetAmount() float64 {
 	if x != nil {
 		return x.Amount
 	}
@@ -1839,7 +1839,7 @@ func (x *ExecuteTransactionResponse) GetCurrency() string {
 	return ""
 }
 
-func (x *ExecuteTransactionResponse) GetFee() int64 {
+func (x *ExecuteTransactionResponse) GetFee() float64 {
 	if x != nil {
 		return x.Fee
 	}
@@ -1991,9 +1991,9 @@ type ExecuteTransactionSyncResponse struct {
 	ReceiptCode      string                 `protobuf:"bytes,1,opt,name=receipt_code,json=receiptCode,proto3" json:"receipt_code,omitempty"`
 	TransactionId    int64                  `protobuf:"varint,2,opt,name=transaction_id,json=transactionId,proto3" json:"transaction_id,omitempty"`
 	Status           TransactionStatus      `protobuf:"varint,3,opt,name=status,proto3,enum=accounting.v1.TransactionStatus" json:"status,omitempty"`
-	Amount           int64                  `protobuf:"varint,4,opt,name=amount,proto3" json:"amount,omitempty"`
+	Amount           float64                `protobuf:"fixed64,4,opt,name=amount,proto3" json:"amount,omitempty"`
 	Currency         string                 `protobuf:"bytes,5,opt,name=currency,proto3" json:"currency,omitempty"`
-	Fee              int64                  `protobuf:"varint,6,opt,name=fee,proto3" json:"fee,omitempty"`
+	Fee              float64                `protobuf:"fixed64,6,opt,name=fee,proto3" json:"fee,omitempty"`
 	ProcessingTimeMs int64                  `protobuf:"varint,7,opt,name=processing_time_ms,json=processingTimeMs,proto3" json:"processing_time_ms,omitempty"`
 	CreatedAt        *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	unknownFields    protoimpl.UnknownFields
@@ -2051,7 +2051,7 @@ func (x *ExecuteTransactionSyncResponse) GetStatus() TransactionStatus {
 	return TransactionStatus_TRANSACTION_STATUS_UNSPECIFIED
 }
 
-func (x *ExecuteTransactionSyncResponse) GetAmount() int64 {
+func (x *ExecuteTransactionSyncResponse) GetAmount() float64 {
 	if x != nil {
 		return x.Amount
 	}
@@ -2065,7 +2065,7 @@ func (x *ExecuteTransactionSyncResponse) GetCurrency() string {
 	return ""
 }
 
-func (x *ExecuteTransactionSyncResponse) GetFee() int64 {
+func (x *ExecuteTransactionSyncResponse) GetFee() float64 {
 	if x != nil {
 		return x.Fee
 	}
@@ -2440,10 +2440,10 @@ type Ledger struct {
 	JournalId     int64                  `protobuf:"varint,2,opt,name=journal_id,json=journalId,proto3" json:"journal_id,omitempty"`
 	AccountId     int64                  `protobuf:"varint,3,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
 	AccountNumber string                 `protobuf:"bytes,4,opt,name=account_number,json=accountNumber,proto3" json:"account_number,omitempty"`
-	Amount        int64                  `protobuf:"varint,5,opt,name=amount,proto3" json:"amount,omitempty"`
+	Amount        float64                `protobuf:"fixed64,5,opt,name=amount,proto3" json:"amount,omitempty"`
 	DrCr          DrCr                   `protobuf:"varint,6,opt,name=dr_cr,json=drCr,proto3,enum=accounting.v1.DrCr" json:"dr_cr,omitempty"`
 	Currency      string                 `protobuf:"bytes,7,opt,name=currency,proto3" json:"currency,omitempty"`
-	BalanceAfter  int64                  `protobuf:"varint,8,opt,name=balance_after,json=balanceAfter,proto3" json:"balance_after,omitempty"`
+	BalanceAfter  float64                `protobuf:"fixed64,8,opt,name=balance_after,json=balanceAfter,proto3" json:"balance_after,omitempty"`
 	Description   *string                `protobuf:"bytes,9,opt,name=description,proto3,oneof" json:"description,omitempty"`
 	ReceiptCode   *string                `protobuf:"bytes,10,opt,name=receipt_code,json=receiptCode,proto3,oneof" json:"receipt_code,omitempty"`
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
@@ -2509,7 +2509,7 @@ func (x *Ledger) GetAccountNumber() string {
 	return ""
 }
 
-func (x *Ledger) GetAmount() int64 {
+func (x *Ledger) GetAmount() float64 {
 	if x != nil {
 		return x.Amount
 	}
@@ -2530,7 +2530,7 @@ func (x *Ledger) GetCurrency() string {
 	return ""
 }
 
-func (x *Ledger) GetBalanceAfter() int64 {
+func (x *Ledger) GetBalanceAfter() float64 {
 	if x != nil {
 		return x.BalanceAfter
 	}
@@ -3027,10 +3027,10 @@ type AccountStatement struct {
 	AccountNumber  string                 `protobuf:"bytes,1,opt,name=account_number,json=accountNumber,proto3" json:"account_number,omitempty"`
 	AccountType    AccountType            `protobuf:"varint,2,opt,name=account_type,json=accountType,proto3,enum=accounting.v1.AccountType" json:"account_type,omitempty"`
 	Ledgers        []*Ledger              `protobuf:"bytes,3,rep,name=ledgers,proto3" json:"ledgers,omitempty"`
-	OpeningBalance int64                  `protobuf:"varint,4,opt,name=opening_balance,json=openingBalance,proto3" json:"opening_balance,omitempty"`
-	ClosingBalance int64                  `protobuf:"varint,5,opt,name=closing_balance,json=closingBalance,proto3" json:"closing_balance,omitempty"`
-	TotalDebits    int64                  `protobuf:"varint,6,opt,name=total_debits,json=totalDebits,proto3" json:"total_debits,omitempty"`
-	TotalCredits   int64                  `protobuf:"varint,7,opt,name=total_credits,json=totalCredits,proto3" json:"total_credits,omitempty"`
+	OpeningBalance float64                `protobuf:"fixed64,4,opt,name=opening_balance,json=openingBalance,proto3" json:"opening_balance,omitempty"`
+	ClosingBalance float64                `protobuf:"fixed64,5,opt,name=closing_balance,json=closingBalance,proto3" json:"closing_balance,omitempty"`
+	TotalDebits    float64                `protobuf:"fixed64,6,opt,name=total_debits,json=totalDebits,proto3" json:"total_debits,omitempty"`
+	TotalCredits   float64                `protobuf:"fixed64,7,opt,name=total_credits,json=totalCredits,proto3" json:"total_credits,omitempty"`
 	PeriodStart    *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=period_start,json=periodStart,proto3" json:"period_start,omitempty"`
 	PeriodEnd      *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=period_end,json=periodEnd,proto3" json:"period_end,omitempty"`
 	unknownFields  protoimpl.UnknownFields
@@ -3088,28 +3088,28 @@ func (x *AccountStatement) GetLedgers() []*Ledger {
 	return nil
 }
 
-func (x *AccountStatement) GetOpeningBalance() int64 {
+func (x *AccountStatement) GetOpeningBalance() float64 {
 	if x != nil {
 		return x.OpeningBalance
 	}
 	return 0
 }
 
-func (x *AccountStatement) GetClosingBalance() int64 {
+func (x *AccountStatement) GetClosingBalance() float64 {
 	if x != nil {
 		return x.ClosingBalance
 	}
 	return 0
 }
 
-func (x *AccountStatement) GetTotalDebits() int64 {
+func (x *AccountStatement) GetTotalDebits() float64 {
 	if x != nil {
 		return x.TotalDebits
 	}
 	return 0
 }
 
-func (x *AccountStatement) GetTotalCredits() int64 {
+func (x *AccountStatement) GetTotalCredits() float64 {
 	if x != nil {
 		return x.TotalCredits
 	}
@@ -3368,7 +3368,7 @@ type OwnerSummary struct {
 	OwnerId                   string                 `protobuf:"bytes,2,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
 	AccountType               AccountType            `protobuf:"varint,3,opt,name=account_type,json=accountType,proto3,enum=accounting.v1.AccountType" json:"account_type,omitempty"`
 	AccountBalances           []*AccountBalance      `protobuf:"bytes,4,rep,name=account_balances,json=accountBalances,proto3" json:"account_balances,omitempty"`
-	TotalBalanceUsdEquivalent int64                  `protobuf:"varint,5,opt,name=total_balance_usd_equivalent,json=totalBalanceUsdEquivalent,proto3" json:"total_balance_usd_equivalent,omitempty"`
+	TotalBalanceUsdEquivalent float64                `protobuf:"fixed64,5,opt,name=total_balance_usd_equivalent,json=totalBalanceUsdEquivalent,proto3" json:"total_balance_usd_equivalent,omitempty"`
 	unknownFields             protoimpl.UnknownFields
 	sizeCache                 protoimpl.SizeCache
 }
@@ -3431,7 +3431,7 @@ func (x *OwnerSummary) GetAccountBalances() []*AccountBalance {
 	return nil
 }
 
-func (x *OwnerSummary) GetTotalBalanceUsdEquivalent() int64 {
+func (x *OwnerSummary) GetTotalBalanceUsdEquivalent() float64 {
 	if x != nil {
 		return x.TotalBalanceUsdEquivalent
 	}
@@ -3443,8 +3443,8 @@ type AccountBalance struct {
 	AccountId        int64                  `protobuf:"varint,1,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
 	AccountNumber    string                 `protobuf:"bytes,2,opt,name=account_number,json=accountNumber,proto3" json:"account_number,omitempty"`
 	Currency         string                 `protobuf:"bytes,3,opt,name=currency,proto3" json:"currency,omitempty"`
-	Balance          int64                  `protobuf:"varint,4,opt,name=balance,proto3" json:"balance,omitempty"`
-	AvailableBalance int64                  `protobuf:"varint,5,opt,name=available_balance,json=availableBalance,proto3" json:"available_balance,omitempty"`
+	Balance          float64                `protobuf:"fixed64,4,opt,name=balance,proto3" json:"balance,omitempty"`
+	AvailableBalance float64                `protobuf:"fixed64,5,opt,name=available_balance,json=availableBalance,proto3" json:"available_balance,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -3500,14 +3500,14 @@ func (x *AccountBalance) GetCurrency() string {
 	return ""
 }
 
-func (x *AccountBalance) GetBalance() int64 {
+func (x *AccountBalance) GetBalance() float64 {
 	if x != nil {
 		return x.Balance
 	}
 	return 0
 }
 
-func (x *AccountBalance) GetAvailableBalance() int64 {
+func (x *AccountBalance) GetAvailableBalance() float64 {
 	if x != nil {
 		return x.AvailableBalance
 	}
@@ -3624,10 +3624,10 @@ type DailyReport struct {
 	OwnerId       string                 `protobuf:"bytes,2,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
 	AccountId     int64                  `protobuf:"varint,3,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
 	Currency      string                 `protobuf:"bytes,4,opt,name=currency,proto3" json:"currency,omitempty"`
-	TotalDebit    int64                  `protobuf:"varint,5,opt,name=total_debit,json=totalDebit,proto3" json:"total_debit,omitempty"`
-	TotalCredit   int64                  `protobuf:"varint,6,opt,name=total_credit,json=totalCredit,proto3" json:"total_credit,omitempty"`
-	Balance       int64                  `protobuf:"varint,7,opt,name=balance,proto3" json:"balance,omitempty"`
-	NetChange     int64                  `protobuf:"varint,8,opt,name=net_change,json=netChange,proto3" json:"net_change,omitempty"`
+	TotalDebit    float64                `protobuf:"fixed64,5,opt,name=total_debit,json=totalDebit,proto3" json:"total_debit,omitempty"`
+	TotalCredit   float64                `protobuf:"fixed64,6,opt,name=total_credit,json=totalCredit,proto3" json:"total_credit,omitempty"`
+	Balance       float64                `protobuf:"fixed64,7,opt,name=balance,proto3" json:"balance,omitempty"`
+	NetChange     float64                `protobuf:"fixed64,8,opt,name=net_change,json=netChange,proto3" json:"net_change,omitempty"`
 	Date          *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=date,proto3" json:"date,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3691,28 +3691,28 @@ func (x *DailyReport) GetCurrency() string {
 	return ""
 }
 
-func (x *DailyReport) GetTotalDebit() int64 {
+func (x *DailyReport) GetTotalDebit() float64 {
 	if x != nil {
 		return x.TotalDebit
 	}
 	return 0
 }
 
-func (x *DailyReport) GetTotalCredit() int64 {
+func (x *DailyReport) GetTotalCredit() float64 {
 	if x != nil {
 		return x.TotalCredit
 	}
 	return 0
 }
 
-func (x *DailyReport) GetBalance() int64 {
+func (x *DailyReport) GetBalance() float64 {
 	if x != nil {
 		return x.Balance
 	}
 	return 0
 }
 
-func (x *DailyReport) GetNetChange() int64 {
+func (x *DailyReport) GetNetChange() float64 {
 	if x != nil {
 		return x.NetChange
 	}
@@ -3827,10 +3827,10 @@ type TransactionSummary struct {
 	TransactionType TransactionType        `protobuf:"varint,1,opt,name=transaction_type,json=transactionType,proto3,enum=accounting.v1.TransactionType" json:"transaction_type,omitempty"`
 	Currency        string                 `protobuf:"bytes,2,opt,name=currency,proto3" json:"currency,omitempty"`
 	Count           int64                  `protobuf:"varint,3,opt,name=count,proto3" json:"count,omitempty"`
-	TotalAmount     int64                  `protobuf:"varint,4,opt,name=total_amount,json=totalAmount,proto3" json:"total_amount,omitempty"`
-	MinAmount       int64                  `protobuf:"varint,5,opt,name=min_amount,json=minAmount,proto3" json:"min_amount,omitempty"`
-	MaxAmount       int64                  `protobuf:"varint,6,opt,name=max_amount,json=maxAmount,proto3" json:"max_amount,omitempty"`
-	AvgAmount       int64                  `protobuf:"varint,7,opt,name=avg_amount,json=avgAmount,proto3" json:"avg_amount,omitempty"`
+	TotalAmount     float64                `protobuf:"fixed64,4,opt,name=total_amount,json=totalAmount,proto3" json:"total_amount,omitempty"`
+	MinAmount       float64                `protobuf:"fixed64,5,opt,name=min_amount,json=minAmount,proto3" json:"min_amount,omitempty"`
+	MaxAmount       float64                `protobuf:"fixed64,6,opt,name=max_amount,json=maxAmount,proto3" json:"max_amount,omitempty"`
+	AvgAmount       float64                `protobuf:"fixed64,7,opt,name=avg_amount,json=avgAmount,proto3" json:"avg_amount,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -3886,28 +3886,28 @@ func (x *TransactionSummary) GetCount() int64 {
 	return 0
 }
 
-func (x *TransactionSummary) GetTotalAmount() int64 {
+func (x *TransactionSummary) GetTotalAmount() float64 {
 	if x != nil {
 		return x.TotalAmount
 	}
 	return 0
 }
 
-func (x *TransactionSummary) GetMinAmount() int64 {
+func (x *TransactionSummary) GetMinAmount() float64 {
 	if x != nil {
 		return x.MinAmount
 	}
 	return 0
 }
 
-func (x *TransactionSummary) GetMaxAmount() int64 {
+func (x *TransactionSummary) GetMaxAmount() float64 {
 	if x != nil {
 		return x.MaxAmount
 	}
 	return 0
 }
 
-func (x *TransactionSummary) GetAvgAmount() int64 {
+func (x *TransactionSummary) GetAvgAmount() float64 {
 	if x != nil {
 		return x.AvgAmount
 	}
@@ -4064,7 +4064,7 @@ func (x *GetSystemHoldingsRequest) GetAccountType() AccountType {
 
 type GetSystemHoldingsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Holdings      map[string]int64       `protobuf:"bytes,1,rep,name=holdings,proto3" json:"holdings,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"` // currency -> amount
+	Holdings      map[string]float64     `protobuf:"bytes,1,rep,name=holdings,proto3" json:"holdings,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"fixed64,2,opt,name=value"` // currency -> amount
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4099,7 +4099,7 @@ func (*GetSystemHoldingsResponse) Descriptor() ([]byte, []int) {
 	return file_proto_shared_accounting_account_proto_rawDescGZIP(), []int{51}
 }
 
-func (x *GetSystemHoldingsResponse) GetHoldings() map[string]int64 {
+func (x *GetSystemHoldingsResponse) GetHoldings() map[string]float64 {
 	if x != nil {
 		return x.Holdings
 	}
@@ -4112,7 +4112,7 @@ type TransactionFee struct {
 	ReceiptCode          string                 `protobuf:"bytes,2,opt,name=receipt_code,json=receiptCode,proto3" json:"receipt_code,omitempty"`
 	FeeRuleId            int64                  `protobuf:"varint,3,opt,name=fee_rule_id,json=feeRuleId,proto3" json:"fee_rule_id,omitempty"`
 	FeeType              FeeType                `protobuf:"varint,4,opt,name=fee_type,json=feeType,proto3,enum=accounting.v1.FeeType" json:"fee_type,omitempty"`
-	Amount               int64                  `protobuf:"varint,5,opt,name=amount,proto3" json:"amount,omitempty"`
+	Amount               float64                `protobuf:"fixed64,5,opt,name=amount,proto3" json:"amount,omitempty"`
 	Currency             string                 `protobuf:"bytes,6,opt,name=currency,proto3" json:"currency,omitempty"`
 	CollectedByAccountId *int64                 `protobuf:"varint,7,opt,name=collected_by_account_id,json=collectedByAccountId,proto3,oneof" json:"collected_by_account_id,omitempty"`
 	LedgerId             *int64                 `protobuf:"varint,8,opt,name=ledger_id,json=ledgerId,proto3,oneof" json:"ledger_id,omitempty"`
@@ -4181,7 +4181,7 @@ func (x *TransactionFee) GetFeeType() FeeType {
 	return FeeType_FEE_TYPE_UNSPECIFIED
 }
 
-func (x *TransactionFee) GetAmount() int64 {
+func (x *TransactionFee) GetAmount() float64 {
 	if x != nil {
 		return x.Amount
 	}
@@ -4233,7 +4233,7 @@ func (x *TransactionFee) GetCreatedAt() *timestamppb.Timestamp {
 type CalculateFeeRequest struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	TransactionType TransactionType        `protobuf:"varint,1,opt,name=transaction_type,json=transactionType,proto3,enum=accounting.v1.TransactionType" json:"transaction_type,omitempty"`
-	Amount          int64                  `protobuf:"varint,2,opt,name=amount,proto3" json:"amount,omitempty"`
+	Amount          float64                `protobuf:"fixed64,2,opt,name=amount,proto3" json:"amount,omitempty"`
 	SourceCurrency  *string                `protobuf:"bytes,3,opt,name=source_currency,json=sourceCurrency,proto3,oneof" json:"source_currency,omitempty"`
 	TargetCurrency  *string                `protobuf:"bytes,4,opt,name=target_currency,json=targetCurrency,proto3,oneof" json:"target_currency,omitempty"`
 	AccountType     *AccountType           `protobuf:"varint,5,opt,name=account_type,json=accountType,proto3,enum=accounting.v1.AccountType,oneof" json:"account_type,omitempty"`
@@ -4279,7 +4279,7 @@ func (x *CalculateFeeRequest) GetTransactionType() TransactionType {
 	return TransactionType_TRANSACTION_TYPE_UNSPECIFIED
 }
 
-func (x *CalculateFeeRequest) GetAmount() int64 {
+func (x *CalculateFeeRequest) GetAmount() float64 {
 	if x != nil {
 		return x.Amount
 	}
@@ -4317,7 +4317,7 @@ func (x *CalculateFeeRequest) GetOwnerType() OwnerType {
 type FeeCalculation struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	FeeType        FeeType                `protobuf:"varint,1,opt,name=fee_type,json=feeType,proto3,enum=accounting.v1.FeeType" json:"fee_type,omitempty"`
-	Amount         int64                  `protobuf:"varint,2,opt,name=amount,proto3" json:"amount,omitempty"`
+	Amount         float64                `protobuf:"fixed64,2,opt,name=amount,proto3" json:"amount,omitempty"`
 	Currency       string                 `protobuf:"bytes,3,opt,name=currency,proto3" json:"currency,omitempty"`
 	AppliedRate    *string                `protobuf:"bytes,4,opt,name=applied_rate,json=appliedRate,proto3,oneof" json:"applied_rate,omitempty"`
 	RuleId         *int64                 `protobuf:"varint,5,opt,name=rule_id,json=ruleId,proto3,oneof" json:"rule_id,omitempty"`
@@ -4363,7 +4363,7 @@ func (x *FeeCalculation) GetFeeType() FeeType {
 	return FeeType_FEE_TYPE_UNSPECIFIED
 }
 
-func (x *FeeCalculation) GetAmount() int64 {
+func (x *FeeCalculation) GetAmount() float64 {
 	if x != nil {
 		return x.Amount
 	}
@@ -4592,7 +4592,7 @@ func (x *GetAgentCommissionSummaryRequest) GetTo() *timestamppb.Timestamp {
 
 type GetAgentCommissionSummaryResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Commissions   map[string]int64       `protobuf:"bytes,1,rep,name=commissions,proto3" json:"commissions,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"` // currency -> total commission
+	Commissions   map[string]float64     `protobuf:"bytes,1,rep,name=commissions,proto3" json:"commissions,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"fixed64,2,opt,name=value"` // currency -> total commission
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4627,7 +4627,7 @@ func (*GetAgentCommissionSummaryResponse) Descriptor() ([]byte, []int) {
 	return file_proto_shared_accounting_account_proto_rawDescGZIP(), []int{59}
 }
 
-func (x *GetAgentCommissionSummaryResponse) GetCommissions() map[string]int64 {
+func (x *GetAgentCommissionSummaryResponse) GetCommissions() map[string]float64 {
 	if x != nil {
 		return x.Commissions
 	}
@@ -4996,7 +4996,7 @@ type TransactionEvent struct {
 	ReceiptCode   string                 `protobuf:"bytes,2,opt,name=receipt_code,json=receiptCode,proto3" json:"receipt_code,omitempty"`
 	TransactionId int64                  `protobuf:"varint,3,opt,name=transaction_id,json=transactionId,proto3" json:"transaction_id,omitempty"`
 	Status        TransactionStatus      `protobuf:"varint,4,opt,name=status,proto3,enum=accounting.v1.TransactionStatus" json:"status,omitempty"`
-	Amount        int64                  `protobuf:"varint,5,opt,name=amount,proto3" json:"amount,omitempty"`
+	Amount        float64                `protobuf:"fixed64,5,opt,name=amount,proto3" json:"amount,omitempty"`
 	Currency      string                 `protobuf:"bytes,6,opt,name=currency,proto3" json:"currency,omitempty"`
 	ErrorMessage  *string                `protobuf:"bytes,7,opt,name=error_message,json=errorMessage,proto3,oneof" json:"error_message,omitempty"`
 	Timestamp     *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
@@ -5062,7 +5062,7 @@ func (x *TransactionEvent) GetStatus() TransactionStatus {
 	return TransactionStatus_TRANSACTION_STATUS_UNSPECIFIED
 }
 
-func (x *TransactionEvent) GetAmount() int64 {
+func (x *TransactionEvent) GetAmount() float64 {
 	if x != nil {
 		return x.Amount
 	}
@@ -5093,7 +5093,7 @@ func (x *TransactionEvent) GetTimestamp() *timestamppb.Timestamp {
 type CreditRequest struct {
 	state               protoimpl.MessageState `protogen:"open.v1"`
 	AccountNumber       string                 `protobuf:"bytes,1,opt,name=account_number,json=accountNumber,proto3" json:"account_number,omitempty"`
-	Amount              int64                  `protobuf:"varint,2,opt,name=amount,proto3" json:"amount,omitempty"`
+	Amount              float64                `protobuf:"fixed64,2,opt,name=amount,proto3" json:"amount,omitempty"`
 	Currency            string                 `protobuf:"bytes,3,opt,name=currency,proto3" json:"currency,omitempty"`
 	AccountType         AccountType            `protobuf:"varint,4,opt,name=account_type,json=accountType,proto3,enum=accounting.v1.AccountType" json:"account_type,omitempty"`
 	Description         string                 `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
@@ -5142,7 +5142,7 @@ func (x *CreditRequest) GetAccountNumber() string {
 	return ""
 }
 
-func (x *CreditRequest) GetAmount() int64 {
+func (x *CreditRequest) GetAmount() float64 {
 	if x != nil {
 		return x.Amount
 	}
@@ -5202,7 +5202,7 @@ type CreditResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	JournalId     int64                  `protobuf:"varint,1,opt,name=journal_id,json=journalId,proto3" json:"journal_id,omitempty"`
 	ReceiptCode   string                 `protobuf:"bytes,2,opt,name=receipt_code,json=receiptCode,proto3" json:"receipt_code,omitempty"`
-	BalanceAfter  int64                  `protobuf:"varint,3,opt,name=balance_after,json=balanceAfter,proto3" json:"balance_after,omitempty"`
+	BalanceAfter  float64                `protobuf:"fixed64,3,opt,name=balance_after,json=balanceAfter,proto3" json:"balance_after,omitempty"`
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -5252,7 +5252,7 @@ func (x *CreditResponse) GetReceiptCode() string {
 	return ""
 }
 
-func (x *CreditResponse) GetBalanceAfter() int64 {
+func (x *CreditResponse) GetBalanceAfter() float64 {
 	if x != nil {
 		return x.BalanceAfter
 	}
@@ -5269,7 +5269,7 @@ func (x *CreditResponse) GetCreatedAt() *timestamppb.Timestamp {
 type DebitRequest struct {
 	state               protoimpl.MessageState `protogen:"open.v1"`
 	AccountNumber       string                 `protobuf:"bytes,1,opt,name=account_number,json=accountNumber,proto3" json:"account_number,omitempty"`
-	Amount              int64                  `protobuf:"varint,2,opt,name=amount,proto3" json:"amount,omitempty"`
+	Amount              float64                `protobuf:"fixed64,2,opt,name=amount,proto3" json:"amount,omitempty"`
 	Currency            string                 `protobuf:"bytes,3,opt,name=currency,proto3" json:"currency,omitempty"`
 	AccountType         AccountType            `protobuf:"varint,4,opt,name=account_type,json=accountType,proto3,enum=accounting.v1.AccountType" json:"account_type,omitempty"`
 	Description         string                 `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
@@ -5318,7 +5318,7 @@ func (x *DebitRequest) GetAccountNumber() string {
 	return ""
 }
 
-func (x *DebitRequest) GetAmount() int64 {
+func (x *DebitRequest) GetAmount() float64 {
 	if x != nil {
 		return x.Amount
 	}
@@ -5378,7 +5378,7 @@ type DebitResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	JournalId     int64                  `protobuf:"varint,1,opt,name=journal_id,json=journalId,proto3" json:"journal_id,omitempty"`
 	ReceiptCode   string                 `protobuf:"bytes,2,opt,name=receipt_code,json=receiptCode,proto3" json:"receipt_code,omitempty"`
-	BalanceAfter  int64                  `protobuf:"varint,3,opt,name=balance_after,json=balanceAfter,proto3" json:"balance_after,omitempty"`
+	BalanceAfter  float64                `protobuf:"fixed64,3,opt,name=balance_after,json=balanceAfter,proto3" json:"balance_after,omitempty"`
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -5428,7 +5428,7 @@ func (x *DebitResponse) GetReceiptCode() string {
 	return ""
 }
 
-func (x *DebitResponse) GetBalanceAfter() int64 {
+func (x *DebitResponse) GetBalanceAfter() float64 {
 	if x != nil {
 		return x.BalanceAfter
 	}
@@ -5446,7 +5446,7 @@ type TransferRequest struct {
 	state               protoimpl.MessageState `protogen:"open.v1"`
 	FromAccountNumber   string                 `protobuf:"bytes,1,opt,name=from_account_number,json=fromAccountNumber,proto3" json:"from_account_number,omitempty"`
 	ToAccountNumber     string                 `protobuf:"bytes,2,opt,name=to_account_number,json=toAccountNumber,proto3" json:"to_account_number,omitempty"`
-	Amount              int64                  `protobuf:"varint,3,opt,name=amount,proto3" json:"amount,omitempty"`
+	Amount              float64                `protobuf:"fixed64,3,opt,name=amount,proto3" json:"amount,omitempty"`
 	AccountType         AccountType            `protobuf:"varint,4,opt,name=account_type,json=accountType,proto3,enum=accounting.v1.AccountType" json:"account_type,omitempty"`
 	Description         string                 `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
 	IdempotencyKey      *string                `protobuf:"bytes,6,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
@@ -5502,7 +5502,7 @@ func (x *TransferRequest) GetToAccountNumber() string {
 	return ""
 }
 
-func (x *TransferRequest) GetAmount() int64 {
+func (x *TransferRequest) GetAmount() float64 {
 	if x != nil {
 		return x.Amount
 	}
@@ -5562,8 +5562,8 @@ type TransferResponse struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	JournalId       int64                  `protobuf:"varint,1,opt,name=journal_id,json=journalId,proto3" json:"journal_id,omitempty"`
 	ReceiptCode     string                 `protobuf:"bytes,2,opt,name=receipt_code,json=receiptCode,proto3" json:"receipt_code,omitempty"`
-	FeeAmount       int64                  `protobuf:"varint,3,opt,name=fee_amount,json=feeAmount,proto3" json:"fee_amount,omitempty"`
-	AgentCommission int64                  `protobuf:"varint,4,opt,name=agent_commission,json=agentCommission,proto3" json:"agent_commission,omitempty"`
+	FeeAmount       float64                `protobuf:"fixed64,3,opt,name=fee_amount,json=feeAmount,proto3" json:"fee_amount,omitempty"`
+	AgentCommission float64                `protobuf:"fixed64,4,opt,name=agent_commission,json=agentCommission,proto3" json:"agent_commission,omitempty"`
 	CreatedAt       *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
@@ -5613,14 +5613,14 @@ func (x *TransferResponse) GetReceiptCode() string {
 	return ""
 }
 
-func (x *TransferResponse) GetFeeAmount() int64 {
+func (x *TransferResponse) GetFeeAmount() float64 {
 	if x != nil {
 		return x.FeeAmount
 	}
 	return 0
 }
 
-func (x *TransferResponse) GetAgentCommission() int64 {
+func (x *TransferResponse) GetAgentCommission() float64 {
 	if x != nil {
 		return x.AgentCommission
 	}
@@ -5638,7 +5638,7 @@ type ConversionRequest struct {
 	state               protoimpl.MessageState `protogen:"open.v1"`
 	FromAccountNumber   string                 `protobuf:"bytes,1,opt,name=from_account_number,json=fromAccountNumber,proto3" json:"from_account_number,omitempty"`
 	ToAccountNumber     string                 `protobuf:"bytes,2,opt,name=to_account_number,json=toAccountNumber,proto3" json:"to_account_number,omitempty"`
-	Amount              int64                  `protobuf:"varint,3,opt,name=amount,proto3" json:"amount,omitempty"` // Amount in source currency
+	Amount              float64                `protobuf:"fixed64,3,opt,name=amount,proto3" json:"amount,omitempty"` // Amount in source currency
 	AccountType         AccountType            `protobuf:"varint,4,opt,name=account_type,json=accountType,proto3,enum=accounting.v1.AccountType" json:"account_type,omitempty"`
 	IdempotencyKey      *string                `protobuf:"bytes,5,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
 	ExternalRef         *string                `protobuf:"bytes,6,opt,name=external_ref,json=externalRef,proto3,oneof" json:"external_ref,omitempty"`
@@ -5693,7 +5693,7 @@ func (x *ConversionRequest) GetToAccountNumber() string {
 	return ""
 }
 
-func (x *ConversionRequest) GetAmount() int64 {
+func (x *ConversionRequest) GetAmount() float64 {
 	if x != nil {
 		return x.Amount
 	}
@@ -5748,11 +5748,11 @@ type ConversionResponse struct {
 	ReceiptCode     string                 `protobuf:"bytes,2,opt,name=receipt_code,json=receiptCode,proto3" json:"receipt_code,omitempty"`
 	SourceCurrency  string                 `protobuf:"bytes,3,opt,name=source_currency,json=sourceCurrency,proto3" json:"source_currency,omitempty"`
 	DestCurrency    string                 `protobuf:"bytes,4,opt,name=dest_currency,json=destCurrency,proto3" json:"dest_currency,omitempty"`
-	SourceAmount    int64                  `protobuf:"varint,5,opt,name=source_amount,json=sourceAmount,proto3" json:"source_amount,omitempty"`
-	ConvertedAmount int64                  `protobuf:"varint,6,opt,name=converted_amount,json=convertedAmount,proto3" json:"converted_amount,omitempty"`
+	SourceAmount    float64                `protobuf:"fixed64,5,opt,name=source_amount,json=sourceAmount,proto3" json:"source_amount,omitempty"`
+	ConvertedAmount float64                `protobuf:"fixed64,6,opt,name=converted_amount,json=convertedAmount,proto3" json:"converted_amount,omitempty"`
 	FxRate          string                 `protobuf:"bytes,7,opt,name=fx_rate,json=fxRate,proto3" json:"fx_rate,omitempty"`
 	FxRateId        int64                  `protobuf:"varint,8,opt,name=fx_rate_id,json=fxRateId,proto3" json:"fx_rate_id,omitempty"`
-	FeeAmount       int64                  `protobuf:"varint,9,opt,name=fee_amount,json=feeAmount,proto3" json:"fee_amount,omitempty"`
+	FeeAmount       float64                `protobuf:"fixed64,9,opt,name=fee_amount,json=feeAmount,proto3" json:"fee_amount,omitempty"`
 	CreatedAt       *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
@@ -5816,14 +5816,14 @@ func (x *ConversionResponse) GetDestCurrency() string {
 	return ""
 }
 
-func (x *ConversionResponse) GetSourceAmount() int64 {
+func (x *ConversionResponse) GetSourceAmount() float64 {
 	if x != nil {
 		return x.SourceAmount
 	}
 	return 0
 }
 
-func (x *ConversionResponse) GetConvertedAmount() int64 {
+func (x *ConversionResponse) GetConvertedAmount() float64 {
 	if x != nil {
 		return x.ConvertedAmount
 	}
@@ -5844,7 +5844,7 @@ func (x *ConversionResponse) GetFxRateId() int64 {
 	return 0
 }
 
-func (x *ConversionResponse) GetFeeAmount() int64 {
+func (x *ConversionResponse) GetFeeAmount() float64 {
 	if x != nil {
 		return x.FeeAmount
 	}
@@ -5861,7 +5861,7 @@ func (x *ConversionResponse) GetCreatedAt() *timestamppb.Timestamp {
 type TradeRequest struct {
 	state               protoimpl.MessageState `protogen:"open.v1"`
 	AccountNumber       string                 `protobuf:"bytes,1,opt,name=account_number,json=accountNumber,proto3" json:"account_number,omitempty"`
-	Amount              int64                  `protobuf:"varint,2,opt,name=amount,proto3" json:"amount,omitempty"`
+	Amount              float64                `protobuf:"fixed64,2,opt,name=amount,proto3" json:"amount,omitempty"`
 	Currency            string                 `protobuf:"bytes,3,opt,name=currency,proto3" json:"currency,omitempty"`
 	AccountType         AccountType            `protobuf:"varint,4,opt,name=account_type,json=accountType,proto3,enum=accounting.v1.AccountType" json:"account_type,omitempty"`
 	TradeId             string                 `protobuf:"bytes,5,opt,name=trade_id,json=tradeId,proto3" json:"trade_id,omitempty"`
@@ -5910,7 +5910,7 @@ func (x *TradeRequest) GetAccountNumber() string {
 	return ""
 }
 
-func (x *TradeRequest) GetAmount() int64 {
+func (x *TradeRequest) GetAmount() float64 {
 	if x != nil {
 		return x.Amount
 	}
@@ -5972,7 +5972,7 @@ type TradeResponse struct {
 	ReceiptCode   string                 `protobuf:"bytes,2,opt,name=receipt_code,json=receiptCode,proto3" json:"receipt_code,omitempty"`
 	TradeId       string                 `protobuf:"bytes,3,opt,name=trade_id,json=tradeId,proto3" json:"trade_id,omitempty"`
 	TradeResult   string                 `protobuf:"bytes,4,opt,name=trade_result,json=tradeResult,proto3" json:"trade_result,omitempty"` // "win" or "loss"
-	BalanceAfter  int64                  `protobuf:"varint,5,opt,name=balance_after,json=balanceAfter,proto3" json:"balance_after,omitempty"`
+	BalanceAfter  float64                `protobuf:"fixed64,5,opt,name=balance_after,json=balanceAfter,proto3" json:"balance_after,omitempty"`
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -6036,7 +6036,7 @@ func (x *TradeResponse) GetTradeResult() string {
 	return ""
 }
 
-func (x *TradeResponse) GetBalanceAfter() int64 {
+func (x *TradeResponse) GetBalanceAfter() float64 {
 	if x != nil {
 		return x.BalanceAfter
 	}
@@ -6055,8 +6055,8 @@ type AgentCommissionRequest struct {
 	AgentExternalId   string                 `protobuf:"bytes,1,opt,name=agent_external_id,json=agentExternalId,proto3" json:"agent_external_id,omitempty"`
 	TransactionRef    string                 `protobuf:"bytes,2,opt,name=transaction_ref,json=transactionRef,proto3" json:"transaction_ref,omitempty"` // Receipt code of original transaction
 	Currency          string                 `protobuf:"bytes,3,opt,name=currency,proto3" json:"currency,omitempty"`
-	TransactionAmount int64                  `protobuf:"varint,4,opt,name=transaction_amount,json=transactionAmount,proto3" json:"transaction_amount,omitempty"`
-	CommissionAmount  int64                  `protobuf:"varint,5,opt,name=commission_amount,json=commissionAmount,proto3" json:"commission_amount,omitempty"`
+	TransactionAmount float64                `protobuf:"fixed64,4,opt,name=transaction_amount,json=transactionAmount,proto3" json:"transaction_amount,omitempty"`
+	CommissionAmount  float64                `protobuf:"fixed64,5,opt,name=commission_amount,json=commissionAmount,proto3" json:"commission_amount,omitempty"`
 	CommissionRate    *string                `protobuf:"bytes,6,opt,name=commission_rate,json=commissionRate,proto3,oneof" json:"commission_rate,omitempty"`
 	IdempotencyKey    *string                `protobuf:"bytes,7,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
 	unknownFields     protoimpl.UnknownFields
@@ -6114,14 +6114,14 @@ func (x *AgentCommissionRequest) GetCurrency() string {
 	return ""
 }
 
-func (x *AgentCommissionRequest) GetTransactionAmount() int64 {
+func (x *AgentCommissionRequest) GetTransactionAmount() float64 {
 	if x != nil {
 		return x.TransactionAmount
 	}
 	return 0
 }
 
-func (x *AgentCommissionRequest) GetCommissionAmount() int64 {
+func (x *AgentCommissionRequest) GetCommissionAmount() float64 {
 	if x != nil {
 		return x.CommissionAmount
 	}
@@ -6147,7 +6147,7 @@ type AgentCommissionResponse struct {
 	JournalId        int64                  `protobuf:"varint,1,opt,name=journal_id,json=journalId,proto3" json:"journal_id,omitempty"`
 	ReceiptCode      string                 `protobuf:"bytes,2,opt,name=receipt_code,json=receiptCode,proto3" json:"receipt_code,omitempty"`
 	AgentExternalId  string                 `protobuf:"bytes,3,opt,name=agent_external_id,json=agentExternalId,proto3" json:"agent_external_id,omitempty"`
-	CommissionAmount int64                  `protobuf:"varint,4,opt,name=commission_amount,json=commissionAmount,proto3" json:"commission_amount,omitempty"`
+	CommissionAmount float64                `protobuf:"fixed64,4,opt,name=commission_amount,json=commissionAmount,proto3" json:"commission_amount,omitempty"`
 	CreatedAt        *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
@@ -6204,7 +6204,7 @@ func (x *AgentCommissionResponse) GetAgentExternalId() string {
 	return ""
 }
 
-func (x *AgentCommissionResponse) GetCommissionAmount() int64 {
+func (x *AgentCommissionResponse) GetCommissionAmount() float64 {
 	if x != nil {
 		return x.CommissionAmount
 	}
@@ -6224,7 +6224,7 @@ type TransactionApproval struct {
 	RequestedBy     int64                  `protobuf:"varint,2,opt,name=requested_by,json=requestedBy,proto3" json:"requested_by,omitempty"`
 	TransactionType TransactionType        `protobuf:"varint,3,opt,name=transaction_type,json=transactionType,proto3,enum=accounting.v1.TransactionType" json:"transaction_type,omitempty"`
 	AccountNumber   string                 `protobuf:"bytes,4,opt,name=account_number,json=accountNumber,proto3" json:"account_number,omitempty"`
-	Amount          int64                  `protobuf:"varint,5,opt,name=amount,proto3" json:"amount,omitempty"`
+	Amount          float64                `protobuf:"fixed64,5,opt,name=amount,proto3" json:"amount,omitempty"`
 	Currency        string                 `protobuf:"bytes,6,opt,name=currency,proto3" json:"currency,omitempty"`
 	Description     string                 `protobuf:"bytes,7,opt,name=description,proto3" json:"description,omitempty"`
 	Status          ApprovalStatus         `protobuf:"varint,8,opt,name=status,proto3,enum=accounting.v1.ApprovalStatus" json:"status,omitempty"`
@@ -6296,7 +6296,7 @@ func (x *TransactionApproval) GetAccountNumber() string {
 	return ""
 }
 
-func (x *TransactionApproval) GetAmount() int64 {
+func (x *TransactionApproval) GetAmount() float64 {
 	if x != nil {
 		return x.Amount
 	}
@@ -6371,7 +6371,7 @@ type CreateTransactionApprovalRequest struct {
 	RequestedBy     int64                  `protobuf:"varint,1,opt,name=requested_by,json=requestedBy,proto3" json:"requested_by,omitempty"`
 	TransactionType TransactionType        `protobuf:"varint,2,opt,name=transaction_type,json=transactionType,proto3,enum=accounting.v1.TransactionType" json:"transaction_type,omitempty"`
 	AccountNumber   string                 `protobuf:"bytes,3,opt,name=account_number,json=accountNumber,proto3" json:"account_number,omitempty"`
-	Amount          int64                  `protobuf:"varint,4,opt,name=amount,proto3" json:"amount,omitempty"`
+	Amount          float64                `protobuf:"fixed64,4,opt,name=amount,proto3" json:"amount,omitempty"`
 	Currency        string                 `protobuf:"bytes,5,opt,name=currency,proto3" json:"currency,omitempty"`
 	Description     string                 `protobuf:"bytes,6,opt,name=description,proto3" json:"description,omitempty"`
 	ToAccountNumber *string                `protobuf:"bytes,7,opt,name=to_account_number,json=toAccountNumber,proto3,oneof" json:"to_account_number,omitempty"` // For transfers
@@ -6430,7 +6430,7 @@ func (x *CreateTransactionApprovalRequest) GetAccountNumber() string {
 	return ""
 }
 
-func (x *CreateTransactionApprovalRequest) GetAmount() int64 {
+func (x *CreateTransactionApprovalRequest) GetAmount() float64 {
 	if x != nil {
 		return x.Amount
 	}
@@ -6895,7 +6895,7 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\tis_active\x18\b \x01(\bR\bisActive\x12\x1b\n" +
 	"\tis_locked\x18\t \x01(\bR\bisLocked\x12'\n" +
 	"\x0foverdraft_limit\x18\n" +
-	" \x01(\x03R\x0eoverdraftLimit\x12&\n" +
+	" \x01(\x01R\x0eoverdraftLimit\x12&\n" +
 	"\x0fparent_agent_id\x18\v \x01(\x03R\rparentAgentId\x12'\n" +
 	"\x0fcommission_rate\x18\f \x01(\tR\x0ecommissionRate\x129\n" +
 	"\n" +
@@ -6906,10 +6906,10 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\n" +
 	"account_id\x18\x01 \x01(\x03R\taccountId\x12%\n" +
 	"\x0eaccount_number\x18\x02 \x01(\tR\raccountNumber\x12\x18\n" +
-	"\abalance\x18\x03 \x01(\x03R\abalance\x12+\n" +
-	"\x11available_balance\x18\x04 \x01(\x03R\x10availableBalance\x12#\n" +
-	"\rpending_debit\x18\x05 \x01(\x03R\fpendingDebit\x12%\n" +
-	"\x0epending_credit\x18\x06 \x01(\x03R\rpendingCredit\x12\x1a\n" +
+	"\abalance\x18\x03 \x01(\x01R\abalance\x12+\n" +
+	"\x11available_balance\x18\x04 \x01(\x01R\x10availableBalance\x12#\n" +
+	"\rpending_debit\x18\x05 \x01(\x01R\fpendingDebit\x12%\n" +
+	"\x0epending_credit\x18\x06 \x01(\x01R\rpendingCredit\x12\x1a\n" +
 	"\bcurrency\x18\a \x01(\tR\bcurrency\x12\x18\n" +
 	"\aversion\x18\b \x01(\x03R\aversion\x12J\n" +
 	"\x13last_transaction_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\x11lastTransactionAt\"\xf8\x02\n" +
@@ -6920,7 +6920,7 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\bcurrency\x18\x03 \x01(\tR\bcurrency\x127\n" +
 	"\apurpose\x18\x04 \x01(\x0e2\x1d.accounting.v1.AccountPurposeR\apurpose\x12=\n" +
 	"\faccount_type\x18\x05 \x01(\x0e2\x1a.accounting.v1.AccountTypeR\vaccountType\x12'\n" +
-	"\x0foverdraft_limit\x18\x06 \x01(\x03R\x0eoverdraftLimit\x12&\n" +
+	"\x0foverdraft_limit\x18\x06 \x01(\x01R\x0eoverdraftLimit\x12&\n" +
 	"\x0fparent_agent_id\x18\a \x01(\x03R\rparentAgentId\x12'\n" +
 	"\x0fcommission_rate\x18\b \x01(\tR\x0ecommissionRate\"X\n" +
 	"\x15CreateAccountsRequest\x12?\n" +
@@ -6958,7 +6958,7 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12 \n" +
 	"\tis_active\x18\x02 \x01(\bH\x00R\bisActive\x88\x01\x01\x12 \n" +
 	"\tis_locked\x18\x03 \x01(\bH\x01R\bisLocked\x88\x01\x01\x12,\n" +
-	"\x0foverdraft_limit\x18\x04 \x01(\x03H\x02R\x0eoverdraftLimit\x88\x01\x01B\f\n" +
+	"\x0foverdraft_limit\x18\x04 \x01(\x01H\x02R\x0eoverdraftLimit\x88\x01\x01B\f\n" +
 	"\n" +
 	"_is_activeB\f\n" +
 	"\n" +
@@ -6976,7 +6976,7 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\abalance\x18\x01 \x01(\v2\x16.accounting.v1.BalanceR\abalance\"\xc9\x01\n" +
 	"\vLedgerEntry\x12%\n" +
 	"\x0eaccount_number\x18\x01 \x01(\tR\raccountNumber\x12\x16\n" +
-	"\x06amount\x18\x02 \x01(\x03R\x06amount\x12(\n" +
+	"\x06amount\x18\x02 \x01(\x01R\x06amount\x12(\n" +
 	"\x05dr_cr\x18\x03 \x01(\x0e2\x13.accounting.v1.DrCrR\x04drCr\x12\x1a\n" +
 	"\bcurrency\x18\x04 \x01(\tR\bcurrency\x12%\n" +
 	"\vdescription\x18\x05 \x01(\tH\x00R\vdescription\x88\x01\x01B\x0e\n" +
@@ -7005,9 +7005,9 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\freceipt_code\x18\x01 \x01(\tR\vreceiptCode\x12%\n" +
 	"\x0etransaction_id\x18\x02 \x01(\x03R\rtransactionId\x128\n" +
 	"\x06status\x18\x03 \x01(\x0e2 .accounting.v1.TransactionStatusR\x06status\x12\x16\n" +
-	"\x06amount\x18\x04 \x01(\x03R\x06amount\x12\x1a\n" +
+	"\x06amount\x18\x04 \x01(\x01R\x06amount\x12\x1a\n" +
 	"\bcurrency\x18\x05 \x01(\tR\bcurrency\x12\x10\n" +
-	"\x03fee\x18\x06 \x01(\x03R\x03fee\x12,\n" +
+	"\x03fee\x18\x06 \x01(\x01R\x03fee\x12,\n" +
 	"\x12processing_time_ms\x18\a \x01(\x03R\x10processingTimeMs\x129\n" +
 	"\n" +
 	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\x99\x05\n" +
@@ -7035,9 +7035,9 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\freceipt_code\x18\x01 \x01(\tR\vreceiptCode\x12%\n" +
 	"\x0etransaction_id\x18\x02 \x01(\x03R\rtransactionId\x128\n" +
 	"\x06status\x18\x03 \x01(\x0e2 .accounting.v1.TransactionStatusR\x06status\x12\x16\n" +
-	"\x06amount\x18\x04 \x01(\x03R\x06amount\x12\x1a\n" +
+	"\x06amount\x18\x04 \x01(\x01R\x06amount\x12\x1a\n" +
 	"\bcurrency\x18\x05 \x01(\tR\bcurrency\x12\x10\n" +
-	"\x03fee\x18\x06 \x01(\x03R\x03fee\x12,\n" +
+	"\x03fee\x18\x06 \x01(\x01R\x03fee\x12,\n" +
 	"\x12processing_time_ms\x18\a \x01(\x03R\x10processingTimeMs\x129\n" +
 	"\n" +
 	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"@\n" +
@@ -7081,10 +7081,10 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\n" +
 	"account_id\x18\x03 \x01(\x03R\taccountId\x12%\n" +
 	"\x0eaccount_number\x18\x04 \x01(\tR\raccountNumber\x12\x16\n" +
-	"\x06amount\x18\x05 \x01(\x03R\x06amount\x12(\n" +
+	"\x06amount\x18\x05 \x01(\x01R\x06amount\x12(\n" +
 	"\x05dr_cr\x18\x06 \x01(\x0e2\x13.accounting.v1.DrCrR\x04drCr\x12\x1a\n" +
 	"\bcurrency\x18\a \x01(\tR\bcurrency\x12#\n" +
-	"\rbalance_after\x18\b \x01(\x03R\fbalanceAfter\x12%\n" +
+	"\rbalance_after\x18\b \x01(\x01R\fbalanceAfter\x12%\n" +
 	"\vdescription\x18\t \x01(\tH\x00R\vdescription\x88\x01\x01\x12&\n" +
 	"\freceipt_code\x18\n" +
 	" \x01(\tH\x01R\vreceiptCode\x88\x01\x01\x129\n" +
@@ -7135,10 +7135,10 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\x0eaccount_number\x18\x01 \x01(\tR\raccountNumber\x12=\n" +
 	"\faccount_type\x18\x02 \x01(\x0e2\x1a.accounting.v1.AccountTypeR\vaccountType\x12/\n" +
 	"\aledgers\x18\x03 \x03(\v2\x15.accounting.v1.LedgerR\aledgers\x12'\n" +
-	"\x0fopening_balance\x18\x04 \x01(\x03R\x0eopeningBalance\x12'\n" +
-	"\x0fclosing_balance\x18\x05 \x01(\x03R\x0eclosingBalance\x12!\n" +
-	"\ftotal_debits\x18\x06 \x01(\x03R\vtotalDebits\x12#\n" +
-	"\rtotal_credits\x18\a \x01(\x03R\ftotalCredits\x12=\n" +
+	"\x0fopening_balance\x18\x04 \x01(\x01R\x0eopeningBalance\x12'\n" +
+	"\x0fclosing_balance\x18\x05 \x01(\x01R\x0eclosingBalance\x12!\n" +
+	"\ftotal_debits\x18\x06 \x01(\x01R\vtotalDebits\x12#\n" +
+	"\rtotal_credits\x18\a \x01(\x01R\ftotalCredits\x12=\n" +
 	"\fperiod_start\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\vperiodStart\x129\n" +
 	"\n" +
 	"period_end\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tperiodEnd\"\xde\x01\n" +
@@ -7166,14 +7166,14 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\bowner_id\x18\x02 \x01(\tR\aownerId\x12=\n" +
 	"\faccount_type\x18\x03 \x01(\x0e2\x1a.accounting.v1.AccountTypeR\vaccountType\x12H\n" +
 	"\x10account_balances\x18\x04 \x03(\v2\x1d.accounting.v1.AccountBalanceR\x0faccountBalances\x12?\n" +
-	"\x1ctotal_balance_usd_equivalent\x18\x05 \x01(\x03R\x19totalBalanceUsdEquivalent\"\xb9\x01\n" +
+	"\x1ctotal_balance_usd_equivalent\x18\x05 \x01(\x01R\x19totalBalanceUsdEquivalent\"\xb9\x01\n" +
 	"\x0eAccountBalance\x12\x1d\n" +
 	"\n" +
 	"account_id\x18\x01 \x01(\x03R\taccountId\x12%\n" +
 	"\x0eaccount_number\x18\x02 \x01(\tR\raccountNumber\x12\x1a\n" +
 	"\bcurrency\x18\x03 \x01(\tR\bcurrency\x12\x18\n" +
-	"\abalance\x18\x04 \x01(\x03R\abalance\x12+\n" +
-	"\x11available_balance\x18\x05 \x01(\x03R\x10availableBalance\"\xab\x01\n" +
+	"\abalance\x18\x04 \x01(\x01R\abalance\x12+\n" +
+	"\x11available_balance\x18\x05 \x01(\x01R\x10availableBalance\"\xab\x01\n" +
 	"\x16GetOwnerSummaryRequest\x127\n" +
 	"\n" +
 	"owner_type\x18\x01 \x01(\x0e2\x18.accounting.v1.OwnerTypeR\townerType\x12\x19\n" +
@@ -7188,12 +7188,12 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\n" +
 	"account_id\x18\x03 \x01(\x03R\taccountId\x12\x1a\n" +
 	"\bcurrency\x18\x04 \x01(\tR\bcurrency\x12\x1f\n" +
-	"\vtotal_debit\x18\x05 \x01(\x03R\n" +
+	"\vtotal_debit\x18\x05 \x01(\x01R\n" +
 	"totalDebit\x12!\n" +
-	"\ftotal_credit\x18\x06 \x01(\x03R\vtotalCredit\x12\x18\n" +
-	"\abalance\x18\a \x01(\x03R\abalance\x12\x1d\n" +
+	"\ftotal_credit\x18\x06 \x01(\x01R\vtotalCredit\x12\x18\n" +
+	"\abalance\x18\a \x01(\x01R\abalance\x12\x1d\n" +
 	"\n" +
-	"net_change\x18\b \x01(\x03R\tnetChange\x12.\n" +
+	"net_change\x18\b \x01(\x01R\tnetChange\x12.\n" +
 	"\x04date\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\x04date\"\x8b\x01\n" +
 	"\x1aGenerateDailyReportRequest\x12.\n" +
 	"\x04date\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x04date\x12=\n" +
@@ -7204,13 +7204,13 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\x10transaction_type\x18\x01 \x01(\x0e2\x1e.accounting.v1.TransactionTypeR\x0ftransactionType\x12\x1a\n" +
 	"\bcurrency\x18\x02 \x01(\tR\bcurrency\x12\x14\n" +
 	"\x05count\x18\x03 \x01(\x03R\x05count\x12!\n" +
-	"\ftotal_amount\x18\x04 \x01(\x03R\vtotalAmount\x12\x1d\n" +
+	"\ftotal_amount\x18\x04 \x01(\x01R\vtotalAmount\x12\x1d\n" +
 	"\n" +
-	"min_amount\x18\x05 \x01(\x03R\tminAmount\x12\x1d\n" +
+	"min_amount\x18\x05 \x01(\x01R\tminAmount\x12\x1d\n" +
 	"\n" +
-	"max_amount\x18\x06 \x01(\x03R\tmaxAmount\x12\x1d\n" +
+	"max_amount\x18\x06 \x01(\x01R\tmaxAmount\x12\x1d\n" +
 	"\n" +
-	"avg_amount\x18\a \x01(\x03R\tavgAmount\"\xb9\x01\n" +
+	"avg_amount\x18\a \x01(\x01R\tavgAmount\"\xb9\x01\n" +
 	"\x1cGetTransactionSummaryRequest\x12=\n" +
 	"\faccount_type\x18\x01 \x01(\x0e2\x1a.accounting.v1.AccountTypeR\vaccountType\x12.\n" +
 	"\x04from\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x04from\x12*\n" +
@@ -7223,13 +7223,13 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\bholdings\x18\x01 \x03(\v26.accounting.v1.GetSystemHoldingsResponse.HoldingsEntryR\bholdings\x1a;\n" +
 	"\rHoldingsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01\"\x96\x04\n" +
+	"\x05value\x18\x02 \x01(\x01R\x05value:\x028\x01\"\x96\x04\n" +
 	"\x0eTransactionFee\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12!\n" +
 	"\freceipt_code\x18\x02 \x01(\tR\vreceiptCode\x12\x1e\n" +
 	"\vfee_rule_id\x18\x03 \x01(\x03R\tfeeRuleId\x121\n" +
 	"\bfee_type\x18\x04 \x01(\x0e2\x16.accounting.v1.FeeTypeR\afeeType\x12\x16\n" +
-	"\x06amount\x18\x05 \x01(\x03R\x06amount\x12\x1a\n" +
+	"\x06amount\x18\x05 \x01(\x01R\x06amount\x12\x1a\n" +
 	"\bcurrency\x18\x06 \x01(\tR\bcurrency\x12:\n" +
 	"\x17collected_by_account_id\x18\a \x01(\x03H\x00R\x14collectedByAccountId\x88\x01\x01\x12 \n" +
 	"\tledger_id\x18\b \x01(\x03H\x01R\bledgerId\x88\x01\x01\x12/\n" +
@@ -7245,7 +7245,7 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\x10_commission_rate\"\x9e\x03\n" +
 	"\x13CalculateFeeRequest\x12I\n" +
 	"\x10transaction_type\x18\x01 \x01(\x0e2\x1e.accounting.v1.TransactionTypeR\x0ftransactionType\x12\x16\n" +
-	"\x06amount\x18\x02 \x01(\x03R\x06amount\x12,\n" +
+	"\x06amount\x18\x02 \x01(\x01R\x06amount\x12,\n" +
 	"\x0fsource_currency\x18\x03 \x01(\tH\x00R\x0esourceCurrency\x88\x01\x01\x12,\n" +
 	"\x0ftarget_currency\x18\x04 \x01(\tH\x01R\x0etargetCurrency\x88\x01\x01\x12B\n" +
 	"\faccount_type\x18\x05 \x01(\x0e2\x1a.accounting.v1.AccountTypeH\x02R\vaccountType\x88\x01\x01\x12<\n" +
@@ -7257,7 +7257,7 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\v_owner_type\"\x83\x02\n" +
 	"\x0eFeeCalculation\x121\n" +
 	"\bfee_type\x18\x01 \x01(\x0e2\x16.accounting.v1.FeeTypeR\afeeType\x12\x16\n" +
-	"\x06amount\x18\x02 \x01(\x03R\x06amount\x12\x1a\n" +
+	"\x06amount\x18\x02 \x01(\x01R\x06amount\x12\x1a\n" +
 	"\bcurrency\x18\x03 \x01(\tR\bcurrency\x12&\n" +
 	"\fapplied_rate\x18\x04 \x01(\tH\x00R\vappliedRate\x88\x01\x01\x12\x1c\n" +
 	"\arule_id\x18\x05 \x01(\x03H\x01R\x06ruleId\x88\x01\x01\x12'\n" +
@@ -7279,7 +7279,7 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\vcommissions\x18\x01 \x03(\v2A.accounting.v1.GetAgentCommissionSummaryResponse.CommissionsEntryR\vcommissions\x1a>\n" +
 	"\x10CommissionsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01\"\x14\n" +
+	"\x05value\x18\x02 \x01(\x01R\x05value:\x028\x01\"\x14\n" +
 	"\x12HealthCheckRequest\"\xde\x01\n" +
 	"\x13HealthCheckResponse\x12\x16\n" +
 	"\x06status\x18\x01 \x01(\tR\x06status\x12R\n" +
@@ -7321,14 +7321,14 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\freceipt_code\x18\x02 \x01(\tR\vreceiptCode\x12%\n" +
 	"\x0etransaction_id\x18\x03 \x01(\x03R\rtransactionId\x128\n" +
 	"\x06status\x18\x04 \x01(\x0e2 .accounting.v1.TransactionStatusR\x06status\x12\x16\n" +
-	"\x06amount\x18\x05 \x01(\x03R\x06amount\x12\x1a\n" +
+	"\x06amount\x18\x05 \x01(\x01R\x06amount\x12\x1a\n" +
 	"\bcurrency\x18\x06 \x01(\tR\bcurrency\x12(\n" +
 	"\rerror_message\x18\a \x01(\tH\x00R\ferrorMessage\x88\x01\x01\x128\n" +
 	"\ttimestamp\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\ttimestampB\x10\n" +
 	"\x0e_error_message\"\xbd\x03\n" +
 	"\rCreditRequest\x12%\n" +
 	"\x0eaccount_number\x18\x01 \x01(\tR\raccountNumber\x12\x16\n" +
-	"\x06amount\x18\x02 \x01(\x03R\x06amount\x12\x1a\n" +
+	"\x06amount\x18\x02 \x01(\x01R\x06amount\x12\x1a\n" +
 	"\bcurrency\x18\x03 \x01(\tR\bcurrency\x12=\n" +
 	"\faccount_type\x18\x04 \x01(\x0e2\x1a.accounting.v1.AccountTypeR\vaccountType\x12 \n" +
 	"\vdescription\x18\x05 \x01(\tR\vdescription\x12,\n" +
@@ -7342,12 +7342,12 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\n" +
 	"journal_id\x18\x01 \x01(\x03R\tjournalId\x12!\n" +
 	"\freceipt_code\x18\x02 \x01(\tR\vreceiptCode\x12#\n" +
-	"\rbalance_after\x18\x03 \x01(\x03R\fbalanceAfter\x129\n" +
+	"\rbalance_after\x18\x03 \x01(\x01R\fbalanceAfter\x129\n" +
 	"\n" +
 	"created_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xbc\x03\n" +
 	"\fDebitRequest\x12%\n" +
 	"\x0eaccount_number\x18\x01 \x01(\tR\raccountNumber\x12\x16\n" +
-	"\x06amount\x18\x02 \x01(\x03R\x06amount\x12\x1a\n" +
+	"\x06amount\x18\x02 \x01(\x01R\x06amount\x12\x1a\n" +
 	"\bcurrency\x18\x03 \x01(\tR\bcurrency\x12=\n" +
 	"\faccount_type\x18\x04 \x01(\x0e2\x1a.accounting.v1.AccountTypeR\vaccountType\x12 \n" +
 	"\vdescription\x18\x05 \x01(\tR\vdescription\x12,\n" +
@@ -7361,13 +7361,13 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\n" +
 	"journal_id\x18\x01 \x01(\x03R\tjournalId\x12!\n" +
 	"\freceipt_code\x18\x02 \x01(\tR\vreceiptCode\x12#\n" +
-	"\rbalance_after\x18\x03 \x01(\x03R\fbalanceAfter\x129\n" +
+	"\rbalance_after\x18\x03 \x01(\x01R\fbalanceAfter\x129\n" +
 	"\n" +
 	"created_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\x9f\x04\n" +
 	"\x0fTransferRequest\x12.\n" +
 	"\x13from_account_number\x18\x01 \x01(\tR\x11fromAccountNumber\x12*\n" +
 	"\x11to_account_number\x18\x02 \x01(\tR\x0ftoAccountNumber\x12\x16\n" +
-	"\x06amount\x18\x03 \x01(\x03R\x06amount\x12=\n" +
+	"\x06amount\x18\x03 \x01(\x01R\x06amount\x12=\n" +
 	"\faccount_type\x18\x04 \x01(\x0e2\x1a.accounting.v1.AccountTypeR\vaccountType\x12 \n" +
 	"\vdescription\x18\x05 \x01(\tR\vdescription\x12,\n" +
 	"\x0fidempotency_key\x18\x06 \x01(\tH\x00R\x0eidempotencyKey\x88\x01\x01\x12&\n" +
@@ -7384,14 +7384,14 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"journal_id\x18\x01 \x01(\x03R\tjournalId\x12!\n" +
 	"\freceipt_code\x18\x02 \x01(\tR\vreceiptCode\x12\x1d\n" +
 	"\n" +
-	"fee_amount\x18\x03 \x01(\x03R\tfeeAmount\x12)\n" +
-	"\x10agent_commission\x18\x04 \x01(\x03R\x0fagentCommission\x129\n" +
+	"fee_amount\x18\x03 \x01(\x01R\tfeeAmount\x12)\n" +
+	"\x10agent_commission\x18\x04 \x01(\x01R\x0fagentCommission\x129\n" +
 	"\n" +
 	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xff\x03\n" +
 	"\x11ConversionRequest\x12.\n" +
 	"\x13from_account_number\x18\x01 \x01(\tR\x11fromAccountNumber\x12*\n" +
 	"\x11to_account_number\x18\x02 \x01(\tR\x0ftoAccountNumber\x12\x16\n" +
-	"\x06amount\x18\x03 \x01(\x03R\x06amount\x12=\n" +
+	"\x06amount\x18\x03 \x01(\x01R\x06amount\x12=\n" +
 	"\faccount_type\x18\x04 \x01(\x0e2\x1a.accounting.v1.AccountTypeR\vaccountType\x12,\n" +
 	"\x0fidempotency_key\x18\x05 \x01(\tH\x00R\x0eidempotencyKey\x88\x01\x01\x12&\n" +
 	"\fexternal_ref\x18\x06 \x01(\tH\x01R\vexternalRef\x88\x01\x01\x123\n" +
@@ -7407,19 +7407,19 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\freceipt_code\x18\x02 \x01(\tR\vreceiptCode\x12'\n" +
 	"\x0fsource_currency\x18\x03 \x01(\tR\x0esourceCurrency\x12#\n" +
 	"\rdest_currency\x18\x04 \x01(\tR\fdestCurrency\x12#\n" +
-	"\rsource_amount\x18\x05 \x01(\x03R\fsourceAmount\x12)\n" +
-	"\x10converted_amount\x18\x06 \x01(\x03R\x0fconvertedAmount\x12\x17\n" +
+	"\rsource_amount\x18\x05 \x01(\x01R\fsourceAmount\x12)\n" +
+	"\x10converted_amount\x18\x06 \x01(\x01R\x0fconvertedAmount\x12\x17\n" +
 	"\afx_rate\x18\a \x01(\tR\x06fxRate\x12\x1c\n" +
 	"\n" +
 	"fx_rate_id\x18\b \x01(\x03R\bfxRateId\x12\x1d\n" +
 	"\n" +
-	"fee_amount\x18\t \x01(\x03R\tfeeAmount\x129\n" +
+	"fee_amount\x18\t \x01(\x01R\tfeeAmount\x129\n" +
 	"\n" +
 	"created_at\x18\n" +
 	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\x9b\x03\n" +
 	"\fTradeRequest\x12%\n" +
 	"\x0eaccount_number\x18\x01 \x01(\tR\raccountNumber\x12\x16\n" +
-	"\x06amount\x18\x02 \x01(\x03R\x06amount\x12\x1a\n" +
+	"\x06amount\x18\x02 \x01(\x01R\x06amount\x12\x1a\n" +
 	"\bcurrency\x18\x03 \x01(\tR\bcurrency\x12=\n" +
 	"\faccount_type\x18\x04 \x01(\x0e2\x1a.accounting.v1.AccountTypeR\vaccountType\x12\x19\n" +
 	"\btrade_id\x18\x05 \x01(\tR\atradeId\x12\x1d\n" +
@@ -7435,15 +7435,15 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\freceipt_code\x18\x02 \x01(\tR\vreceiptCode\x12\x19\n" +
 	"\btrade_id\x18\x03 \x01(\tR\atradeId\x12!\n" +
 	"\ftrade_result\x18\x04 \x01(\tR\vtradeResult\x12#\n" +
-	"\rbalance_after\x18\x05 \x01(\x03R\fbalanceAfter\x129\n" +
+	"\rbalance_after\x18\x05 \x01(\x01R\fbalanceAfter\x129\n" +
 	"\n" +
 	"created_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xe9\x02\n" +
 	"\x16AgentCommissionRequest\x12*\n" +
 	"\x11agent_external_id\x18\x01 \x01(\tR\x0fagentExternalId\x12'\n" +
 	"\x0ftransaction_ref\x18\x02 \x01(\tR\x0etransactionRef\x12\x1a\n" +
 	"\bcurrency\x18\x03 \x01(\tR\bcurrency\x12-\n" +
-	"\x12transaction_amount\x18\x04 \x01(\x03R\x11transactionAmount\x12+\n" +
-	"\x11commission_amount\x18\x05 \x01(\x03R\x10commissionAmount\x12,\n" +
+	"\x12transaction_amount\x18\x04 \x01(\x01R\x11transactionAmount\x12+\n" +
+	"\x11commission_amount\x18\x05 \x01(\x01R\x10commissionAmount\x12,\n" +
 	"\x0fcommission_rate\x18\x06 \x01(\tH\x00R\x0ecommissionRate\x88\x01\x01\x12,\n" +
 	"\x0fidempotency_key\x18\a \x01(\tH\x01R\x0eidempotencyKey\x88\x01\x01B\x12\n" +
 	"\x10_commission_rateB\x12\n" +
@@ -7453,7 +7453,7 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"journal_id\x18\x01 \x01(\x03R\tjournalId\x12!\n" +
 	"\freceipt_code\x18\x02 \x01(\tR\vreceiptCode\x12*\n" +
 	"\x11agent_external_id\x18\x03 \x01(\tR\x0fagentExternalId\x12+\n" +
-	"\x11commission_amount\x18\x04 \x01(\x03R\x10commissionAmount\x129\n" +
+	"\x11commission_amount\x18\x04 \x01(\x01R\x10commissionAmount\x129\n" +
 	"\n" +
 	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xb8\x05\n" +
 	"\x13TransactionApproval\x12\x0e\n" +
@@ -7461,7 +7461,7 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\frequested_by\x18\x02 \x01(\x03R\vrequestedBy\x12I\n" +
 	"\x10transaction_type\x18\x03 \x01(\x0e2\x1e.accounting.v1.TransactionTypeR\x0ftransactionType\x12%\n" +
 	"\x0eaccount_number\x18\x04 \x01(\tR\raccountNumber\x12\x16\n" +
-	"\x06amount\x18\x05 \x01(\x03R\x06amount\x12\x1a\n" +
+	"\x06amount\x18\x05 \x01(\x01R\x06amount\x12\x1a\n" +
 	"\bcurrency\x18\x06 \x01(\tR\bcurrency\x12 \n" +
 	"\vdescription\x18\a \x01(\tR\vdescription\x125\n" +
 	"\x06status\x18\b \x01(\x0e2\x1d.accounting.v1.ApprovalStatusR\x06status\x12$\n" +
@@ -7483,7 +7483,7 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\frequested_by\x18\x01 \x01(\x03R\vrequestedBy\x12I\n" +
 	"\x10transaction_type\x18\x02 \x01(\x0e2\x1e.accounting.v1.TransactionTypeR\x0ftransactionType\x12%\n" +
 	"\x0eaccount_number\x18\x03 \x01(\tR\raccountNumber\x12\x16\n" +
-	"\x06amount\x18\x04 \x01(\x03R\x06amount\x12\x1a\n" +
+	"\x06amount\x18\x04 \x01(\x01R\x06amount\x12\x1a\n" +
 	"\bcurrency\x18\x05 \x01(\tR\bcurrency\x12 \n" +
 	"\vdescription\x18\x06 \x01(\tR\vdescription\x12/\n" +
 	"\x11to_account_number\x18\a \x01(\tH\x00R\x0ftoAccountNumber\x88\x01\x01B\x14\n" +
