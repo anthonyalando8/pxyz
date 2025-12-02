@@ -42,6 +42,14 @@ func (uc *AccountUsecase) BeginTx(ctx context.Context) (pgx.Tx, error) {
 	return uc.accountRepo.BeginTx(ctx)
 }
 
+func (uc *AccountUsecase) GetAgentAccount(
+	ctx context.Context,
+	agentExternalID string,
+	currency string,
+) (*domain.Account, error) {
+	// Fetch agent account by owner type/ID
+	return uc.accountRepo.GetAgentAccount(ctx, agentExternalID, currency)
+}
 // ===============================
 // SYSTEM ACCOUNT OPERATIONS
 // ===============================
