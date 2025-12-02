@@ -11,6 +11,11 @@ import (
 	accountingpb "x/shared/genproto/shared/accounting/v1"
 )
 
+// Seed the global PRNG once.
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
 // ============================================================================
 // ENUM MAPPERS
 // ============================================================================
@@ -53,7 +58,7 @@ func (h *PaymentHandler) GetPartnersByService(ctx context.Context, service strin
 		return nil, fmt.Errorf("service cannot be empty")
 	}
 
-	req := &partnersvcpb. GetPartnersByServiceRequest{
+	req := &partnersvcpb.GetPartnersByServiceRequest{
 		Service: service,
 	}
 
@@ -72,7 +77,7 @@ func (h *PaymentHandler) GetPartnersByService(ctx context.Context, service strin
 // GetPartnerByID fetches a specific partner by ID
 func (h *PaymentHandler) GetPartnerByID(ctx context.Context, partnerID string) (*partnersvcpb.Partner, error) {
 	if partnerID == "" {
-		return nil, fmt. Errorf("partner_id cannot be empty")
+		return nil, fmt.Errorf("partner_id cannot be empty")
 	}
 
 	req := &partnersvcpb.GetPartnersRequest{
@@ -96,7 +101,6 @@ func SelectRandomPartner(partners []*partnersvcpb.Partner) *partnersvcpb.Partner
 	if len(partners) == 0 {
 		return nil
 	}
-	rand.Seed(time.Now(). UnixNano())
 	return partners[rand.Intn(len(partners))]
 }
 
@@ -149,7 +153,7 @@ func (h *PaymentHandler) GetAccountByCurrency(ctx context.Context, ownerID, owne
 		}
 	}
 
-	return "", fmt. Errorf("no account found for ownerID=%s, ownerType=%s with currency=%s", ownerID, ownerType, currency)
+	return "", fmt.Errorf("no account found for ownerID=%s, ownerType=%s with currency=%s", ownerID, ownerType, currency)
 }
 
 // GetAccountByPurpose fetches an account by owner and purpose
@@ -169,7 +173,7 @@ func (h *PaymentHandler) GetAccountByPurpose(ctx context.Context, ownerID, owner
 		}
 	}
 
-	return "", fmt. Errorf("no account found for ownerID=%s, ownerType=%s with purpose=%s", ownerID, ownerType, purpose. String())
+	return "", fmt.Errorf("no account found for ownerID=%s, ownerType=%s with purpose=%s", ownerID, ownerType, purpose.String())
 }
 
 // GetAccountBalance fetches the balance for a specific account number
@@ -186,7 +190,7 @@ func (h *PaymentHandler) GetAccountBalance(ctx context.Context, accountNumber st
 
 	resp, err := h.accountingClient.Client.GetBalance(ctx, req)
 	if err != nil {
-		return nil, fmt. Errorf("failed to fetch balance for account %s: %w", accountNumber, err)
+		return nil, fmt.Errorf("failed to fetch balance for account %s: %w", accountNumber, err)
 	}
 
 	return resp.Balance, nil
@@ -204,7 +208,7 @@ func (h *PaymentHandler) GetPartnerAndUserAccounts(ctx context.Context, service,
 
 	var wg sync.WaitGroup
 	var partnerErr, userErr error
-	var partners []*partnersvcpb. Partner
+	var partners []*partnersvcpb.Partner
 
 	wg.Add(2)
 
@@ -236,13 +240,13 @@ func (h *PaymentHandler) GetPartnerAndUserAccounts(ctx context.Context, service,
 		return "", "", nil, fmt.Errorf("user account error: %w", userErr)
 	}
 	if partner == nil {
-		return "", "", nil, fmt. Errorf("failed to select partner")
+		return "", "", nil, fmt.Errorf("failed to select partner")
 	}
 
 	// Fetch selected partner's account
 	partnerAccount, err = h.GetAccountByCurrency(ctx, partner.Id, "partner", currency)
 	if err != nil {
-		return "", "", nil, fmt. Errorf("failed to fetch partner account: %w", err)
+		return "", "", nil, fmt.Errorf("failed to fetch partner account: %w", err)
 	}
 
 	return partnerAccount, userAccount, partner, nil
@@ -251,7 +255,7 @@ func (h *PaymentHandler) GetPartnerAndUserAccounts(ctx context.Context, service,
 // GetPartnerAndUserAccountsByPartnerID fetches specific partner and accounts
 func (h *PaymentHandler) GetPartnerAndUserAccountsByPartnerID(ctx context.Context, partnerID, currency, userID string) (partnerAccount, userAccount string, partner *partnersvcpb.Partner, err error) {
 	if partnerID == "" || currency == "" || userID == "" {
-		return "", "", nil, fmt. Errorf("partnerID, currency, and userID cannot be empty")
+		return "", "", nil, fmt.Errorf("partnerID, currency, and userID cannot be empty")
 	}
 
 	var wg sync.WaitGroup
@@ -280,7 +284,7 @@ func (h *PaymentHandler) GetPartnerAndUserAccountsByPartnerID(ctx context.Contex
 	wg.Wait()
 
 	if partnerErr != nil {
-		return "", "", nil, fmt. Errorf("failed to fetch partner: %w", partnerErr)
+		return "", "", nil, fmt.Errorf("failed to fetch partner: %w", partnerErr)
 	}
 	if partnerAcctErr != nil {
 		return "", "", nil, fmt.Errorf("failed to fetch partner account: %w", partnerAcctErr)
@@ -315,7 +319,7 @@ func (h *PaymentHandler) ValidatePartnerService(ctx context.Context, partnerID, 
 // ValidateAccountOwnership verifies that an account belongs to a specific owner
 func (h *PaymentHandler) ValidateAccountOwnership(ctx context.Context, accountNumber, ownerID, ownerType string) error {
 	req := &accountingpb.GetAccountRequest{
-		Identifier: &accountingpb. GetAccountRequest_AccountNumber{
+		Identifier: &accountingpb.GetAccountRequest_AccountNumber{
 			AccountNumber: accountNumber,
 		},
 	}
@@ -330,7 +334,7 @@ func (h *PaymentHandler) ValidateAccountOwnership(ctx context.Context, accountNu
 	}
 
 	expectedOwnerType := mapOwnerType(ownerType)
-	if resp. Account.OwnerType != expectedOwnerType {
+	if resp.Account.OwnerType != expectedOwnerType {
 		return fmt.Errorf("account owner type mismatch")
 	}
 
@@ -341,16 +345,7 @@ func (h *PaymentHandler) ValidateAccountOwnership(ctx context.Context, accountNu
 // CONVERSION HELPERS
 // ============================================================================
 
-// ToAtomicUnits converts a decimal amount to atomic units (cents)
-func ToAtomicUnits(amount float64) int64 {
-	return int64(amount * 100)
-}
-
-// FromAtomicUnits converts atomic units (cents) to decimal amount
-func FromAtomicUnits(amount int64) float64 {
-	return float64(amount) / 100.0
-}
-
+// Note: atomic-unit conversion helpers removed — handlers should pass decimal float64 amounts directly
 // FormatCurrency formats an amount with currency symbol
 func FormatCurrency(amount float64, currency string) string {
 	return fmt.Sprintf("%.2f %s", amount, currency)

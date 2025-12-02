@@ -1,4 +1,3 @@
-// handler/ws_handlers.go
 package handler
 
 import (
@@ -21,21 +20,21 @@ func (h *PaymentHandler) HandleWSMessage(client *Client, msg *WSMessage) {
 	switch msg.Type {
 	// ========== Partner Operations ==========
 	case "get_partners":
-		h.handleGetPartners(ctx, client, msg. Data)
+		h.handleGetPartners(ctx, client, msg.Data)
 
 	// ========== Account Operations ==========
 	case "get_accounts":
 		h.handleGetAccounts(ctx, client)
 
 	case "get_account_balance":
-		h.handleGetAccountBalance(ctx, client, msg. Data)
+		h.handleGetAccountBalance(ctx, client, msg.Data)
 
 	case "get_owner_summary":
 		h.handleGetOwnerSummary(ctx, client)
 
 	// ========== Deposit/Withdrawal Operations ==========
 	case "deposit_request":
-		h.handleDepositRequest(ctx, client, msg. Data)
+		h.handleDepositRequest(ctx, client, msg.Data)
 
 	case "withdraw_request":
 		h.handleWithdrawRequest(ctx, client, msg.Data)
@@ -55,13 +54,13 @@ func (h *PaymentHandler) HandleWSMessage(client *Client, msg *WSMessage) {
 
 	// ========== Statements & Reports ==========
 	case "get_account_statement":
-		h. handleGetAccountStatement(ctx, client, msg.Data)
+		h.handleGetAccountStatement(ctx, client, msg.Data)
 
 	case "get_owner_statement":
 		h.handleGetOwnerStatement(ctx, client, msg.Data)
 
 	case "get_ledgers":
-		h.handleGetLedgers(ctx, client, msg. Data)
+		h.handleGetLedgers(ctx, client, msg.Data)
 
 	// ========== P2P Transfer ==========
 	case "transfer":
@@ -75,7 +74,7 @@ func (h *PaymentHandler) HandleWSMessage(client *Client, msg *WSMessage) {
 		h.handleConvertAndTransfer(ctx, client, msg.Data)
 
 	default:
-		client.SendError(fmt.Sprintf("unknown message type: %s", msg. Type))
+		client.SendError(fmt.Sprintf("unknown message type: %s", msg.Type))
 	}
 }
 
@@ -90,7 +89,7 @@ func (h *PaymentHandler) handleGetPartners(ctx context.Context, client *Client, 
 	}
 
 	if err := json.Unmarshal(data, &req); err != nil {
-		client. SendError("invalid request format")
+		client.SendError("invalid request format")
 		return
 	}
 
@@ -112,28 +111,28 @@ func (h *PaymentHandler) handleGetPartners(ctx context.Context, client *Client, 
 
 // Get user accounts
 func (h *PaymentHandler) handleGetAccounts(ctx context.Context, client *Client) {
-	accountsResp, err := h.GetAccounts(ctx, client. UserID, "user")
+	accountsResp, err := h.GetAccounts(ctx, client.UserID, "user")
 	if err != nil {
-		client.SendError("failed to fetch accounts: " + err. Error())
+		client.SendError("failed to fetch accounts: " + err.Error())
 		return
 	}
 
 	// Format response with balances
 	var formattedAccounts []map[string]interface{}
-	for _, account := range accountsResp. Accounts {
+	for _, account := range accountsResp.Accounts {
 		formattedAccounts = append(formattedAccounts, map[string]interface{}{
 			"id":             account.Id,
 			"account_number": account.AccountNumber,
 			"currency":       account.Currency,
-			"purpose":        account.Purpose. String(),
+			"purpose":        account.Purpose.String(),
 			"account_type":   account.AccountType.String(),
 			"is_active":      account.IsActive,
 			"is_locked":      account.IsLocked,
-			"created_at":     account.CreatedAt. AsTime(),
+			"created_at":     account.CreatedAt.AsTime(),
 		})
 	}
 
-	client. SendSuccess("accounts retrieved", map[string]interface{}{
+	client.SendSuccess("accounts retrieved", map[string]interface{}{
 		"accounts": formattedAccounts,
 		"count":    len(formattedAccounts),
 	})
@@ -145,7 +144,7 @@ func (h *PaymentHandler) handleGetAccountBalance(ctx context.Context, client *Cl
 		AccountNumber string `json:"account_number"`
 	}
 
-	if err := json. Unmarshal(data, &req); err != nil {
+	if err := json.Unmarshal(data, &req); err != nil {
 		client.SendError("invalid request format")
 		return
 	}
@@ -162,12 +161,13 @@ func (h *PaymentHandler) handleGetAccountBalance(ctx context.Context, client *Cl
 		return
 	}
 
+	// The accounting service now returns decimal amounts (float64). Use them directly.
 	client.SendSuccess("balance retrieved", map[string]interface{}{
 		"account_number":    balance.AccountNumber,
-		"balance":           FromAtomicUnits(balance.Balance),
-		"available_balance": FromAtomicUnits(balance.AvailableBalance),
-		"pending_debit":     FromAtomicUnits(balance.PendingDebit),
-		"pending_credit":    FromAtomicUnits(balance.PendingCredit),
+		"balance":           balance.Balance,
+		"available_balance": balance.AvailableBalance,
+		"pending_debit":     balance.PendingDebit,
+		"pending_credit":    balance.PendingCredit,
 		"currency":          balance.Currency,
 		"last_transaction":  balance.LastTransactionAt.AsTime(),
 	})
@@ -193,15 +193,15 @@ func (h *PaymentHandler) handleGetOwnerSummary(ctx context.Context, client *Clie
 		balances = append(balances, map[string]interface{}{
 			"account_number":    bal.AccountNumber,
 			"currency":          bal.Currency,
-			"balance":           FromAtomicUnits(bal.Balance),
-			"available_balance": FromAtomicUnits(bal. AvailableBalance),
+			"balance":           bal.Balance,
+			"available_balance": bal.AvailableBalance,
 		})
 	}
 
-	client. SendSuccess("owner summary", map[string]interface{}{
-		"account_balances":        balances,
-		"total_balance_usd":       FromAtomicUnits(resp. Summary.TotalBalanceUsdEquivalent),
-		"total_accounts":          len(balances),
+	client.SendSuccess("owner summary", map[string]interface{}{
+		"account_balances":  balances,
+		"total_balance_usd": resp.Summary.TotalBalanceUsdEquivalent,
+		"total_accounts":    len(balances),
 	})
 }
 
@@ -220,7 +220,7 @@ func (h *PaymentHandler) handleDepositRequest(ctx context.Context, client *Clien
 	}
 
 	if err := json.Unmarshal(data, &req); err != nil {
-		client. SendError("invalid request format")
+		client.SendError("invalid request format")
 		return
 	}
 
@@ -233,8 +233,8 @@ func (h *PaymentHandler) handleDepositRequest(ctx context.Context, client *Clien
 		client.SendError("currency is required")
 		return
 	}
-	if req. Service == "" {
-		client. SendError("service is required")
+	if req.Service == "" {
+		client.SendError("service is required")
 		return
 	}
 
@@ -294,7 +294,7 @@ func (h *PaymentHandler) handleDepositRequest(ctx context.Context, client *Clien
 	// Send success response
 	client.SendSuccess("deposit request created", map[string]interface{}{
 		"request_ref":  requestRef,
-		"partner_id":   selectedPartner. Id,
+		"partner_id":   selectedPartner.Id,
 		"partner_name": selectedPartner.Name,
 		"amount":       req.Amount,
 		"currency":     req.Currency,
@@ -314,7 +314,7 @@ func (h *PaymentHandler) handleGetDepositStatus(ctx context.Context, client *Cli
 	}
 
 	if err := json.Unmarshal(data, &req); err != nil {
-		client. SendError("invalid request format")
+		client.SendError("invalid request format")
 		return
 	}
 
@@ -345,7 +345,7 @@ func (h *PaymentHandler) handleCancelDeposit(ctx context.Context, client *Client
 		return
 	}
 
-	userIDInt, _ := strconv. ParseInt(client.UserID, 10, 64)
+	userIDInt, _ := strconv.ParseInt(client.UserID, 10, 64)
 
 	deposit, err := h.userUc.GetDepositByRef(ctx, req.RequestRef)
 	if err != nil {
@@ -361,11 +361,11 @@ func (h *PaymentHandler) handleCancelDeposit(ctx context.Context, client *Client
 
 	// Only allow cancellation if still pending
 	if deposit.Status != "pending" && deposit.Status != "sent_to_partner" {
-		client. SendError("cannot cancel deposit in status: " + deposit.Status)
+		client.SendError("cannot cancel deposit in status: " + deposit.Status)
 		return
 	}
 
-	if err := h.userUc. UpdateDepositStatus(ctx, deposit. ID, "cancelled", nil); err != nil {
+	if err := h.userUc.UpdateDepositStatus(ctx, deposit.ID, "cancelled", nil); err != nil {
 		client.SendError("failed to cancel deposit")
 		return
 	}
@@ -400,8 +400,8 @@ func (h *PaymentHandler) handleWithdrawRequest(ctx context.Context, client *Clie
 		client.SendError("currency is required")
 		return
 	}
-	if req. Destination == "" {
-		client. SendError("destination is required")
+	if req.Destination == "" {
+		client.SendError("destination is required")
 		return
 	}
 
@@ -423,7 +423,7 @@ func (h *PaymentHandler) handleWithdrawRequest(ctx context.Context, client *Clie
 		RequestRef:  requestRef,
 		Amount:      req.Amount,
 		Currency:    req.Currency,
-		Destination: req. Destination,
+		Destination: req.Destination,
 		Service:     req.Service,
 		Status:      "pending",
 		Metadata: map[string]interface{}{
@@ -501,11 +501,11 @@ func (h *PaymentHandler) handleTransfer(ctx context.Context, client *Client, dat
 	transferReq := &accountingpb.TransferRequest{
 		FromAccountNumber:   fromAccount,
 		ToAccountNumber:     toAccount,
-		Amount:              ToAtomicUnits(req. Amount),
-		AccountType:         accountingpb. AccountType_ACCOUNT_TYPE_REAL,
+		Amount:              req.Amount, // pass decimal directly
+		AccountType:         accountingpb.AccountType_ACCOUNT_TYPE_REAL,
 		Description:         req.Description,
 		CreatedByExternalId: client.UserID,
-		CreatedByType:       accountingpb. OwnerType_OWNER_TYPE_USER,
+		CreatedByType:       accountingpb.OwnerType_OWNER_TYPE_USER,
 	}
 
 	resp, err := h.accountingClient.Client.Transfer(ctx, transferReq)
@@ -518,8 +518,8 @@ func (h *PaymentHandler) handleTransfer(ctx context.Context, client *Client, dat
 		"receipt_code":     resp.ReceiptCode,
 		"journal_id":       resp.JournalId,
 		"amount":           req.Amount,
-		"fee":              FromAtomicUnits(resp.FeeAmount),
-		"agent_commission": FromAtomicUnits(resp.AgentCommission),
+		"fee":              resp.FeeAmount,
+		"agent_commission": resp.AgentCommission,
 		"created_at":       resp.CreatedAt.AsTime(),
 	})
 }
@@ -536,27 +536,27 @@ func (h *PaymentHandler) handleGetAccountStatement(ctx context.Context, client *
 		To            time.Time `json:"to"`
 	}
 
-	if err := json. Unmarshal(data, &req); err != nil {
+	if err := json.Unmarshal(data, &req); err != nil {
 		client.SendError("invalid request format")
 		return
 	}
 
 	// Verify ownership
-	if err := h. ValidateAccountOwnership(ctx, req.AccountNumber, client.UserID, "user"); err != nil {
+	if err := h.ValidateAccountOwnership(ctx, req.AccountNumber, client.UserID, "user"); err != nil {
 		client.SendError("unauthorized: " + err.Error())
 		return
 	}
 
 	stmtReq := &accountingpb.GetAccountStatementRequest{
 		AccountNumber: req.AccountNumber,
-		AccountType:   accountingpb. AccountType_ACCOUNT_TYPE_REAL,
-		From:          timestamppb.New(req. From),
-		To:            timestamppb.New(req. To),
+		AccountType:   accountingpb.AccountType_ACCOUNT_TYPE_REAL,
+		From:          timestamppb.New(req.From),
+		To:            timestamppb.New(req.To),
 	}
 
 	resp, err := h.accountingClient.Client.GetAccountStatement(ctx, stmtReq)
 	if err != nil {
-		client.SendError("failed to get statement: " + err. Error())
+		client.SendError("failed to get statement: " + err.Error())
 		return
 	}
 
@@ -565,25 +565,25 @@ func (h *PaymentHandler) handleGetAccountStatement(ctx context.Context, client *
 	for _, ledger := range resp.Statement.Ledgers {
 		formattedLedgers = append(formattedLedgers, map[string]interface{}{
 			"id":            ledger.Id,
-			"amount":        FromAtomicUnits(ledger.Amount),
-			"type":          ledger.DrCr. String(),
+			"amount":        ledger.Amount,
+			"type":          ledger.DrCr.String(),
 			"currency":      ledger.Currency,
-			"balance_after": FromAtomicUnits(ledger.BalanceAfter),
+			"balance_after": ledger.BalanceAfter,
 			"description":   ledger.Description,
-			"receipt_code":  ledger. ReceiptCode,
+			"receipt_code":  ledger.ReceiptCode,
 			"created_at":    ledger.CreatedAt.AsTime(),
 		})
 	}
 
 	client.SendSuccess("account statement", map[string]interface{}{
-		"account_number":  resp.Statement.AccountNumber,
-		"opening_balance": FromAtomicUnits(resp.Statement.OpeningBalance),
-		"closing_balance": FromAtomicUnits(resp.Statement.ClosingBalance),
-		"total_debits":    FromAtomicUnits(resp.Statement.TotalDebits),
-		"total_credits":   FromAtomicUnits(resp.Statement.TotalCredits),
-		"period_start":    resp.Statement.PeriodStart.AsTime(),
-		"period_end":      resp.Statement.PeriodEnd.AsTime(),
-		"ledgers":         formattedLedgers,
+		"account_number":   resp.Statement.AccountNumber,
+		"opening_balance":  resp.Statement.OpeningBalance,
+		"closing_balance":  resp.Statement.ClosingBalance,
+		"total_debits":     resp.Statement.TotalDebits,
+		"total_credits":    resp.Statement.TotalCredits,
+		"period_start":     resp.Statement.PeriodStart.AsTime(),
+		"period_end":       resp.Statement.PeriodEnd.AsTime(),
+		"ledgers":          formattedLedgers,
 		"transaction_count": len(formattedLedgers),
 	})
 }
@@ -596,7 +596,7 @@ func (h *PaymentHandler) handleGetOwnerStatement(ctx context.Context, client *Cl
 	}
 
 	if err := json.Unmarshal(data, &req); err != nil {
-		client. SendError("invalid request format")
+		client.SendError("invalid request format")
 		return
 	}
 
@@ -604,8 +604,8 @@ func (h *PaymentHandler) handleGetOwnerStatement(ctx context.Context, client *Cl
 		OwnerType:   accountingpb.OwnerType_OWNER_TYPE_USER,
 		OwnerId:     client.UserID,
 		AccountType: accountingpb.AccountType_ACCOUNT_TYPE_REAL,
-		From:        timestamppb.New(req. From),
-		To:          timestamppb.New(req. To),
+		From:        timestamppb.New(req.From),
+		To:          timestamppb.New(req.To),
 	}
 
 	resp, err := h.accountingClient.Client.GetOwnerStatement(ctx, stmtReq)
@@ -616,13 +616,13 @@ func (h *PaymentHandler) handleGetOwnerStatement(ctx context.Context, client *Cl
 
 	// Format statements
 	var statements []map[string]interface{}
-	for _, stmt := range resp. Statements {
+	for _, stmt := range resp.Statements {
 		var ledgers []map[string]interface{}
 		for _, ledger := range stmt.Ledgers {
 			ledgers = append(ledgers, map[string]interface{}{
-				"amount":        FromAtomicUnits(ledger.Amount),
+				"amount":        ledger.Amount,
 				"type":          ledger.DrCr.String(),
-				"balance_after": FromAtomicUnits(ledger.BalanceAfter),
+				"balance_after": ledger.BalanceAfter,
 				"description":   ledger.Description,
 				"created_at":    ledger.CreatedAt.AsTime(),
 			})
@@ -630,17 +630,17 @@ func (h *PaymentHandler) handleGetOwnerStatement(ctx context.Context, client *Cl
 
 		statements = append(statements, map[string]interface{}{
 			"account_number":  stmt.AccountNumber,
-			"opening_balance": FromAtomicUnits(stmt.OpeningBalance),
-			"closing_balance": FromAtomicUnits(stmt.ClosingBalance),
-			"total_debits":    FromAtomicUnits(stmt.TotalDebits),
-			"total_credits":   FromAtomicUnits(stmt.TotalCredits),
+			"opening_balance": stmt.OpeningBalance,
+			"closing_balance": stmt.ClosingBalance,
+			"total_debits":    stmt.TotalDebits,
+			"total_credits":   stmt.TotalCredits,
 			"ledgers":         ledgers,
 		})
 	}
 
-	client. SendSuccess("owner statement", map[string]interface{}{
-		"statements": statements,
-		"count":      len(statements),
+	client.SendSuccess("owner statement", map[string]interface{}{
+		"statements":   statements,
+		"count":        len(statements),
 		"period_start": req.From,
 		"period_end":   req.To,
 	})
@@ -662,12 +662,12 @@ func (h *PaymentHandler) handleGetLedgers(ctx context.Context, client *Client, d
 	}
 
 	if req.Limit == 0 {
-		req. Limit = 50
+		req.Limit = 50
 	}
 
 	// Verify ownership
 	if err := h.ValidateAccountOwnership(ctx, req.AccountNumber, client.UserID, "user"); err != nil {
-		client.SendError("unauthorized: " + err. Error())
+		client.SendError("unauthorized: " + err.Error())
 		return
 	}
 
@@ -697,17 +697,17 @@ func (h *PaymentHandler) handleGetLedgers(ctx context.Context, client *Client, d
 		ledgers = append(ledgers, map[string]interface{}{
 			"id":            ledger.Id,
 			"journal_id":    ledger.JournalId,
-			"amount":        FromAtomicUnits(ledger.Amount),
+			"amount":        ledger.Amount,
 			"type":          ledger.DrCr.String(),
 			"currency":      ledger.Currency,
-			"balance_after": FromAtomicUnits(ledger.BalanceAfter),
-			"description":   ledger. Description,
-			"receipt_code":  ledger. ReceiptCode,
+			"balance_after": ledger.BalanceAfter,
+			"description":   ledger.Description,
+			"receipt_code":  ledger.ReceiptCode,
 			"created_at":    ledger.CreatedAt.AsTime(),
 		})
 	}
 
-	client. SendSuccess("ledgers retrieved", map[string]interface{}{
+	client.SendSuccess("ledgers retrieved", map[string]interface{}{
 		"ledgers": ledgers,
 		"total":   resp.Total,
 		"limit":   req.Limit,
@@ -720,7 +720,7 @@ func (h *PaymentHandler) handleGetLedgers(ctx context.Context, client *Client, d
 // ============================================================================
 
 // Get transaction by receipt
-func (h *PaymentHandler) handleGetTransactionByReceipt(ctx context. Context, client *Client, data json.RawMessage) {
+func (h *PaymentHandler) handleGetTransactionByReceipt(ctx context.Context, client *Client, data json.RawMessage) {
 	var req struct {
 		ReceiptCode string `json:"receipt_code"`
 	}
@@ -730,18 +730,17 @@ func (h *PaymentHandler) handleGetTransactionByReceipt(ctx context. Context, cli
 		return
 	}
 
-	txReq := &accountingpb. GetTransactionByReceiptRequest{
+	txReq := &accountingpb.GetTransactionByReceiptRequest{
 		ReceiptCode: req.ReceiptCode,
 	}
 
 	resp, err := h.accountingClient.Client.GetTransactionByReceipt(ctx, txReq)
 	if err != nil {
-		client. SendError("transaction not found: " + err.Error())
+		client.SendError("transaction not found: " + err.Error())
 		return
 	}
 
 	// Verify user is involved in this transaction
-	//userIDInt, _ := strconv. ParseInt(client.UserID, 10, 64)
 	isInvolved := false
 	for _, ledger := range resp.Ledgers {
 		// Check if any ledger belongs to user's account
@@ -766,28 +765,28 @@ func (h *PaymentHandler) handleGetTransactionByReceipt(ctx context. Context, cli
 	for _, ledger := range resp.Ledgers {
 		ledgers = append(ledgers, map[string]interface{}{
 			"account_number": ledger.AccountNumber,
-			"amount":         FromAtomicUnits(ledger.Amount),
+			"amount":         ledger.Amount,
 			"type":           ledger.DrCr.String(),
-			"balance_after":  FromAtomicUnits(ledger.BalanceAfter),
+			"balance_after":  ledger.BalanceAfter,
 			"description":    ledger.Description,
 		})
 	}
 
 	var fees []map[string]interface{}
-	for _, fee := range resp. Fees {
+	for _, fee := range resp.Fees {
 		fees = append(fees, map[string]interface{}{
 			"type":     fee.FeeType.String(),
-			"amount":   FromAtomicUnits(fee.Amount),
+			"amount":   fee.Amount,
 			"currency": fee.Currency,
 		})
 	}
 
 	client.SendSuccess("transaction details", map[string]interface{}{
 		"journal": map[string]interface{}{
-			"id":              resp.Journal.Id,
+			"id":               resp.Journal.Id,
 			"transaction_type": resp.Journal.TransactionType.String(),
-			"description":     resp.Journal.Description,
-			"created_at":      resp.Journal.CreatedAt. AsTime(),
+			"description":      resp.Journal.Description,
+			"created_at":       resp.Journal.CreatedAt.AsTime(),
 		},
 		"ledgers": ledgers,
 		"fees":    fees,
@@ -807,11 +806,11 @@ func (h *PaymentHandler) handleGetHistory(ctx context.Context, client *Client, d
 		return
 	}
 
-	if req. Limit == 0 {
+	if req.Limit == 0 {
 		req.Limit = 20
 	}
 
-	userIDInt, _ := strconv. ParseInt(client.UserID, 10, 64)
+	userIDInt, _ := strconv.ParseInt(client.UserID, 10, 64)
 
 	var deposits []domain.DepositRequest
 	var withdrawals []domain.WithdrawalRequest
@@ -821,7 +820,7 @@ func (h *PaymentHandler) handleGetHistory(ctx context.Context, client *Client, d
 	case "deposits":
 		deposits, _, err = h.userUc.ListDeposits(ctx, userIDInt, req.Limit, req.Offset)
 	case "withdrawals":
-		withdrawals, _, err = h.userUc.ListWithdrawals(ctx, userIDInt, req. Limit, req.Offset)
+		withdrawals, _, err = h.userUc.ListWithdrawals(ctx, userIDInt, req.Limit, req.Offset)
 	case "all":
 		deposits, _, _ = h.userUc.ListDeposits(ctx, userIDInt, req.Limit/2, req.Offset)
 		withdrawals, _, _ = h.userUc.ListWithdrawals(ctx, userIDInt, req.Limit/2, req.Offset)
@@ -831,7 +830,7 @@ func (h *PaymentHandler) handleGetHistory(ctx context.Context, client *Client, d
 	}
 
 	if err != nil {
-		client. SendError("failed to fetch history: " + err.Error())
+		client.SendError("failed to fetch history: " + err.Error())
 		return
 	}
 
@@ -863,7 +862,7 @@ func (h *PaymentHandler) handleCalculateFee(ctx context.Context, client *Client,
 	ownerType := accountingpb.OwnerType_OWNER_TYPE_USER
 	feeReq := &accountingpb.CalculateFeeRequest{
 		TransactionType: mapTransactionType(req.TransactionType),
-		Amount:          ToAtomicUnits(req. Amount),
+		Amount:          req.Amount, // pass decimal directly
 		AccountType:     &accountType,
 		OwnerType:       &ownerType,
 	}
@@ -882,9 +881,9 @@ func (h *PaymentHandler) handleCalculateFee(ctx context.Context, client *Client,
 	}
 
 	client.SendSuccess("fee calculated", map[string]interface{}{
-		"fee_type":    resp.Calculation.FeeType.String(),
-		"amount":      FromAtomicUnits(resp.Calculation.Amount),
-		"currency":    resp.Calculation.Currency,
+		"fee_type":     resp.Calculation.FeeType.String(),
+		"amount":       resp.Calculation.Amount,
+		"currency":     resp.Calculation.Currency,
 		"applied_rate": resp.Calculation.AppliedRate,
 	})
 }
@@ -915,8 +914,8 @@ func (h *PaymentHandler) sendDepositWebhookToPartner(deposit *domain.DepositRequ
 	_, err := h.partnerClient.Client.InitiateDeposit(ctx, &partnersvcpb.InitiateDepositRequest{
 		PartnerId:      partner.Id,
 		TransactionRef: deposit.RequestRef,
-		UserId:         fmt.Sprintf("%d", deposit. UserID),
-		Amount:         deposit.Amount,
+		UserId:         fmt.Sprintf("%d", deposit.UserID),
+		Amount:         deposit.Amount, // decimal
 		Currency:       deposit.Currency,
 		PaymentMethod:  deposit.PaymentMethod,
 		Metadata: map[string]string{
@@ -926,31 +925,31 @@ func (h *PaymentHandler) sendDepositWebhookToPartner(deposit *domain.DepositRequ
 
 	if err != nil {
 		log.Printf("[Deposit] Failed to send webhook to partner %s: %v", partner.Id, err)
-		h.userUc.UpdateDepositStatus(ctx, deposit. ID, "failed", strToPtr(err.Error()))
+		h.userUc.UpdateDepositStatus(ctx, deposit.ID, "failed", strToPtr(err.Error()))
 	}
 }
 
 // Helper: Process withdrawal
 func (h *PaymentHandler) processWithdrawal(withdrawal *domain.WithdrawalRequest, userAccount string) {
-	ctx := context. Background()
+	ctx := context.Background()
 
-	h.userUc.UpdateWithdrawalStatus(ctx, withdrawal. ID, "processing", nil)
+	h.userUc.UpdateWithdrawalStatus(ctx, withdrawal.ID, "processing", nil)
 
 	debitReq := &accountingpb.DebitRequest{
 		AccountNumber:       userAccount,
-		Amount:              ToAtomicUnits(withdrawal. Amount),
+		Amount:              withdrawal.Amount, // decimal
 		Currency:            withdrawal.Currency,
-		AccountType:         accountingpb. AccountType_ACCOUNT_TYPE_REAL,
+		AccountType:         accountingpb.AccountType_ACCOUNT_TYPE_REAL,
 		Description:         fmt.Sprintf("Withdrawal to %s via %s", withdrawal.Destination, withdrawal.Service),
 		ExternalRef:         &withdrawal.RequestRef,
-		CreatedByExternalId: fmt.Sprintf("%d", withdrawal. UserID),
+		CreatedByExternalId: fmt.Sprintf("%d", withdrawal.UserID),
 		CreatedByType:       accountingpb.OwnerType_OWNER_TYPE_USER,
 	}
 
 	resp, err := h.accountingClient.Client.Debit(ctx, debitReq)
 	if err != nil {
 		errMsg := err.Error()
-		h.userUc.UpdateWithdrawalStatus(ctx, withdrawal. ID, "failed", &errMsg)
+		h.userUc.UpdateWithdrawalStatus(ctx, withdrawal.ID, "failed", &errMsg)
 
 		h.hub.SendToUser(fmt.Sprintf("%d", withdrawal.UserID), []byte(fmt.Sprintf(`{
 			"type": "withdrawal_failed",
@@ -962,16 +961,16 @@ func (h *PaymentHandler) processWithdrawal(withdrawal *domain.WithdrawalRequest,
 		return
 	}
 
-	h. userUc.UpdateWithdrawalWithReceipt(ctx, withdrawal.ID, resp.ReceiptCode, resp.JournalId)
+	h.userUc.UpdateWithdrawalWithReceipt(ctx, withdrawal.ID, resp.ReceiptCode, resp.JournalId)
 
-	h. hub.SendToUser(fmt. Sprintf("%d", withdrawal.UserID), []byte(fmt. Sprintf(`{
+	h.hub.SendToUser(fmt.Sprintf("%d", withdrawal.UserID), []byte(fmt.Sprintf(`{
 		"type": "withdrawal_completed",
 		"data": {
 			"request_ref": "%s",
 			"receipt_code": "%s",
 			"balance_after": %.2f
 		}
-	}`, withdrawal. RequestRef, resp.ReceiptCode, FromAtomicUnits(resp. BalanceAfter))))
+	}`, withdrawal.RequestRef, resp.ReceiptCode, resp.BalanceAfter)))
 }
 
 // ============================================================================
@@ -1011,14 +1010,14 @@ func (h *PaymentHandler) handleConvertAndTransfer(ctx context.Context, client *C
 	}
 
 	// Get user's source account
-	fromAccount, err := h.GetAccountByCurrency(ctx, client. UserID, "user", req.FromCurrency)
+	fromAccount, err := h.GetAccountByCurrency(ctx, client.UserID, "user", req.FromCurrency)
 	if err != nil {
 		client.SendError("source account not found: " + err.Error())
 		return
 	}
 
 	// Get user's destination account
-	toAccount, err := h.GetAccountByCurrency(ctx, client.UserID, "user", req.ToCurrency)
+toAccount, err := h.GetAccountByCurrency(ctx, client.UserID, "user", req.ToCurrency)
 	if err != nil {
 		client.SendError("destination account not found: " + err.Error())
 		return
@@ -1038,14 +1037,14 @@ func (h *PaymentHandler) handleConvertAndTransfer(ctx context.Context, client *C
 	conversionReq := &accountingpb.ConversionRequest{
 		FromAccountNumber:   fromAccount,
 		ToAccountNumber:     toAccount,
-		Amount:              ToAtomicUnits(req.Amount),
+		Amount:              req.Amount, // decimal
 		AccountType:         accountingpb.AccountType_ACCOUNT_TYPE_REAL,
 		CreatedByExternalId: client.UserID,
-		CreatedByType:       accountingpb. OwnerType_OWNER_TYPE_USER,
+		CreatedByType:       accountingpb.OwnerType_OWNER_TYPE_USER,
 	}
 
 	// Add description if provided
-	if req. Description != "" {
+	if req.Description != "" {
 		conversionReq.ExternalRef = &req.Description
 	}
 
@@ -1061,22 +1060,22 @@ func (h *PaymentHandler) handleConvertAndTransfer(ctx context.Context, client *C
 		"journal_id":        resp.JournalId,
 		"source_currency":   resp.SourceCurrency,
 		"dest_currency":     resp.DestCurrency,
-		"source_amount":     FromAtomicUnits(resp. SourceAmount),
-		"converted_amount":  FromAtomicUnits(resp. ConvertedAmount),
+		"source_amount":     resp.SourceAmount,
+		"converted_amount":  resp.ConvertedAmount,
 		"fx_rate":           resp.FxRate,
 		"fx_rate_id":        resp.FxRateId,
-		"fee":               FromAtomicUnits(resp. FeeAmount),
-		"created_at":        resp.CreatedAt. AsTime(),
+		"fee":               resp.FeeAmount,
+		"created_at":        resp.CreatedAt.AsTime(),
 	})
 
 	// Log the conversion for audit
 	log.Printf("[Conversion] User %s: %.2f %s -> %.2f %s (Rate: %s, Fee: %.2f)",
 		client.UserID,
-		FromAtomicUnits(resp. SourceAmount),
+		resp.SourceAmount,
 		resp.SourceCurrency,
-		FromAtomicUnits(resp. ConvertedAmount),
+		resp.ConvertedAmount,
 		resp.DestCurrency,
 		resp.FxRate,
-		FromAtomicUnits(resp. FeeAmount),
+		resp.FeeAmount,
 	)
 }
