@@ -1003,53 +1003,77 @@ func (r *receiptRepo) UpdateBatch(ctx context.Context, updates []*domain.Receipt
 		var metadataJSON []byte
 		var updatedAt, completedAt, reversedAt *time.Time
 
-		// 🔥 FIX: Use sql.NullInt64 for nullable BIGINT columns
-		var amountCents, originalAmountCents, transactionCostCents int64
-		var creditorLedgerID, debitorLedgerID sql.NullInt64  // ✅ Changed from int64
+		// 🔥 FIX: Use sql.NullInt64 for ALL nullable BIGINT columns
+		var amountCents int64  // NOT NULL, so keep as int64
+		var originalAmountCents sql.NullInt64  // ✅ Nullable, use sql.NullInt64
+		var transactionCostCents int64  // NOT NULL with DEFAULT, keep as int64
+		var creditorLedgerID, debitorLedgerID sql.NullInt64  // ✅ Nullable
+		
+		// Nullable strings
 		var originalCurrency, exchangeRate, externalRef, parentReceiptCode, reversalReceiptCode sql.NullString
 		var codedType, errorMessage, createdBy, reversedBy sql.NullString
 
 		err := rows.Scan(
 			&rec.LookupID, &rec.Code, &rec.AccountType,
 			&rec.Creditor.AccountID, 
-			&creditorLedgerID,          // ✅ Scan into sql.NullInt64
+			&creditorLedgerID,          // ✅ sql.NullInt64
 			&rec.Creditor. OwnerType, 
 			&rec.Creditor.Status,
 			&rec. Debitor.AccountID, 
-			&debitorLedgerID,           // ✅ Scan into sql.NullInt64
-			&rec. Debitor.OwnerType, 
+			&debitorLedgerID,           // ✅ sql.NullInt64
+			&rec.Debitor. OwnerType, 
 			&rec.Debitor.Status,
-			&rec.TransactionType, &codedType, &amountCents, &originalAmountCents, &transactionCostCents,
-			&rec.Currency, &originalCurrency, &exchangeRate,
-			&externalRef, &parentReceiptCode, &reversalReceiptCode,
-			&rec.Status, &errorMessage,
-			&rec. CreatedAt, &updatedAt, &completedAt, &reversedAt,
-			&createdBy, &reversedBy,
+			&rec.TransactionType, 
+			&codedType,                 // sql.NullString
+			&amountCents,               // int64 (NOT NULL)
+			&originalAmountCents,       // ✅ sql.NullInt64 (nullable)
+			&transactionCostCents,      // int64 (NOT NULL DEFAULT 0)
+			&rec. Currency,
+			&originalCurrency,          // sql.NullString
+			&exchangeRate,              // sql. NullString
+			&externalRef,               // sql.NullString
+			&parentReceiptCode,         // sql.NullString
+			&reversalReceiptCode,       // sql.NullString
+			&rec.Status, 
+			&errorMessage,              // sql.NullString
+			&rec.CreatedAt, 
+			&updatedAt, 
+			&completedAt, 
+			&reversedAt,
+			&createdBy,                 // sql.NullString
+			&reversedBy,                // sql.NullString
 			&metadataJSON,
 		)
 		if err != nil {
 			r.logger.Error("scan updated receipt failed",
-				zap.Error(err),
+				zap. Error(err),
 			)
 			return nil, fmt.Errorf("scan updated receipt: %w", err)
 		}
 
 		// Convert amounts from cents to dollars
 		rec.Amount = float64(amountCents) / 100.0
-		rec.OriginalAmount = float64(originalAmountCents) / 100.0
-		rec. TransactionCost = float64(transactionCostCents) / 100.0
+		
+		// ✅ Handle nullable original_amount
+		if originalAmountCents.Valid {
+			rec.OriginalAmount = float64(originalAmountCents.Int64) / 100.0
+		} else {
+			rec. OriginalAmount = 0  // or leave as is if your domain allows
+		}
+		
+		rec.TransactionCost = float64(transactionCostCents) / 100.0
 
 		// ✅ Handle nullable LedgerIDs
 		if creditorLedgerID.Valid {
-			rec. Creditor.LedgerID = creditorLedgerID.Int64
+			rec.Creditor. LedgerID = creditorLedgerID.Int64
 		} else {
-			rec.Creditor.LedgerID = 0  // or handle as needed
+			rec. Creditor.LedgerID = 0
 		}
 
 		if debitorLedgerID.Valid {
-			rec.Debitor.LedgerID = debitorLedgerID.Int64
+			rec. Debitor.LedgerID = debitorLedgerID.Int64
 		} else {
-			rec.Debitor.LedgerID = 0  // or handle as needed
+			rec.Debitor.LedgerID = 0
 		}
 
 		// Handle nullable strings
@@ -1085,11 +1109,11 @@ func (r *receiptRepo) UpdateBatch(ctx context.Context, updates []*domain.Receipt
 		rec.CompletedAt = completedAt
 		rec.ReversedAt = reversedAt
 
-		if len(metadataJSON) > 0 {
+		if len(metadataJSON) > 0 && string(metadataJSON) != "null" {
 			json. Unmarshal(metadataJSON, &rec.Metadata)
 		}
 
-		rec. Creditor.IsCreditor = true
+		rec.Creditor.IsCreditor = true
 		rec.Debitor.IsCreditor = false
 
 		results = append(results, &rec)
