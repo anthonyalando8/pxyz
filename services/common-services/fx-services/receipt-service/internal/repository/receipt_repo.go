@@ -864,7 +864,7 @@ func (r *receiptRepo) Update(ctx context.Context, receipt *domain.Receipt) error
 }
 
 // UpdateBatch performs batch updates efficiently
-func (r *receiptRepo) UpdateBatch(ctx context.Context, updates []*domain.ReceiptUpdate) ([]*domain.Receipt, error) {
+func (r *receiptRepo) UpdateBatch(ctx context.Context, updates []*domain. ReceiptUpdate) ([]*domain.Receipt, error) {
 	if len(updates) == 0 {
 		return nil, nil
 	}
@@ -878,15 +878,28 @@ func (r *receiptRepo) UpdateBatch(ctx context.Context, updates []*domain.Receipt
 		)
 	}()
 
-	// 🔥 FIX: Cast text to enum types in COALESCE
+	// 🔥 FIX: Explicitly declare column types in CTE to avoid type inference issues
 	query := `
 		WITH u (code, status, creditor_status, creditor_ledger_id, debitor_status, debitor_ledger_id,
 				reversed_by, reversed_at, error_message, completed_at, metadata) AS (
-			VALUES %s
+			SELECT 
+				code::TEXT,
+				status::TEXT,
+				creditor_status::TEXT,
+				creditor_ledger_id::BIGINT,
+				debitor_status::TEXT,
+				debitor_ledger_id::BIGINT,
+				reversed_by::TEXT,
+				reversed_at::TIMESTAMPTZ,
+				error_message::TEXT,
+				completed_at::TIMESTAMPTZ,
+				metadata::JSONB
+			FROM (VALUES %s) AS t(code, status, creditor_status, creditor_ledger_id, debitor_status, debitor_ledger_id,
+					reversed_by, reversed_at, error_message, completed_at, metadata)
 		)
 		UPDATE fx_receipts fr
 		SET 
-			status = COALESCE(u.status::transaction_status_enum, fr.status),
+			status = COALESCE(u. status::transaction_status_enum, fr.status),
 			creditor_status = COALESCE(u.creditor_status::transaction_status_enum, fr.creditor_status),
 			creditor_ledger_id = COALESCE(NULLIF(u.creditor_ledger_id, 0), fr.creditor_ledger_id),
 			debitor_status = COALESCE(u.debitor_status::transaction_status_enum, fr.debitor_status),
@@ -923,14 +936,19 @@ func (r *receiptRepo) UpdateBatch(ctx context.Context, updates []*domain.Receipt
 
 	for i, upd := range updates {
 		metadataJSON, _ := json.Marshal(upd.MetadataPatch)
+		if len(metadataJSON) == 0 {
+			metadataJSON = []byte("{}")
+		}
 
 		// Debug log for first update
 		if i == 0 {
-			r.logger.Debug("first update data",
+			r. logger.Debug("first update data",
 				zap.String("code", upd.Code),
-				zap.  String("status", upd.Status),
+				zap.String("status", upd.Status),
 				zap.String("creditor_status", upd. CreditorStatus),
-				zap.String("debitor_status", upd. DebitorStatus),
+				zap.String("debitor_status", upd.DebitorStatus),
+				zap.Int64("creditor_ledger_id", upd.CreditorLedgerID),
+				zap.Int64("debitor_ledger_id", upd.DebitorLedgerID),
 			)
 		}
 
@@ -938,35 +956,36 @@ func (r *receiptRepo) UpdateBatch(ctx context.Context, updates []*domain.Receipt
 			i*11+1, i*11+2, i*11+3, i*11+4, i*11+5, i*11+6,
 			i*11+7, i*11+8, i*11+9, i*11+10, i*11+11)
 
-		// 🔥 FIX: Use nilIfEmpty for optional string fields
 		args = append(args,
-			upd.  Code,                        // $1: code (required)
-			nilIfEmpty(upd.Status),          // $2: status (nullable text → cast to enum in SQL)
-			nilIfEmpty(upd.CreditorStatus),  // $3: creditor_status (nullable text → cast to enum)
-			upd.  CreditorLedgerID,           // $4: creditor_ledger_id (int64, 0 means no update)
-			nilIfEmpty(upd.DebitorStatus),   // $5: debitor_status (nullable text → cast to enum)
-			upd. DebitorLedgerID,             // $6: debitor_ledger_id (int64, 0 means no update)
-			nilIfEmpty(upd.  ReversedBy),      // $7: reversed_by (nullable)
-			upd.ReversedAt,                  // $8: reversed_at (nullable timestamp)
-			nilIfEmpty(upd.ErrorMessage),    // $9: error_message (nullable)
-			upd.CompletedAt,                 // $10: completed_at (nullable timestamp)
-			metadataJSON,                    // $11: metadata (jsonb)
+			upd.Code,                        // $1: code (TEXT)
+			nilIfEmpty(upd.Status),          // $2: status (TEXT → enum)
+			nilIfEmpty(upd.CreditorStatus),  // $3: creditor_status (TEXT → enum)
+			upd.CreditorLedgerID,            // $4: creditor_ledger_id (BIGINT)
+			nilIfEmpty(upd.DebitorStatus),   // $5: debitor_status (TEXT → enum)
+			upd.DebitorLedgerID,             // $6: debitor_ledger_id (BIGINT)
+			nilIfEmpty(upd.ReversedBy),      // $7: reversed_by (TEXT)
+			upd.ReversedAt,                  // $8: reversed_at (TIMESTAMPTZ)
+			nilIfEmpty(upd.ErrorMessage),    // $9: error_message (TEXT)
+			upd.CompletedAt,                 // $10: completed_at (TIMESTAMPTZ)
+			metadataJSON,                    // $11: metadata (JSONB)
 		)
 	}
 
-	sql_str := fmt.Sprintf(query, strings.Join(valueStrings, ","))
+	sqlStr := fmt.Sprintf(query, strings.Join(valueStrings, ","))
 
-	// Log the query for debugging (first update only)
-	r.logger.Debug("executing update query",
-		zap.Int("updates", len(updates)),
-		zap.String("first_code", updates[0].Code),
-	)
+	// 🔥 DEBUG: Log the actual query (only in debug mode)
+	if len(updates) == 1 {
+		r. logger.Debug("generated SQL",
+			zap.String("query_preview", sqlStr[:min(len(sqlStr), 500)]),
+		)
+	}
 
-	rows, err := r.db.Query(ctx, sql_str, args...)
+	rows, err := r.db.Query(ctx, sqlStr, args...)
 	if err != nil {
 		r.logger.Error("batch update query failed",
 			zap.Error(err),
-			zap.  Int("update_count", len(updates)),
+			zap.Int("update_count", len(updates)),
+			zap.Any("first_args", args[:min(11, len(args))]),
 		)
 		return nil, fmt. Errorf("batch update: %w", err)
 	}
@@ -980,15 +999,15 @@ func (r *receiptRepo) UpdateBatch(ctx context.Context, updates []*domain.Receipt
 		var metadataJSON []byte
 		var updatedAt, completedAt, reversedAt *time.Time
 
-		// 🔥 FIX: Scan into temporary variables for amounts (DB has BIGINT, convert to float64)
+		// Scan into temporary variables for proper type handling
 		var amountCents, originalAmountCents, transactionCostCents int64
 		var originalCurrency, exchangeRate, externalRef, parentReceiptCode, reversalReceiptCode sql.NullString
 		var codedType, errorMessage, createdBy, reversedBy sql.NullString
 
-		err := rows.Scan(
-			&rec.LookupID, &rec.Code, &rec.AccountType,
-			&rec.Creditor.AccountID, &rec.Creditor. LedgerID, &rec. Creditor.OwnerType, &rec.Creditor. Status,
-			&rec. Debitor.AccountID, &rec.Debitor.LedgerID, &rec.  Debitor.OwnerType, &rec.Debitor. Status,
+		err := rows. Scan(
+			&rec. LookupID, &rec. Code, &rec.AccountType,
+			&rec.Creditor.AccountID, &rec. Creditor. LedgerID, &rec. Creditor.OwnerType, &rec.Creditor. Status,
+			&rec. Debitor.AccountID, &rec.Debitor.LedgerID, &rec.Debitor.OwnerType, &rec.Debitor.Status,
 			&rec.TransactionType, &codedType, &amountCents, &originalAmountCents, &transactionCostCents,
 			&rec.Currency, &originalCurrency, &exchangeRate,
 			&externalRef, &parentReceiptCode, &reversalReceiptCode,
@@ -998,38 +1017,38 @@ func (r *receiptRepo) UpdateBatch(ctx context.Context, updates []*domain.Receipt
 			&metadataJSON,
 		)
 		if err != nil {
-			r.logger. Error("scan updated receipt failed",
+			r.logger.Error("scan updated receipt failed",
 				zap.Error(err),
 			)
-			return nil, fmt. Errorf("scan updated receipt: %w", err)
+			return nil, fmt.Errorf("scan updated receipt: %w", err)
 		}
 
 		// Convert amounts from cents to dollars
 		rec.Amount = float64(amountCents) / 100.0
 		rec.OriginalAmount = float64(originalAmountCents) / 100.0
-		rec.TransactionCost = float64(transactionCostCents) / 100.0
+		rec. TransactionCost = float64(transactionCostCents) / 100.0
 
 		// Handle nullable strings
 		if codedType.Valid {
 			rec.CodedType = codedType.String
 		}
 		if originalCurrency.Valid {
-			rec.OriginalCurrency = originalCurrency.String
+			rec. OriginalCurrency = originalCurrency.String
 		}
 		if exchangeRate.Valid {
 			rec.ExchangeRate = exchangeRate.String
 		}
 		if externalRef.Valid {
-			rec. ExternalRef = externalRef. String
+			rec.ExternalRef = externalRef.String
 		}
 		if parentReceiptCode.Valid {
 			rec.ParentReceiptCode = parentReceiptCode.String
 		}
 		if reversalReceiptCode.Valid {
-			rec. ReversalReceiptCode = reversalReceiptCode.String
+			rec.ReversalReceiptCode = reversalReceiptCode.String
 		}
-		if errorMessage.  Valid {
-			rec.ErrorMessage = errorMessage.String
+		if errorMessage.Valid {
+			rec.ErrorMessage = errorMessage. String
 		}
 		if createdBy.Valid {
 			rec.CreatedBy = createdBy.String
@@ -1043,7 +1062,7 @@ func (r *receiptRepo) UpdateBatch(ctx context.Context, updates []*domain.Receipt
 		rec.ReversedAt = reversedAt
 
 		if len(metadataJSON) > 0 {
-			json. Unmarshal(metadataJSON, &rec.Metadata)
+			json.Unmarshal(metadataJSON, &rec.Metadata)
 		}
 
 		rec. Creditor.IsCreditor = true
@@ -1057,16 +1076,23 @@ func (r *receiptRepo) UpdateBatch(ctx context.Context, updates []*domain.Receipt
 		return nil, fmt.Errorf("rows iteration error: %w", err)
 	}
 
-	r.logger.Debug("batch update successful",
+	r.logger. Debug("batch update successful",
 		zap.Int("updated_count", len(results)),
 	)
 
 	// Invalidate cache for updated receipts
-	go r.InvalidateCache(context.Background(), updatedCodes)
+	go r. InvalidateCache(context.Background(), updatedCodes)
 
 	return results, nil
 }
 
+// Helper function
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
 // ===============================
 // QUERY OPERATIONS WITH FILTERS
 // ===============================
