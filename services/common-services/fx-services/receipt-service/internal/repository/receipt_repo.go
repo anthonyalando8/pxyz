@@ -405,7 +405,6 @@ func (r *receiptRepo) bulkInsertLookups(ctx context.Context, tx pgx.Tx, receipts
 	return lookupIDs, nil
 }
 
-// bulkInsertReceipts inserts fx_receipts using COPY protocol
 // nilIfEmpty returns nil if string is empty, otherwise returns the string
 func nilIfEmpty(s string) interface{} {
 	if s == "" {
@@ -414,12 +413,12 @@ func nilIfEmpty(s string) interface{} {
 	return s
 }
 
-// nilIfZero returns nil if float is zero, otherwise returns the float
-func nilIfZero(f float64) interface{} {
-	if f == 0 {
+// nilIfZeroInt returns nil if int64 is zero, otherwise returns the int64
+func nilIfZeroInt(i int64) interface{} {
+	if i == 0 {
 		return nil
 	}
-	return f
+	return i
 }
 
 // bulkInsertReceipts inserts fx_receipts using COPY protocol
@@ -451,38 +450,73 @@ func (r *receiptRepo) bulkInsertReceipts(ctx context.Context, tx pgx.Tx, receipt
 				r.logger.Debug("first receipt data",
 					zap.String("code", rec.Code),
 					zap.String("exchange_rate", rec.ExchangeRate),
-					zap.Float64("amount", rec.Amount),
+					zap. Float64("amount", rec.Amount),
 					zap.String("transaction_type", rec.TransactionType),
 					zap.String("account_type", rec.AccountType),
 				)
 			}
 
+			// Convert float64 amounts to int64 cents (domain uses dollars, DB uses cents)
+			amountCents := int64(rec.Amount * 100)
+			var originalAmountCents interface{}
+			if rec.OriginalAmount > 0 {
+				originalAmountCents = int64(rec.OriginalAmount * 100)
+			} else {
+				originalAmountCents = nil
+			}
+			
+			var transactionCostCents int64
+			if rec.TransactionCost > 0 {
+				transactionCostCents = int64(rec.TransactionCost * 100)
+			} else {
+				transactionCostCents = 0 // NOT NULL with DEFAULT 0
+			}
+
 			return []interface{}{
-				lookupID, 
-				rec.AccountType,
-				rec.Creditor.AccountID, 
-				rec.Creditor.LedgerID, 
-				rec. Creditor.OwnerType, 
-				rec.Creditor.Status,
-				rec. Debitor.AccountID, 
-				rec.Debitor. LedgerID, 
-				rec.Debitor.OwnerType, 
-				rec. Debitor.Status,
-				rec.TransactionType, 
-				nilIfEmpty(rec.CodedType),          // ✅ Clean helper usage
-				rec.Amount, 
-				nilIfZero(rec.OriginalAmount),      // ✅ 0 → nil
-				nilIfZero(rec.TransactionCost),     // ✅ 0 → nil
-				rec.Currency, 
-				nilIfEmpty(rec.OriginalCurrency),   // ✅ "" → nil
-				nilIfEmpty(rec.ExchangeRate),       // ✅ "" → nil (fixes your error)
-				nilIfEmpty(rec.ExternalRef),        // ✅ "" → nil
-				nilIfEmpty(rec.ParentReceiptCode),  // ✅ "" → nil
-				rec.Status, 
-				nilIfEmpty(rec.ErrorMessage),       // ✅ "" → nil
-				rec.CreatedAt, 
-				nilIfEmpty(rec.CreatedBy),          // ✅ "" → nil
-				metadataJSON,
+				// Required fields (NOT NULL)
+				lookupID,                    // BIGINT NOT NULL
+				rec. AccountType,             // account_type_enum NOT NULL
+				
+				// Creditor (required)
+				rec.Creditor.AccountID,      // BIGINT NOT NULL
+				nilIfZeroInt(rec.Creditor.LedgerID), // BIGINT (nullable)
+				rec.Creditor.OwnerType,      // owner_type_enum NOT NULL
+				rec.Creditor. Status,         // transaction_status_enum NOT NULL
+				
+				// Debitor (required)
+				rec.Debitor.AccountID,       // BIGINT NOT NULL
+				nilIfZeroInt(rec.Debitor.LedgerID),  // BIGINT (nullable)
+				rec.Debitor. OwnerType,       // owner_type_enum NOT NULL
+				rec.Debitor.Status,          // transaction_status_enum NOT NULL
+				
+				// Transaction details
+				rec.TransactionType,         // transaction_type_enum NOT NULL
+				nilIfEmpty(rec.CodedType),   // TEXT (nullable)
+				amountCents,                 // BIGINT NOT NULL CHECK (amount > 0)
+				originalAmountCents,         // BIGINT (nullable)
+				transactionCostCents,        // BIGINT NOT NULL DEFAULT 0
+				
+				// Currency and exchange
+				rec.Currency,                // TEXT NOT NULL
+				nilIfEmpty(rec.OriginalCurrency), // VARCHAR(8) (nullable)
+				nilIfEmpty(rec.ExchangeRate),     // NUMERIC(30,18) (nullable) - THIS WAS THE ERROR
+				
+				// References
+				nilIfEmpty(rec.ExternalRef),        // TEXT (nullable)
+				nilIfEmpty(rec.ParentReceiptCode),  // TEXT (nullable)
+				
+				// Status tracking
+				rec. Status,                  // transaction_status_enum NOT NULL DEFAULT 'pending'
+				nilIfEmpty(rec.ErrorMessage), // TEXT (nullable)
+				
+				// Timestamps
+				rec. CreatedAt,               // TIMESTAMPTZ NOT NULL DEFAULT now()
+				
+				// Audit fields
+				nilIfEmpty(rec.CreatedBy),   // TEXT DEFAULT 'system' (but can be NULL)
+				
+				// Metadata
+				metadataJSON,                // JSONB (nullable)
 			}, nil
 		}),
 	)
@@ -493,28 +527,37 @@ func (r *receiptRepo) bulkInsertReceipts(ctx context.Context, tx pgx.Tx, receipt
 			zap. Int("receipt_count", len(receipts)),
 		)
 
-		if pgErr, ok := err.(*pgconn.PgError); ok {
-			r.logger. Error("postgres error",
+		if pgErr, ok := err. (*pgconn.PgError); ok {
+			r.logger.Error("postgres error details",
 				zap.String("code", pgErr.Code),
 				zap.String("message", pgErr.Message),
-				zap.String("detail", pgErr. Detail),
+				zap.String("detail", pgErr.Detail),
+				zap.String("column", pgErr. ColumnName),
+				zap.String("constraint", pgErr. ConstraintName),
 			)
 
 			switch pgErr.Code {
-			case "23505":
+			case "23505": // unique_violation
 				return ErrDuplicateReceipt
-			case "23503":
+			case "23503": // foreign_key_violation
 				return fmt. Errorf("invalid account reference: %w", err)
-			case "23514":
-				return ErrInvalidAmount
+			case "23514": // check_violation
+				return fmt.Errorf("check constraint failed (%s): %s", pgErr.ConstraintName, pgErr.Message)
+			case "22P02": // invalid_text_representation
+				return fmt. Errorf("invalid data format for column %s: %s", pgErr. ColumnName, pgErr.Message)
+			case "57014": // query_canceled
+				return fmt. Errorf("copy operation failed: %s", pgErr.Message)
 			}
 		}
-		return fmt. Errorf("copy receipts: %w", err)
+		return fmt.Errorf("copy receipts: %w", err)
 	}
+
+	r.logger.Debug("receipts copied successfully",
+		zap.Int("count", len(receipts)),
+	)
 
 	return nil
 }
-
 // populateCacheAsync populates cache asynchronously (non-blocking)
 func (r *receiptRepo) populateCacheAsync(receipts []*domain.Receipt) {
 	if r.cache == nil {
