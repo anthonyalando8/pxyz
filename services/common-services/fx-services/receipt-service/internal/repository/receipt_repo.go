@@ -864,7 +864,7 @@ func (r *receiptRepo) Update(ctx context.Context, receipt *domain.Receipt) error
 }
 
 // UpdateBatch performs batch updates efficiently
-func (r *receiptRepo) UpdateBatch(ctx context.Context, updates []*domain. ReceiptUpdate) ([]*domain.Receipt, error) {
+func (r *receiptRepo) UpdateBatch(ctx context.Context, updates []*domain.ReceiptUpdate) ([]*domain.Receipt, error) {
 	if len(updates) == 0 {
 		return nil, nil
 	}
@@ -878,114 +878,118 @@ func (r *receiptRepo) UpdateBatch(ctx context.Context, updates []*domain. Receip
 		)
 	}()
 
-	// 🔥 FIX: Explicitly declare column types in CTE to avoid type inference issues
+	// 🔥 FIX: Use unnest arrays for proper type handling
 	query := `
-		WITH u (code, status, creditor_status, creditor_ledger_id, debitor_status, debitor_ledger_id,
-				reversed_by, reversed_at, error_message, completed_at, metadata) AS (
-			SELECT 
-				code::TEXT,
-				status::TEXT,
-				creditor_status::TEXT,
-				creditor_ledger_id::BIGINT,
-				debitor_status::TEXT,
-				debitor_ledger_id::BIGINT,
-				reversed_by::TEXT,
-				reversed_at::TIMESTAMPTZ,
-				error_message::TEXT,
-				completed_at::TIMESTAMPTZ,
-				metadata::JSONB
-			FROM (VALUES %s) AS t(code, status, creditor_status, creditor_ledger_id, debitor_status, debitor_ledger_id,
-					reversed_by, reversed_at, error_message, completed_at, metadata)
-		)
 		UPDATE fx_receipts fr
 		SET 
-			status = COALESCE(u. status::transaction_status_enum, fr.status),
+			status = COALESCE(u.status::transaction_status_enum, fr.status),
 			creditor_status = COALESCE(u.creditor_status::transaction_status_enum, fr.creditor_status),
 			creditor_ledger_id = COALESCE(NULLIF(u.creditor_ledger_id, 0), fr.creditor_ledger_id),
-			debitor_status = COALESCE(u.debitor_status::transaction_status_enum, fr.debitor_status),
+			debitor_status = COALESCE(u. debitor_status::transaction_status_enum, fr.debitor_status),
 			debitor_ledger_id = COALESCE(NULLIF(u. debitor_ledger_id, 0), fr.debitor_ledger_id),
 			reversed_by = COALESCE(u.reversed_by, fr. reversed_by),
 			reversed_at = COALESCE(u.reversed_at, fr.reversed_at),
 			error_message = COALESCE(u. error_message, fr.error_message),
 			completed_at = COALESCE(u.completed_at, fr.completed_at),
 			metadata = CASE 
-				WHEN u.metadata IS NOT NULL AND u.metadata != '{}'::jsonb 
-				THEN fr.metadata || u.metadata 
+				WHEN u.metadata IS NOT NULL AND u.metadata::text != '{}'
+				THEN COALESCE(fr.metadata, '{}'::jsonb) || u.metadata
 				ELSE fr.metadata 
 			END,
 			updated_at = now()
 		FROM receipt_lookup rl
-		JOIN u ON u.code = rl.code
-		WHERE fr.lookup_id = rl.id
+		CROSS JOIN LATERAL unnest(
+			$1::TEXT[],
+			$2::TEXT[],
+			$3::TEXT[],
+			$4::BIGINT[],
+			$5::TEXT[],
+			$6::BIGINT[],
+			$7::TEXT[],
+			$8::TIMESTAMPTZ[],
+			$9::TEXT[],
+			$10::TIMESTAMPTZ[],
+			$11::JSONB[]
+		) AS u(code, status, creditor_status, creditor_ledger_id, debitor_status, debitor_ledger_id,
+			   reversed_by, reversed_at, error_message, completed_at, metadata)
+		WHERE rl.code = u.code 
+		  AND fr.lookup_id = rl.id
 		RETURNING 
 			rl.id, rl.code, rl.account_type,
-			fr.creditor_account_id, fr.creditor_ledger_id, fr.creditor_account_type, fr.creditor_status,
-			fr. debitor_account_id, fr.debitor_ledger_id, fr.debitor_account_type, fr.debitor_status,
+			fr.creditor_account_id, fr. creditor_ledger_id, fr.creditor_account_type, fr.creditor_status,
+			fr.debitor_account_id, fr.debitor_ledger_id, fr.debitor_account_type, fr. debitor_status,
 			fr.transaction_type, fr.coded_type, fr.amount, fr.original_amount, fr.transaction_cost,
 			fr.currency, fr.original_currency, fr.exchange_rate,
 			fr.external_ref, fr.parent_receipt_code, fr.reversal_receipt_code,
 			fr.status, fr.error_message,
-			fr.created_at, fr. updated_at, fr.completed_at, fr.reversed_at,
-			fr.created_by, fr.reversed_by,
+			fr.created_at, fr.updated_at, fr.completed_at, fr. reversed_at,
+			fr. created_by, fr.reversed_by,
 			fr.metadata
 	`
 
-	// Build VALUES clause
-	valueStrings := make([]string, len(updates))
-	args := make([]interface{}, 0, len(updates)*11)
+	// Build arrays for each column
+	codes := make([]string, len(updates))
+	statuses := make([]interface{}, len(updates))
+	creditorStatuses := make([]interface{}, len(updates))
+	creditorLedgerIDs := make([]int64, len(updates))
+	debitorStatuses := make([]interface{}, len(updates))
+	debitorLedgerIDs := make([]int64, len(updates))
+	reversedBys := make([]interface{}, len(updates))
+	reversedAts := make([]interface{}, len(updates))
+	errorMessages := make([]interface{}, len(updates))
+	completedAts := make([]interface{}, len(updates))
+	metadatas := make([]interface{}, len(updates))
 
 	for i, upd := range updates {
-		metadataJSON, _ := json.Marshal(upd.MetadataPatch)
-		if len(metadataJSON) == 0 {
+		metadataJSON, _ := json.Marshal(upd. MetadataPatch)
+		if len(metadataJSON) == 0 || string(metadataJSON) == "null" {
 			metadataJSON = []byte("{}")
 		}
 
-		// Debug log for first update
+		codes[i] = upd.Code
+		statuses[i] = nilIfEmpty(upd.Status)
+		creditorStatuses[i] = nilIfEmpty(upd.CreditorStatus)
+		creditorLedgerIDs[i] = upd.CreditorLedgerID
+		debitorStatuses[i] = nilIfEmpty(upd.DebitorStatus)
+		debitorLedgerIDs[i] = upd. DebitorLedgerID
+		reversedBys[i] = nilIfEmpty(upd.ReversedBy)
+		reversedAts[i] = upd.ReversedAt
+		errorMessages[i] = nilIfEmpty(upd.ErrorMessage)
+		completedAts[i] = upd.CompletedAt
+		metadatas[i] = string(metadataJSON)
+
+		// Debug first update
 		if i == 0 {
-			r. logger.Debug("first update data",
+			r.logger. Debug("first update data",
 				zap.String("code", upd.Code),
 				zap.String("status", upd.Status),
 				zap.String("creditor_status", upd. CreditorStatus),
-				zap.String("debitor_status", upd.DebitorStatus),
 				zap.Int64("creditor_ledger_id", upd.CreditorLedgerID),
+				zap.String("debitor_status", upd.DebitorStatus),
 				zap.Int64("debitor_ledger_id", upd.DebitorLedgerID),
 			)
 		}
-
-		valueStrings[i] = fmt. Sprintf("($%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d)",
-			i*11+1, i*11+2, i*11+3, i*11+4, i*11+5, i*11+6,
-			i*11+7, i*11+8, i*11+9, i*11+10, i*11+11)
-
-		args = append(args,
-			upd.Code,                        // $1: code (TEXT)
-			nilIfEmpty(upd.Status),          // $2: status (TEXT → enum)
-			nilIfEmpty(upd.CreditorStatus),  // $3: creditor_status (TEXT → enum)
-			upd.CreditorLedgerID,            // $4: creditor_ledger_id (BIGINT)
-			nilIfEmpty(upd.DebitorStatus),   // $5: debitor_status (TEXT → enum)
-			upd.DebitorLedgerID,             // $6: debitor_ledger_id (BIGINT)
-			nilIfEmpty(upd.ReversedBy),      // $7: reversed_by (TEXT)
-			upd.ReversedAt,                  // $8: reversed_at (TIMESTAMPTZ)
-			nilIfEmpty(upd.ErrorMessage),    // $9: error_message (TEXT)
-			upd.CompletedAt,                 // $10: completed_at (TIMESTAMPTZ)
-			metadataJSON,                    // $11: metadata (JSONB)
-		)
 	}
 
-	sqlStr := fmt.Sprintf(query, strings.Join(valueStrings, ","))
+	rows, err := r.db.Query(ctx, query,
+		codes,              // $1
+		statuses,           // $2
+		creditorStatuses,   // $3
+		creditorLedgerIDs,  // $4
+		debitorStatuses,    // $5
+		debitorLedgerIDs,   // $6
+		reversedBys,        // $7
+		reversedAts,        // $8
+		errorMessages,      // $9
+		completedAts,       // $10
+		metadatas,          // $11
+	)
 
-	// 🔥 DEBUG: Log the actual query (only in debug mode)
-	if len(updates) == 1 {
-		r. logger.Debug("generated SQL",
-			zap.String("query_preview", sqlStr[:min(len(sqlStr), 500)]),
-		)
-	}
-
-	rows, err := r.db.Query(ctx, sqlStr, args...)
 	if err != nil {
 		r.logger.Error("batch update query failed",
-			zap.Error(err),
+			zap. Error(err),
 			zap.Int("update_count", len(updates)),
-			zap.Any("first_args", args[:min(11, len(args))]),
+			zap. Strings("codes", codes),
 		)
 		return nil, fmt. Errorf("batch update: %w", err)
 	}
@@ -999,14 +1003,14 @@ func (r *receiptRepo) UpdateBatch(ctx context.Context, updates []*domain. Receip
 		var metadataJSON []byte
 		var updatedAt, completedAt, reversedAt *time.Time
 
-		// Scan into temporary variables for proper type handling
+		// Scan with proper type handling
 		var amountCents, originalAmountCents, transactionCostCents int64
 		var originalCurrency, exchangeRate, externalRef, parentReceiptCode, reversalReceiptCode sql.NullString
 		var codedType, errorMessage, createdBy, reversedBy sql.NullString
 
-		err := rows. Scan(
-			&rec. LookupID, &rec. Code, &rec.AccountType,
-			&rec.Creditor.AccountID, &rec. Creditor. LedgerID, &rec. Creditor.OwnerType, &rec.Creditor. Status,
+		err := rows.Scan(
+			&rec.LookupID, &rec.Code, &rec. AccountType,
+			&rec. Creditor.AccountID, &rec.Creditor. LedgerID, &rec. Creditor.OwnerType, &rec.Creditor. Status,
 			&rec. Debitor.AccountID, &rec.Debitor.LedgerID, &rec.Debitor.OwnerType, &rec.Debitor.Status,
 			&rec.TransactionType, &codedType, &amountCents, &originalAmountCents, &transactionCostCents,
 			&rec.Currency, &originalCurrency, &exchangeRate,
@@ -1061,8 +1065,8 @@ func (r *receiptRepo) UpdateBatch(ctx context.Context, updates []*domain. Receip
 		rec.CompletedAt = completedAt
 		rec.ReversedAt = reversedAt
 
-		if len(metadataJSON) > 0 {
-			json.Unmarshal(metadataJSON, &rec.Metadata)
+		if len(metadataJSON) > 0 && string(metadataJSON) != "null" {
+			json. Unmarshal(metadataJSON, &rec.Metadata)
 		}
 
 		rec. Creditor.IsCreditor = true
@@ -1086,13 +1090,6 @@ func (r *receiptRepo) UpdateBatch(ctx context.Context, updates []*domain. Receip
 	return results, nil
 }
 
-// Helper function
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
 // ===============================
 // QUERY OPERATIONS WITH FILTERS
 // ===============================
