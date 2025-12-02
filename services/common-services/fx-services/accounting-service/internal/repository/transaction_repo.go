@@ -1023,15 +1023,15 @@ func (r *transactionRepo) createFees(
 		return nil // Fee repo not configured
 	}
 	
-	receiptCode := ""
-	if journal.ExternalRef != nil {
-		receiptCode = *journal.ExternalRef
+	receiptCode := req.ReceiptCode
+	if journal.ExternalRef != nil && *journal.ExternalRef != "" && (receiptCode == nil || *receiptCode == "") {
+		receiptCode = journal.ExternalRef
 	}
 	
 	if req.IsSystemTransaction {
 		// Create 0-fee record
 		fee := &domain.TransactionFee{
-			ReceiptCode: receiptCode,
+			ReceiptCode: *receiptCode,
 			FeeType:     domain.FeeTypePlatform,
 			Amount:      0,
 			Currency:    req.GetCurrency(),
