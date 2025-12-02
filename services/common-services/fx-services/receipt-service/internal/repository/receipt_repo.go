@@ -406,6 +406,23 @@ func (r *receiptRepo) bulkInsertLookups(ctx context.Context, tx pgx.Tx, receipts
 }
 
 // bulkInsertReceipts inserts fx_receipts using COPY protocol
+// nilIfEmpty returns nil if string is empty, otherwise returns the string
+func nilIfEmpty(s string) interface{} {
+	if s == "" {
+		return nil
+	}
+	return s
+}
+
+// nilIfZero returns nil if float is zero, otherwise returns the float
+func nilIfZero(f float64) interface{} {
+	if f == 0 {
+		return nil
+	}
+	return f
+}
+
+// bulkInsertReceipts inserts fx_receipts using COPY protocol
 func (r *receiptRepo) bulkInsertReceipts(ctx context.Context, tx pgx.Tx, receipts []*domain.Receipt, lookupIDs map[string]int64) error {
 	_, err := tx.CopyFrom(
 		ctx,
@@ -420,41 +437,79 @@ func (r *receiptRepo) bulkInsertReceipts(ctx context.Context, tx pgx.Tx, receipt
 			"status", "error_message",
 			"created_at", "created_by", "metadata",
 		},
-		pgx.CopyFromSlice(len(receipts), func(i int) ([]interface{}, error) {
+		pgx. CopyFromSlice(len(receipts), func(i int) ([]interface{}, error) {
 			rec := receipts[i]
-			lookupID, ok := lookupIDs[rec.Code]
+			lookupID, ok := lookupIDs[rec. Code]
 			if !ok {
-				return nil, fmt.Errorf("lookup_id not found for code: %s", rec.Code)
+				return nil, fmt. Errorf("lookup_id not found for code: %s", rec. Code)
 			}
 
-			metadataJSON, _ := json.Marshal(rec.Metadata)
+			metadataJSON, _ := json. Marshal(rec.Metadata)
+
+			// Debug log for first receipt
+			if i == 0 {
+				r.logger.Debug("first receipt data",
+					zap.String("code", rec.Code),
+					zap.String("exchange_rate", rec.ExchangeRate),
+					zap.Float64("amount", rec.Amount),
+					zap.String("transaction_type", rec.TransactionType),
+					zap.String("account_type", rec.AccountType),
+				)
+			}
 
 			return []interface{}{
-				lookupID, rec.AccountType,
-				rec.Creditor.AccountID, rec.Creditor.LedgerID, rec.Creditor.OwnerType, rec.Creditor.Status,
-				rec.Debitor.AccountID, rec.Debitor.LedgerID, rec.Debitor.OwnerType, rec.Debitor.Status,
-				rec.TransactionType, rec.CodedType, rec.Amount, rec.OriginalAmount, rec.TransactionCost,
-				rec.Currency, rec.OriginalCurrency, rec.ExchangeRate,
-				rec.ExternalRef, rec.ParentReceiptCode,
-				rec.Status, rec.ErrorMessage,
-				rec.CreatedAt, rec.CreatedBy, metadataJSON,
+				lookupID, 
+				rec.AccountType,
+				rec.Creditor.AccountID, 
+				rec.Creditor.LedgerID, 
+				rec. Creditor.OwnerType, 
+				rec.Creditor.Status,
+				rec. Debitor.AccountID, 
+				rec.Debitor. LedgerID, 
+				rec.Debitor.OwnerType, 
+				rec. Debitor.Status,
+				rec.TransactionType, 
+				nilIfEmpty(rec.CodedType),          // ✅ Clean helper usage
+				rec.Amount, 
+				nilIfZero(rec.OriginalAmount),      // ✅ 0 → nil
+				nilIfZero(rec.TransactionCost),     // ✅ 0 → nil
+				rec.Currency, 
+				nilIfEmpty(rec.OriginalCurrency),   // ✅ "" → nil
+				nilIfEmpty(rec.ExchangeRate),       // ✅ "" → nil (fixes your error)
+				nilIfEmpty(rec.ExternalRef),        // ✅ "" → nil
+				nilIfEmpty(rec.ParentReceiptCode),  // ✅ "" → nil
+				rec.Status, 
+				nilIfEmpty(rec.ErrorMessage),       // ✅ "" → nil
+				rec.CreatedAt, 
+				nilIfEmpty(rec.CreatedBy),          // ✅ "" → nil
+				metadataJSON,
 			}, nil
 		}),
 	)
 
 	if err != nil {
-		// Check for specific PostgreSQL errors
+		r.logger.Error("copy receipts failed",
+			zap.Error(err),
+			zap. Int("receipt_count", len(receipts)),
+		)
+
 		if pgErr, ok := err.(*pgconn.PgError); ok {
+			r.logger. Error("postgres error",
+				zap.String("code", pgErr.Code),
+				zap.String("message", pgErr.Message),
+				zap.String("detail", pgErr. Detail),
+			)
+
 			switch pgErr.Code {
-			case "23505": // unique_violation
+			case "23505":
 				return ErrDuplicateReceipt
-			case "23503": // foreign_key_violation
-				return fmt.Errorf("invalid account reference: %w", err)
-			case "23514": // check_violation
+			case "23503":
+				return fmt. Errorf("invalid account reference: %w", err)
+			case "23514":
 				return ErrInvalidAmount
 			}
 		}
-		return fmt.Errorf("copy receipts: %w", err)
+		return fmt. Errorf("copy receipts: %w", err)
 	}
 
 	return nil
