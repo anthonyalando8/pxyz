@@ -177,6 +177,7 @@ func (r *receiptRepo) CreateBatch(ctx context.Context, receipts []*domain.Receip
 }
 
 // bulkInsertLookups inserts receipt lookups using temp table for maximum performance
+// bulkInsertLookups inserts receipt lookups using temp table for maximum performance
 func (r *receiptRepo) bulkInsertLookups(ctx context.Context, tx pgx.Tx, receipts []*domain.Receipt) (map[string]int64, error) {
 	lookupIDs := make(map[string]int64, len(receipts))
 
@@ -199,45 +200,81 @@ func (r *receiptRepo) bulkInsertLookups(ctx context.Context, tx pgx.Tx, receipts
 		[]string{"code", "account_type", "created_at"},
 		pgx.CopyFromSlice(len(receipts), func(i int) ([]interface{}, error) {
 			r := receipts[i]
-			return []interface{}{r.Code, r.AccountType, r.CreatedAt}, nil
+			return []interface{}{r. Code, r.AccountType, r.CreatedAt}, nil
 		}),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("copy to temp table: %w", err)
 	}
 
-	// Step 3: Bulk INSERT from temp table with conflict detection
+	// Step 3: Check for existing codes BEFORE insertion
+	existingRows, err := tx.Query(ctx, `
+		SELECT rl.id, rl.code
+		FROM receipt_lookup rl
+		INNER JOIN temp_lookup tl ON rl.code = tl.code
+	`)
+	if err != nil {
+		return nil, fmt. Errorf("check existing codes: %w", err)
+	}
+
+	existingCodes := make([]string, 0)
+	for existingRows.Next() {
+		var id int64
+		var code string
+		if err := existingRows.Scan(&id, &code); err != nil {
+			existingRows.Close()
+			return nil, fmt.Errorf("scan existing code: %w", err)
+		}
+		existingCodes = append(existingCodes, code)
+		lookupIDs[code] = id // Store existing IDs
+	}
+	existingRows.Close()
+
+	// If any codes already exist, return error with details
+	if len(existingCodes) > 0 {
+		r.logger.Error("duplicate receipt codes detected",
+			zap. Strings("codes", existingCodes),
+			zap.Int("count", len(existingCodes)),
+		)
+		return nil, fmt.Errorf("%w: codes already exist: %v", ErrDuplicateReceipt, existingCodes)
+	}
+
+	// Step 4: Bulk INSERT only NEW codes
 	rows, err := tx.Query(ctx, `
 		INSERT INTO receipt_lookup (code, account_type, created_at)
 		SELECT code, account_type::account_type_enum, created_at 
 		FROM temp_lookup
-		ON CONFLICT (code) DO NOTHING
 		RETURNING id, code
 	`)
 	if err != nil {
+		// Handle unique constraint violation
+		if pgErr, ok := err.(*pgconn.PgError); ok && pgErr.Code == "23505" {
+			return nil, ErrDuplicateReceipt
+		}
 		return nil, fmt.Errorf("insert lookups: %w", err)
 	}
 	defer rows.Close()
 
-	// Step 4: Collect inserted IDs
-	insertedCodes := make(map[string]bool)
+	// Step 5: Collect inserted IDs
+	insertCount := 0
 	for rows.Next() {
 		var id int64
 		var code string
-		if err := rows.Scan(&id, &code); err != nil {
+		if err := rows. Scan(&id, &code); err != nil {
 			return nil, fmt.Errorf("scan lookup: %w", err)
 		}
 		lookupIDs[code] = id
-		insertedCodes[code] = true
+		insertCount++
 	}
 
-	// Step 5: Check for conflicts (duplicate codes)
-	if len(insertedCodes) < len(receipts) {
-		r.logger.Warn("duplicate receipt codes detected",
+	// Step 6: Verify all codes were processed
+	if len(lookupIDs) != len(receipts) {
+		r.logger.Error("mismatch in lookup insertion",
 			zap.Int("requested", len(receipts)),
-			zap.Int("inserted", len(insertedCodes)),
+			zap.Int("inserted", insertCount),
+			zap.Int("total_ids", len(lookupIDs)),
 		)
-		return nil, ErrDuplicateReceipt
+		return nil, fmt.Errorf("expected %d lookups, got %d", len(receipts), len(lookupIDs))
 	}
 
 	return lookupIDs, nil
