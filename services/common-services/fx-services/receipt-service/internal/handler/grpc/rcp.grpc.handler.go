@@ -205,7 +205,7 @@ func (h *ReceiptGRPCHandler) CreateReceiptsBatch(
 	defer timer.ObserveDuration()
 
 	if len(req.Receipts) == 0 {
-		grpcRequestsTotal.WithLabelValues("CreateReceiptsBatch", "success").Inc()
+		grpcRequestsTotal.WithLabelValues("CreateReceiptsBatch", "success"). Inc()
 		return &receiptpb.CreateReceiptsBatchResponse{
 			SuccessCount: 0,
 			ErrorCount:   0,
@@ -218,7 +218,7 @@ func (h *ReceiptGRPCHandler) CreateReceiptsBatch(
 	)
 
 	// VALIDATION 1: Check batch size limit
-	if len(req.Receipts) > MaxBatchSizePerRequest {
+	if len(req. Receipts) > MaxBatchSizePerRequest {
 		grpcRequestsTotal.WithLabelValues("CreateReceiptsBatch", "invalid").Inc()
 		return nil, status.Errorf(codes.InvalidArgument,
 			"batch size %d exceeds maximum %d", len(req.Receipts), MaxBatchSizePerRequest)
@@ -236,38 +236,55 @@ func (h *ReceiptGRPCHandler) CreateReceiptsBatch(
 	for i, r := range req.Receipts {
 		if err := validateCreateReceiptRequest(r); err != nil {
 			grpcRequestsTotal.WithLabelValues("CreateReceiptsBatch", "invalid").Inc()
-			return nil, status.Errorf(codes.InvalidArgument,
+			return nil, status.Errorf(codes. InvalidArgument,
 				"invalid receipt at index %d: %v", i, err)
 		}
 	}
 
-	// Convert proto to domain
+	// Convert proto to domain using helper functions
 	receipts := make([]*domain.Receipt, 0, len(req.Receipts))
-	for _, r := range req.Receipts {
+	for i, r := range req.Receipts {
 		metadata := make(map[string]interface{})
-		if r.Metadata != nil {
+		if r. Metadata != nil {
 			metadata = r.Metadata.AsMap()
 		}
 
 		// Convert amounts (proto uses int64 cents, domain uses float64 dollars)
 		amount := float64(r.Amount) / 100.0
-		originalAmount := float64(r.OriginalAmount) / 100.0
+		originalAmount := float64(r. OriginalAmount) / 100.0
 		transactionCost := float64(r.TransactionCost) / 100.0
 
+		// 🔥 USE CONVERSION HELPERS
+		accountType := domain.AccountTypeToString(r.AccountType)
+		transactionType := domain.TransactionTypeToString(r.TransactionType)
+
+		// Debug log for first receipt
+		if i == 0 {
+			h.logger. Debug("converting first receipt",
+				zap.String("account_type_proto", r.AccountType. String()),
+				zap.String("account_type_domain", accountType),
+				zap.String("transaction_type_proto", r.TransactionType.String()),
+				zap.String("transaction_type_domain", transactionType),
+			)
+		}
+
 		receipts = append(receipts, &domain.Receipt{
-			TransactionType:   r.TransactionType.String(),
+			TransactionType:   transactionType,        // ✅ Converted to string
 			CodedType:         r.CodedType,
-			AccountType:       r.AccountType.String(),
+			AccountType:       accountType,             // ✅ Converted to string
 			Amount:            amount,
 			OriginalAmount:    originalAmount,
 			TransactionCost:   transactionCost,
 			Currency:          r.Currency,
-			OriginalCurrency:  r.OriginalCurrency,
+			OriginalCurrency:  r. OriginalCurrency,
 			ExchangeRate:      r.ExchangeRateDecimal,
 			ExternalRef:       r.ExternalRef,
 			ParentReceiptCode: r.ParentReceiptCode,
-			Creditor:          domain.PartyInfoFromProto(r.Creditor),
-			Debitor:           domain.PartyInfoFromProto(r.Debitor),
+			Creditor:          domain.PartyInfoFromProto(r.Creditor),  // ✅ Already converts enums to strings
+			Debitor:           domain.PartyInfoFromProto(r.Debitor),   // ✅ Already converts enums to strings
+			Status:            domain.TransactionStatusToString(receiptpb.TransactionStatus_TRANSACTION_STATUS_PENDING), // Default status
+			CreditorStatus:    domain.TransactionStatusToString(receiptpb.TransactionStatus_TRANSACTION_STATUS_PENDING),
+			DebitorStatus:     domain.TransactionStatusToString(receiptpb.TransactionStatus_TRANSACTION_STATUS_PENDING),
 			CreatedBy:         r.CreatedBy,
 			Metadata:          metadata,
 		})
@@ -281,19 +298,19 @@ func (h *ReceiptGRPCHandler) CreateReceiptsBatch(
 	if req.IdempotencyKey != "" {
 		created, fromCache, err = h.receiptUC.CreateReceiptsWithIdempotency(ctx, req.IdempotencyKey, receipts)
 	} else {
-		created, err = h.receiptUC.CreateReceipts(ctx, receipts)
+		created, err = h.receiptUC. CreateReceipts(ctx, receipts)
 	}
 
 	if err != nil {
 		h.logger.Error("failed to create receipts",
-			zap.Error(err),
+			zap. Error(err),
 			zap.Int("count", len(receipts)),
 		)
 		grpcRequestsTotal.WithLabelValues("CreateReceiptsBatch", "error").Inc()
 		return nil, status.Errorf(codes.Internal, "failed to create receipts: %v", err)
 	}
 
-	// Convert domain to proto
+	// Convert domain to proto (ToProto() already handles string → enum conversion)
 	resp := &receiptpb.CreateReceiptsBatchResponse{
 		Receipts:     make([]*receiptpb.Receipt, len(created)),
 		Errors:       []*receiptpb.ReceiptError{},
@@ -302,7 +319,7 @@ func (h *ReceiptGRPCHandler) CreateReceiptsBatch(
 		FromCache:    fromCache,
 	}
 	for i, rc := range created {
-		resp.Receipts[i] = rc.ToProto()
+		resp. Receipts[i] = rc.ToProto()  // ✅ ToProto handles string → enum conversion
 	}
 
 	h.logger.Info("receipts created successfully",
