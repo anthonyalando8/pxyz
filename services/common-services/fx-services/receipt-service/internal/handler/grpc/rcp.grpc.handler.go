@@ -255,9 +255,9 @@ func (h *ReceiptGRPCHandler) CreateReceiptsBatch(
 		transactionCost := float64(r.TransactionCost) / 100.0
 
 		receipts = append(receipts, &domain.Receipt{
-			TransactionType:   r.TransactionType,
+			TransactionType:   r.TransactionType.String(),
 			CodedType:         r.CodedType,
-			AccountType:       r.AccountType,
+			AccountType:       r.AccountType.String(),
 			Amount:            amount,
 			OriginalAmount:    originalAmount,
 			TransactionCost:   transactionCost,

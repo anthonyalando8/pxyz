@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	receiptpb "x/shared/genproto/shared/accounting/receipt/v3"
+	//receiptpb "x/shared/genproto/shared/accounting/receipt/v3"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -177,16 +177,22 @@ func (r *receiptRepo) CreateBatch(ctx context.Context, receipts []*domain.Receip
 }
 
 // bulkInsertLookups inserts receipt lookups using temp table for maximum performance
-// bulkInsertLookups inserts receipt lookups using temp table for maximum performance
 func (r *receiptRepo) bulkInsertLookups(ctx context.Context, tx pgx.Tx, receipts []*domain.Receipt) (map[string]int64, error) {
 	lookupIDs := make(map[string]int64, len(receipts))
+
+	// Log incoming data for debugging
+	r.logger.Debug("bulkInsertLookups called",
+		zap.Int("receipt_count", len(receipts)),
+		zap.String("first_code", receipts[0].Code),
+		zap.String("first_account_type", receipts[0].AccountType),
+	)
 
 	// Step 1: Create temporary table (dropped automatically on commit)
 	_, err := tx.Exec(ctx, `
 		CREATE TEMP TABLE temp_lookup (
-			code TEXT,
-			account_type TEXT,
-			created_at TIMESTAMPTZ
+			code TEXT NOT NULL,
+			account_type TEXT NOT NULL,
+			created_at TIMESTAMPTZ NOT NULL
 		) ON COMMIT DROP
 	`)
 	if err != nil {
@@ -194,24 +200,57 @@ func (r *receiptRepo) bulkInsertLookups(ctx context.Context, tx pgx.Tx, receipts
 	}
 
 	// Step 2: COPY into temp table (ultra-fast, no indexes)
-	_, err = tx.CopyFrom(
+	copyCount, err := tx.CopyFrom(
 		ctx,
 		pgx.Identifier{"temp_lookup"},
 		[]string{"code", "account_type", "created_at"},
 		pgx.CopyFromSlice(len(receipts), func(i int) ([]interface{}, error) {
 			r := receipts[i]
-			return []interface{}{r. Code, r.AccountType, r.CreatedAt}, nil
+			
+			// Validate data before copying
+			if r.Code == "" {
+				return nil, fmt.Errorf("receipt at index %d has empty code", i)
+			}
+			if string(r.AccountType) == "" {
+				return nil, fmt.Errorf("receipt at index %d has empty account_type", i)
+			}
+			if r.CreatedAt. IsZero() {
+				r.CreatedAt = time.Now() // Set default if missing
+			}
+			
+			return []interface{}{r.Code, r.AccountType, r.CreatedAt}, nil
 		}),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("copy to temp table: %w", err)
 	}
 
+	r.logger.Debug("copied to temp table",
+		zap. Int64("rows_copied", copyCount),
+		zap.Int("expected", len(receipts)),
+	)
+
+	// Verify data was copied
+	if copyCount != int64(len(receipts)) {
+		return nil, fmt.Errorf("copy mismatch: expected %d, copied %d", len(receipts), copyCount)
+	}
+
+	// Debug: Check what's in temp table
+	var tempCount int
+	err = tx.QueryRow(ctx, `SELECT COUNT(*) FROM temp_lookup`).Scan(&tempCount)
+	if err != nil {
+		return nil, fmt.Errorf("count temp table: %w", err)
+	}
+	
+	r.logger.Debug("temp table verified",
+		zap.Int("temp_count", tempCount),
+	)
+
 	// Step 3: Check for existing codes BEFORE insertion
 	existingRows, err := tx.Query(ctx, `
 		SELECT rl.id, rl.code
 		FROM receipt_lookup rl
-		INNER JOIN temp_lookup tl ON rl.code = tl.code
+		INNER JOIN temp_lookup tl ON rl. code = tl.code
 	`)
 	if err != nil {
 		return nil, fmt. Errorf("check existing codes: %w", err)
@@ -223,12 +262,12 @@ func (r *receiptRepo) bulkInsertLookups(ctx context.Context, tx pgx.Tx, receipts
 		var code string
 		if err := existingRows.Scan(&id, &code); err != nil {
 			existingRows.Close()
-			return nil, fmt.Errorf("scan existing code: %w", err)
+			return nil, fmt. Errorf("scan existing code: %w", err)
 		}
 		existingCodes = append(existingCodes, code)
 		lookupIDs[code] = id // Store existing IDs
 	}
-	existingRows.Close()
+	existingRows. Close()
 
 	// If any codes already exist, return error with details
 	if len(existingCodes) > 0 {
@@ -239,23 +278,91 @@ func (r *receiptRepo) bulkInsertLookups(ctx context.Context, tx pgx.Tx, receipts
 		return nil, fmt.Errorf("%w: codes already exist: %v", ErrDuplicateReceipt, existingCodes)
 	}
 
-	// Step 4: Bulk INSERT only NEW codes
+	// Step 4: Validate account_type values before casting
+	var invalidTypeCount int
+	err = tx.QueryRow(ctx, `
+		SELECT COUNT(*) 
+		FROM temp_lookup tl
+		WHERE tl.account_type NOT IN (
+			SELECT enumlabel::text 
+			FROM pg_enum 
+			WHERE enumtypid = 'account_type_enum'::regtype
+		)
+	`).Scan(&invalidTypeCount)
+	
+	if err != nil {
+		r.logger. Warn("could not validate account types", zap.Error(err))
+	} else if invalidTypeCount > 0 {
+		// Get the invalid types for logging
+		invalidRows, _ := tx.Query(ctx, `
+			SELECT DISTINCT tl.account_type 
+			FROM temp_lookup tl
+			WHERE tl.account_type NOT IN (
+				SELECT enumlabel::text 
+				FROM pg_enum 
+				WHERE enumtypid = 'account_type_enum'::regtype
+			)
+		`)
+		
+		invalidTypes := make([]string, 0)
+		if invalidRows != nil {
+			for invalidRows.Next() {
+				var invalidType string
+				invalidRows.Scan(&invalidType)
+				invalidTypes = append(invalidTypes, invalidType)
+			}
+			invalidRows.Close()
+		}
+		
+		return nil, fmt.Errorf("invalid account_type values: %v (must be valid enum values)", invalidTypes)
+	}
+
+	// Step 5: Bulk INSERT only NEW codes with explicit error handling
+	r.logger.Debug("attempting bulk insert",
+		zap. Int("codes_to_insert", len(receipts)-len(existingCodes)),
+	)
+
 	rows, err := tx.Query(ctx, `
 		INSERT INTO receipt_lookup (code, account_type, created_at)
-		SELECT code, account_type::account_type_enum, created_at 
+		SELECT 
+			code, 
+			account_type::account_type_enum, 
+			created_at 
 		FROM temp_lookup
 		RETURNING id, code
 	`)
+	
 	if err != nil {
-		// Handle unique constraint violation
-		if pgErr, ok := err.(*pgconn.PgError); ok && pgErr.Code == "23505" {
-			return nil, ErrDuplicateReceipt
+		// Enhanced error logging
+		r.logger.Error("insert failed",
+			zap.Error(err),
+			zap. Int("receipt_count", len(receipts)),
+		)
+		
+		// Handle specific PostgreSQL errors
+		if pgErr, ok := err.(*pgconn.PgError); ok {
+			r.logger.Error("postgres error details",
+				zap. String("code", pgErr.Code),
+				zap.String("message", pgErr.Message),
+				zap.String("detail", pgErr.Detail),
+				zap.String("hint", pgErr.Hint),
+				zap.String("where", pgErr.Where),
+			)
+			
+			switch pgErr.Code {
+			case "23505": // unique_violation
+				return nil, ErrDuplicateReceipt
+			case "22P02": // invalid_text_representation (enum cast failure)
+				return nil, fmt.Errorf("invalid account_type value: %s", pgErr.Message)
+			default:
+				return nil, fmt. Errorf("database error [%s]: %s", pgErr.Code, pgErr.Message)
+			}
 		}
 		return nil, fmt.Errorf("insert lookups: %w", err)
 	}
 	defer rows.Close()
 
-	// Step 5: Collect inserted IDs
+	// Step 6: Collect inserted IDs
 	insertCount := 0
 	for rows.Next() {
 		var id int64
@@ -265,16 +372,34 @@ func (r *receiptRepo) bulkInsertLookups(ctx context.Context, tx pgx.Tx, receipts
 		}
 		lookupIDs[code] = id
 		insertCount++
+		
+		r.logger.Debug("inserted lookup",
+			zap.Int64("id", id),
+			zap. String("code", code),
+		)
 	}
 
-	// Step 6: Verify all codes were processed
+	// Check for errors after iteration
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
+
+	r.logger.Debug("insert complete",
+		zap.Int("inserted", insertCount),
+		zap. Int("total_ids", len(lookupIDs)),
+		zap.Int("requested", len(receipts)),
+	)
+
+	// Step 7: Verify all codes were processed
 	if len(lookupIDs) != len(receipts) {
 		r.logger.Error("mismatch in lookup insertion",
 			zap.Int("requested", len(receipts)),
 			zap.Int("inserted", insertCount),
 			zap.Int("total_ids", len(lookupIDs)),
+			zap.Int("existing", len(existingCodes)),
 		)
-		return nil, fmt.Errorf("expected %d lookups, got %d", len(receipts), len(lookupIDs))
+		return nil, fmt.Errorf("expected %d lookups, got %d (inserted: %d, existing: %d)", 
+			len(receipts), len(lookupIDs), insertCount, len(existingCodes))
 	}
 
 	return lookupIDs, nil
@@ -880,9 +1005,9 @@ func (r *receiptRepo) buildListQuery(filters *domain.ReceiptFilters) (string, []
 		argPos++
 	}
 
-	if filters.AccountType != receiptpb.AccountType_ACCOUNT_TYPE_UNSPECIFIED {
+	if filters.AccountType != "unspecified" {
 		conditions = append(conditions, fmt.Sprintf("rl.account_type = $%d", argPos))
-		args = append(args, filters.AccountType.String())
+		args = append(args, filters.AccountType)
 		argPos++
 	}
 
@@ -964,9 +1089,9 @@ func (r *receiptRepo) buildCountQuery(filters *domain.ReceiptFilters) (string, [
 		argPos++
 	}
 
-	if filters.AccountType != receiptpb.AccountType_ACCOUNT_TYPE_UNSPECIFIED {
+	if filters.AccountType != "unspecified" {
 		conditions = append(conditions, fmt.Sprintf("rl.account_type = $%d", argPos))
-		args = append(args, filters.AccountType.String())
+		args = append(args, filters.AccountType)
 		argPos++
 	}
 
@@ -1066,19 +1191,19 @@ func (r *receiptRepo) scanReceipt(row pgx.Row, includeMetadata bool) (*domain.Re
 }
 
 // enumsToStrings converts TransactionType enums to strings
-func enumsToStrings(enums []receiptpb.TransactionType) []string {
+func enumsToStrings(enums []string) []string {
 	result := make([]string, len(enums))
 	for i, e := range enums {
-		result[i] = e.String()
+		result[i] = e
 	}
 	return result
 }
 
 // statusEnumsToStrings converts TransactionStatus enums to strings
-func statusEnumsToStrings(enums []receiptpb.TransactionStatus) []string {
+func statusEnumsToStrings(enums []string) []string {
 	result := make([]string, len(enums))
 	for i, e := range enums {
-		result[i] = e.String()
+		result[i] = e
 	}
 	return result
 }

@@ -1,7 +1,6 @@
 package domain
 
 import (
-	//"encoding/json"
 	"time"
 	receiptpb "x/shared/genproto/shared/accounting/receipt/v3"
 
@@ -12,10 +11,10 @@ import (
 // ReceiptUpdate holds update information for a receipt
 type ReceiptUpdate struct {
 	Code                string
-	Status              receiptpb.TransactionStatus
-	CreditorStatus      receiptpb.TransactionStatus
+	Status              string  // "pending", "processing", "completed", etc.
+	CreditorStatus      string
 	CreditorLedgerID    int64
-	DebitorStatus       receiptpb.TransactionStatus
+	DebitorStatus       string
 	DebitorLedgerID     int64
 	ReversedBy          string
 	ReversedAt          *time.Time
@@ -27,28 +26,28 @@ type ReceiptUpdate struct {
 
 // PartyInfo holds creditor/debitor details
 type PartyInfo struct {
-	AccountID     int64                       `json:"account_id"`
-	LedgerID      int64                       `json:"ledger_id"`
-	OwnerType     receiptpb.OwnerType         `json:"owner_type"`
-	Status        receiptpb.TransactionStatus `json:"status"`
-	ExternalID    string                      `json:"external_id,omitempty"`
-	Name          string                      `json:"name,omitempty"`
-	Phone         string                      `json:"phone,omitempty"`
-	Email         string                      `json:"email,omitempty"`
-	AccountNumber string                      `json:"account_number,omitempty"`
-	IsCreditor    bool                        `json:"is_creditor"`
+	AccountID     int64  `json:"account_id"`
+	LedgerID      int64  `json:"ledger_id"`
+	OwnerType     string `json:"owner_type"` // "system", "user", "agent", "partner"
+	Status        string `json:"status"`     // "pending", "completed", etc.
+	ExternalID    string `json:"external_id,omitempty"`
+	Name          string `json:"name,omitempty"`
+	Phone         string `json:"phone,omitempty"`
+	Email         string `json:"email,omitempty"`
+	AccountNumber string `json:"account_number,omitempty"`
+	IsCreditor    bool   `json:"is_creditor"`
 }
 
-// Receipt represents a transaction receipt (matches production schema + v3 proto)
+// Receipt represents a transaction receipt (STRING-BASED for database compatibility)
 type Receipt struct {
 	// Primary fields
-	LookupID    int64                     `json:"lookup_id"`
-	Code        string                    `json:"code"`
-	AccountType receiptpb.AccountType     `json:"account_type"`
+	LookupID    int64  `json:"lookup_id"`
+	Code        string `json:"code"`
+	AccountType string `json:"account_type"` // "real", "demo"
 
 	// Transaction details
-	TransactionType receiptpb.TransactionType `json:"transaction_type"`
-	CodedType       string                    `json:"coded_type,omitempty"`
+	TransactionType string `json:"transaction_type"` // "deposit", "withdrawal", etc.
+	CodedType       string `json:"coded_type,omitempty"`
 
 	// Amounts
 	Amount          float64 `json:"amount"`
@@ -66,10 +65,10 @@ type Receipt struct {
 	ReversalReceiptCode string `json:"reversal_receipt_code,omitempty"`
 
 	// Status
-	Status         receiptpb.TransactionStatus `json:"status"`
-	CreditorStatus receiptpb.TransactionStatus `json:"creditor_status"`
-	DebitorStatus  receiptpb.TransactionStatus `json:"debitor_status"`
-	ErrorMessage   string                      `json:"error_message,omitempty"`
+	Status         string `json:"status"`          // "pending", "processing", "completed", etc.
+	CreditorStatus string `json:"creditor_status"` // "pending", "completed", etc.
+	DebitorStatus  string `json:"debitor_status"`  // "pending", "completed", etc. 
+	ErrorMessage   string `json:"error_message,omitempty"`
 
 	// Timestamps
 	CreatedAt   time.Time  `json:"created_at"`
@@ -91,9 +90,9 @@ type Receipt struct {
 
 // ReceiptFilters for querying receipts
 type ReceiptFilters struct {
-	TransactionTypes []receiptpb.TransactionType
-	Statuses         []receiptpb.TransactionStatus
-	AccountType      receiptpb.AccountType
+	TransactionTypes []string   // Array of string transaction types
+	Statuses         []string   // Array of string statuses
+	AccountType      string     // "real", "demo", or empty for all
 	Currency         string
 	ExternalID       string
 	FromDate         *time.Time
@@ -105,6 +104,166 @@ type ReceiptFilters struct {
 }
 
 // ===============================
+// ENUM TO STRING CONVERSION HELPERS
+// ===============================
+
+// AccountTypeToString converts proto enum to database string
+func AccountTypeToString(at receiptpb.AccountType) string {
+	switch at {
+	case receiptpb.AccountType_ACCOUNT_TYPE_REAL:
+		return "real"
+	case receiptpb.AccountType_ACCOUNT_TYPE_DEMO:
+		return "demo"
+	default:
+		return "real" // Default
+	}
+}
+
+// StringToAccountType converts database string to proto enum
+func StringToAccountType(s string) receiptpb.AccountType {
+	switch s {
+	case "real":
+		return receiptpb.AccountType_ACCOUNT_TYPE_REAL
+	case "demo":
+		return receiptpb.AccountType_ACCOUNT_TYPE_DEMO
+	default:
+		return receiptpb. AccountType_ACCOUNT_TYPE_UNSPECIFIED
+	}
+}
+
+// TransactionTypeToString converts proto enum to database string
+func TransactionTypeToString(tt receiptpb.TransactionType) string {
+	switch tt {
+	case receiptpb. TransactionType_TRANSACTION_TYPE_DEPOSIT:
+		return "deposit"
+	case receiptpb.TransactionType_TRANSACTION_TYPE_WITHDRAWAL:
+		return "withdrawal"
+	case receiptpb.TransactionType_TRANSACTION_TYPE_CONVERSION:
+		return "conversion"
+	case receiptpb.TransactionType_TRANSACTION_TYPE_TRADE:
+		return "trade"
+	case receiptpb.TransactionType_TRANSACTION_TYPE_TRANSFER:
+		return "transfer"
+	case receiptpb.TransactionType_TRANSACTION_TYPE_FEE:
+		return "fee"
+	case receiptpb.TransactionType_TRANSACTION_TYPE_COMMISSION:
+		return "commission"
+	case receiptpb.TransactionType_TRANSACTION_TYPE_REVERSAL:
+		return "reversal"
+	case receiptpb.TransactionType_TRANSACTION_TYPE_ADJUSTMENT:
+		return "adjustment"
+	case receiptpb.TransactionType_TRANSACTION_TYPE_DEMO_FUNDING:
+		return "demo_funding"
+	default:
+		return "deposit" // Default
+	}
+}
+
+// StringToTransactionType converts database string to proto enum
+func StringToTransactionType(s string) receiptpb.TransactionType {
+	switch s {
+	case "deposit":
+		return receiptpb.TransactionType_TRANSACTION_TYPE_DEPOSIT
+	case "withdrawal":
+		return receiptpb.TransactionType_TRANSACTION_TYPE_WITHDRAWAL
+	case "conversion":
+		return receiptpb.TransactionType_TRANSACTION_TYPE_CONVERSION
+	case "trade":
+		return receiptpb.TransactionType_TRANSACTION_TYPE_TRADE
+	case "transfer":
+		return receiptpb.TransactionType_TRANSACTION_TYPE_TRANSFER
+	case "fee":
+		return receiptpb.TransactionType_TRANSACTION_TYPE_FEE
+	case "commission":
+		return receiptpb. TransactionType_TRANSACTION_TYPE_COMMISSION
+	case "reversal":
+		return receiptpb.TransactionType_TRANSACTION_TYPE_REVERSAL
+	case "adjustment":
+		return receiptpb.TransactionType_TRANSACTION_TYPE_ADJUSTMENT
+	case "demo_funding":
+		return receiptpb.TransactionType_TRANSACTION_TYPE_DEMO_FUNDING
+	default:
+		return receiptpb.TransactionType_TRANSACTION_TYPE_UNSPECIFIED
+	}
+}
+
+// TransactionStatusToString converts proto enum to database string
+func TransactionStatusToString(ts receiptpb. TransactionStatus) string {
+	switch ts {
+	case receiptpb.TransactionStatus_TRANSACTION_STATUS_PENDING:
+		return "pending"
+	case receiptpb.TransactionStatus_TRANSACTION_STATUS_PROCESSING:
+		return "processing"
+	case receiptpb.TransactionStatus_TRANSACTION_STATUS_COMPLETED:
+		return "completed"
+	case receiptpb.TransactionStatus_TRANSACTION_STATUS_FAILED:
+		return "failed"
+	case receiptpb.TransactionStatus_TRANSACTION_STATUS_REVERSED:
+		return "reversed"
+	case receiptpb.TransactionStatus_TRANSACTION_STATUS_SUSPENDED:
+		return "suspended"
+	case receiptpb.TransactionStatus_TRANSACTION_STATUS_EXPIRED:
+		return "expired"
+	default:
+		return "pending" // Default
+	}
+}
+
+// StringToTransactionStatus converts database string to proto enum
+func StringToTransactionStatus(s string) receiptpb.TransactionStatus {
+	switch s {
+	case "pending":
+		return receiptpb.TransactionStatus_TRANSACTION_STATUS_PENDING
+	case "processing":
+		return receiptpb.TransactionStatus_TRANSACTION_STATUS_PROCESSING
+	case "completed":
+		return receiptpb.TransactionStatus_TRANSACTION_STATUS_COMPLETED
+	case "failed":
+		return receiptpb.TransactionStatus_TRANSACTION_STATUS_FAILED
+	case "reversed":
+		return receiptpb.TransactionStatus_TRANSACTION_STATUS_REVERSED
+	case "suspended":
+		return receiptpb.TransactionStatus_TRANSACTION_STATUS_SUSPENDED
+	case "expired":
+		return receiptpb. TransactionStatus_TRANSACTION_STATUS_EXPIRED
+	default:
+		return receiptpb.TransactionStatus_TRANSACTION_STATUS_UNSPECIFIED
+	}
+}
+
+// OwnerTypeToString converts proto enum to database string
+func OwnerTypeToString(ot receiptpb.OwnerType) string {
+	switch ot {
+	case receiptpb. OwnerType_OWNER_TYPE_SYSTEM:
+		return "system"
+	case receiptpb.OwnerType_OWNER_TYPE_USER:
+		return "user"
+	case receiptpb.OwnerType_OWNER_TYPE_AGENT:
+		return "agent"
+	case receiptpb. OwnerType_OWNER_TYPE_PARTNER:
+		return "partner"
+	default:
+		return "user" // Default
+	}
+}
+
+// StringToOwnerType converts database string to proto enum
+func StringToOwnerType(s string) receiptpb.OwnerType {
+	switch s {
+	case "system":
+		return receiptpb.OwnerType_OWNER_TYPE_SYSTEM
+	case "user":
+		return receiptpb. OwnerType_OWNER_TYPE_USER
+	case "agent":
+		return receiptpb. OwnerType_OWNER_TYPE_AGENT
+	case "partner":
+		return receiptpb.OwnerType_OWNER_TYPE_PARTNER
+	default:
+		return receiptpb.OwnerType_OWNER_TYPE_UNSPECIFIED
+	}
+}
+
+// ===============================
 // PartyInfo Proto Converters
 // ===============================
 
@@ -112,11 +271,11 @@ func (p *PartyInfo) ToProto() *receiptpb.PartyInfo {
 	if p == nil {
 		return nil
 	}
-	return &receiptpb.PartyInfo{
+	return &receiptpb. PartyInfo{
 		AccountId:  p.AccountID,
 		LedgerId:   p.LedgerID,
-		OwnerType:  p.OwnerType,
-		Status:     p.Status,
+		OwnerType:  StringToOwnerType(p. OwnerType),
+		Status:     StringToTransactionStatus(p.Status),
 		ExternalId: p.ExternalID,
 		IsCreditor: p.IsCreditor,
 	}
@@ -129,8 +288,8 @@ func PartyInfoFromProto(pb *receiptpb.PartyInfo) PartyInfo {
 	return PartyInfo{
 		AccountID:  pb.GetAccountId(),
 		LedgerID:   pb.GetLedgerId(),
-		OwnerType:  pb.GetOwnerType(),
-		Status:     pb.GetStatus(),
+		OwnerType:  OwnerTypeToString(pb.GetOwnerType()),
+		Status:     TransactionStatusToString(pb.GetStatus()),
 		ExternalID: pb.GetExternalId(),
 		IsCreditor: pb.GetIsCreditor(),
 	}
@@ -140,7 +299,7 @@ func PartyInfoFromProto(pb *receiptpb.PartyInfo) PartyInfo {
 // Receipt Proto Converters
 // ===============================
 
-func (r *Receipt) ToProto() *receiptpb.Receipt {
+func (r *Receipt) ToProto() *receiptpb. Receipt {
 	if r == nil {
 		return nil
 	}
@@ -152,7 +311,7 @@ func (r *Receipt) ToProto() *receiptpb.Receipt {
 		updatedAt = timestamppb.New(*r.UpdatedAt)
 	}
 	if r.CompletedAt != nil {
-		completedAt = timestamppb.New(*r.CompletedAt)
+		completedAt = timestamppb. New(*r.CompletedAt)
 	}
 	if r.ReversedAt != nil {
 		reversedAt = timestamppb.New(*r.ReversedAt)
@@ -160,13 +319,13 @@ func (r *Receipt) ToProto() *receiptpb.Receipt {
 
 	// Convert float64 amounts to int64 (multiply by 100 for cents)
 	amount := int64(r.Amount * 100)
-	originalAmount := int64(r.OriginalAmount * 100)
+	originalAmount := int64(r. OriginalAmount * 100)
 	transactionCost := int64(r.TransactionCost * 100)
 
 	return &receiptpb.Receipt{
 		LookupId:            r.LookupID,
 		Code:                r.Code,
-		TransactionType:     r.TransactionType,
+		TransactionType:     StringToTransactionType(r.TransactionType),
 		CodedType:           r.CodedType,
 		Amount:              amount,
 		OriginalAmount:      originalAmount,
@@ -174,12 +333,12 @@ func (r *Receipt) ToProto() *receiptpb.Receipt {
 		Currency:            r.Currency,
 		OriginalCurrency:    r.OriginalCurrency,
 		ExchangeRateDecimal: r.ExchangeRate,
-		AccountType:         r.AccountType,
+		AccountType:         StringToAccountType(r.AccountType),
 		Creditor:            r.Creditor.ToProto(),
 		Debitor:             r.Debitor.ToProto(),
-		Status:              r.Status,
-		CreditorStatus:      r.CreditorStatus,
-		DebitorStatus:       r.DebitorStatus,
+		Status:              StringToTransactionStatus(r.Status),
+		CreditorStatus:      StringToTransactionStatus(r.CreditorStatus),
+		DebitorStatus:       StringToTransactionStatus(r.DebitorStatus),
 		ExternalRef:         r.ExternalRef,
 		ParentReceiptCode:   r.ParentReceiptCode,
 		ReversalReceiptCode: r.ReversalReceiptCode,
@@ -201,21 +360,21 @@ func ReceiptFromProto(pb *receiptpb.Receipt) Receipt {
 
 	var updatedAt, completedAt, reversedAt *time.Time
 	if pb.GetUpdatedAt() != nil {
-		t := pb.GetUpdatedAt().AsTime()
+		t := pb.GetUpdatedAt(). AsTime()
 		updatedAt = &t
 	}
 	if pb.GetCompletedAt() != nil {
-		t := pb.GetCompletedAt().AsTime()
+		t := pb.GetCompletedAt(). AsTime()
 		completedAt = &t
 	}
 	if pb.GetReversedAt() != nil {
-		t := pb.GetReversedAt().AsTime()
+		t := pb.GetReversedAt(). AsTime()
 		reversedAt = &t
 	}
 
 	metadata := map[string]interface{}{}
 	if pb.GetMetadata() != nil {
-		metadata = pb.GetMetadata().AsMap()
+		metadata = pb.GetMetadata(). AsMap()
 	}
 
 	// Convert int64 amounts (cents) to float64 (dollars)
@@ -226,20 +385,20 @@ func ReceiptFromProto(pb *receiptpb.Receipt) Receipt {
 	return Receipt{
 		LookupID:            pb.GetLookupId(),
 		Code:                pb.GetCode(),
-		TransactionType:     pb.GetTransactionType(),
+		TransactionType:     TransactionTypeToString(pb.GetTransactionType()),
 		CodedType:           pb.GetCodedType(),
 		Amount:              amount,
 		OriginalAmount:      originalAmount,
 		TransactionCost:     transactionCost,
-		Currency:            pb.GetCurrency(),
+		Currency:            pb. GetCurrency(),
 		OriginalCurrency:    pb.GetOriginalCurrency(),
 		ExchangeRate:        pb.GetExchangeRateDecimal(),
-		AccountType:         pb.GetAccountType(),
-		Creditor:            PartyInfoFromProto(pb.GetCreditor()),
+		AccountType:         AccountTypeToString(pb.GetAccountType()),
+		Creditor:            PartyInfoFromProto(pb. GetCreditor()),
 		Debitor:             PartyInfoFromProto(pb.GetDebitor()),
-		Status:              pb.GetStatus(),
-		CreditorStatus:      pb.GetCreditorStatus(),
-		DebitorStatus:       pb.GetDebitorStatus(),
+		Status:              TransactionStatusToString(pb.GetStatus()),
+		CreditorStatus:      TransactionStatusToString(pb. GetCreditorStatus()),
+		DebitorStatus:       TransactionStatusToString(pb.GetDebitorStatus()),
 		ExternalRef:         pb.GetExternalRef(),
 		ParentReceiptCode:   pb.GetParentReceiptCode(),
 		ReversalReceiptCode: pb.GetReversalReceiptCode(),
@@ -258,7 +417,7 @@ func ReceiptFromProto(pb *receiptpb.Receipt) Receipt {
 // ReceiptUpdate Proto Converters
 // ===============================
 
-func (ru *ReceiptUpdate) ToProto() *receiptpb.UpdateReceiptRequest {
+func (ru *ReceiptUpdate) ToProto() *receiptpb. UpdateReceiptRequest {
 	if ru == nil {
 		return nil
 	}
@@ -268,7 +427,7 @@ func (ru *ReceiptUpdate) ToProto() *receiptpb.UpdateReceiptRequest {
 		reversedAt = timestamppb.New(*ru.ReversedAt)
 	}
 	if ru.CompletedAt != nil {
-		completedAt = timestamppb.New(*ru.CompletedAt)
+		completedAt = timestamppb. New(*ru.CompletedAt)
 	}
 
 	metadataPatch := &structpb.Struct{}
@@ -278,14 +437,14 @@ func (ru *ReceiptUpdate) ToProto() *receiptpb.UpdateReceiptRequest {
 
 	return &receiptpb.UpdateReceiptRequest{
 		Code:                ru.Code,
-		Status:              ru.Status,
-		CreditorStatus:      ru.CreditorStatus,
+		Status:              StringToTransactionStatus(ru.Status),
+		CreditorStatus:      StringToTransactionStatus(ru.CreditorStatus),
 		CreditorLedgerId:    ru.CreditorLedgerID,
-		DebitorStatus:       ru.DebitorStatus,
+		DebitorStatus:       StringToTransactionStatus(ru.DebitorStatus),
 		DebitorLedgerId:     ru.DebitorLedgerID,
 		ReversedBy:          ru.ReversedBy,
 		ReversedAt:          reversedAt,
-		ReversalReceiptCode: ru.ReversalReceiptCode,
+		ReversalReceiptCode: ru. ReversalReceiptCode,
 		ErrorMessage:        ru.ErrorMessage,
 		CompletedAt:         completedAt,
 		MetadataPatch:       metadataPatch,
@@ -299,25 +458,25 @@ func ReceiptUpdateFromProto(pb *receiptpb.UpdateReceiptRequest) *ReceiptUpdate {
 
 	var reversedAt, completedAt *time.Time
 	if pb.GetReversedAt() != nil {
-		t := pb.GetReversedAt().AsTime()
+		t := pb.GetReversedAt(). AsTime()
 		reversedAt = &t
 	}
 	if pb.GetCompletedAt() != nil {
-		t := pb.GetCompletedAt().AsTime()
+		t := pb.GetCompletedAt(). AsTime()
 		completedAt = &t
 	}
 
 	var metadataPatch map[string]any
 	if pb.GetMetadataPatch() != nil {
-		metadataPatch = pb.GetMetadataPatch().AsMap()
+		metadataPatch = pb.GetMetadataPatch(). AsMap()
 	}
 
 	return &ReceiptUpdate{
 		Code:                pb.GetCode(),
-		Status:              pb.GetStatus(),
-		CreditorStatus:      pb.GetCreditorStatus(),
+		Status:              TransactionStatusToString(pb.GetStatus()),
+		CreditorStatus:      TransactionStatusToString(pb.GetCreditorStatus()),
 		CreditorLedgerID:    pb.GetCreditorLedgerId(),
-		DebitorStatus:       pb.GetDebitorStatus(),
+		DebitorStatus:       TransactionStatusToString(pb.GetDebitorStatus()),
 		DebitorLedgerID:     pb.GetDebitorLedgerId(),
 		ReversedBy:          pb.GetReversedBy(),
 		ReversedAt:          reversedAt,
@@ -329,27 +488,37 @@ func ReceiptUpdateFromProto(pb *receiptpb.UpdateReceiptRequest) *ReceiptUpdate {
 }
 
 // ===============================
-// MISSING: Filters Proto Converter
+// Filters Proto Converter
 // ===============================
 
-// FiltersFromProto converts ListReceiptsRequest to ReceiptFilters
 func FiltersFromProto(req *receiptpb.ListReceiptsRequest) *ReceiptFilters {
 	if req == nil {
 		return &ReceiptFilters{
-			PageSize: 50, // Default
+			PageSize: 50,
 		}
 	}
 
+	// Convert proto enum arrays to string arrays
+	txnTypes := make([]string, len(req.GetTransactionTypes()))
+	for i, tt := range req.GetTransactionTypes() {
+		txnTypes[i] = TransactionTypeToString(tt)
+	}
+
+	statuses := make([]string, len(req.GetStatuses()))
+	for i, s := range req.GetStatuses() {
+		statuses[i] = TransactionStatusToString(s)
+	}
+
 	filters := &ReceiptFilters{
-		TransactionTypes: req.GetTransactionTypes(),
-		Statuses:         req.GetStatuses(),
-		AccountType:      req.GetAccountType(),
+		TransactionTypes: txnTypes,
+		Statuses:         statuses,
+		AccountType:      AccountTypeToString(req.GetAccountType()),
 		Currency:         req.GetCurrency(),
 		ExternalID:       req.GetExternalId(),
 		PageSize:         int(req.GetPageSize()),
 		PageToken:        req.GetPageToken(),
 		SummaryOnly:      req.GetSummaryOnly(),
-		IncludeMetadata:  req.GetIncludeMetadata(),
+		IncludeMetadata:  req. GetIncludeMetadata(),
 	}
 
 	// Convert timestamps
@@ -358,7 +527,7 @@ func FiltersFromProto(req *receiptpb.ListReceiptsRequest) *ReceiptFilters {
 		filters.FromDate = &t
 	}
 	if req.GetToDate() != nil {
-		t := req.GetToDate().AsTime()
+		t := req. GetToDate().AsTime()
 		filters.ToDate = &t
 	}
 
@@ -368,106 +537,4 @@ func FiltersFromProto(req *receiptpb.ListReceiptsRequest) *ReceiptFilters {
 	}
 
 	return filters
-}
-
-// ===============================
-// Helper Functions
-// ===============================
-
-// TransactionTypeToString converts enum to string
-func TransactionTypeToString(t receiptpb.TransactionType) string {
-	return t.String()
-}
-
-// TransactionStatusToString converts enum to string
-func TransactionStatusToString(s receiptpb.TransactionStatus) string {
-	return s.String()
-}
-
-// AccountTypeToString converts enum to string
-func AccountTypeToString(a receiptpb.AccountType) string {
-	return a.String()
-}
-
-// OwnerTypeToString converts enum to string
-func OwnerTypeToString(o receiptpb.OwnerType) string {
-	return o.String()
-}
-
-// ParseTransactionType converts string to enum
-func ParseTransactionType(s string) receiptpb.TransactionType {
-	switch s {
-	case "deposit":
-		return receiptpb.TransactionType_TRANSACTION_TYPE_DEPOSIT
-	case "withdrawal":
-		return receiptpb.TransactionType_TRANSACTION_TYPE_WITHDRAWAL
-	case "conversion":
-		return receiptpb.TransactionType_TRANSACTION_TYPE_CONVERSION
-	case "trade":
-		return receiptpb.TransactionType_TRANSACTION_TYPE_TRADE
-	case "transfer":
-		return receiptpb.TransactionType_TRANSACTION_TYPE_TRANSFER
-	case "fee":
-		return receiptpb.TransactionType_TRANSACTION_TYPE_FEE
-	case "commission":
-		return receiptpb.TransactionType_TRANSACTION_TYPE_COMMISSION
-	case "reversal":
-		return receiptpb.TransactionType_TRANSACTION_TYPE_REVERSAL
-	case "adjustment":
-		return receiptpb.TransactionType_TRANSACTION_TYPE_ADJUSTMENT
-	case "demo_funding":
-		return receiptpb.TransactionType_TRANSACTION_TYPE_DEMO_FUNDING
-	default:
-		return receiptpb.TransactionType_TRANSACTION_TYPE_UNSPECIFIED
-	}
-}
-
-// ParseTransactionStatus converts string to enum
-func ParseTransactionStatus(s string) receiptpb.TransactionStatus {
-	switch s {
-	case "pending":
-		return receiptpb.TransactionStatus_TRANSACTION_STATUS_PENDING
-	case "processing":
-		return receiptpb.TransactionStatus_TRANSACTION_STATUS_PROCESSING
-	case "completed":
-		return receiptpb.TransactionStatus_TRANSACTION_STATUS_COMPLETED
-	case "failed":
-		return receiptpb.TransactionStatus_TRANSACTION_STATUS_FAILED
-	case "reversed":
-		return receiptpb.TransactionStatus_TRANSACTION_STATUS_REVERSED
-	case "suspended":
-		return receiptpb.TransactionStatus_TRANSACTION_STATUS_SUSPENDED
-	case "expired":
-		return receiptpb.TransactionStatus_TRANSACTION_STATUS_EXPIRED
-	default:
-		return receiptpb.TransactionStatus_TRANSACTION_STATUS_UNSPECIFIED
-	}
-}
-
-// ParseAccountType converts string to enum
-func ParseAccountType(s string) receiptpb.AccountType {
-	switch s {
-	case "real":
-		return receiptpb.AccountType_ACCOUNT_TYPE_REAL
-	case "demo":
-		return receiptpb.AccountType_ACCOUNT_TYPE_DEMO
-	default:
-		return receiptpb.AccountType_ACCOUNT_TYPE_UNSPECIFIED
-	}
-}
-
-// ParseOwnerType converts string to enum
-func ParseOwnerType(s string) receiptpb.OwnerType {
-	switch s {
-	case "system":
-		return receiptpb.OwnerType_OWNER_TYPE_SYSTEM
-	case "user":
-		return receiptpb.OwnerType_OWNER_TYPE_USER
-	case "agent":
-		return receiptpb.OwnerType_OWNER_TYPE_AGENT
-	case "partner":
-		return receiptpb.OwnerType_OWNER_TYPE_PARTNER
-	default:
-		return receiptpb.OwnerType_OWNER_TYPE_UNSPECIFIED
-	}
 }

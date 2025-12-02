@@ -205,7 +205,7 @@ func (uc *ReceiptUsecase) generateReceiptCodes(recs []*domain.Receipt, now time.
 	for _, rec := range recs {
 		// Determine account type for code generation
 		accountType := "real"
-		if rec.AccountType == receiptpb.AccountType_ACCOUNT_TYPE_DEMO {
+		if rec.AccountType == "demo" {
 			accountType = "demo"
 		}
 
@@ -215,7 +215,7 @@ func (uc *ReceiptUsecase) generateReceiptCodes(recs []*domain.Receipt, now time.
 		// FALLBACK: If V2 fails (shouldn't happen), use legacy
 		if code == "" {
 			uc.logger.Warn("V2 generator failed, using legacy fallback",
-				zap.String("transaction_type", rec.TransactionType.String()),
+				zap.String("transaction_type", rec.TransactionType),
 				zap.String("account_type", accountType),
 			)
 
@@ -228,9 +228,9 @@ func (uc *ReceiptUsecase) generateReceiptCodes(recs []*domain.Receipt, now time.
 
 		// Set receipt fields
 		rec.Code = code
-		rec.Status = receiptpb.TransactionStatus_TRANSACTION_STATUS_PENDING
-		rec.CreditorStatus = receiptpb.TransactionStatus_TRANSACTION_STATUS_PENDING
-		rec.DebitorStatus = receiptpb.TransactionStatus_TRANSACTION_STATUS_PENDING
+		rec.Status = "pending"
+		rec.CreditorStatus = "pending"
+		rec.DebitorStatus = "pending"
 		rec.CreatedAt = now
 		rec.UpdatedAt = &now
 	}
