@@ -1193,18 +1193,14 @@ func (r *receiptRepo) scanReceipt(row pgx.Row, includeMetadata bool) (*domain.Re
 // enumsToStrings converts TransactionType enums to strings
 func enumsToStrings(enums []string) []string {
 	result := make([]string, len(enums))
-	for i, e := range enums {
-		result[i] = e
-	}
+	copy(result, enums)
 	return result
 }
 
 // statusEnumsToStrings converts TransactionStatus enums to strings
 func statusEnumsToStrings(enums []string) []string {
 	result := make([]string, len(enums))
-	for i, e := range enums {
-		result[i] = e
-	}
+	copy(result, enums)
 	return result
 }
 
