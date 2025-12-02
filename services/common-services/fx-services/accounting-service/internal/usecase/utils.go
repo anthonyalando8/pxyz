@@ -1,6 +1,9 @@
 package usecase
 
-import "fmt"
+import (
+	"accounting-service/internal/domain"
+	"fmt"
+)
 
 var fxRates = map[string]map[string]float64{
 	"USD": {
@@ -79,4 +82,16 @@ func ptrIntToInt(i *int64) int64 {
 		return 0
 	}
 	return *i
+}
+
+// ===============================
+// HELPER FUNCTIONS
+// ===============================
+
+func ptrString(s string) *string {
+	return &s
+}
+
+func ptrOwnerType(t domain.OwnerType) *domain.OwnerType {
+	return &t
 }

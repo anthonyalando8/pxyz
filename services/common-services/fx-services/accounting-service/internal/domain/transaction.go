@@ -44,6 +44,7 @@ type TransactionRequest struct {
 	
 	// Optional receipt
 	GenerateReceipt bool
+	ReceiptCode	*string
 
 	AgentExternalID     *string `json:"agent_external_id,omitempty"`     // Agent who facilitated transaction
 	IsSystemTransaction bool    `json:"is_system_transaction"`           // If true, no fees applied
@@ -99,6 +100,8 @@ type CreditRequest struct {
 	CreatedByExternalID string                 `json:"created_by_external_id"`
 	CreatedByType       OwnerType              `json:"created_by_type"`
 	Metadata            map[string]interface{} `json:"metadata,omitempty"`
+		ReceiptCode	*string
+
 }
 
 // DebitRequest represents a simple debit operation (remove money from account)
@@ -113,6 +116,8 @@ type DebitRequest struct {
 	CreatedByExternalID string                 `json:"created_by_external_id"`
 	CreatedByType       OwnerType              `json:"created_by_type"`
 	Metadata            map[string]interface{} `json:"metadata,omitempty"`
+		ReceiptCode	*string
+
 }
 
 // TransferRequest represents a transfer between two accounts (same currency)
@@ -128,6 +133,8 @@ type TransferRequest struct {
 	CreatedByType       OwnerType              `json:"created_by_type"`
 	AgentExternalID     *string                `json:"agent_external_id,omitempty"` // Agent who facilitated
 	Metadata            map[string]interface{} `json:"metadata,omitempty"`
+		ReceiptCode	*string
+
 }
 
 // ConversionRequest represents a currency conversion transfer
@@ -142,6 +149,8 @@ type ConversionRequest struct {
 	CreatedByType       OwnerType              `json:"created_by_type"`
 	AgentExternalID     *string                `json:"agent_external_id,omitempty"`
 	Metadata            map[string]interface{} `json:"metadata,omitempty"`
+		ReceiptCode	*string
+
 }
 
 type AgentCommissionRequest struct {
@@ -152,6 +161,8 @@ type AgentCommissionRequest struct {
 	CommissionAmount  int64   `json:"commission_amount"`  // Calculated commission
 	CommissionRate    *string `json:"commission_rate"`    // Rate used for calculation
 	IdempotencyKey    *string `json:"idempotency_key,omitempty"`
+		ReceiptCode	*string
+
 }
 type TradeRequest struct {
 	AccountNumber       string                 `json:"account_number"`
@@ -164,6 +175,8 @@ type TradeRequest struct {
 	CreatedByExternalID string                 `json:"created_by_external_id"`
 	CreatedByType       OwnerType              `json:"created_by_type"`
 	Metadata            map[string]interface{} `json:"metadata,omitempty"`
+		ReceiptCode	*string
+
 }
 
 // ========================================

@@ -895,90 +895,36 @@ func (uc *TransactionUsecase) Shutdown() {
 func (uc *TransactionUsecase) Credit(
 	ctx context.Context,
 	req *domain.CreditRequest,
-) (*domain. LedgerAggregate, error) {
+) (*domain.LedgerAggregate, error) {
 	if err := req.Validate(); err != nil {
-		return nil, fmt. Errorf("invalid credit request: %w", err)
+		return nil, fmt.Errorf("invalid credit request: %w", err)
 	}
 
-	// Get system liquidity account for currency (needed for double-entry)
-	systemAccount, err := uc.accountUC.GetSystemAccount(ctx, req.Currency, domain.PurposeLiquidity)
+	// Fetch accounts
+	systemAccount, userAccount, err := uc.fetchSystemAndUserAccounts(
+		ctx, req.Currency, domain.PurposeLiquidity, req.AccountNumber,
+	)
 	if err != nil {
-		return nil, fmt. Errorf("failed to get system account: %w", err)
+		return nil, err
 	}
 
-	// Get user account
-	userAccount, err := uc.accountUC.GetByAccountNumber(ctx, req.AccountNumber)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get user account: %w", err)
-	}
+	// Build transaction request
+	txReq := buildCreditDoubleEntry(req, systemAccount, userAccount)
 
-	// Build double-entry transaction request for receipt generation
-	txReq := &domain.TransactionRequest{
-		IdempotencyKey:      req.IdempotencyKey,
-		TransactionType:     domain.TransactionTypeDeposit,
-		AccountType:         req.AccountType,
-		Description:         &req.Description,
-		CreatedByExternalID: &req.CreatedByExternalID,
-		CreatedByType:       &req.CreatedByType,
-		IsSystemTransaction: true,
-		Entries: []*domain.LedgerEntryRequest{
-			{
-				AccountNumber: systemAccount.AccountNumber,
-				Amount:        req.Amount,
-				DrCr:          domain.DrCrDebit,
-				Currency:      req.Currency,
-				Description:   &req.Description,
-				Metadata:      req.Metadata,
-			},
-			{
-				AccountNumber: userAccount.AccountNumber,
-				Amount:        req.Amount,
-				DrCr:          domain.DrCrCredit,
-				Currency:      req.Currency,
-				Description:   &req.Description,
-				Metadata:      req. Metadata,
-			},
+	// Execute with common pattern
+	return uc.executeWithReceipt(
+		ctx,
+		txReq,
+		func(ctx context.Context) (*domain.LedgerAggregate, error) {
+			req.ExternalRef = txReq.ExternalRef
+			req.ReceiptCode = txReq.ReceiptCode 
+			return uc.transactionRepo.Credit(ctx, req)
 		},
-		GenerateReceipt: true,
-	}
-
-	// Generate receipt code with full double-entry
-	receiptCode, err := uc.generateReceiptCode(ctx, txReq)
-	if err != nil {
-		return nil, fmt. Errorf("failed to generate receipt: %w", err)
-	}
-
-	// Assign receipt to request
-	req.ExternalRef = &receiptCode
-
-	// Track status
-	uc.statusTracker.Track(receiptCode, "processing")
-	uc.logTransactionStart(receiptCode, txReq)
-
-	// Execute credit (repo will rebuild entries, but that's OK - receipt already generated)
-	aggregate, err := uc.transactionRepo.Credit(ctx, req)
-	if err != nil {
-		// Update status on failure
-		uc.statusTracker. Update(receiptCode, "failed", err.Error())
-		uc.receiptBatcher.UpdateStatus(receiptCode, receiptpb.TransactionStatus_TRANSACTION_STATUS_FAILED, err.Error())
-		uc. logTransactionError(receiptCode, err)
-		return nil, fmt.Errorf("credit failed: %w", err)
-	}
-
-	// Update status on success
-	uc.statusTracker.Update(receiptCode, "completed", "")
-	uc.receiptBatcher.UpdateStatus(receiptCode, receiptpb.TransactionStatus_TRANSACTION_STATUS_COMPLETED, "")
-	uc.logTransactionSuccess(receiptCode, aggregate. Journal.ID)
-
-	// Publish Redis event asynchronously
-	go uc. publishCreditEvent(aggregate, req)
-
-	// Invalidate caches
-	uc.invalidateTransactionCaches(ctx, aggregate)
-
-	return aggregate, nil
+		func(agg *domain.LedgerAggregate) {
+			uc.publishCreditEvent(agg, req)
+		},
+	)
 }
-
 
 func (uc *TransactionUsecase) publishCreditEvent(aggregate *domain.LedgerAggregate, req *domain.CreditRequest) {
 	if uc.eventPublisher == nil || aggregate == nil {
@@ -1017,88 +963,37 @@ func (uc *TransactionUsecase) Debit(
 	ctx context.Context,
 	req *domain.DebitRequest,
 ) (*domain.LedgerAggregate, error) {
-	if err := req.Validate(); err != nil {
+	if err := req. Validate(); err != nil {
 		return nil, fmt.Errorf("invalid debit request: %w", err)
 	}
 
-	// Get system liquidity account
-	systemAccount, err := uc.accountUC.GetSystemAccount(ctx, req.Currency, domain.PurposeLiquidity)
+	// Fetch accounts
+	systemAccount, userAccount, err := uc.fetchSystemAndUserAccounts(
+		ctx, req.Currency, domain.PurposeLiquidity, req.AccountNumber,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get system account: %w", err)
+		return nil, err
 	}
 
-	// Get user account
-	userAccount, err := uc.accountUC. GetByAccountNumber(ctx, req.AccountNumber)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get user account: %w", err)
-	}
+	// Build transaction request
+	txReq := buildDebitDoubleEntry(req, systemAccount, userAccount)
 
-	// Build double-entry transaction request
-	txReq := &domain.TransactionRequest{
-		IdempotencyKey:      req.IdempotencyKey,
-		TransactionType:     domain.TransactionTypeWithdrawal,
-		AccountType:         req.AccountType,
-		Description:         &req.Description,
-		CreatedByExternalID: &req.CreatedByExternalID,
-		CreatedByType:       &req.CreatedByType,
-		IsSystemTransaction: true,
-		Entries: []*domain.LedgerEntryRequest{
-			{
-				AccountNumber: userAccount.AccountNumber,
-				Amount:        req.Amount,
-				DrCr:          domain.DrCrDebit,
-				Currency:      req.Currency,
-				Description:   &req.Description,
-				Metadata:      req.Metadata,
-			},
-			{
-				AccountNumber: systemAccount.AccountNumber,
-				Amount:        req. Amount,
-				DrCr:          domain.DrCrCredit,
-				Currency:      req. Currency,
-				Description:   &req.Description,
-				Metadata:      req.Metadata,
-			},
+	// Execute with common pattern
+	return uc.executeWithReceipt(
+		ctx,
+		txReq,
+		func(ctx context.Context) (*domain.LedgerAggregate, error) {
+			req.ExternalRef = txReq.ExternalRef
+			req.ReceiptCode = txReq.ReceiptCode 
+
+			return uc.transactionRepo.Debit(ctx, req)
 		},
-		GenerateReceipt: true,
-	}
-
-	// Generate receipt code
-	receiptCode, err := uc.generateReceiptCode(ctx, txReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate receipt: %w", err)
-	}
-
-	// Assign receipt to request
-	req. ExternalRef = &receiptCode
-
-	// Track status
-	uc.statusTracker.Track(receiptCode, "processing")
-	uc.logTransactionStart(receiptCode, txReq)
-
-	// Execute debit
-	aggregate, err := uc. transactionRepo.Debit(ctx, req)
-	if err != nil {
-		// Update status on failure
-		uc.statusTracker.Update(receiptCode, "failed", err.Error())
-		uc.receiptBatcher.UpdateStatus(receiptCode, receiptpb.TransactionStatus_TRANSACTION_STATUS_FAILED, err.Error())
-		uc.logTransactionError(receiptCode, err)
-		return nil, fmt.Errorf("debit failed: %w", err)
-	}
-
-	// Update status on success
-	uc.statusTracker.Update(receiptCode, "completed", "")
-	uc.receiptBatcher.UpdateStatus(receiptCode, receiptpb.TransactionStatus_TRANSACTION_STATUS_COMPLETED, "")
-	uc.logTransactionSuccess(receiptCode, aggregate.Journal.ID)
-
-	// Publish Redis event asynchronously
-	go uc. publishDebitEvent(aggregate, req)
-
-	// Invalidate caches
-	uc.invalidateTransactionCaches(ctx, aggregate)
-
-	return aggregate, nil
+		func(agg *domain.LedgerAggregate) {
+			uc.publishDebitEvent(agg, req)
+		},
+	)
 }
+
 func (uc *TransactionUsecase) publishDebitEvent(aggregate *domain. LedgerAggregate, req *domain.DebitRequest) {
 	if uc.eventPublisher == nil || aggregate == nil {
 		return
@@ -1139,16 +1034,10 @@ func (uc *TransactionUsecase) Transfer(
 		return nil, fmt. Errorf("invalid transfer request: %w", err)
 	}
 
-	// Get source account
-	sourceAccount, err := uc.accountUC.GetByAccountNumber(ctx, req.FromAccountNumber)
+	// Fetch accounts
+	sourceAccount, destAccount, err := uc.fetchTransferAccounts(ctx, req.FromAccountNumber, req.ToAccountNumber)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get source account: %w", err)
-	}
-
-	// Get destination account
-	destAccount, err := uc.accountUC.GetByAccountNumber(ctx, req.ToAccountNumber)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get destination account: %w", err)
+		return nil, err
 	}
 
 	// Validate same currency
@@ -1156,72 +1045,25 @@ func (uc *TransactionUsecase) Transfer(
 		return nil, xerrors.ErrCurrencyMismatch
 	}
 
-	// Build double-entry transaction request
-	txReq := &domain.TransactionRequest{
-		IdempotencyKey:      req. IdempotencyKey,
-		TransactionType:     domain.TransactionTypeTransfer,
-		AccountType:         req.AccountType,
-		Description:         &req.Description,
-		CreatedByExternalID: &req. CreatedByExternalID,
-		CreatedByType:       &req.CreatedByType,
-		AgentExternalID:     req.AgentExternalID,
-		IsSystemTransaction: false, // FEES APPLY
-		Entries: []*domain.LedgerEntryRequest{
-			{
-				AccountNumber: sourceAccount.AccountNumber,
-				Amount:        req.Amount,
-				DrCr:          domain.DrCrDebit,
-				Currency:      sourceAccount.Currency,
-				Description:   &req.Description,
-				Metadata:      req.Metadata,
-			},
-			{
-				AccountNumber: destAccount.AccountNumber,
-				Amount:        req.Amount,
-				DrCr:          domain.DrCrCredit,
-				Currency:      destAccount.Currency,
-				Description:   &req.Description,
-				Metadata:      req.Metadata,
-			},
+	// Build transaction request
+	txReq := buildTransferDoubleEntry(req, sourceAccount, destAccount)
+	if txReq == nil {
+		return nil, xerrors.ErrCurrencyMismatch
+	}
+
+	// Execute with common pattern
+	return uc.executeWithReceipt(
+		ctx,
+		txReq,
+		func(ctx context.Context) (*domain.LedgerAggregate, error) {
+			req.ExternalRef = txReq.ExternalRef
+			req.ReceiptCode = txReq.ReceiptCode 
+			return uc. transactionRepo.Transfer(ctx, req)
 		},
-		GenerateReceipt: true,
-	}
-
-	// Generate receipt code
-	receiptCode, err := uc.generateReceiptCode(ctx, txReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate receipt: %w", err)
-	}
-
-	// Assign receipt to request
-	req.ExternalRef = &receiptCode
-
-	// Track status
-	uc.statusTracker.Track(receiptCode, "processing")
-	uc.logTransactionStart(receiptCode, txReq)
-
-	// Execute transfer
-	aggregate, err := uc.transactionRepo.Transfer(ctx, req)
-	if err != nil {
-		// Update status on failure
-		uc.statusTracker.Update(receiptCode, "failed", err.Error())
-		uc.receiptBatcher.UpdateStatus(receiptCode, receiptpb.TransactionStatus_TRANSACTION_STATUS_FAILED, err.Error())
-		uc.logTransactionError(receiptCode, err)
-		return nil, fmt.Errorf("transfer failed: %w", err)
-	}
-
-	// Update status on success
-	uc. statusTracker.Update(receiptCode, "completed", "")
-	uc.receiptBatcher.UpdateStatus(receiptCode, receiptpb.TransactionStatus_TRANSACTION_STATUS_COMPLETED, "")
-	uc. logTransactionSuccess(receiptCode, aggregate.Journal.ID)
-
-	// Publish Redis event asynchronously
-	go uc.publishTransferEvent(aggregate, req)
-
-	// Invalidate caches
-	uc.invalidateTransactionCaches(ctx, aggregate)
-
-	return aggregate, nil
+		func(agg *domain.LedgerAggregate) {
+			uc.publishTransferEvent(agg, req)
+		},
+	)
 }
 
 func (uc *TransactionUsecase) publishTransferEvent(aggregate *domain.LedgerAggregate, req *domain.TransferRequest) {
@@ -1256,21 +1098,15 @@ func (uc *TransactionUsecase) publishTransferEvent(aggregate *domain.LedgerAggre
 func (uc *TransactionUsecase) ConvertAndTransfer(
 	ctx context.Context,
 	req *domain.ConversionRequest,
-) (*domain. LedgerAggregate, error) {
+) (*domain.LedgerAggregate, error) {
 	if err := req.Validate(); err != nil {
-		return nil, fmt. Errorf("invalid conversion request: %w", err)
+		return nil, fmt.Errorf("invalid conversion request: %w", err)
 	}
 
-	// Get source account
-	sourceAccount, err := uc.accountUC.GetByAccountNumber(ctx, req.FromAccountNumber)
+	// Fetch accounts
+	sourceAccount, destAccount, err := uc.fetchTransferAccounts(ctx, req.FromAccountNumber, req.ToAccountNumber)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get source account: %w", err)
-	}
-
-	// Get destination account
-	destAccount, err := uc. accountUC.GetByAccountNumber(ctx, req.ToAccountNumber)
-	if err != nil {
-		return nil, fmt. Errorf("failed to get destination account: %w", err)
+		return nil, err
 	}
 
 	// Currencies must be different
@@ -1278,74 +1114,22 @@ func (uc *TransactionUsecase) ConvertAndTransfer(
 		return nil, errors.New("use Transfer for same currency operations")
 	}
 
-	// Note: Converted amount will be calculated by repo using FX rates
-	// For receipt generation, we use the source amount
-	txReq := &domain.TransactionRequest{
-		IdempotencyKey:      req.IdempotencyKey,
-		TransactionType:     domain.TransactionTypeConversion,
-		AccountType:         req.AccountType,
-		Description:         ptrString(fmt.Sprintf("Currency conversion: %s to %s", 
-			sourceAccount.Currency, destAccount.Currency)),
-		CreatedByExternalID: &req. CreatedByExternalID,
-		CreatedByType:       &req.CreatedByType,
-		AgentExternalID:     req.AgentExternalID,
-		IsSystemTransaction: false,
-		Entries: []*domain.LedgerEntryRequest{
-			{
-				AccountNumber: sourceAccount.AccountNumber,
-				Amount:        req.Amount,
-				DrCr:          domain. DrCrDebit,
-				Currency:      sourceAccount.Currency,
-				Description:   ptrString(fmt.Sprintf("Convert from %s", sourceAccount.Currency)),
-				Metadata:      req.Metadata,
-			},
-			{
-				AccountNumber: destAccount.AccountNumber,
-				Amount:        req. Amount, // Will show source amount in receipt, actual conversion happens in repo
-				DrCr:          domain.DrCrCredit,
-				Currency:      destAccount.Currency,
-				Description:   ptrString(fmt. Sprintf("Convert to %s", destAccount.Currency)),
-				Metadata:      req.Metadata,
-			},
+	// Build transaction request
+	txReq := buildConversionDoubleEntry(req, sourceAccount, destAccount)
+
+	// Execute with common pattern
+	return uc.executeWithReceipt(
+		ctx,
+		txReq,
+		func(ctx context.Context) (*domain. LedgerAggregate, error) {
+			req.ExternalRef = txReq.ExternalRef
+			req.ReceiptCode = txReq.ReceiptCode 
+			return uc.transactionRepo.ConvertAndTransfer(ctx, req)
 		},
-		GenerateReceipt: true,
-	}
-
-	// Generate receipt code
-	receiptCode, err := uc.generateReceiptCode(ctx, txReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate receipt: %w", err)
-	}
-
-	// Assign receipt to request
-	req.ExternalRef = &receiptCode
-
-	// Track status
-	uc.statusTracker.Track(receiptCode, "processing")
-	uc.logTransactionStart(receiptCode, txReq)
-
-	// Execute conversion
-	aggregate, err := uc. transactionRepo.ConvertAndTransfer(ctx, req)
-	if err != nil {
-		// Update status on failure
-		uc.statusTracker.Update(receiptCode, "failed", err. Error())
-		uc.receiptBatcher.UpdateStatus(receiptCode, receiptpb. TransactionStatus_TRANSACTION_STATUS_FAILED, err.Error())
-		uc.logTransactionError(receiptCode, err)
-		return nil, fmt. Errorf("conversion failed: %w", err)
-	}
-
-	// Update status on success
-	uc.statusTracker.Update(receiptCode, "completed", "")
-	uc.receiptBatcher.UpdateStatus(receiptCode, receiptpb.TransactionStatus_TRANSACTION_STATUS_COMPLETED, "")
-	uc.logTransactionSuccess(receiptCode, aggregate.Journal.ID)
-
-	// Publish Redis event asynchronously
-	go uc.publishConversionEvent(aggregate, req)
-
-	// Invalidate caches
-	uc. invalidateTransactionCaches(ctx, aggregate)
-
-	return aggregate, nil
+		func(agg *domain.LedgerAggregate) {
+			uc.publishConversionEvent(agg, req)
+		},
+	)
 }
 
 func (uc *TransactionUsecase) publishConversionEvent(aggregate *domain.LedgerAggregate, req *domain.ConversionRequest) {
@@ -1400,96 +1184,40 @@ func (uc *TransactionUsecase) ProcessTradeWin(
 	ctx context.Context,
 	req *domain.TradeRequest,
 ) (*domain.LedgerAggregate, error) {
-	if err := req. Validate(); err != nil {
+	if err := req.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid trade request: %w", err)
 	}
 
-	// Get system liquidity account
-	systemAccount, err := uc.accountUC.GetSystemAccount(ctx, req.Currency, domain.PurposeLiquidity)
+	// Fetch accounts
+	systemAccount, userAccount, err := uc.fetchSystemAndUserAccounts(
+		ctx, req.Currency, domain.PurposeLiquidity, req.AccountNumber,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get system account: %w", err)
+		return nil, err
 	}
 
-	// Get user account
-	userAccount, err := uc. accountUC.GetByAccountNumber(ctx, req.AccountNumber)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get user account: %w", err)
-	}
+	// Build transaction request
+	txReq := buildTradeDoubleEntry(req, systemAccount, userAccount, "win")
 
-	// Build metadata with trade information
-	metadata := req.Metadata
-	if metadata == nil {
-		metadata = make(map[string]interface{})
-	}
-	metadata["trade_id"] = req.TradeID
-	metadata["trade_type"] = req.TradeType
-	metadata["trade_result"] = "win"
-
-	// Build double-entry transaction request
-	txReq := &domain.TransactionRequest{
-		IdempotencyKey:      req. IdempotencyKey,
-		TransactionType:     domain.TransactionTypeDeposit,
-		AccountType:         req.AccountType,
-		Description:         ptrString(fmt.Sprintf("Trade win: %s (%s)", req.TradeID, req.TradeType)),
-		CreatedByExternalID: &req.CreatedByExternalID,
-		CreatedByType:       &req.CreatedByType,
-		IsSystemTransaction: true,
-		Entries: []*domain.LedgerEntryRequest{
-			{
-				AccountNumber: systemAccount.AccountNumber,
-				Amount:        req.Amount,
-				DrCr:          domain.DrCrDebit,
-				Currency:      req.Currency,
-				Description:   ptrString("System debit for trade win"),
-				Metadata:      metadata,
-			},
-			{
-				AccountNumber: userAccount.AccountNumber,
-				Amount:        req.Amount,
-				DrCr:          domain.DrCrCredit,
-				Currency:      req.Currency,
-				Description:   ptrString(fmt.Sprintf("Trade win: %s", req.TradeID)),
-				Metadata:      metadata,
-			},
+	// Execute with common pattern
+	aggregate, err := uc.executeWithReceipt(
+		ctx,
+		txReq,
+		func(ctx context.Context) (*domain.LedgerAggregate, error) {
+			req.ReceiptCode = txReq.ReceiptCode 
+			return uc.transactionRepo.ProcessTradeWin(ctx, req)
 		},
-		GenerateReceipt: true,
+		func(agg *domain.LedgerAggregate) {
+			uc.publishTradeEvent(agg, req, "win")
+		},
+	)
+
+	if err == nil && aggregate != nil {
+		// Override external_ref with receipt code
+		aggregate.Journal.ExternalRef = txReq.ExternalRef
 	}
 
-	// Generate receipt code
-	receiptCode, err := uc.generateReceiptCode(ctx, txReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate receipt: %w", err)
-	}
-
-	// Track status
-	uc.statusTracker.Track(receiptCode, "processing")
-	uc. logTransactionStart(receiptCode, txReq)
-
-	// Execute trade win
-	aggregate, err := uc.transactionRepo. ProcessTradeWin(ctx, req)
-	if err != nil {
-		// Update status on failure
-		uc.statusTracker.Update(receiptCode, "failed", err.Error())
-		uc.receiptBatcher. UpdateStatus(receiptCode, receiptpb.TransactionStatus_TRANSACTION_STATUS_FAILED, err.Error())
-		uc.logTransactionError(receiptCode, err)
-		return nil, fmt.Errorf("trade win processing failed: %w", err)
-	}
-
-	// Update journal external_ref to receipt code (may contain TradeID, override it)
-	aggregate.Journal.ExternalRef = &receiptCode
-
-	// Update status on success
-	uc.statusTracker.Update(receiptCode, "completed", "")
-	uc.receiptBatcher. UpdateStatus(receiptCode, receiptpb.TransactionStatus_TRANSACTION_STATUS_COMPLETED, "")
-	uc.logTransactionSuccess(receiptCode, aggregate.Journal.ID)
-
-	// Publish Redis event
-	go uc.publishTradeEvent(aggregate, req, "win")
-
-	// Invalidate caches
-	uc.invalidateTransactionCaches(ctx, aggregate)
-
-	return aggregate, nil
+	return aggregate, err
 }
 
 func (uc *TransactionUsecase) ProcessTradeLoss(
@@ -1500,92 +1228,36 @@ func (uc *TransactionUsecase) ProcessTradeLoss(
 		return nil, fmt.Errorf("invalid trade request: %w", err)
 	}
 
-	// Get system liquidity account
-	systemAccount, err := uc.accountUC.GetSystemAccount(ctx, req.Currency, domain.PurposeLiquidity)
+	// Fetch accounts
+	systemAccount, userAccount, err := uc.fetchSystemAndUserAccounts(
+		ctx, req.Currency, domain.PurposeLiquidity, req.AccountNumber,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get system account: %w", err)
+		return nil, err
 	}
 
-	// Get user account
-	userAccount, err := uc.accountUC.GetByAccountNumber(ctx, req.AccountNumber)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get user account: %w", err)
-	}
+	// Build transaction request
+	txReq := buildTradeDoubleEntry(req, systemAccount, userAccount, "loss")
 
-	// Build metadata
-	metadata := req.Metadata
-	if metadata == nil {
-		metadata = make(map[string]interface{})
-	}
-	metadata["trade_id"] = req.TradeID
-	metadata["trade_type"] = req.TradeType
-	metadata["trade_result"] = "loss"
-
-	// Build double-entry transaction request
-	txReq := &domain. TransactionRequest{
-		IdempotencyKey:      req.IdempotencyKey,
-		TransactionType:     domain.TransactionTypeWithdrawal,
-		AccountType:         req.AccountType,
-		Description:         ptrString(fmt.Sprintf("Trade loss: %s (%s)", req.TradeID, req.TradeType)),
-		CreatedByExternalID: &req.CreatedByExternalID,
-		CreatedByType:       &req.CreatedByType,
-		IsSystemTransaction: true,
-		Entries: []*domain.LedgerEntryRequest{
-			{
-				AccountNumber: userAccount.AccountNumber,
-				Amount:        req.Amount,
-				DrCr:          domain.DrCrDebit,
-				Currency:      req.Currency,
-				Description:   ptrString(fmt.Sprintf("Trade loss: %s", req.TradeID)),
-				Metadata:      metadata,
-			},
-			{
-				AccountNumber: systemAccount.AccountNumber,
-				Amount:        req.Amount,
-				DrCr:          domain.DrCrCredit,
-				Currency:      req.Currency,
-				Description:   ptrString("System credit for trade loss"),
-				Metadata:      metadata,
-			},
+	// Execute with common pattern
+	aggregate, err := uc.executeWithReceipt(
+		ctx,
+		txReq,
+		func(ctx context.Context) (*domain.LedgerAggregate, error) {
+			req.ReceiptCode = txReq.ReceiptCode 
+			return uc.transactionRepo.ProcessTradeLoss(ctx, req)
 		},
-		GenerateReceipt: true,
+		func(agg *domain. LedgerAggregate) {
+			uc.publishTradeEvent(agg, req, "loss")
+		},
+	)
+
+	if err == nil && aggregate != nil {
+		// Override external_ref with receipt code
+		aggregate.Journal.ExternalRef = txReq.ExternalRef
 	}
 
-	// Generate receipt code
-	receiptCode, err := uc. generateReceiptCode(ctx, txReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate receipt: %w", err)
-	}
-
-	// Track status
-	uc.statusTracker. Track(receiptCode, "processing")
-	uc.logTransactionStart(receiptCode, txReq)
-
-	// Execute trade loss
-	aggregate, err := uc.transactionRepo.ProcessTradeLoss(ctx, req)
-	if err != nil {
-		// Update status on failure
-		uc.statusTracker.Update(receiptCode, "failed", err.Error())
-		uc.receiptBatcher.UpdateStatus(receiptCode, receiptpb.TransactionStatus_TRANSACTION_STATUS_FAILED, err. Error())
-		uc.logTransactionError(receiptCode, err)
-		return nil, fmt.Errorf("trade loss processing failed: %w", err)
-	}
-
-	// Update journal external_ref to receipt code
-	aggregate.Journal.ExternalRef = &receiptCode
-
-	// Update status on success
-	uc.statusTracker.Update(receiptCode, "completed", "")
-	uc.receiptBatcher.UpdateStatus(receiptCode, receiptpb.TransactionStatus_TRANSACTION_STATUS_COMPLETED, "")
-	uc.logTransactionSuccess(receiptCode, aggregate.Journal.ID)
-
-	// Publish Redis event
-	go uc.publishTradeEvent(aggregate, req, "loss")
-
-	// Invalidate caches
-	uc.invalidateTransactionCaches(ctx, aggregate)
-
-	return aggregate, nil
+	return aggregate, err
 }
 
 func (uc *TransactionUsecase) publishTradeEvent(aggregate *domain. LedgerAggregate, req *domain.TradeRequest, result string) {
@@ -1631,92 +1303,34 @@ func (uc *TransactionUsecase) ProcessAgentCommission(
 	req *domain.AgentCommissionRequest,
 ) (*domain.LedgerAggregate, error) {
 	if err := req.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid commission request: %w", err)
+		return nil, fmt. Errorf("invalid commission request: %w", err)
 	}
 
 	// Get agent commission account
-	agentAccount, err := uc.accountUC. GetAgentAccount(ctx, req.AgentExternalID, req.Currency)
+	agentAccount, err := uc.accountUC.GetAgentAccount(ctx, req.AgentExternalID, req.Currency)
 	if err != nil {
-		return nil, fmt. Errorf("failed to get agent account: %w", err)
+		return nil, fmt.Errorf("failed to get agent account: %w", err)
 	}
 
 	// Get system fee account
-	systemFeeAccount, err := uc. accountUC.GetSystemAccount(ctx, req.Currency, domain.PurposeFees)
+	systemFeeAccount, err := uc.accountUC.GetSystemAccount(ctx, req.Currency, domain.PurposeFees)
 	if err != nil {
 		return nil, fmt. Errorf("failed to get system fee account: %w", err)
 	}
 
-	// Build metadata
-	metadata := make(map[string]interface{})
-	metadata["agent_id"] = req.AgentExternalID
-	metadata["original_txn"] = req.TransactionRef
-	metadata["transaction_amount"] = req.TransactionAmount
-	if req.CommissionRate != nil {
-		metadata["commission_rate"] = *req.CommissionRate
-	}
+	// Build transaction request
+	txReq := buildCommissionDoubleEntry(req, systemFeeAccount, agentAccount)
 
-	// Build double-entry transaction request
-	txReq := &domain.TransactionRequest{
-		IdempotencyKey:      req. IdempotencyKey,
-		TransactionType:     domain.TransactionTypeCommission,
-		AccountType:         domain.AccountTypeReal,
-		Description:         ptrString(fmt.Sprintf("Agent commission: %s", req.TransactionRef)),
-		CreatedByExternalID: ptrString("system"),
-		CreatedByType:       ptrOwnerType(domain.OwnerTypeSystem),
-		IsSystemTransaction: true,
-		Entries: []*domain.LedgerEntryRequest{
-			{
-				AccountNumber: systemFeeAccount.AccountNumber,
-				Amount:        req.CommissionAmount,
-				DrCr:          domain.DrCrDebit,
-				Currency:      req.Currency,
-				Description:   ptrString(fmt.Sprintf("Commission payment for %s", req.TransactionRef)),
-				Metadata:      metadata,
-			},
-			{
-				AccountNumber: agentAccount.AccountNumber,
-				Amount:        req.CommissionAmount,
-				DrCr:          domain.DrCrCredit,
-				Currency:      req.Currency,
-				Description:   ptrString(fmt. Sprintf("Commission earned: %s", req.TransactionRef)),
-				Metadata:      metadata,
-			},
+	// Execute with common pattern
+	return uc.executeWithReceipt(
+		ctx,
+		txReq,
+		func(ctx context.Context) (*domain.LedgerAggregate, error) {
+			req.ReceiptCode = txReq.ReceiptCode 
+			return uc.transactionRepo.ProcessAgentCommission(ctx, req)
 		},
-		GenerateReceipt: true,
-	}
-
-	// Generate receipt code
-	receiptCode, err := uc.generateReceiptCode(ctx, txReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate receipt: %w", err)
-	}
-
-	// Track status
-	uc.statusTracker.Track(receiptCode, "processing")
-	uc.logTransactionStart(receiptCode, txReq)
-
-	// Execute commission payment
-	aggregate, err := uc.transactionRepo.ProcessAgentCommission(ctx, req)
-	if err != nil {
-		// Update status on failure
-		uc.statusTracker.Update(receiptCode, "failed", err.Error())
-		uc. receiptBatcher.UpdateStatus(receiptCode, receiptpb.TransactionStatus_TRANSACTION_STATUS_FAILED, err.Error())
-		uc.logTransactionError(receiptCode, err)
-		return nil, fmt. Errorf("commission processing failed: %w", err)
-	}
-
-	// Update status on success
-	uc.statusTracker.Update(receiptCode, "completed", "")
-	uc.receiptBatcher. UpdateStatus(receiptCode, receiptpb.TransactionStatus_TRANSACTION_STATUS_COMPLETED, "")
-	uc.logTransactionSuccess(receiptCode, aggregate.Journal.ID)
-
-	// Publish Redis event
-	//go uc.publishCommissionEvent(aggregate, req)
-
-	// Invalidate caches
-	uc.invalidateTransactionCaches(ctx, aggregate)
-
-	return aggregate, nil
+		nil, // No specific event publisher for commission yet
+	)
 }
 
 // ===============================
@@ -1747,12 +1361,4 @@ func (uc *TransactionUsecase) generateReceiptCode(
 	case <-time.After(2 * time.Second):
 		return "", errors.New("receipt generation timeout")
 	}
-}
-
-func ptrString(s string) *string {
-	return &s
-}
-
-func ptrOwnerType(t domain.OwnerType) *domain.OwnerType {
-	return &t
 }
