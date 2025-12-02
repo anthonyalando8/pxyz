@@ -1003,15 +1003,22 @@ func (r *receiptRepo) UpdateBatch(ctx context.Context, updates []*domain.Receipt
 		var metadataJSON []byte
 		var updatedAt, completedAt, reversedAt *time.Time
 
-		// Scan with proper type handling
+		// 🔥 FIX: Use sql.NullInt64 for nullable BIGINT columns
 		var amountCents, originalAmountCents, transactionCostCents int64
+		var creditorLedgerID, debitorLedgerID sql.NullInt64  // ✅ Changed from int64
 		var originalCurrency, exchangeRate, externalRef, parentReceiptCode, reversalReceiptCode sql.NullString
 		var codedType, errorMessage, createdBy, reversedBy sql.NullString
 
 		err := rows.Scan(
-			&rec.LookupID, &rec.Code, &rec. AccountType,
-			&rec. Creditor.AccountID, &rec.Creditor. LedgerID, &rec. Creditor.OwnerType, &rec.Creditor. Status,
-			&rec. Debitor.AccountID, &rec.Debitor.LedgerID, &rec.Debitor.OwnerType, &rec.Debitor.Status,
+			&rec.LookupID, &rec.Code, &rec.AccountType,
+			&rec.Creditor.AccountID, 
+			&creditorLedgerID,          // ✅ Scan into sql.NullInt64
+			&rec.Creditor. OwnerType, 
+			&rec.Creditor.Status,
+			&rec. Debitor.AccountID, 
+			&debitorLedgerID,           // ✅ Scan into sql.NullInt64
+			&rec. Debitor.OwnerType, 
+			&rec.Debitor.Status,
 			&rec.TransactionType, &codedType, &amountCents, &originalAmountCents, &transactionCostCents,
 			&rec.Currency, &originalCurrency, &exchangeRate,
 			&externalRef, &parentReceiptCode, &reversalReceiptCode,
@@ -1032,27 +1039,40 @@ func (r *receiptRepo) UpdateBatch(ctx context.Context, updates []*domain.Receipt
 		rec.OriginalAmount = float64(originalAmountCents) / 100.0
 		rec. TransactionCost = float64(transactionCostCents) / 100.0
 
+		// ✅ Handle nullable LedgerIDs
+		if creditorLedgerID.Valid {
+			rec. Creditor.LedgerID = creditorLedgerID.Int64
+		} else {
+			rec.Creditor.LedgerID = 0  // or handle as needed
+		}
+
+		if debitorLedgerID.Valid {
+			rec.Debitor.LedgerID = debitorLedgerID.Int64
+		} else {
+			rec.Debitor.LedgerID = 0  // or handle as needed
+		}
+
 		// Handle nullable strings
 		if codedType.Valid {
 			rec.CodedType = codedType.String
 		}
-		if originalCurrency.Valid {
-			rec. OriginalCurrency = originalCurrency.String
+		if originalCurrency. Valid {
+			rec.OriginalCurrency = originalCurrency. String
 		}
 		if exchangeRate.Valid {
 			rec.ExchangeRate = exchangeRate.String
 		}
 		if externalRef.Valid {
-			rec.ExternalRef = externalRef.String
+			rec. ExternalRef = externalRef. String
 		}
 		if parentReceiptCode.Valid {
 			rec.ParentReceiptCode = parentReceiptCode.String
 		}
 		if reversalReceiptCode.Valid {
-			rec.ReversalReceiptCode = reversalReceiptCode.String
+			rec. ReversalReceiptCode = reversalReceiptCode.String
 		}
 		if errorMessage.Valid {
-			rec.ErrorMessage = errorMessage. String
+			rec.ErrorMessage = errorMessage.String
 		}
 		if createdBy.Valid {
 			rec.CreatedBy = createdBy.String
@@ -1065,15 +1085,15 @@ func (r *receiptRepo) UpdateBatch(ctx context.Context, updates []*domain.Receipt
 		rec.CompletedAt = completedAt
 		rec.ReversedAt = reversedAt
 
-		if len(metadataJSON) > 0 && string(metadataJSON) != "null" {
+		if len(metadataJSON) > 0 {
 			json. Unmarshal(metadataJSON, &rec.Metadata)
 		}
 
 		rec. Creditor.IsCreditor = true
-		rec.Debitor. IsCreditor = false
+		rec.Debitor.IsCreditor = false
 
 		results = append(results, &rec)
-		updatedCodes = append(updatedCodes, rec. Code)
+		updatedCodes = append(updatedCodes, rec.Code)
 	}
 
 	if err := rows.Err(); err != nil {
