@@ -243,6 +243,7 @@ func (uc *ReceiptUsecase) generateReceiptCodes(recs []*domain.Receipt, now time.
 // ===============================
 
 // UpdateReceipts updates multiple receipts
+// UpdateReceipts updates multiple receipts
 func (uc *ReceiptUsecase) UpdateReceipts(ctx context.Context, updates []*domain.ReceiptUpdate) error {
 	if len(updates) == 0 {
 		return nil
@@ -259,8 +260,11 @@ func (uc *ReceiptUsecase) UpdateReceipts(ctx context.Context, updates []*domain.
 		)
 	}()
 
+	// 🔥 FIX: Propagate status to creditor/debitor if they're empty
+	normalizedUpdates := uc.normalizeStatusUpdates(updates)
+
 	// Update in database
-	updatedReceipts, err := uc.repo.UpdateBatch(ctx, updates)
+	updatedReceipts, err := uc.repo.UpdateBatch(ctx, normalizedUpdates)
 	if err != nil {
 		usecaseReceiptsProcessed.WithLabelValues("update", "error").Add(float64(len(updates)))
 		return fmt.Errorf("failed to update receipts: %w", err)
@@ -269,7 +273,7 @@ func (uc *ReceiptUsecase) UpdateReceipts(ctx context.Context, updates []*domain.
 	usecaseReceiptsProcessed.WithLabelValues("update", "success").Add(float64(len(updatedReceipts)))
 
 	// Publish to Kafka (async)
-	go uc.publishReceiptUpdated(updates)
+	go uc.publishReceiptUpdated(normalizedUpdates)
 
 	return nil
 }
@@ -282,22 +286,98 @@ func (uc *ReceiptUsecase) UpdateReceiptsBatch(ctx context.Context, updates []*do
 
 	start := time.Now()
 	defer func() {
-		usecaseProcessingDuration.WithLabelValues("update_batch").Observe(time.Since(start).Seconds())
+		usecaseProcessingDuration.WithLabelValues("update_batch").Observe(time.Since(start). Seconds())
 	}()
 
+	// 🔥 FIX: Propagate status to creditor/debitor if they're empty
+	normalizedUpdates := uc.normalizeStatusUpdates(updates)
+
 	// Update in database
-	updatedReceipts, err := uc.repo.UpdateBatch(ctx, updates)
+	updatedReceipts, err := uc.repo.UpdateBatch(ctx, normalizedUpdates)
 	if err != nil {
-		usecaseReceiptsProcessed.WithLabelValues("update_batch", "error").Add(float64(len(updates)))
-		return nil, fmt.Errorf("failed to update receipts: %w", err)
+		usecaseReceiptsProcessed.WithLabelValues("update_batch", "error"). Add(float64(len(updates)))
+		return nil, fmt. Errorf("failed to update receipts: %w", err)
 	}
 
 	usecaseReceiptsProcessed.WithLabelValues("update_batch", "success").Add(float64(len(updatedReceipts)))
 
 	// Publish to Kafka (async)
-	go uc.publishReceiptUpdated(updates)
+	go uc.publishReceiptUpdated(normalizedUpdates)
 
 	return updatedReceipts, nil
+}
+
+// normalizeStatusUpdates propagates main status to creditor/debitor if they're empty
+func (uc *ReceiptUsecase) normalizeStatusUpdates(updates []*domain.ReceiptUpdate) []*domain.ReceiptUpdate {
+	normalized := make([]*domain.ReceiptUpdate, len(updates))
+
+	for i, upd := range updates {
+		// Copy the update to avoid modifying the original
+		normalized[i] = &domain. ReceiptUpdate{
+			Code:                upd.Code,
+			Status:              upd.Status,
+			CreditorStatus:      upd.CreditorStatus,
+			CreditorLedgerID:    upd. CreditorLedgerID,
+			DebitorStatus:       upd.DebitorStatus,
+			DebitorLedgerID:     upd. DebitorLedgerID,
+			ReversedBy:          upd.ReversedBy,
+			ReversedAt:          upd.ReversedAt,
+			CompletedAt:         upd.CompletedAt,
+			ErrorMessage:        upd.ErrorMessage,
+			ReversalReceiptCode: upd.ReversalReceiptCode,
+			MetadataPatch:       upd.MetadataPatch,
+		}
+
+		// 🔥 If status is being updated but creditor/debitor statuses are empty,
+		// propagate the main status to both parties
+		if upd.Status != "" {
+			if upd.CreditorStatus == "" {
+				normalized[i]. CreditorStatus = upd. Status
+				uc.logger.Debug("propagating status to creditor",
+					zap.String("code", upd.Code),
+					zap.String("status", upd.Status),
+				)
+			}
+
+			if upd.DebitorStatus == "" {
+				normalized[i].DebitorStatus = upd.Status
+				uc. logger.Debug("propagating status to debitor",
+					zap. String("code", upd.Code),
+					zap.String("status", upd.Status),
+				)
+			}
+		}
+
+		// 🔥 Special handling for "completed" status
+		if upd.Status == "completed" && upd.CompletedAt == nil {
+			now := time.Now()
+			normalized[i].CompletedAt = &now
+			uc.logger.Debug("setting completed_at timestamp",
+				zap.String("code", upd.Code),
+				zap.Time("completed_at", now),
+			)
+		}
+
+		// 🔥 Special handling for "reversed" status
+		if upd.Status == "reversed" {
+			if upd.ReversedAt == nil {
+				now := time. Now()
+				normalized[i]. ReversedAt = &now
+				uc.logger.Debug("setting reversed_at timestamp",
+					zap.String("code", upd.Code),
+					zap.Time("reversed_at", now),
+				)
+			}
+
+			// If reversed_by is empty, you might want to set it to a default
+			if upd.ReversedBy == "" {
+				// Optionally set a default like "system" or get from context
+				// normalized[i].ReversedBy = "system"
+			}
+		}
+	}
+
+	return normalized
 }
 
 // ===============================
