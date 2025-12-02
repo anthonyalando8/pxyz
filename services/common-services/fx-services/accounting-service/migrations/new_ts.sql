@@ -574,6 +574,105 @@ WHERE fr.created_at > NOW() - INTERVAL '24 hours'
 ORDER BY fr.created_at DESC;
 
 
+
+-- DELETE TRIGGERS
+
+-- ===============================
+-- CASCADE DELETE: lookup → receipts (WITH RECURSION GUARD)
+-- ===============================
+CREATE OR REPLACE FUNCTION delete_receipts_on_lookup_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Set a flag to prevent recursive trigger from firing
+  PERFORM set_config('receipt_service.deleting_lookup', 'true', true);
+  
+  -- Delete all receipts associated with this lookup
+  DELETE FROM fx_receipts 
+  WHERE lookup_id = OLD.id;
+  
+  -- Log for debugging
+  RAISE NOTICE 'Deleted receipts for lookup_id: %', OLD.id;
+  
+  -- Clear the flag
+  PERFORM set_config('receipt_service.deleting_lookup', '', true);
+  
+  RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trigger_delete_receipts_on_lookup_delete ON receipt_lookup;
+CREATE TRIGGER trigger_delete_receipts_on_lookup_delete
+  BEFORE DELETE ON receipt_lookup
+  FOR EACH ROW
+  EXECUTE FUNCTION delete_receipts_on_lookup_delete();
+
+-- ===============================
+-- CASCADE DELETE: receipts → lookup (WITH RECURSION GUARD)
+-- ===============================
+CREATE OR REPLACE FUNCTION delete_lookup_if_no_receipts()
+RETURNS TRIGGER AS $$
+DECLARE
+  receipt_count INT;
+  is_deleting_lookup TEXT;
+BEGIN
+  -- Check if we're already in a lookup delete operation
+  is_deleting_lookup := current_setting('receipt_service.deleting_lookup', true);
+  
+  -- If the flag is set, skip this trigger to prevent recursion
+  IF is_deleting_lookup = 'true' THEN
+    RETURN OLD;
+  END IF;
+  
+  -- Check if there are any remaining receipts for this lookup
+  SELECT COUNT(*) INTO receipt_count
+  FROM fx_receipts
+  WHERE lookup_id = OLD.lookup_id;
+  
+  -- If no receipts remain, delete the lookup entry
+  IF receipt_count = 0 THEN
+    DELETE FROM receipt_lookup 
+    WHERE id = OLD.lookup_id;
+    
+    RAISE NOTICE 'Deleted orphaned lookup_id: %', OLD.lookup_id;
+  END IF;
+  
+  RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trigger_delete_lookup_if_no_receipts ON fx_receipts;
+CREATE TRIGGER trigger_delete_lookup_if_no_receipts
+  AFTER DELETE ON fx_receipts
+  FOR EACH ROW
+  EXECUTE FUNCTION delete_lookup_if_no_receipts();
+
+-- ===============================
+-- PREVENT ORPHANED RECEIPTS (No changes needed)
+-- ===============================
+CREATE OR REPLACE FUNCTION prevent_orphaned_receipts()
+RETURNS TRIGGER AS $$
+DECLARE
+  lookup_exists BOOLEAN;
+BEGIN
+  -- Check if lookup exists
+  SELECT EXISTS(
+    SELECT 1 FROM receipt_lookup WHERE id = NEW.lookup_id
+  ) INTO lookup_exists;
+  
+  IF NOT lookup_exists THEN
+    RAISE EXCEPTION 'Cannot insert receipt: lookup_id % does not exist', NEW.lookup_id;
+  END IF;
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trigger_prevent_orphaned_receipts ON fx_receipts;
+CREATE TRIGGER trigger_prevent_orphaned_receipts
+  BEFORE INSERT ON fx_receipts
+  FOR EACH ROW
+  EXECUTE FUNCTION prevent_orphaned_receipts();
+
 -- ===============================
 -- LEDGERS (Hypertable)
 -- ===============================
