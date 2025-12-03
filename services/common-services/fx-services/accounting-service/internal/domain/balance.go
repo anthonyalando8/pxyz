@@ -153,5 +153,5 @@ func (h *BalanceHistory) GetBalanceChangePercent() float64 {
 	}
 
 	change := last.Balance - first.Balance
-	return (float64(change) / float64(first.Balance)) * 1
+	return (float64(change) / float64(first.Balance)) * 100
 }

@@ -912,6 +912,9 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.cashier.rule=PathPrefix(`/api/v1/cashier/`)"
       - "traefik.http.services.cashier.loadbalancer.server.port=8021"
+
+      - "traefik.http.middlewares.cashier-stripprefix.stripprefix.prefixes=/api/v1"
+      - "traefik.http.routers.cashier.middlewares=ptnaccess-stripprefix"
     env_file:
       - ./services/user-services/cashier-service/.env
     volumes:

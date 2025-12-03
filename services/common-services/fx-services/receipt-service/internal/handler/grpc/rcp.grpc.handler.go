@@ -250,9 +250,9 @@ func (h *ReceiptGRPCHandler) CreateReceiptsBatch(
 		}
 
 		// Convert amounts (proto uses float64 cents, domain uses float64 dollars)
-		amount := float64(r.Amount) / 1.0
-		originalAmount := float64(r.OriginalAmount) / 1.0
-		transactionCost := float64(r.TransactionCost) / 1.0
+		amount := r.Amount
+		originalAmount := r.OriginalAmount
+		transactionCost := r.TransactionCost
 
 		// 🔥 USE CONVERSION HELPERS
 		accountType := domain.AccountTypeToString(r.AccountType)

@@ -35,7 +35,7 @@ CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'owner_type_enum') THEN
-    CREATE TYPE owner_type_enum AS ENUM ('system','user','agent', 'partner');
+    CREATE TYPE owner_type_enum AS ENUM ('system','user','agent', 'partner', 'admin');
   END IF;
 END $$;
 
