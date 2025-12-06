@@ -500,10 +500,10 @@ ORDER BY fr.created_at DESC;
 CREATE OR REPLACE FUNCTION delete_receipts_on_lookup_delete()
 RETURNS TRIGGER AS $$
 BEGIN
-  PERFORM set_config('receipt_service. deleting_lookup', 'true', true);
+  PERFORM set_config('receipt_service.deleting_lookup', 'true', true);
   DELETE FROM fx_receipts WHERE lookup_id = OLD.id;
   RAISE NOTICE 'Deleted receipts for lookup_id: %', OLD.id;
-  PERFORM set_config('receipt_service. deleting_lookup', '', true);
+  PERFORM set_config('receipt_service.deleting_lookup', '', true);
   RETURN OLD;
 END;
 $$ LANGUAGE plpgsql;

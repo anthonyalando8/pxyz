@@ -1290,6 +1290,10 @@ func (uc *TransactionUsecase) ProcessTradeWin(
 	if err != nil {
 		return nil, err
 	}
+	if systemAccount.Currency != userAccount.Currency {
+		return nil, xerrors.ErrCurrencyMismatch
+	}
+
 
 	// Build transaction request
 	txReq := buildTradeDoubleEntry(req, systemAccount, userAccount, "win")
@@ -1329,6 +1333,10 @@ func (uc *TransactionUsecase) ProcessTradeLoss(
 	)
 	if err != nil {
 		return nil, err
+	}
+
+	if systemAccount.Currency != userAccount.Currency {
+		return nil, xerrors.ErrCurrencyMismatch
 	}
 
 	// Build transaction request
