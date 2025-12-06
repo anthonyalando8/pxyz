@@ -1235,11 +1235,15 @@ func (uc *TransactionUsecase) publishConversionEvent(aggregate *domain.LedgerAgg
 	var sourceAmount, convertedAmount float64
 
 	for _, ledger := range aggregate.Ledgers {
-		if ledger.AccountData.AccountNumber == req.FromAccountNumber {
+		account, err := uc.accountRepo.GetByID(ctx, ledger.AccountID)
+		if err != nil {
+			continue
+		}
+		if account.AccountNumber == req.FromAccountNumber {
 			sourceCurrency = ledger.Currency
 			sourceAmount = ledger.Amount
 		}
-		if ledger.AccountData.AccountNumber == req.ToAccountNumber {
+		if account.AccountNumber == req.ToAccountNumber {
 			destCurrency = ledger.Currency
 			convertedAmount = ledger.Amount
 		}
