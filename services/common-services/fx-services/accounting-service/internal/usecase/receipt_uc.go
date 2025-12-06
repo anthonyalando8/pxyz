@@ -298,7 +298,11 @@ func (rb *ReceiptBatcher) buildReceiptRequest(ctx context.Context, req *domain.T
 	var originalAmount float64
 	var originalCurrency string
 	var exchangeRate string = "1" // Default exchange rate
-	var transactionCost float64
+	var transactionCost float64 = 0.0
+
+	if req.TransactionFee != nil {
+		transactionCost = req.TransactionFee.Amount
+	}
 
 	for _, entry := range req.Entries {
 		// Fetch account info

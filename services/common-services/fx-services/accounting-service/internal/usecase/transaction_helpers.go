@@ -334,7 +334,7 @@ func buildCommissionMetadata(req *domain.AgentCommissionRequest) map[string]inte
 func (uc *TransactionUsecase) executeWithReceipt(
 	ctx context.Context,
 	txReq *domain.TransactionRequest,
-	repoExecutor func(context.Context) (*domain. LedgerAggregate, error),
+	repoExecutor func(context.Context) (*domain.LedgerAggregate, error),
 	eventPublisher func(*domain.LedgerAggregate),
 ) (*domain.LedgerAggregate, error) {
 	// Generate receipt code
@@ -344,6 +344,12 @@ func (uc *TransactionUsecase) executeWithReceipt(
 	}
 
 	txReq. ReceiptCode = &receiptCode
+	
+	// Update TransactionFee receipt code if fee exists
+	if txReq.TransactionFee != nil {
+		txReq.TransactionFee. ReceiptCode = receiptCode
+	}
+	
 	// Track status
 	uc.statusTracker.Track(receiptCode, "processing")
 	uc.logTransactionStart(receiptCode, txReq)
@@ -351,8 +357,8 @@ func (uc *TransactionUsecase) executeWithReceipt(
 	// Execute transaction
 	aggregate, err := repoExecutor(ctx)
 	if err != nil {
-		uc.handleTransactionFailure(receiptCode, err)
-		return nil, fmt. Errorf("transaction failed: %w", err)
+		uc. handleTransactionFailure(receiptCode, err)
+		return nil, fmt.Errorf("transaction failed: %w", err)
 	}
 
 	// Handle success

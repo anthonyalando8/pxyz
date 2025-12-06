@@ -1084,8 +1084,6 @@ func (uc *TransactionUsecase) Transfer(
 		Currency   : destAccount.Currency,
 	}
 
-	txReq.TransactionFee = &transactionFee
-
 	// Execute with common pattern
 	return uc.executeWithReceipt(
 		ctx,
@@ -1094,6 +1092,8 @@ func (uc *TransactionUsecase) Transfer(
 			req.ExternalRef = txReq.ExternalRef
 			req.ReceiptCode = txReq.ReceiptCode
 			req.TransactionFee = &transactionFee
+
+			transactionFee.ReceiptCode = ptrStrToStr(txReq.ReceiptCode)
 			return uc.transactionRepo.Transfer(ctx, req)
 		},
 		func(agg *domain.LedgerAggregate) {
@@ -1210,6 +1210,8 @@ func (uc *TransactionUsecase) ConvertAndTransfer(
 			req.ExternalRef = txReq.ExternalRef
 			req. ReceiptCode = txReq.ReceiptCode
 			req.TransactionFee = &transactionFee
+
+			transactionFee.ReceiptCode = ptrStrToStr(txReq.ReceiptCode)
 			return uc.transactionRepo.ConvertAndTransfer(ctx, req)
 		},
 		func(agg *domain.LedgerAggregate) {
