@@ -2,6 +2,8 @@ package domain
 
 import (
 	"errors"
+	"fmt"
+	"math"
 	"time"
 	xerrors "x/shared/utils/errors"
 )
@@ -321,46 +323,123 @@ func (r *TransactionRequest) Validate() error {
 		return errors.New("account_type is required")
 	}
 	if len(r.Entries) < 2 {
-		return errors.New("at least 2 ledger entries required for double-entry")
+		return errors.New("at least 2 ledger entries required")
 	}
 
-	// Validate entries balance (debits = credits)
+	// ✅ Route to appropriate validator based on transaction type
+	switch r.TransactionType {
+	case TransactionTypeConversion:
+		return r.validateConversion()
+	case TransactionTypeTransfer, TransactionTypeDeposit, TransactionTypeWithdrawal:
+		return r.validateStandardTransaction()
+	default:
+		return r.validateStandardTransaction()
+	}
+}
+
+// ✅ Standard transaction validation (single currency, balanced)
+func (r *TransactionRequest) validateStandardTransaction() error {
 	var totalDebits, totalCredits float64
 	currencyMap := make(map[string]bool)
 
-	for _, entry := range r.Entries {
-		if entry.AccountNumber == "" {
-			return errors.New("account_number required for all entries")
-		}
-		if entry.Amount <= 0 {
-			return errors.New("amount must be positive")
-		}
-		if entry.DrCr != DrCrDebit && entry.DrCr != DrCrCredit {
-			return errors.New("dr_cr must be DR or CR")
-		}
-		if entry.Currency == "" {
-			return errors.New("currency required for all entries")
+	for _, entry := range r. Entries {
+		if err := entry.Validate(); err != nil {
+			return err
 		}
 
 		currencyMap[entry.Currency] = true
 
 		if entry.DrCr == DrCrDebit {
-			totalDebits += entry.Amount
+			totalDebits += entry. Amount
 		} else {
 			totalCredits += entry.Amount
 		}
 	}
 
-	// Check balance
-	if totalDebits != totalCredits {
-		return ErrUnbalancedEntry
-	}
-
-	// All entries must be same currency for now (multi-currency later)
+	// Must be single currency
 	if len(currencyMap) > 1 {
-		return errors.New("all entries must be in same currency")
+		return errors.New("standard transactions must use single currency")
 	}
 
+	// Must balance
+	if math.Abs(totalDebits-totalCredits) > 0.0001 { // Use epsilon for float comparison
+		return fmt.Errorf("unbalanced transaction: debits=%.2f, credits=%.2f", totalDebits, totalCredits)
+	}
+
+	return nil
+}
+
+// ✅ Conversion validation (multi-currency allowed, FX-based balance)
+func (r *TransactionRequest) validateConversion() error {
+	if len(r.Entries) < 2 || len(r.Entries) > 4 {
+		return errors.New("conversion must have 2-4 entries (source, dest, optional fee, optional agent)")
+	}
+
+	currencyBalances := make(map[string]struct {
+		debits  float64
+		credits float64
+		count   int
+	})
+
+	for _, entry := range r.Entries {
+		if err := entry.Validate(); err != nil {
+			return err
+		}
+
+		balance := currencyBalances[entry.Currency]
+		balance.count++
+		if entry.DrCr == DrCrDebit {
+			balance. debits += entry.Amount
+		} else {
+			balance.credits += entry.Amount
+		}
+		currencyBalances[entry. Currency] = balance
+	}
+
+	// Must involve at least 2 currencies
+	if len(currencyBalances) < 2 {
+		return errors.New("conversion must involve at least 2 currencies")
+	}
+
+	// ✅ Each currency should have either pure debit or pure credit (with possible fee in dest currency)
+	sourceCount := 0
+	destCount := 0
+
+	for _, balance := range currencyBalances {
+		// Source currency: should be all debits
+		if balance.debits > 0 && balance.credits == 0 {
+			sourceCount++
+		}
+		// Dest currency: should have credits (and maybe fee debit)
+		if balance.credits > 0 {
+			destCount++
+		}
+	}
+
+	if sourceCount == 0 {
+		return errors.New("conversion must have source currency debit")
+	}
+	if destCount == 0 {
+		return errors.New("conversion must have destination currency credit")
+	}
+
+	return nil
+}
+
+// Entry validation helper
+func (e *LedgerEntryRequest) Validate() error {
+	if e.AccountNumber == "" {
+		return errors.New("account_number required")
+	}
+	if e.Amount <= 0 {
+		return errors.New("amount must be positive")
+	}
+	if e.DrCr != DrCrDebit && e.DrCr != DrCrCredit {
+		return errors.New("dr_cr must be DR or CR")
+	}
+	if e.Currency == "" {
+		return errors.New("currency required")
+	}
 	return nil
 }
 
