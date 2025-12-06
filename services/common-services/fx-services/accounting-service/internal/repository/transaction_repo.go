@@ -132,6 +132,7 @@ func (r *transactionRepo) Credit(
 		CreatedByExternalID: &req.CreatedByExternalID,
 		CreatedByType:       &req.CreatedByType,
 		IsSystemTransaction: true, // NO FEES
+		ReceiptCode: req.ReceiptCode,
 		Entries: []*domain.LedgerEntryRequest{
 			{
 				AccountNumber: systemAccount.AccountNumber,
@@ -194,6 +195,7 @@ func (r *transactionRepo) Debit(
 		CreatedByExternalID: &req.CreatedByExternalID,
 		CreatedByType:       &req.CreatedByType,
 		IsSystemTransaction: true, // NO FEES
+		ReceiptCode: req.ReceiptCode,
 		Entries: []*domain.LedgerEntryRequest{
 			{
 				AccountNumber: userAccount.AccountNumber,
@@ -286,6 +288,7 @@ func (r *transactionRepo) Transfer(
 		CreatedByType:       &req.CreatedByType,
 		AgentExternalID:     req.AgentExternalID,
 		IsSystemTransaction: false, // FEES APPLY
+		ReceiptCode: req.ReceiptCode,
 		Entries: []*domain.LedgerEntryRequest{
 			// Source: Debit full amount
 			{
