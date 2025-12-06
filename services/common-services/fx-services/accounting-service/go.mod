@@ -10,6 +10,7 @@ require (
 	github.com/oklog/ulid/v2 v2.1.1
 	github.com/redis/go-redis/v9 v9.12.1
 	github.com/segmentio/kafka-go v0.4.49
+	github.com/shopspring/decimal v1.4.0
 	github.com/sirupsen/logrus v1.9.3
 	go.uber.org/zap v1.27.1
 	google.golang.org/grpc v1.74.2

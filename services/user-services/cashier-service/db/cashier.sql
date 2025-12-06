@@ -43,7 +43,8 @@ CREATE TABLE withdrawal_requests (
     amount NUMERIC(20,2) NOT NULL,
     currency TEXT NOT NULL,
     destination TEXT NOT NULL, -- phone number, account number, etc
-    service TEXT NOT NULL, -- mpesa, bank, etc
+    service TEXT, -- mpesa, bank, etc
+    agent_external_id TEXT, -- External agent ID if applicable
     status TEXT NOT NULL DEFAULT 'pending', -- pending, processing, completed, failed, cancelled
     receipt_code TEXT,
     journal_id BIGINT,

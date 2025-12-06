@@ -790,7 +790,128 @@ message GetApprovalHistoryResponse {
 }
 
 
+// ===============================
+// AGENT MESSAGES
+// ===============================
 
+enum RelationshipType {
+    RELATIONSHIP_TYPE_UNSPECIFIED = 0;
+    RELATIONSHIP_TYPE_DIRECT = 1;
+    RELATIONSHIP_TYPE_REFERRAL = 2;
+    RELATIONSHIP_TYPE_PARTNER = 3;
+    RELATIONSHIP_TYPE_FRANCHISE = 4;
+}
+
+message Agent {
+    string agent_external_id = 1;
+    optional string user_external_id = 2; // Auth user ID
+    optional string service = 3;
+    optional string commission_rate = 4; // NUMERIC as string (e.g., "0.05" for 5%)
+    RelationshipType relationship_type = 5;
+    bool is_active = 6;
+    optional string name = 7;
+    map<string, string> metadata = 8;
+    google.protobuf. Timestamp created_at = 9;
+    google.protobuf.Timestamp updated_at = 10;
+    repeated Account accounts = 11; // ✅ Agent's accounts (commission account, etc.)
+}
+
+message AgentCommission {
+    int64 id = 1;
+    string agent_external_id = 2;
+    string user_external_id = 3;
+    int64 agent_account_id = 4;
+    int64 user_account_id = 5;
+    string receipt_code = 6;
+    string transaction_amount = 7; // NUMERIC as string
+    string commission_rate = 8; // NUMERIC as string
+    string commission_amount = 9; // NUMERIC as string
+    string currency = 10;
+    bool paid_out = 11;
+    optional string payout_receipt_code = 12;
+    optional google.protobuf.Timestamp paid_out_at = 13;
+    google. protobuf.Timestamp created_at = 14;
+}
+
+message CreateAgentRequest {
+    optional string user_external_id = 1;
+    optional string service = 2;
+    optional string commission_rate = 3; // "0.05" for 5%
+    RelationshipType relationship_type = 4;
+    bool is_active = 5;
+    optional string name = 6;
+    map<string, string> metadata = 7;
+    bool create_accounts = 8; // ✅ Whether to auto-create commission accounts
+}
+
+message CreateAgentResponse {
+    Agent agent = 1;
+    string message = 2;
+}
+
+message UpdateAgentRequest {
+    string agent_external_id = 1;
+    optional string user_external_id = 2;
+    optional string service = 3;
+    optional string commission_rate = 4;
+    optional RelationshipType relationship_type = 5;
+    optional bool is_active = 6;
+    optional string name = 7;
+    map<string, string> metadata = 8;
+}
+
+message UpdateAgentResponse {
+    Agent agent = 1;
+    string message = 2;
+}
+
+message DeleteAgentRequest {
+    string agent_external_id = 1;
+}
+
+message DeleteAgentResponse {
+    string message = 1;
+}
+
+message GetAgentByIDRequest {
+    string agent_external_id = 1;
+    bool include_accounts = 2; // ✅ Whether to include agent accounts in response
+}
+
+message GetAgentByIDResponse {
+    Agent agent = 1;
+}
+
+message GetAgentByUserIDRequest {
+    string user_external_id = 1;
+    bool include_accounts = 2; // ✅ Whether to include agent accounts in response
+}
+
+message GetAgentByUserIDResponse {
+    Agent agent = 1;
+}
+
+message ListAgentsRequest {
+    int32 limit = 1; // Max 100
+    int32 offset = 2;
+    bool include_accounts = 3; // ✅ Whether to include accounts for each agent
+}
+
+message ListAgentsResponse {
+    repeated Agent agents = 1;
+    int32 total = 2;
+}
+
+message ListCommissionsForAgentRequest {
+    string agent_external_id = 1;
+    int32 limit = 2; // Max 100
+    int32 offset = 3;
+}
+
+message ListCommissionsForAgentResponse {
+    repeated AgentCommission commissions = 1;
+    int32 total = 2;
+}
 // ===============================
 // SERVICE DEFINITION
 // ===============================
@@ -944,4 +1065,34 @@ service AccountingService {
     
     // Health check
     rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+
+     // ===============================
+    // AGENT MANAGEMENT
+    // ===============================
+    
+    // Create a new agent
+    rpc CreateAgent(CreateAgentRequest) returns (CreateAgentResponse);
+    
+    // Update agent information
+    rpc UpdateAgent(UpdateAgentRequest) returns (UpdateAgentResponse);
+    
+    // Delete agent (soft delete recommended)
+    rpc DeleteAgent(DeleteAgentRequest) returns (DeleteAgentResponse);
+    
+    // Get agent by agent external ID
+    rpc GetAgentByID(GetAgentByIDRequest) returns (GetAgentByIDResponse);
+    
+    // Get agent by user external ID
+    rpc GetAgentByUserID(GetAgentByUserIDRequest) returns (GetAgentByUserIDResponse);
+    
+    // List all agents with pagination
+    rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse);
+    
+    // ===============================
+    // AGENT COMMISSION QUERIES
+    // ===============================
+    
+    // List commissions for a specific agent
+    rpc ListCommissionsForAgent(ListCommissionsForAgentRequest) returns (ListCommissionsForAgentResponse);
+
 }

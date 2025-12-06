@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/shopspring/decimal"
 	"go.uber.org/zap"
 )
 
@@ -50,6 +51,7 @@ type transactionRepo struct {
 	balanceRepo  BalanceRepository
 	currencyRepo CurrencyRepository // Use existing currency repo for FX
 	feeRepo      TransactionFeeRepository
+	agent        AgentRepository
 	logger       *zap.Logger
 }
 
@@ -61,6 +63,7 @@ func NewTransactionRepo(
 	balanceRepo BalanceRepository,
 	currencyRepo CurrencyRepository, // FX operations
 	feeRepo TransactionFeeRepository,
+	agent        AgentRepository,
 	logger *zap.Logger,
 ) TransactionRepository {
 	return &transactionRepo{
@@ -71,6 +74,7 @@ func NewTransactionRepo(
 		balanceRepo:  balanceRepo,
 		currencyRepo: currencyRepo,
 		feeRepo:      feeRepo,
+		agent:        agent,
 		logger:       logger,
 	}
 }
@@ -346,6 +350,7 @@ func (r *transactionRepo) ConvertAndTransfer(
 		CreatedByType:       &req.CreatedByType,
 		AgentExternalID:     req.AgentExternalID,
 		IsSystemTransaction: false, // FEES APPLY
+		ReceiptCode: req.ReceiptCode,
 		Entries: []*domain.LedgerEntryRequest{
 			{
 				AccountNumber: sourceAccount.AccountNumber,
@@ -1018,7 +1023,7 @@ func (r *transactionRepo) updateBalancesPessimistic(
 	return nil
 }
 
-// createFees creates transaction fees
+// createFees creates transaction fees and agent commissions
 func (r *transactionRepo) createFees(
 	ctx context.Context,
 	tx pgx.Tx,
@@ -1033,23 +1038,18 @@ func (r *transactionRepo) createFees(
 	var receiptCode string
 
 	// Priority 1: Use req.ReceiptCode if available
-	if req.ReceiptCode != nil && *req.ReceiptCode != "" {
-		receiptCode = *req.ReceiptCode
+	if req.ReceiptCode != nil && *req. ReceiptCode != "" {
+		receiptCode = *req. ReceiptCode
 	} else if journal.ExternalRef != nil && *journal.ExternalRef != "" {
 		// Priority 2: Fall back to journal.ExternalRef
 		receiptCode = *journal.ExternalRef
 	} else if req.ExternalRef != nil && *req.ExternalRef != "" {
 		// Priority 3: Fall back to req.ExternalRef
-
-		receiptCode = *req.ExternalRef
+		receiptCode = *req. ExternalRef
 	}
 
 	// 🔥 CRITICAL: If no receipt code available, return error or skip fee creation
 	if receiptCode == "" {
-		// Option 1: Return error (strict)
-		// return fmt.Errorf("cannot create fee: no receipt code available")
-
-		// Option 2: Skip fee creation (lenient)
 		r.logger.Warn("skipping fee creation: no receipt code available",
 			zap.Int64("journal_id", journal.ID))
 		return nil
@@ -1058,7 +1058,7 @@ func (r *transactionRepo) createFees(
 	if req.IsSystemTransaction {
 		// Create 0-fee record for system transactions
 		fee := &domain.TransactionFee{
-			ReceiptCode: receiptCode, // ✅ Safe - guaranteed non-empty
+			ReceiptCode: receiptCode,
 			FeeType:     domain.FeeTypePlatform,
 			Amount:      0,
 			Currency:    req.GetCurrency(),
@@ -1066,11 +1066,269 @@ func (r *transactionRepo) createFees(
 		return r.feeRepo.Create(ctx, tx, fee)
 	}
 
-	// Calculate and create actual fees for non-system transactions
-	// This would call your fee calculation logic
-	// For now, just create a placeholder
+	// Calculate and create fees for non-system transactions
+	totalFee, err := r.calculateTransactionFee(ctx, req)
+	if err != nil {
+		r.logger. Warn("failed to calculate fee",
+			zap.Error(err),
+			zap.String("receipt_code", receiptCode))
+		// Don't fail transaction if fee calculation fails
+		totalFee = 0
+	}
+
+	// Create platform fee record
+	if totalFee > 0 {
+		platformFee := &domain.TransactionFee{
+			ReceiptCode: receiptCode,
+			FeeType:     domain.FeeTypePlatform,
+			Amount:      totalFee,
+			Currency:    req.GetCurrency(),
+		}
+		if err := r.feeRepo. Create(ctx, tx, platformFee); err != nil {
+			return fmt.Errorf("failed to create platform fee: %w", err)
+		}
+	}
+
+	// Process agent commission if agent is involved
+	if req.AgentExternalID != nil && *req.AgentExternalID != "" {
+		if err := r.processAgentCommissionForTransaction(ctx, tx, req, receiptCode, totalFee); err != nil {
+			// Log error but don't fail the transaction
+			r.logger.Error("failed to process agent commission",
+				zap.Error(err),
+				zap.String("agent_id", *req.AgentExternalID),
+				zap.String("receipt_code", receiptCode))
+		}
+	}
 
 	return nil
+}
+
+// processAgentCommissionForTransaction calculates and records agent commission
+func (r *transactionRepo) processAgentCommissionForTransaction(
+	ctx context.Context,
+	tx pgx.Tx,
+	req *domain.TransactionRequest,
+	receiptCode string,
+	platformFee float64,
+) error {
+	if req.AgentExternalID == nil || *req.AgentExternalID == "" {
+		return nil
+	}
+
+	// Try to create commission (all failures are non-fatal)
+	commissionAmount, commissionID := r.tryCreateAgentCommission(ctx, tx, req, receiptCode)
+
+	// ALWAYS create fee record (failure here WILL fail transaction)
+	agentFee := &domain.TransactionFee{
+		ReceiptCode:     receiptCode,
+		FeeType:         domain.FeeTypeAgentCommission,
+		Amount:          commissionAmount, // 0 if commission failed
+		Currency:        req.GetCurrency(),
+		AgentExternalID: req.AgentExternalID,
+	}
+
+	// Get commission rate for fee record if available
+	if commissionAmount > 0 {
+		agent, _ := r.agent.GetAgentByAgentID(ctx, *req.AgentExternalID)
+		if agent != nil && agent.CommissionRate != nil {
+			agentFee.CommissionRate = ptrString(agent. CommissionRate.String())
+		}
+	}
+
+	// Fee creation failure WILL fail the transaction
+	if err := r.feeRepo.Create(ctx, tx, agentFee); err != nil {
+		return fmt.Errorf("failed to create agent commission fee: %w", err)
+	}
+
+	if commissionAmount > 0 {
+		r.logger.Info("agent commission and fee created",
+			zap.String("agent_id", *req.AgentExternalID),
+			zap.Int64("commission_id", commissionID),
+			zap.Float64("amount", commissionAmount),
+			zap.String("receipt", receiptCode))
+	} else {
+		r.logger.Info("agent fee created with zero commission",
+			zap.String("agent_id", *req.AgentExternalID),
+			zap.String("receipt", receiptCode))
+	}
+
+	return nil
+}
+
+// tryCreateAgentCommission attempts to create commission, returns (amount, id)
+// Returns (0, 0) if any step fails - all errors are logged
+func (r *transactionRepo) tryCreateAgentCommission(
+	ctx context.Context,
+	tx pgx.Tx,
+	req *domain.TransactionRequest,
+	receiptCode string,
+) (float64, int64) {
+	// Get agent
+	agent, err := r.agent.GetAgentByAgentID(ctx, *req.AgentExternalID)
+	if err != nil {
+		r.logger.Warn("failed to get agent, skipping commission",
+			zap. Error(err),
+			zap.String("agent_id", *req.AgentExternalID))
+		return 0, 0
+	}
+
+	if !agent.IsActive {
+		r. logger.Warn("agent inactive, skipping commission",
+			zap.String("agent_id", *req.AgentExternalID))
+		return 0, 0
+	}
+
+	if agent.CommissionRate == nil || agent.CommissionRate.IsZero() {
+		r.logger.Warn("no commission rate, skipping commission",
+			zap.String("agent_id", *req.AgentExternalID))
+		return 0, 0
+	}
+
+	// Calculate commission
+	transactionAmount := r.getTransactionAmount(req)
+	if transactionAmount == 0 {
+		return 0, 0
+	}
+
+	commissionAmount := r. calculateAgentCommission(transactionAmount, agent.CommissionRate. InexactFloat64())
+	if commissionAmount <= 0 {
+		return 0, 0
+	}
+
+	// Get user ID
+	userExternalID := r. getUserExternalIDFromTransaction(ctx, req)
+	if userExternalID == "" {
+		r.logger.Warn("could not determine user, skipping commission",
+			zap.String("agent_id", *req.AgentExternalID))
+		return 0, 0
+	}
+
+	if userExternalID == *req.AgentExternalID {
+		r.logger.Info("agent self-transaction, skipping commission",
+			zap.String("agent_id", *req.AgentExternalID))
+		return 0, 0
+	}
+
+	// Get accounts
+	agentAccount, err := r.accountRepo.GetAgentAccount(ctx, *req.AgentExternalID, req.GetCurrency())
+	if err != nil {
+		r.logger. Warn("failed to get agent account, skipping commission",
+			zap.Error(err),
+			zap.String("agent_id", *req.AgentExternalID))
+		return 0, 0
+	}
+
+	userAccount, err := r.getUserAccountFromEntries(ctx, req)
+	if err != nil {
+		r.logger.Warn("failed to get user account, skipping commission",
+			zap.Error(err),
+			zap. String("agent_id", *req.AgentExternalID))
+		return 0, 0
+	}
+
+	// Create commission
+	commission := &domain.AgentCommission{
+		AgentExternalID:   *req.AgentExternalID,
+		UserExternalID:    userExternalID,
+		AgentAccountID:    agentAccount.ID,
+		UserAccountID:     userAccount.ID,
+		ReceiptCode:       receiptCode,
+		TransactionAmount: decimal. NewFromFloat(transactionAmount),
+		CommissionRate:    *agent.CommissionRate,
+		CommissionAmount:  decimal.NewFromFloat(commissionAmount),
+		Currency:          req.GetCurrency(),
+		PaidOut:           false,
+	}
+
+	commissionID, err := r. agent.CreateCommission(ctx, tx, commission)
+	if err != nil {
+		r.logger.Warn("failed to create commission, skipping",
+			zap.Error(err),
+			zap.String("agent_id", *req.AgentExternalID))
+		return 0, 0
+	}
+
+	return commissionAmount, commissionID
+}
+
+// getTransactionAmount calculates the transaction amount from entries
+func (r *transactionRepo) getTransactionAmount(req *domain.TransactionRequest) float64 {
+	// For transfers, use the debit amount (sender's amount)
+	// For other transactions, sum all debits
+	var totalAmount float64
+
+	for _, entry := range req. Entries {
+		if entry. DrCr == domain.DrCrDebit {
+			totalAmount += entry.Amount
+		}
+	}
+
+	return totalAmount
+}
+
+// calculateAgentCommission calculates commission based on rate
+func (r *transactionRepo) calculateAgentCommission(transactionAmount float64, commissionRate float64) float64 {
+	// Commission = Transaction Amount × Commission Rate
+	commission := transactionAmount * commissionRate
+	
+	// Round to 2 decimal places
+	return float64(int(commission*100+0.5)) / 100
+}
+
+// getUserExternalIDFromTransaction extracts user ID from transaction request
+func (r *transactionRepo) getUserExternalIDFromTransaction(ctx context.Context, req *domain.TransactionRequest) string {
+	// Priority 1: Use CreatedByExternalID if it's a user
+	if req.CreatedByExternalID != nil && req.CreatedByType != nil {
+		if *req.CreatedByType == domain. OwnerTypeUser {
+			return *req.CreatedByExternalID
+		}
+	}
+
+	// Priority 2: Try to get from account owner
+	for _, entry := range req.Entries {
+		account, err := r.accountRepo. GetByAccountNumber(ctx, entry.AccountNumber)
+		if err == nil && *account. ParentAgentExternalID != *req.AgentExternalID {
+			return account. OwnerID
+		}
+	}
+
+	return ""
+}
+
+// ✅ getUserAccountFromEntries gets the user's account from transaction entries
+func (r *transactionRepo) getUserAccountFromEntries(ctx context.Context, req *domain.TransactionRequest) (*domain.Account, error) {
+	// Find first user account in entries
+	for _, entry := range req.Entries {
+		account, err := r.accountRepo. GetByAccountNumber(ctx, entry.AccountNumber)
+		if err != nil {
+			continue
+		}
+		if account.OwnerType == domain.OwnerTypeUser {
+			return account, nil
+		}
+	}
+
+	return nil, errors.New("no user account found in transaction")
+}
+
+// ✅ calculateTransactionFee calculates platform fee (your existing fee logic)
+func (r *transactionRepo) calculateTransactionFee(ctx context.Context, req *domain.TransactionRequest) (float64, error) {
+	// Your existing fee calculation logic here
+	// This would call your fee rule engine
+	
+	// For now, return a simple percentage-based fee
+	transactionAmount := r.getTransactionAmount(req)
+	
+	// Example: 1% platform fee
+	platformFeeRate := 0.01
+	fee := transactionAmount * platformFeeRate
+	
+	return fee, nil
+}
+
+// Helper function
+func ptrString(s string) *string {
+	return &s
 }
 
 // GetByIdempotencyKey retrieves transaction by idempotency key

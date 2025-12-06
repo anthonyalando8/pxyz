@@ -129,9 +129,10 @@ func NewAccountingGRPCServer(cfg config.AppConfig) {
 	feeRepo := repository.NewTransactionFeeRepo(dbpool)
 	feeRuleRepo := repository.NewTransactionFeeRuleRepo(dbpool)
 	statementRepo := repository.NewStatementRepo(dbpool, ledgerRepo)
+	agentRepo := repository.NewAgentRepository(dbpool)
 	_ = currencyRepo  // Currently unused, but initialized for completeness
 
-	transactionRepo := repository.NewTransactionRepo(dbpool, accountRepo, journalRepo, ledgerRepo, balanceRepo, currencyRepo, feeRepo, logger)
+	transactionRepo := repository.NewTransactionRepo(dbpool, accountRepo, journalRepo, ledgerRepo, balanceRepo, currencyRepo, feeRepo, agentRepo, logger)
 
 	log.Println("✅ All repositories initialized")
 
@@ -189,6 +190,13 @@ func NewAccountingGRPCServer(cfg config.AppConfig) {
 		rdb,            // Redis for caching
 	)
 	log.Println("✅ Statement usecase initialized")
+
+	agentUc := usecase.NewAgentUsecase(
+		agentRepo,
+		accountUC,
+		sf,	
+	)
+	log.Println("✅ Agent usecase initialized")
 	
 	// 7. Transaction Usecase - Main transaction processing
 	// This is the most complex usecase with many dependencies
@@ -280,6 +288,7 @@ func NewAccountingGRPCServer(cfg config.AppConfig) {
 		ledgerUC,         // Ledger queries (4 RPCs)
 		feeUC,            // Fee management (3 RPCs)
 		feeRuleUC,        // Fee rule management (covered in fee RPCs)
+		agentUc,
 		rdb,              // Redis for health checks
 	)
 

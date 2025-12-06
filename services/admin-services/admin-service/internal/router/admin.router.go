@@ -14,11 +14,11 @@ import (
 func SetupRoutes(
 	r chi.Router,
 	h *handler.AdminHandler,
-	auth *middleware. MiddlewareWithClient,
+	auth *middleware.MiddlewareWithClient,
 	rdb *redis.Client,
 ) chi.Router {
 	// ---- Global Middleware ----
-	r. Use(cors.Handler(cors. Options{
+	r.Use(cors.Handler(cors. Options{
 		AllowedOrigins:   []string{"*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "ngrok-skip-browser-warning"},
@@ -28,17 +28,17 @@ func SetupRoutes(
 	}))
 
 	// Global rate limiting
-	r.Use(auth.RateLimit(rdb, 100, time.Minute, 10*time. Minute, "global"))
+	r.Use(auth.RateLimit(rdb, 100, time.Minute, 10*time.Minute, "global"))
 
 	// ============================================================
 	// Authenticated Endpoints (Admin actions)
 	// ============================================================
 	r.Route("/admin/svc", func(pr chi.Router) {
 		// Require role "super_admin"
-		pr.Use(auth. Require([]string{"main"}, nil, nil))
+		pr. Use(auth.Require([]string{"main"}, nil, nil))
 
 		// ---------------- Partner Management ----------------
-		pr.Route("/partners", func(p chi. Router) {
+		pr.Route("/partners", func(p chi.Router) {
 			p.Post("/create", h.CreatePartner)
 			p.Put("/update", h.UpdatePartner)
 			p.Delete("/delete", h.DeletePartner)
@@ -46,17 +46,17 @@ func SetupRoutes(
 			// ---------------- Partner User Management ----------------
 			p.Route("/users", func(u chi.Router) {
 				u.Post("/create", h.CreatePartnerUser)
-				u.Delete("/delete", h. DeletePartnerUsers)
+				u.Delete("/delete", h.DeletePartnerUsers)
 			})
 		})
 
 		// ============================================================
 		// URBAC Endpoints (under /admin/svc/urbac)
 		// ============================================================
-		pr.Route("/urbac", func(up chi. Router) {
+		pr. Route("/urbac", func(up chi.Router) {
 			// ---------------- USER PERMISSION OVERRIDES ----------------
 			up.Post("/permissions/assign", h.HandleAssignUserPermission)
-			up.Post("/permissions/revoke", h. HandleRevokeUserPermission)
+			up.Post("/permissions/revoke", h.HandleRevokeUserPermission)
 			up.Get("/permissions/list", h.HandleListUserPermissions)
 
 			// ---------------- MODULES ----------------
@@ -75,8 +75,8 @@ func SetupRoutes(
 
 			// ---------------- PERMISSION TYPES ----------------
 			up.Post("/permission-types/create", h.HandleCreatePermissionType)
-			up.Put("/permission-types/update", h. HandleUpdatePermissionType)
-			up.Post("/permission-types/deactivate", h.HandleDeactivatePermissionType)
+			up. Put("/permission-types/update", h.HandleUpdatePermissionType)
+			up.Post("/permission-types/deactivate", h. HandleDeactivatePermissionType)
 			up.Get("/permission-types/list", h.HandleListPermissionTypes)
 
 			// ---------------- ROLES ----------------
@@ -88,17 +88,17 @@ func SetupRoutes(
 
 			// ---------------- ROLE PERMISSIONS ----------------
 			up.Post("/roles/permissions/assign", h.HandleAssignRolePermission)
-			up.Post("/roles/permissions/revoke", h. HandleRevokeRolePermission)
+			up.Post("/roles/permissions/revoke", h.HandleRevokeRolePermission)
 			up.Get("/roles/permissions/list", h.HandleListRolePermissions)
 
 			// ---------------- USER ROLES ----------------
-			up.Post("/users/roles/assign", h.HandleAssignUserRole)
-			up. Post("/users/roles/remove", h.HandleRemoveUserRole)
-			up.Get("/users/roles/list", h.HandleListUserRoles)
-			up. Post("/users/roles/upgrade", h.HandleUpgradeUserRole)
+			up.Post("/users/roles/assign", h. HandleAssignUserRole)
+			up.Post("/users/roles/remove", h.HandleRemoveUserRole)
+			up.Get("/users/roles/list", h. HandleListUserRoles)
+			up.Post("/users/roles/upgrade", h.HandleUpgradeUserRole)
 
 			// ---------------- PERMISSION QUERIES ----------------
-			up. Get("/permissions/effective", h. HandleGetEffectiveUserPermissions)
+			up.Get("/permissions/effective", h.HandleGetEffectiveUserPermissions)
 			up.Post("/permissions/check", h.HandleCheckUserPermission)
 
 			// ---------------- AUDIT LOGS ----------------
@@ -110,9 +110,9 @@ func SetupRoutes(
 		// ============================================================
 		pr.Route("/accounting", func(acc chi.Router) {
 			// ---------------- Account Management ----------------
-			acc.Post("/accounts", h.CreateAccounts)                    // Create accounts (batch)
-			acc.Post("/accounts/user", h.GetUserAccounts)              // Get user accounts by owner
-			acc.Get("/accounts/{number}/balance", h.GetAccountBalance) // Get account balance
+			acc.Post("/accounts", h. CreateAccounts)                    // Create accounts (batch)
+			acc. Post("/accounts/user", h. GetUserAccounts)              // Get user accounts by owner
+			acc. Get("/accounts/{number}/balance", h.GetAccountBalance) // Get account balance
 			acc.Put("/accounts/{id}", h.UpdateAccount)                 // Update account settings
 
 			// ---------------- Transaction Operations ----------------
@@ -122,12 +122,12 @@ func SetupRoutes(
 				tx.Post("/debit", h.DebitAccount)   // Debit account
 
 				// Transfer operations
-				tx.Post("/transfer", h.TransferFunds)   // Transfer between accounts
-				tx.Post("/convert", h.ConvertAndTransfer) // Convert and transfer
+				tx.Post("/transfer", h.TransferFunds)     // Transfer between accounts
+				tx. Post("/convert", h.ConvertAndTransfer) // Convert and transfer
 
 				// Trade operations
 				tx.Post("/trade/win", h.ProcessTradeWin)   // Process trade win
-				tx.Post("/trade/loss", h.ProcessTradeLoss) // Process trade loss
+				tx. Post("/trade/loss", h. ProcessTradeLoss) // Process trade loss
 
 				// Commission operations
 				tx.Post("/commission", h.ProcessAgentCommission) // Process agent commission
@@ -138,15 +138,15 @@ func SetupRoutes(
 
 			// ---------------- Approval Management ----------------
 			acc.Route("/approvals", func(apr chi.Router) {
-				apr.Get("/pending", h.GetPendingApprovals)          // Get pending approvals (super admin)
-				apr.Post("/{id}/approve", h.ApproveTransaction)     // Approve/reject transaction (super admin)
-				apr.Get("/history", h.GetApprovalHistory)           // Get approval history
+				apr.Get("/pending", h.GetPendingApprovals)      // Get pending approvals (super admin)
+				apr.Post("/{id}/approve", h.ApproveTransaction) // Approve/reject transaction (super admin)
+				apr.Get("/history", h.GetApprovalHistory)       // Get approval history
 			})
 
 			// ---------------- Statements ----------------
-			acc.Route("/statements", func(stmt chi.Router) {
-				stmt.Post("/account", h.GetAccountStatement) // Get account statement
-				stmt. Post("/owner", h.GetOwnerStatement)     // Get owner statement
+			acc.Route("/statements", func(stmt chi. Router) {
+				stmt.Post("/account", h.GetAccountStatement)                     // Get account statement
+				stmt. Post("/owner", h.GetOwnerStatement)                         // Get owner statement
 				stmt.Get("/summary/{owner_type}/{owner_id}", h.GetOwnerSummary) // Get owner summary
 			})
 
@@ -158,16 +158,27 @@ func SetupRoutes(
 
 			// ---------------- Reports & Analytics ----------------
 			acc.Route("/reports", func(rpt chi.Router) {
-				rpt.Get("/daily", h.GenerateDailyReport)             // Generate daily report
-				rpt. Get("/transaction-summary", h.GetTransactionSummary) // Get transaction summary
-				rpt.Get("/system-holdings", h.GetSystemHoldings)     // Get system holdings
+				rpt.Get("/daily", h.GenerateDailyReport)                  // Generate daily report
+				rpt.Get("/transaction-summary", h.GetTransactionSummary) // Get transaction summary
+				rpt.Get("/system-holdings", h.GetSystemHoldings)         // Get system holdings
 			})
 
 			// ---------------- Fee Management ----------------
-			acc.Route("/fees", func(fee chi. Router) {
-				fee.Get("/calculate", h. CalculateFee)                   // Calculate fee (preview)
-				fee.Get("/receipt/{receipt}", h.GetFeesByReceipt)       // Get fees by receipt
+			acc.Route("/fees", func(fee chi.Router) {
+				fee.Get("/calculate", h.CalculateFee)                          // Calculate fee (preview)
+				fee.Get("/receipt/{receipt}", h.GetFeesByReceipt)              // Get fees by receipt
 				fee.Get("/commission/{agent_id}", h.GetAgentCommissionSummary) // Get agent commission summary
+			})
+
+			// ---------------- Agent Management ----------------
+			acc.Route("/agents", func(agt chi.Router) {
+				agt.Post("/", h.CreateAgent)                             // Create agent
+				agt. Get("/", h.ListAgents)                               // List all agents (with pagination)
+				agt.Get("/{agent_id}", h.GetAgentByID)                   // Get agent by ID
+				agt. Put("/{agent_id}", h.UpdateAgent)                    // Update agent
+				agt. Delete("/{agent_id}", h.DeleteAgent)                 // Delete agent
+				agt.Get("/user/{user_id}", h.GetAgentByUserID)           // Get agent by user ID
+				agt.Get("/{agent_id}/commissions", h.ListCommissionsForAgent) // List agent commissions
 			})
 		})
 	})

@@ -32,6 +32,8 @@ type AccountingHandler struct {
 	ledgerUC    *usecase.LedgerUsecase
 	feeUC       *usecase.TransactionFeeUsecase
 	feeRuleUC   *usecase.TransactionFeeRuleUsecase
+	agentUC usecase.AgentUsecase
+
 
 	// Infrastructure
 	redisClient *redis.Client
@@ -45,7 +47,9 @@ func NewAccountingHandler(
 	ledgerUC *usecase.LedgerUsecase,
 	feeUC *usecase.TransactionFeeUsecase,
 	feeRuleUC *usecase.TransactionFeeRuleUsecase,
+	agentUC usecase.AgentUsecase,
 	redisClient *redis.Client,
+
 ) *AccountingHandler {
 	return &AccountingHandler{
 		accountUC:   accountUC,
@@ -56,6 +60,7 @@ func NewAccountingHandler(
 		feeUC:       feeUC,
 		feeRuleUC:   feeRuleUC,
 		redisClient: redisClient,
+		agentUC:    agentUC,
 	}
 }
 

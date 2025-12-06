@@ -144,6 +144,7 @@ SELECT add_compression_policy('fx_rates', INTERVAL '90 days');
 CREATE TABLE IF NOT EXISTS agent_relationships (
   user_external_id     TEXT NOT NULL,
   agent_external_id    TEXT NOT NULL,
+  service TEXT NOT NULL, -- mpesa, bank, etc
   commission_rate      NUMERIC(5,4) NOT NULL,
   relationship_type    TEXT NOT NULL DEFAULT 'direct',
   is_active            BOOLEAN NOT NULL DEFAULT true,

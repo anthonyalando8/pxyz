@@ -58,6 +58,13 @@ const (
 	AccountingService_ApproveTransaction_FullMethodName        = "/accounting.v1.AccountingService/ApproveTransaction"
 	AccountingService_GetApprovalHistory_FullMethodName        = "/accounting.v1.AccountingService/GetApprovalHistory"
 	AccountingService_HealthCheck_FullMethodName               = "/accounting.v1.AccountingService/HealthCheck"
+	AccountingService_CreateAgent_FullMethodName               = "/accounting.v1.AccountingService/CreateAgent"
+	AccountingService_UpdateAgent_FullMethodName               = "/accounting.v1.AccountingService/UpdateAgent"
+	AccountingService_DeleteAgent_FullMethodName               = "/accounting.v1.AccountingService/DeleteAgent"
+	AccountingService_GetAgentByID_FullMethodName              = "/accounting.v1.AccountingService/GetAgentByID"
+	AccountingService_GetAgentByUserID_FullMethodName          = "/accounting.v1.AccountingService/GetAgentByUserID"
+	AccountingService_ListAgents_FullMethodName                = "/accounting.v1.AccountingService/ListAgents"
+	AccountingService_ListCommissionsForAgent_FullMethodName   = "/accounting.v1.AccountingService/ListCommissionsForAgent"
 )
 
 // AccountingServiceClient is the client API for AccountingService service.
@@ -142,6 +149,20 @@ type AccountingServiceClient interface {
 	GetApprovalHistory(ctx context.Context, in *GetApprovalHistoryRequest, opts ...grpc.CallOption) (*GetApprovalHistoryResponse, error)
 	// Health check
 	HealthCheck(ctx context.Context, in *HealthCheckRequest, opts ...grpc.CallOption) (*HealthCheckResponse, error)
+	// Create a new agent
+	CreateAgent(ctx context.Context, in *CreateAgentRequest, opts ...grpc.CallOption) (*CreateAgentResponse, error)
+	// Update agent information
+	UpdateAgent(ctx context.Context, in *UpdateAgentRequest, opts ...grpc.CallOption) (*UpdateAgentResponse, error)
+	// Delete agent (soft delete recommended)
+	DeleteAgent(ctx context.Context, in *DeleteAgentRequest, opts ...grpc.CallOption) (*DeleteAgentResponse, error)
+	// Get agent by agent external ID
+	GetAgentByID(ctx context.Context, in *GetAgentByIDRequest, opts ...grpc.CallOption) (*GetAgentByIDResponse, error)
+	// Get agent by user external ID
+	GetAgentByUserID(ctx context.Context, in *GetAgentByUserIDRequest, opts ...grpc.CallOption) (*GetAgentByUserIDResponse, error)
+	// List all agents with pagination
+	ListAgents(ctx context.Context, in *ListAgentsRequest, opts ...grpc.CallOption) (*ListAgentsResponse, error)
+	// List commissions for a specific agent
+	ListCommissionsForAgent(ctx context.Context, in *ListCommissionsForAgentRequest, opts ...grpc.CallOption) (*ListCommissionsForAgentResponse, error)
 }
 
 type accountingServiceClient struct {
@@ -551,6 +572,76 @@ func (c *accountingServiceClient) HealthCheck(ctx context.Context, in *HealthChe
 	return out, nil
 }
 
+func (c *accountingServiceClient) CreateAgent(ctx context.Context, in *CreateAgentRequest, opts ...grpc.CallOption) (*CreateAgentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateAgentResponse)
+	err := c.cc.Invoke(ctx, AccountingService_CreateAgent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountingServiceClient) UpdateAgent(ctx context.Context, in *UpdateAgentRequest, opts ...grpc.CallOption) (*UpdateAgentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateAgentResponse)
+	err := c.cc.Invoke(ctx, AccountingService_UpdateAgent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountingServiceClient) DeleteAgent(ctx context.Context, in *DeleteAgentRequest, opts ...grpc.CallOption) (*DeleteAgentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteAgentResponse)
+	err := c.cc.Invoke(ctx, AccountingService_DeleteAgent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountingServiceClient) GetAgentByID(ctx context.Context, in *GetAgentByIDRequest, opts ...grpc.CallOption) (*GetAgentByIDResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAgentByIDResponse)
+	err := c.cc.Invoke(ctx, AccountingService_GetAgentByID_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountingServiceClient) GetAgentByUserID(ctx context.Context, in *GetAgentByUserIDRequest, opts ...grpc.CallOption) (*GetAgentByUserIDResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAgentByUserIDResponse)
+	err := c.cc.Invoke(ctx, AccountingService_GetAgentByUserID_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountingServiceClient) ListAgents(ctx context.Context, in *ListAgentsRequest, opts ...grpc.CallOption) (*ListAgentsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListAgentsResponse)
+	err := c.cc.Invoke(ctx, AccountingService_ListAgents_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountingServiceClient) ListCommissionsForAgent(ctx context.Context, in *ListCommissionsForAgentRequest, opts ...grpc.CallOption) (*ListCommissionsForAgentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListCommissionsForAgentResponse)
+	err := c.cc.Invoke(ctx, AccountingService_ListCommissionsForAgent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AccountingServiceServer is the server API for AccountingService service.
 // All implementations must embed UnimplementedAccountingServiceServer
 // for forward compatibility.
@@ -633,6 +724,20 @@ type AccountingServiceServer interface {
 	GetApprovalHistory(context.Context, *GetApprovalHistoryRequest) (*GetApprovalHistoryResponse, error)
 	// Health check
 	HealthCheck(context.Context, *HealthCheckRequest) (*HealthCheckResponse, error)
+	// Create a new agent
+	CreateAgent(context.Context, *CreateAgentRequest) (*CreateAgentResponse, error)
+	// Update agent information
+	UpdateAgent(context.Context, *UpdateAgentRequest) (*UpdateAgentResponse, error)
+	// Delete agent (soft delete recommended)
+	DeleteAgent(context.Context, *DeleteAgentRequest) (*DeleteAgentResponse, error)
+	// Get agent by agent external ID
+	GetAgentByID(context.Context, *GetAgentByIDRequest) (*GetAgentByIDResponse, error)
+	// Get agent by user external ID
+	GetAgentByUserID(context.Context, *GetAgentByUserIDRequest) (*GetAgentByUserIDResponse, error)
+	// List all agents with pagination
+	ListAgents(context.Context, *ListAgentsRequest) (*ListAgentsResponse, error)
+	// List commissions for a specific agent
+	ListCommissionsForAgent(context.Context, *ListCommissionsForAgentRequest) (*ListCommissionsForAgentResponse, error)
 	mustEmbedUnimplementedAccountingServiceServer()
 }
 
@@ -759,6 +864,27 @@ func (UnimplementedAccountingServiceServer) GetApprovalHistory(context.Context, 
 }
 func (UnimplementedAccountingServiceServer) HealthCheck(context.Context, *HealthCheckRequest) (*HealthCheckResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method HealthCheck not implemented")
+}
+func (UnimplementedAccountingServiceServer) CreateAgent(context.Context, *CreateAgentRequest) (*CreateAgentResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateAgent not implemented")
+}
+func (UnimplementedAccountingServiceServer) UpdateAgent(context.Context, *UpdateAgentRequest) (*UpdateAgentResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateAgent not implemented")
+}
+func (UnimplementedAccountingServiceServer) DeleteAgent(context.Context, *DeleteAgentRequest) (*DeleteAgentResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteAgent not implemented")
+}
+func (UnimplementedAccountingServiceServer) GetAgentByID(context.Context, *GetAgentByIDRequest) (*GetAgentByIDResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAgentByID not implemented")
+}
+func (UnimplementedAccountingServiceServer) GetAgentByUserID(context.Context, *GetAgentByUserIDRequest) (*GetAgentByUserIDResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAgentByUserID not implemented")
+}
+func (UnimplementedAccountingServiceServer) ListAgents(context.Context, *ListAgentsRequest) (*ListAgentsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListAgents not implemented")
+}
+func (UnimplementedAccountingServiceServer) ListCommissionsForAgent(context.Context, *ListCommissionsForAgentRequest) (*ListCommissionsForAgentResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListCommissionsForAgent not implemented")
 }
 func (UnimplementedAccountingServiceServer) mustEmbedUnimplementedAccountingServiceServer() {}
 func (UnimplementedAccountingServiceServer) testEmbeddedByValue()                           {}
@@ -1476,6 +1602,132 @@ func _AccountingService_HealthCheck_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AccountingService_CreateAgent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateAgentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountingServiceServer).CreateAgent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountingService_CreateAgent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountingServiceServer).CreateAgent(ctx, req.(*CreateAgentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountingService_UpdateAgent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateAgentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountingServiceServer).UpdateAgent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountingService_UpdateAgent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountingServiceServer).UpdateAgent(ctx, req.(*UpdateAgentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountingService_DeleteAgent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteAgentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountingServiceServer).DeleteAgent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountingService_DeleteAgent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountingServiceServer).DeleteAgent(ctx, req.(*DeleteAgentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountingService_GetAgentByID_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAgentByIDRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountingServiceServer).GetAgentByID(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountingService_GetAgentByID_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountingServiceServer).GetAgentByID(ctx, req.(*GetAgentByIDRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountingService_GetAgentByUserID_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAgentByUserIDRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountingServiceServer).GetAgentByUserID(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountingService_GetAgentByUserID_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountingServiceServer).GetAgentByUserID(ctx, req.(*GetAgentByUserIDRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountingService_ListAgents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListAgentsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountingServiceServer).ListAgents(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountingService_ListAgents_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountingServiceServer).ListAgents(ctx, req.(*ListAgentsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountingService_ListCommissionsForAgent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListCommissionsForAgentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountingServiceServer).ListCommissionsForAgent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountingService_ListCommissionsForAgent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountingServiceServer).ListCommissionsForAgent(ctx, req.(*ListCommissionsForAgentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AccountingService_ServiceDesc is the grpc.ServiceDesc for AccountingService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1634,6 +1886,34 @@ var AccountingService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "HealthCheck",
 			Handler:    _AccountingService_HealthCheck_Handler,
+		},
+		{
+			MethodName: "CreateAgent",
+			Handler:    _AccountingService_CreateAgent_Handler,
+		},
+		{
+			MethodName: "UpdateAgent",
+			Handler:    _AccountingService_UpdateAgent_Handler,
+		},
+		{
+			MethodName: "DeleteAgent",
+			Handler:    _AccountingService_DeleteAgent_Handler,
+		},
+		{
+			MethodName: "GetAgentByID",
+			Handler:    _AccountingService_GetAgentByID_Handler,
+		},
+		{
+			MethodName: "GetAgentByUserID",
+			Handler:    _AccountingService_GetAgentByUserID_Handler,
+		},
+		{
+			MethodName: "ListAgents",
+			Handler:    _AccountingService_ListAgents_Handler,
+		},
+		{
+			MethodName: "ListCommissionsForAgent",
+			Handler:    _AccountingService_ListCommissionsForAgent_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

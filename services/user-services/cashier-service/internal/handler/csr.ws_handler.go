@@ -9,8 +9,10 @@ import (
 	"time"
 
 	"cashier-service/internal/domain"
+	usecase "cashier-service/internal/usecase/transaction"
 	partnersvcpb "x/shared/genproto/partner/svcpb"
 	accountingpb "x/shared/genproto/shared/accounting/v1"
+
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -211,166 +213,121 @@ func (h *PaymentHandler) handleGetOwnerSummary(ctx context.Context, client *Clie
 
 // Handle deposit request
 func (h *PaymentHandler) handleDepositRequest(ctx context.Context, client *Client, data json.RawMessage) {
-	var req struct {
-		Amount        float64 `json:"amount"`
-		Currency      string  `json:"currency"`
-		Service       string  `json:"service"`
-		PartnerID     *string `json:"partner_id,omitempty"`
-		PaymentMethod string  `json:"payment_method,omitempty"`
-	}
+    var req struct {
+        Amount        float64 `json:"amount"`
+        Currency      string  `json:"currency"`
+        Service       string  `json:"service"`
+        PartnerID     *string `json:"partner_id,omitempty"`
+        PaymentMethod *string `json:"payment_method,omitempty"`
+    }
 
-	if err := json.Unmarshal(data, &req); err != nil {
-		client.SendError("invalid request format")
-		return
-	}
+    if err := json.Unmarshal(data, &req); err != nil {
+        client.SendError("invalid request format")
+        return
+    }
 
-	// Validation
-	if req.Amount <= 0 {
-		client.SendError("amount must be greater than zero")
-		return
-	}
-	if req.Currency == "" {
-		client.SendError("currency is required")
-		return
-	}
-	if req.Service == "" {
-		client.SendError("service is required")
-		return
-	}
+    userIDInt, _ := strconv.ParseInt(client.UserID, 10, 64)
 
-	userIDInt, _ := strconv.ParseInt(client.UserID, 10, 64)
+    // Select partner (your existing logic)
+    var selectedPartner *partnersvcpb.Partner
+    if req. PartnerID != nil && *req.PartnerID != "" {
+        if err := h.ValidatePartnerService(ctx, *req.PartnerID, req.Service); err != nil {
+            client.SendError(err. Error())
+            return
+        }
+        var err error
+        selectedPartner, err = h.GetPartnerByID(ctx, *req. PartnerID)
+        if err != nil {
+            client.SendError("partner not found")
+            return
+        }
+    } else {
+        partners, err := h.GetPartnersByService(ctx, req.Service)
+        if err != nil || len(partners) == 0 {
+            client.SendError("no partners available for this service")
+            return
+        }
+        selectedPartner = SelectRandomPartner(partners)
+    }
 
-	// Select partner
-	var selectedPartner *partnersvcpb.Partner
-	if req.PartnerID != nil && *req.PartnerID != "" {
-		// Verify partner offers this service
-		if err := h.ValidatePartnerService(ctx, *req.PartnerID, req.Service); err != nil {
-			client.SendError(err.Error())
-			return
-		}
-		var err error
-		selectedPartner, err = h.GetPartnerByID(ctx, *req.PartnerID)
-		if err != nil {
-			client.SendError("partner not found")
-			return
-		}
-	} else {
-		// Auto-select partner
-		partners, err := h.GetPartnersByService(ctx, req.Service)
-		if err != nil || len(partners) == 0 {
-			client.SendError("no partners available for this service")
-			return
-		}
-		selectedPartner = SelectRandomPartner(partners)
-	}
+    // Use the new usecase method
+    depositReq, err := h.userUc.InitiateDeposit(
+        ctx,
+        userIDInt,
+        selectedPartner.Id,
+        req.Amount,
+        req.Currency,
+        req.Service,
+        req.PaymentMethod,
+        30, // expiration minutes
+    )
+    if err != nil {
+        client.SendError("failed to create deposit request: " + err.Error())
+        return
+    }
 
-	// Generate unique request reference
-	requestRef := fmt.Sprintf("DEP-%d-%d", userIDInt, time.Now().UnixNano())
+    // Send webhook to partner
+    go h.sendDepositWebhookToPartner(depositReq, selectedPartner)
 
-	// Create deposit request
-	depositReq := &domain.DepositRequest{
-		UserID:        userIDInt,
-		PartnerID:     selectedPartner.Id,
-		RequestRef:    requestRef,
-		Amount:        req.Amount,
-		Currency:      req.Currency,
-		Service:       req.Service,
-		PaymentMethod: req.PaymentMethod,
-		Status:        "pending",
-		ExpiresAt:     time.Now().Add(30 * time.Minute),
-		Metadata: map[string]interface{}{
-			"partner_name": selectedPartner.Name,
-		},
-	}
+    // Update status
+    h.userUc. MarkDepositSentToPartner(ctx, depositReq.RequestRef, "")
 
-	if err := h.userUc.CreateDepositRequest(ctx, depositReq); err != nil {
-		client.SendError("failed to create deposit request: " + err.Error())
-		return
-	}
-
-	// Send webhook to partner
-	go h.sendDepositWebhookToPartner(depositReq, selectedPartner)
-
-	// Send success response
-	client.SendSuccess("deposit request created", map[string]interface{}{
-		"request_ref":  requestRef,
-		"partner_id":   selectedPartner.Id,
-		"partner_name": selectedPartner.Name,
-		"amount":       req.Amount,
-		"currency":     req.Currency,
-		"status":       "pending",
-		"expires_at":   depositReq.ExpiresAt,
-		"instructions": fmt.Sprintf("Waiting for payment confirmation from %s", selectedPartner.Name),
-	})
-
-	// Update status
-	h.userUc.UpdateDepositStatus(ctx, depositReq.ID, "sent_to_partner", nil)
+    client.SendSuccess("deposit request created", map[string]interface{}{
+        "request_ref":  depositReq.RequestRef,
+        "partner_id":   selectedPartner.Id,
+        "partner_name": selectedPartner.Name,
+        "amount":       req.Amount,
+        "currency":     req.Currency,
+        "status":       "sent_to_partner",
+        "expires_at":   depositReq. ExpiresAt,
+    })
 }
 
 // Get deposit status
 func (h *PaymentHandler) handleGetDepositStatus(ctx context.Context, client *Client, data json.RawMessage) {
-	var req struct {
-		RequestRef string `json:"request_ref"`
-	}
+    var req struct {
+        RequestRef string `json:"request_ref"`
+    }
 
-	if err := json.Unmarshal(data, &req); err != nil {
-		client.SendError("invalid request format")
-		return
-	}
+    if err := json.Unmarshal(data, &req); err != nil {
+        client.SendError("invalid request format")
+        return
+    }
 
-	deposit, err := h.userUc.GetDepositByRef(ctx, req.RequestRef)
-	if err != nil {
-		client.SendError("deposit not found")
-		return
-	}
+    userIDInt, _ := strconv. ParseInt(client.UserID, 10, 64)
+    
+    deposit, err := h.userUc.GetDepositDetails(ctx, req.RequestRef, userIDInt)
+    if err != nil {
+        if err == usecase.ErrUnauthorized {
+            client.SendError("unauthorized")
+        } else {
+            client.SendError("deposit not found")
+        }
+        return
+    }
 
-	// Verify ownership
-	userIDInt, _ := strconv.ParseInt(client.UserID, 10, 64)
-	if deposit.UserID != userIDInt {
-		client.SendError("unauthorized")
-		return
-	}
-
-	client.SendSuccess("deposit status", deposit)
+    client. SendSuccess("deposit status", deposit)
 }
 
 // Cancel deposit
 func (h *PaymentHandler) handleCancelDeposit(ctx context.Context, client *Client, data json.RawMessage) {
-	var req struct {
-		RequestRef string `json:"request_ref"`
-	}
+    var req struct {
+        RequestRef string `json:"request_ref"`
+    }
 
-	if err := json.Unmarshal(data, &req); err != nil {
-		client.SendError("invalid request format")
-		return
-	}
+    if err := json.Unmarshal(data, &req); err != nil {
+        client.SendError("invalid request format")
+        return
+    }
 
-	userIDInt, _ := strconv.ParseInt(client.UserID, 10, 64)
+    userIDInt, _ := strconv.ParseInt(client.UserID, 10, 64)
 
-	deposit, err := h.userUc.GetDepositByRef(ctx, req.RequestRef)
-	if err != nil {
-		client.SendError("deposit not found")
-		return
-	}
+    if err := h.userUc. CancelDeposit(ctx, req.RequestRef, userIDInt); err != nil {
+        client.SendError(err.Error())
+        return
+    }
 
-	// Verify ownership
-	if deposit.UserID != userIDInt {
-		client.SendError("unauthorized")
-		return
-	}
-
-	// Only allow cancellation if still pending
-	if deposit.Status != "pending" && deposit.Status != "sent_to_partner" {
-		client.SendError("cannot cancel deposit in status: " + deposit.Status)
-		return
-	}
-
-	if err := h.userUc.UpdateDepositStatus(ctx, deposit.ID, "cancelled", nil); err != nil {
-		client.SendError("failed to cancel deposit")
-		return
-	}
-
-	client.SendSuccess("deposit cancelled", deposit)
+    client. SendSuccess("deposit cancelled", nil)
 }
 
 // ============================================================================
@@ -378,74 +335,253 @@ func (h *PaymentHandler) handleCancelDeposit(ctx context.Context, client *Client
 // ============================================================================
 
 // Handle withdrawal request
-func (h *PaymentHandler) handleWithdrawRequest(ctx context.Context, client *Client, data json.RawMessage) {
-	var req struct {
-		Amount      float64 `json:"amount"`
-		Currency    string  `json:"currency"`
-		Destination string  `json:"destination"`
-		Service     string  `json:"service"`
-	}
+func (h *PaymentHandler) handleWithdrawRequest(ctx context.Context, client *Client, data json. RawMessage) {
+    var req struct {
+        Amount        float64 `json:"amount"`
+        Currency      string  `json:"currency"`
+        Destination   string  `json:"destination"`
+        Service       *string `json:"service,omitempty"`
+        AgentID       *string `json:"agent_id,omitempty"`
+    }
 
-	if err := json.Unmarshal(data, &req); err != nil {
-		client.SendError("invalid request format")
-		return
-	}
+    if err := json. Unmarshal(data, &req); err != nil {
+        client.SendError("invalid request format")
+        return
+    }
 
-	// Validation
-	if req.Amount <= 0 {
-		client.SendError("amount must be greater than zero")
-		return
-	}
-	if req.Currency == "" {
-		client.SendError("currency is required")
-		return
-	}
-	if req.Destination == "" {
-		client.SendError("destination is required")
-		return
-	}
+    // Validation
+    if req.Amount <= 0 {
+        client.SendError("amount must be greater than zero")
+        return
+    }
+    if req.Currency == "" {
+        client.SendError("currency is required")
+        return
+    }
+    if req.Destination == "" {
+        client.SendError("destination is required")
+        return
+    }
 
-	userIDInt, _ := strconv.ParseInt(client.UserID, 10, 64)
+    userIDInt, _ := strconv.ParseInt(client.UserID, 10, 64)
 
-	// Get user account
-	userAccount, err := h.GetAccountByCurrency(ctx, client.UserID, "user", req.Currency)
-	if err != nil {
-		client.SendError("failed to get user account: " + err.Error())
-		return
-	}
+    // ✅ Validate and fetch agent if provided
+    var agent *accountingpb.Agent
+    var agentAccount *accountingpb.Account
+    
+    if req.AgentID != nil && *req.AgentID != "" {
+        // Fetch agent with accounts
+        agentResp, err := h.accountingClient.Client.GetAgentByID(ctx, &accountingpb.GetAgentByIDRequest{
+            AgentExternalId: *req.AgentID,
+            IncludeAccounts: true, // ✅ Include accounts
+        })
+        
+        if err != nil {
+            client. SendError("invalid agent: " + err.Error())
+            return
+        }
+        
+        if agentResp. Agent == nil || !agentResp.Agent.IsActive {
+            client.SendError("agent not found or inactive")
+            return
+        }
+        
+        agent = agentResp.Agent
+        
+        // ✅ Find agent's wallet/commission account for the currency
+        for _, acc := range agent.Accounts {
+            if acc.Currency == req. Currency && 
+               (acc.Purpose == accountingpb.AccountPurpose_ACCOUNT_PURPOSE_WALLET ||
+                acc.Purpose == accountingpb.AccountPurpose_ACCOUNT_PURPOSE_COMMISSION) &&
+               acc.IsActive && ! acc.IsLocked {
+                agentAccount = acc
+                break
+            }
+        }
+        
+        if agentAccount == nil {
+            client.SendError(fmt.Sprintf("agent does not have an active %s account", req.Currency))
+            return
+        }
+        
+        log.Printf("[Withdrawal] User %d withdrawing to agent %s (%s) account %s", 
+            userIDInt, 
+            agent.AgentExternalId, 
+            ptrToStr(agent.Name),
+            agentAccount.AccountNumber)
+    }
 
-	// Generate unique request reference
-	requestRef := fmt.Sprintf("WTH-%d-%d", userIDInt, time.Now().UnixNano())
+    // Get user account
+    userAccount, err := h.GetAccountByCurrency(ctx, client.UserID, "user", req.Currency)
+    if err != nil {
+        client.SendError("failed to get user account: " + err.Error())
+        return
+    }
 
-	// Create withdrawal request
-	withdrawalReq := &domain.WithdrawalRequest{
-		UserID:      userIDInt,
-		RequestRef:  requestRef,
-		Amount:      req.Amount,
-		Currency:    req.Currency,
-		Destination: req.Destination,
-		Service:     req.Service,
-		Status:      "pending",
-		Metadata: map[string]interface{}{
-			"account_number": userAccount,
-		},
-	}
+    // Create withdrawal request
+    withdrawalReq, err := h.userUc. InitiateWithdrawal(
+        ctx,
+        userIDInt,
+        req.Amount,
+        req.Currency,
+        req.Destination,
+        req.Service,
+        req.AgentID,
+    )
+    if err != nil {
+        client. SendError("failed to create withdrawal request: " + err.Error())
+        return
+    }
 
-	if err := h.userUc.CreateWithdrawalRequest(ctx, withdrawalReq); err != nil {
-		client.SendError("failed to create withdrawal request: " + err.Error())
-		return
-	}
+    // ✅ Process withdrawal (different flow for agent vs.  normal withdrawal)
+    if agent != nil && agentAccount != nil {
+        // Transfer to agent account
+        go h.processWithdrawalToAgent(withdrawalReq, userAccount, agentAccount. AccountNumber, agent)
+    } else {
+        // Normal withdrawal (debit only)
+        go h.processWithdrawal(withdrawalReq, userAccount)
+    }
 
-	// Process withdrawal
-	go h.processWithdrawal(withdrawalReq, userAccount)
+    // Build response
+    response := map[string]interface{}{
+        "request_ref": withdrawalReq. RequestRef,
+        "amount":      req.Amount,
+        "currency":    req.Currency,
+        "destination": req.Destination,
+        "status":      "processing",
+    }
+    
+    if req.AgentID != nil && *req.AgentID != "" {
+        response["agent_id"] = *req.AgentID
+        response["agent_name"] = agent.Name
+        response["agent_account"] = agentAccount.AccountNumber
+    }
 
-	client.SendSuccess("withdrawal request created", map[string]interface{}{
-		"request_ref": requestRef,
-		"amount":      req.Amount,
-		"currency":    req.Currency,
-		"destination": req.Destination,
-		"status":      "processing",
-	})
+    client.SendSuccess("withdrawal request created", response)
+}
+
+// ✅ processWithdrawalToAgent - Transfer money from user to agent
+func (h *PaymentHandler) processWithdrawalToAgent(
+    withdrawal *domain.WithdrawalRequest,
+    userAccount string,
+    agentAccount string,
+    agent *accountingpb.Agent,
+) {
+    ctx := context.Background()
+
+    // Mark as processing
+    if err := h. userUc.MarkWithdrawalProcessing(ctx, withdrawal.RequestRef); err != nil {
+        log.Printf("[Withdrawal] Failed to mark as processing: %v", err)
+        return
+    }
+
+    // ✅ Execute transfer from user to agent
+    transferReq := &accountingpb.TransferRequest{
+        FromAccountNumber:   userAccount,
+        ToAccountNumber:     agentAccount,
+        Amount:              withdrawal.Amount,
+        AccountType:         accountingpb. AccountType_ACCOUNT_TYPE_REAL,
+        Description:         fmt.Sprintf("Withdrawal to %s via agent %s", withdrawal.Destination, *agent.Name),
+        ExternalRef:         &withdrawal.RequestRef,
+        CreatedByExternalId: fmt.Sprintf("%d", withdrawal. UserID),
+        CreatedByType:       accountingpb. OwnerType_OWNER_TYPE_USER,
+        AgentExternalId:     &agent.AgentExternalId, // ✅ Track agent commission
+    }
+
+    resp, err := h.accountingClient.Client.Transfer(ctx, transferReq)
+    if err != nil {
+        errMsg := err.Error()
+        h.userUc.FailWithdrawal(ctx, withdrawal. RequestRef, errMsg)
+
+        // Send failure notification
+        h. hub.SendToUser(fmt. Sprintf("%d", withdrawal.UserID), []byte(fmt. Sprintf(`{
+            "type": "withdrawal_failed",
+            "data": {
+                "request_ref": "%s",
+                "error": "%s"
+            }
+        }`, withdrawal.RequestRef, errMsg)))
+        return
+    }
+
+    // Mark as completed
+    if err := h.userUc.CompleteWithdrawal(ctx, withdrawal. RequestRef, resp.ReceiptCode, resp.JournalId); err != nil {
+        log.Printf("[Withdrawal] Failed to mark as completed: %v", err)
+        return
+    }
+
+    // Send success notification
+    h.hub.SendToUser(fmt.Sprintf("%d", withdrawal. UserID), []byte(fmt. Sprintf(`{
+        "type": "withdrawal_completed",
+        "data": {
+            "request_ref": "%s",
+            "receipt_code": "%s",
+            "agent_id": "%s",
+            "agent_name": "%s",
+            "fee_amount": %.2f,
+            "agent_commission": %.2f
+        }
+    }`, withdrawal.RequestRef, resp.ReceiptCode, agent.AgentExternalId, *agent.Name, resp.FeeAmount, resp.AgentCommission)))
+}
+
+// processWithdrawal - Normal withdrawal (debit from user to system)
+func (h *PaymentHandler) processWithdrawal(withdrawal *domain.WithdrawalRequest, userAccount string) {
+    ctx := context.Background()
+
+    // Mark as processing
+    if err := h.userUc.MarkWithdrawalProcessing(ctx, withdrawal.RequestRef); err != nil {
+        log.Printf("[Withdrawal] Failed to mark as processing: %v", err)
+        return
+    }
+
+    // Execute debit
+    debitReq := &accountingpb.DebitRequest{
+        AccountNumber:       userAccount,
+        Amount:              withdrawal.Amount,
+        Currency:            withdrawal.Currency,
+        AccountType:         accountingpb. AccountType_ACCOUNT_TYPE_REAL,
+        Description:         fmt.Sprintf("Withdrawal to %s", withdrawal.Destination),
+        ExternalRef:         &withdrawal.RequestRef,
+        CreatedByExternalId: fmt. Sprintf("%d", withdrawal.UserID),
+        CreatedByType:       accountingpb. OwnerType_OWNER_TYPE_USER,
+    }
+
+    // Add service to description if provided
+    if withdrawal.Service != nil {
+        debitReq.Description = fmt.Sprintf("Withdrawal to %s via %s", withdrawal. Destination, *withdrawal.Service)
+    }
+
+    resp, err := h.accountingClient.Client.Debit(ctx, debitReq)
+    if err != nil {
+        errMsg := err.Error()
+        h. userUc.FailWithdrawal(ctx, withdrawal.RequestRef, errMsg)
+
+        // Send failure notification
+        h.hub.SendToUser(fmt. Sprintf("%d", withdrawal.UserID), []byte(fmt.Sprintf(`{
+            "type": "withdrawal_failed",
+            "data": {
+                "request_ref": "%s",
+                "error": "%s"
+            }
+        }`, withdrawal.RequestRef, errMsg)))
+        return
+    }
+
+    // Mark as completed
+    if err := h.userUc.CompleteWithdrawal(ctx, withdrawal.RequestRef, resp.ReceiptCode, resp.JournalId); err != nil {
+        log.Printf("[Withdrawal] Failed to mark as completed: %v", err)
+        return
+    }
+
+    // Send success notification
+    h.hub. SendToUser(fmt.Sprintf("%d", withdrawal.UserID), []byte(fmt.Sprintf(`{
+        "type": "withdrawal_completed",
+        "data": {
+            "request_ref": "%s",
+            "receipt_code": "%s",
+            "balance_after": %.2f
+        }
+    }`, withdrawal. RequestRef, resp.ReceiptCode, resp.BalanceAfter)))
 }
 
 // ============================================================================
@@ -795,49 +931,49 @@ func (h *PaymentHandler) handleGetTransactionByReceipt(ctx context.Context, clie
 
 // Get transaction history (deposits + withdrawals)
 func (h *PaymentHandler) handleGetHistory(ctx context.Context, client *Client, data json.RawMessage) {
-	var req struct {
-		Type   string `json:"type"` // deposits, withdrawals, all
-		Limit  int    `json:"limit"`
-		Offset int    `json:"offset"`
-	}
+    var req struct {
+        Type   string `json:"type"` // deposits, withdrawals, all
+        Limit  int    `json:"limit"`
+        Offset int    `json:"offset"`
+    }
 
-	if err := json.Unmarshal(data, &req); err != nil {
-		client.SendError("invalid request format")
-		return
-	}
+    if err := json.Unmarshal(data, &req); err != nil {
+        client.SendError("invalid request format")
+        return
+    }
 
-	if req.Limit == 0 {
-		req.Limit = 20
-	}
+    if req. Limit == 0 {
+        req.Limit = 20
+    }
 
-	userIDInt, _ := strconv.ParseInt(client.UserID, 10, 64)
+    userIDInt, _ := strconv. ParseInt(client.UserID, 10, 64)
 
-	var deposits []domain.DepositRequest
-	var withdrawals []domain.WithdrawalRequest
-	var err error
+    var deposits []domain.DepositRequest
+    var withdrawals []domain.WithdrawalRequest
+    var err error
 
-	switch req.Type {
-	case "deposits":
-		deposits, _, err = h.userUc.ListDeposits(ctx, userIDInt, req.Limit, req.Offset)
-	case "withdrawals":
-		withdrawals, _, err = h.userUc.ListWithdrawals(ctx, userIDInt, req.Limit, req.Offset)
-	case "all":
-		deposits, _, _ = h.userUc.ListDeposits(ctx, userIDInt, req.Limit/2, req.Offset)
-		withdrawals, _, _ = h.userUc.ListWithdrawals(ctx, userIDInt, req.Limit/2, req.Offset)
-	default:
-		client.SendError("invalid type: must be 'deposits', 'withdrawals', or 'all'")
-		return
-	}
+    switch req.Type {
+    case "deposits":
+        deposits, _, err = h.userUc. GetUserDepositHistory(ctx, userIDInt, req.Limit, req.Offset)
+    case "withdrawals":
+        withdrawals, _, err = h.userUc.GetUserWithdrawalHistory(ctx, userIDInt, req.Limit, req.Offset)
+    case "all":
+        deposits, _, _ = h.userUc.GetUserDepositHistory(ctx, userIDInt, req.Limit/2, req.Offset)
+        withdrawals, _, _ = h.userUc.GetUserWithdrawalHistory(ctx, userIDInt, req.Limit/2, req.Offset)
+    default:
+        client. SendError("invalid type: must be 'deposits', 'withdrawals', or 'all'")
+        return
+    }
 
-	if err != nil {
-		client.SendError("failed to fetch history: " + err.Error())
-		return
-	}
+    if err != nil {
+        client.SendError("failed to fetch history: " + err.Error())
+        return
+    }
 
-	client.SendSuccess("transaction history", map[string]interface{}{
-		"deposits":    deposits,
-		"withdrawals": withdrawals,
-	})
+    client.SendSuccess("transaction history", map[string]interface{}{
+        "deposits":    deposits,
+        "withdrawals": withdrawals,
+    })
 }
 
 // ============================================================================
@@ -911,13 +1047,13 @@ func mapTransactionType(s string) accountingpb.TransactionType {
 func (h *PaymentHandler) sendDepositWebhookToPartner(deposit *domain.DepositRequest, partner *partnersvcpb.Partner) {
 	ctx := context.Background()
 
-	_, err := h.partnerClient.Client.InitiateDeposit(ctx, &partnersvcpb.InitiateDepositRequest{
+	_, err := h.partnerClient. Client.InitiateDeposit(ctx, &partnersvcpb.InitiateDepositRequest{
 		PartnerId:      partner.Id,
 		TransactionRef: deposit.RequestRef,
-		UserId:         fmt.Sprintf("%d", deposit.UserID),
-		Amount:         deposit.Amount, // decimal
+		UserId:         fmt. Sprintf("%d", deposit.UserID),
+		Amount:         deposit. Amount,
 		Currency:       deposit.Currency,
-		PaymentMethod:  deposit.PaymentMethod,
+		PaymentMethod:  ptrToStr(deposit.PaymentMethod),
 		Metadata: map[string]string{
 			"request_ref": deposit.RequestRef,
 		},
@@ -925,54 +1061,11 @@ func (h *PaymentHandler) sendDepositWebhookToPartner(deposit *domain.DepositRequ
 
 	if err != nil {
 		log.Printf("[Deposit] Failed to send webhook to partner %s: %v", partner.Id, err)
-		h.userUc.UpdateDepositStatus(ctx, deposit.ID, "failed", strToPtr(err.Error()))
+		// ❌ OLD: h.userUc.UpdateDepositStatus(ctx, deposit.ID, "failed", strToPtr(err.Error()))
+		// ✅ NEW: Use the business method
+		h.userUc. FailDeposit(ctx, deposit. RequestRef, err.Error())
 	}
 }
-
-// Helper: Process withdrawal
-func (h *PaymentHandler) processWithdrawal(withdrawal *domain.WithdrawalRequest, userAccount string) {
-	ctx := context.Background()
-
-	h.userUc.UpdateWithdrawalStatus(ctx, withdrawal.ID, "processing", nil)
-
-	debitReq := &accountingpb.DebitRequest{
-		AccountNumber:       userAccount,
-		Amount:              withdrawal.Amount, // decimal
-		Currency:            withdrawal.Currency,
-		AccountType:         accountingpb.AccountType_ACCOUNT_TYPE_REAL,
-		Description:         fmt.Sprintf("Withdrawal to %s via %s", withdrawal.Destination, withdrawal.Service),
-		ExternalRef:         &withdrawal.RequestRef,
-		CreatedByExternalId: fmt.Sprintf("%d", withdrawal.UserID),
-		CreatedByType:       accountingpb.OwnerType_OWNER_TYPE_USER,
-	}
-
-	resp, err := h.accountingClient.Client.Debit(ctx, debitReq)
-	if err != nil {
-		errMsg := err.Error()
-		h.userUc.UpdateWithdrawalStatus(ctx, withdrawal.ID, "failed", &errMsg)
-
-		h.hub.SendToUser(fmt.Sprintf("%d", withdrawal.UserID), []byte(fmt.Sprintf(`{
-			"type": "withdrawal_failed",
-			"data": {
-				"request_ref": "%s",
-				"error": "%s"
-			}
-		}`, withdrawal.RequestRef, errMsg)))
-		return
-	}
-
-	h.userUc.UpdateWithdrawalWithReceipt(ctx, withdrawal.ID, resp.ReceiptCode, resp.JournalId)
-
-	h.hub.SendToUser(fmt.Sprintf("%d", withdrawal.UserID), []byte(fmt.Sprintf(`{
-		"type": "withdrawal_completed",
-		"data": {
-			"request_ref": "%s",
-			"receipt_code": "%s",
-			"balance_after": %.2f
-		}
-	}`, withdrawal.RequestRef, resp.ReceiptCode, resp.BalanceAfter)))
-}
-
 // ============================================================================
 // CURRENCY CONVERSION & TRANSFER
 // ============================================================================

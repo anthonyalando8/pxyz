@@ -11,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	//"github.com/shopspring/decimal"
 )
 
 // AccountRepository defines the interface for account persistence operations
@@ -137,6 +138,46 @@ func scanAccountRows(rows pgx.Rows) ([]*domain.Account, error) {
 	}
 
 	return accounts, nil
+}
+
+// scanAccountFromRows scans an account from pgx. Rows
+func scanAccountFromRows(rows pgx.Rows) (*domain. Account, error) {
+	var account domain.Account
+	var parentAgentID *string
+	var commissionRate *string
+
+	err := rows.Scan(
+		&account.ID,
+		&account.AccountNumber,
+		&account.OwnerType,
+		&account.OwnerID,
+		&account. Currency,
+		&account.Purpose,
+		&account.AccountType,
+		&account.IsActive,
+		&account.IsLocked,
+		&account. OverdraftLimit,
+		&parentAgentID,
+		&commissionRate,
+		&account.CreatedAt,
+		&account.UpdatedAt,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert parent_agent_id
+	if parentAgentID != nil && *parentAgentID != "" {
+		account.ParentAgentExternalID = parentAgentID
+	}
+
+	// Convert commission_rate from string to decimal
+	if commissionRate != nil && *commissionRate != "" {
+		account.CommissionRate = commissionRate
+	}
+
+	return &account, nil
 }
 
 // GetByAccountNumber fetches an account by account number (unique index)
@@ -754,42 +795,7 @@ func (r *accountRepo) GetSystemFeeAccount(
 	return account, nil
 }
 
-// GetAgentAccount retrieves agent commission account
-// Uses unique constraint: owner_type + owner_id + currency + purpose + account_type
-// OPTIMIZED: Uses composite index idx_accounts_real
-func (r *accountRepo) GetAgentAccount(
-	ctx context.Context,
-	agentExternalID string,
-	currency string,
-) (*domain.Account, error) {
-	query := baseSelectQuery + `
-		WHERE owner_type = $1
-		  AND owner_id = $2
-		  AND currency = $3
-		  AND purpose = $4
-		  AND account_type = 'real'
-		  AND is_active = true
-		LIMIT 1
-	`
 
-	row := r.db.QueryRow(ctx, query,
-		domain.OwnerTypeAgent,
-		agentExternalID,
-		currency,
-		domain.PurposeCommission,
-	)
-
-	account, err := scanAccount(row)
-	if err != nil {
-		if errors.Is(err, xerrors.ErrNotFound) {
-			return nil, fmt.Errorf("agent commission account not found for agent %s, currency %s: %w",
-				agentExternalID, currency, xerrors.ErrAgentNotFound)
-		}
-		return nil, fmt.Errorf("failed to get agent account: %w", err)
-	}
-
-	return account, nil
-}
 
 // GetOrCreateAgentAccount ensures agent has a commission account
 // Creates account if it doesn't exist
@@ -902,6 +908,39 @@ func (r *accountRepo) GetSystemFeeAccountTx(
 }
 
 // GetAgentAccountTx retrieves agent account within a transaction
+func (r *accountRepo) GetAgentAccount(
+	ctx context.Context,
+	agentExternalID string,
+	currency string,
+) (*domain. Account, error) {
+	query := baseSelectQuery + `
+		WHERE parent_agent_external_id = $1
+		  AND currency = $2
+		  AND purpose = $3
+		  AND account_type = 'real'
+		  AND is_active = true
+		LIMIT 1
+	`
+
+	row := r.db.QueryRow(ctx, query,
+		agentExternalID,
+		currency,
+		domain. PurposeWallet, // ✅ Changed from PurposeCommission to PurposeWallet
+	)
+
+	account, err := scanAccount(row)
+	if err != nil {
+		if errors. Is(err, pgx.ErrNoRows) {
+			return nil, fmt. Errorf("agent wallet account not found for agent %s, currency %s: %w",
+				agentExternalID, currency, xerrors.ErrNotFound)
+		}
+		return nil, fmt.Errorf("failed to get agent account: %w", err)
+	}
+
+	return account, nil
+}
+
+// GetAgentAccountTx - Transaction version
 func (r *accountRepo) GetAgentAccountTx(
 	ctx context.Context,
 	tx pgx.Tx,
@@ -909,32 +948,64 @@ func (r *accountRepo) GetAgentAccountTx(
 	currency string,
 ) (*domain.Account, error) {
 	query := baseSelectQuery + `
-		WHERE owner_type = $1
-		  AND owner_id = $2
-		  AND currency = $3
-		  AND purpose = $4
+		WHERE parent_agent_external_id = $1
+		  AND currency = $2
+		  AND purpose = $3
 		  AND account_type = 'real'
 		  AND is_active = true
 		LIMIT 1
 	`
 
-	row := tx.QueryRow(ctx, query,
-		domain.OwnerTypeAgent,
+	row := tx. QueryRow(ctx, query,
 		agentExternalID,
 		currency,
-		domain.PurposeCommission,
+		domain.PurposeWallet, // ✅ Wallet purpose
 	)
 
 	account, err := scanAccount(row)
 	if err != nil {
-		if errors.Is(err, xerrors.ErrNotFound) {
-			return nil, fmt.Errorf("agent commission account not found for agent %s, currency %s: %w",
-				agentExternalID, currency, xerrors.ErrAgentNotFound)
+		if errors.Is(err, pgx.  ErrNoRows) {
+			return nil, fmt.Errorf("agent wallet account not found for agent %s, currency %s: %w",
+				agentExternalID, currency, xerrors.ErrNotFound)
 		}
 		return nil, fmt.Errorf("failed to get agent account: %w", err)
 	}
 
 	return account, nil
+}
+
+// GetAgentAccounts - Get all accounts for an agent (all currencies)
+func (r *accountRepo) GetAgentAccounts(
+	ctx context.Context,
+	agentExternalID string,
+) ([]*domain.Account, error) {
+	query := baseSelectQuery + `
+		WHERE parent_agent_external_id = $1
+		  AND account_type = 'real'
+		  AND is_active = true
+		ORDER BY currency ASC
+	`
+
+	rows, err := r. db.Query(ctx, query, agentExternalID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query agent accounts: %w", err)
+	}
+	defer rows. Close()
+
+	var accounts []*domain.Account
+	for rows. Next() {
+		account, err := scanAccountFromRows(rows)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan agent account: %w", err)
+		}
+		accounts = append(accounts, account)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating agent accounts: %w", err)
+	}
+
+	return accounts, nil
 }
 
 // ========================================

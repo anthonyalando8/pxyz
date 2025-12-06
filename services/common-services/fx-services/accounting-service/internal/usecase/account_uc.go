@@ -431,6 +431,91 @@ func (uc *AccountUsecase) UpdateAccount(ctx context.Context, account *domain.Acc
 	return nil
 }
 
+func (uc *AccountUsecase) UpdateAccounts(
+	ctx context.Context,
+	accounts []*domain.Account,
+	tx pgx.Tx,
+) map[int]error {
+	if tx == nil {
+		return map[int]error{0: fmt.Errorf("transaction required for UpdateAccounts")}
+	}
+
+	if len(accounts) == 0 {
+		return map[int]error{0: xerrors.ErrInvalidRequest}
+	}
+
+	// Validate all accounts first
+	errs := make(map[int]error)
+	now := time.Now()
+
+	for i, account := range accounts {
+		if !account.IsValid() {
+			errs[i] = xerrors.ErrInvalidRequest
+			continue
+		}
+		// Set updated timestamp
+		account.UpdatedAt = now
+	}
+
+	// If validation errors exist, return early
+	if len(errs) > 0 {
+		return errs
+	}
+
+	// Delegate to repository batch update
+	repoErrs := uc.accountRepo.UpdateMany(ctx, accounts, tx)
+
+	// Invalidate caches for all updated accounts
+	for i, account := range accounts {
+		if _, hasError := repoErrs[i]; ! hasError {
+			// Invalidate all cache keys for this account
+			_ = uc.redisClient.Del(ctx, fmt.Sprintf("accounts:id:%d", account.ID)).Err()
+			_ = uc.redisClient.Del(ctx, fmt.Sprintf("accounts:number:%s", account. AccountNumber)).Err()
+			_ = uc.redisClient.Del(ctx, fmt. Sprintf("accounts:owner:%s:%s:%s", account.OwnerType, account.OwnerID, account.AccountType)). Err()
+			
+			// Also invalidate parent agent cache if applicable
+			if account.ParentAgentExternalID != nil {
+				_ = uc.redisClient. Del(ctx, fmt.Sprintf("accounts:agent:%s", *account.ParentAgentExternalID)).Err()
+			}
+		}
+	}
+
+	return repoErrs
+}
+
+// UpdateAccountsBatch is a convenience method that handles transaction creation
+// Use this when you don't have an existing transaction
+func (uc *AccountUsecase) UpdateAccountsBatch(
+	ctx context.Context,
+	accounts []*domain. Account,
+) (map[int]error, error) {
+	if len(accounts) == 0 {
+		return nil, xerrors.ErrInvalidRequest
+	}
+
+	// Begin transaction
+	tx, err := uc.accountRepo.BeginTx(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Update accounts
+	errs := uc.UpdateAccounts(ctx, accounts, tx)
+
+	// If all failed, rollback and return
+	if len(errs) == len(accounts) {
+		return errs, fmt.Errorf("all account updates failed")
+	}
+
+	// Commit transaction
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return errs, nil
+}
+
 // LockAccount locks an account (fraud prevention, maintenance)
 func (uc *AccountUsecase) LockAccount(ctx context.Context, accountID int64, tx pgx.Tx) error {
 	if tx == nil {

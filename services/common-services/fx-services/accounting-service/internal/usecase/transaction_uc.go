@@ -908,6 +908,9 @@ func (uc *TransactionUsecase) Credit(
 	if err != nil {
 		return nil, err
 	}
+	if systemAccount.Currency != userAccount.Currency {
+		return nil, xerrors.ErrCurrencyMismatch
+	}
 
 	// Build transaction request
 	txReq := buildCreditDoubleEntry(req, systemAccount, userAccount)
@@ -974,6 +977,9 @@ func (uc *TransactionUsecase) Debit(
 	)
 	if err != nil {
 		return nil, err
+	}
+	if systemAccount.Currency != userAccount.Currency {
+		return nil, xerrors.ErrCurrencyMismatch
 	}
 
 	// Build transaction request
