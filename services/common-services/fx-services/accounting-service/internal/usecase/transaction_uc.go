@@ -1084,6 +1084,8 @@ func (uc *TransactionUsecase) Transfer(
 		Currency   : destAccount.Currency,
 	}
 
+	txReq.TransactionFee = &transactionFee
+
 	// Execute with common pattern
 	return uc.executeWithReceipt(
 		ctx,

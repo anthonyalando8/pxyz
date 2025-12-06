@@ -297,7 +297,7 @@ func (rb *ReceiptBatcher) buildReceiptRequest(ctx context.Context, req *domain.T
 	var currency string
 	var originalAmount float64
 	var originalCurrency string
-	var exchangeRate string = "1" // Default exchange rate
+	var exchangeRate string
 	var transactionCost float64 = 0.0
 
 	if req.TransactionFee != nil {
@@ -341,6 +341,11 @@ func (rb *ReceiptBatcher) buildReceiptRequest(ctx context.Context, req *domain.T
 	}
 
 	// Extract metadata for currency conversion info
+	if req.TransactionType == domain.TransactionTypeConversion {
+		// Expect original_currency, source_amount, fx_rate in metadata
+		exchangeRate = "1.0" // Default
+	}
+	
 	if len(req.Entries) > 0 && req.Entries[0].Metadata != nil {
 		if oc, ok := req.Entries[0].Metadata["original_currency"].(string); ok {
 			originalCurrency = oc
