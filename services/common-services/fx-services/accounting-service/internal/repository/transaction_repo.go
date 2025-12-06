@@ -289,6 +289,7 @@ func (r *transactionRepo) Transfer(
 		AgentExternalID:     req.AgentExternalID,
 		IsSystemTransaction: false, // FEES APPLY
 		ReceiptCode: req.ReceiptCode,
+		TransactionFee: req.TransactionFee,
 		Entries: []*domain.LedgerEntryRequest{
 			// Source: Debit full amount
 			{
@@ -430,6 +431,7 @@ func (r *transactionRepo) ConvertAndTransfer(
 		AgentExternalID:     req.AgentExternalID,
 		IsSystemTransaction: false, // FEES APPLY
 		ReceiptCode:         req.ReceiptCode,
+		TransactionFee:     req.TransactionFee,
 		Entries: []*domain.LedgerEntryRequest{
 			// Debit source account (original amount)
 			{
@@ -1158,7 +1160,14 @@ func (r *transactionRepo) createFees(
 	}
 
 	// Calculate and create fees for non-system transactions
-	totalFee := req.TransactionFee.Amount
+	totalFee := 0.0
+	if req.TransactionFee == nil {
+		r.logger.Info("no transaction fee specified, skipping fee creation",
+			zap.String("receipt_code", receiptCode))
+		//return nil
+	}else{
+		totalFee = req.TransactionFee.Amount
+	}
 
 	// Create platform fee record
 	if totalFee > 0 {
