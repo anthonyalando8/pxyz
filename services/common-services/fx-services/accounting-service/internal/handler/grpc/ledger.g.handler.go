@@ -935,6 +935,10 @@ func (h *AccountingHandler) Credit(
 	if req.Currency == "" {
 		return nil, status.Error(codes.InvalidArgument, "currency is required")
 	}
+	transactionType := domain.TransactionTypeTransfer
+	if req.TransactionType != 0 {
+		transactionType = convertTransactionTypeToDomain(req.TransactionType)
+	}
 
 	// Convert to domain
 	domainReq := &domain.CreditRequest{
@@ -947,6 +951,7 @@ func (h *AccountingHandler) Credit(
 		ExternalRef:         req.ExternalRef,
 		CreatedByExternalID: req.CreatedByExternalId,
 		CreatedByType:       convertOwnerTypeToDomain(req.CreatedByType),
+		TransactionType:    transactionType,
 	}
 
 	// Execute
@@ -994,6 +999,10 @@ func (h *AccountingHandler) Debit(
 	if req.Currency == "" {
 		return nil, status.Error(codes.InvalidArgument, "currency is required")
 	}
+	transactionType := domain.TransactionTypeTransfer
+	if req.TransactionType != 0 {
+		transactionType = convertTransactionTypeToDomain(req.TransactionType)
+	}
 
 	// Convert to domain
 	domainReq := &domain.DebitRequest{
@@ -1006,6 +1015,7 @@ func (h *AccountingHandler) Debit(
 		ExternalRef:         req.ExternalRef,
 		CreatedByExternalID: req.CreatedByExternalId,
 		CreatedByType:       convertOwnerTypeToDomain(req.CreatedByType),
+		TransactionType:    transactionType,
 	}
 
 	// Execute
@@ -1054,6 +1064,11 @@ func (h *AccountingHandler) Transfer(
 		return nil, status.Error(codes.InvalidArgument, "amount must be positive")
 	}
 
+	transactionType := domain.TransactionTypeTransfer
+	if req.TransactionType != 0 {
+		transactionType = convertTransactionTypeToDomain(req.TransactionType)
+	}
+
 	// Convert to domain
 	domainReq := &domain.TransferRequest{
 		FromAccountNumber:   req.FromAccountNumber,
@@ -1066,6 +1081,7 @@ func (h *AccountingHandler) Transfer(
 		CreatedByExternalID: req.CreatedByExternalId,
 		CreatedByType:       convertOwnerTypeToDomain(req.CreatedByType),
 		AgentExternalID:     req.AgentExternalId,
+		TransactionType: transactionType,
 	}
 
 	// Execute

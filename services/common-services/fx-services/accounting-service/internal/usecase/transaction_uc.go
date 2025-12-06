@@ -21,6 +21,8 @@ import (
 	publisher "accounting-service/internal/pub"
 	receiptpb "x/shared/genproto/shared/accounting/receipt/v3"
 	notificationpb "x/shared/genproto/shared/notificationpb"
+	"accounting-service/internal/pkg"
+
 
 	"github.com/redis/go-redis/v9"
 	"github.com/segmentio/kafka-go"
@@ -75,6 +77,8 @@ type TransactionUsecase struct {
 
 	// Publishers
 	eventPublisher *publisher.TransactionEventPublisher //  NEW
+	feeCalculator *service.TransactionFeeCalculator
+
 }
 
 // NewTransactionUsecase creates a new transaction usecase
@@ -95,6 +99,7 @@ func NewTransactionUsecase(
 	redisClient *redis.Client,
 	kafkaWriter *kafka.Writer,
 	eventPublisher *publisher.TransactionEventPublisher, //  NEW PARAMETER
+	feeCalculator *service.TransactionFeeCalculator,
 ) *TransactionUsecase {
 	uc := &TransactionUsecase{
 		transactionRepo:    transactionRepo,
@@ -114,6 +119,7 @@ func NewTransactionUsecase(
 		kafkaWriter:        kafkaWriter,
 		profileFetch:       helpers.NewProfileFetcher(authClient),
 		eventPublisher:     eventPublisher,
+		feeCalculator:      feeCalculator,
 	}
 
 	// Initialize batchers
@@ -180,7 +186,6 @@ func (uc *TransactionUsecase) ExecuteTransaction(
 	case <-time.After(2 * time.Second):
 		return nil, errors.New("receipt generation timeout")
 	}
-
 	// Initialize status tracking
 	uc.statusTracker.Track(receiptCode, "processing")
 
@@ -1058,6 +1063,29 @@ func (uc *TransactionUsecase) Transfer(
 		return nil, xerrors.ErrCurrencyMismatch
 	}
 
+	trFee, err := uc.feeCalculator.CalculateFee(
+		ctx,
+		req.TransactionType,
+		req.Amount,
+		nullableStr(sourceAccount.Currency), 
+		nullableStr(destAccount.Currency),
+		&req.AccountType,
+		ptrOwnerType(req.CreatedByType),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate transfer fee: %w", err)
+	}
+
+	transactionFee := domain.TransactionFee{
+		ReceiptCode:  ptrStrToStr(txReq.ReceiptCode),
+		FeeRuleID: trFee.RuleID,    
+		FeeType    : trFee.FeeType ,   
+		Amount      : trFee.Amount ,  
+		Currency   : destAccount.Currency,
+	}
+
+	txReq.TransactionFee = &transactionFee
+
 	// Execute with common pattern
 	return uc.executeWithReceipt(
 		ctx,
@@ -1065,6 +1093,7 @@ func (uc *TransactionUsecase) Transfer(
 		func(ctx context.Context) (*domain.LedgerAggregate, error) {
 			req.ExternalRef = txReq.ExternalRef
 			req.ReceiptCode = txReq.ReceiptCode
+			req.TransactionFee = &transactionFee
 			return uc.transactionRepo.Transfer(ctx, req)
 		},
 		func(agg *domain.LedgerAggregate) {
@@ -1121,8 +1150,57 @@ func (uc *TransactionUsecase) ConvertAndTransfer(
 		return nil, errors.New("use Transfer for same currency operations")
 	}
 
+	// Build metadata with source_amount and original_currency
+	if req.Metadata == nil {
+		req.Metadata = make(map[string]interface{})
+	}
+	
+	// Add conversion-specific metadata
+	req.Metadata["source_amount"] = req.Amount
+	req. Metadata["original_currency"] = sourceAccount.Currency
+	req. Metadata["target_currency"] = destAccount.Currency
+	req. Metadata["conversion_type"] = "account_to_account"
+	
+	// Add account owner info (useful for reporting)
+	req.Metadata["source_owner_id"] = sourceAccount.OwnerID
+	req.Metadata["source_owner_type"] = string(sourceAccount.OwnerType)
+	req.Metadata["dest_owner_id"] = destAccount.OwnerID
+	req.Metadata["dest_owner_type"] = string(destAccount.OwnerType)
+
 	// Build transaction request
 	txReq := buildConversionDoubleEntry(req, sourceAccount, destAccount)
+
+	// Calculate fee
+	trFee, err := uc.feeCalculator. CalculateFee(
+		ctx,
+		domain.TransactionTypeConversion,
+		req. Amount,
+		nullableStr(sourceAccount.Currency),
+		nullableStr(destAccount.Currency),
+		&req. AccountType,
+		ptrOwnerType(req.CreatedByType),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate conversion fee: %w", err)
+	}
+
+	transactionFee := domain.TransactionFee{
+		ReceiptCode: ptrStrToStr(txReq.ReceiptCode),
+		FeeRuleID:   trFee.RuleID,
+		FeeType:     trFee.FeeType,
+		Amount:      trFee. Amount,
+		Currency:    destAccount.Currency,
+	}
+
+	txReq.TransactionFee = &transactionFee
+	
+	// Add fee info to metadata
+	req.Metadata["fee_amount"] = trFee.Amount
+	req.Metadata["fee_currency"] = destAccount.Currency
+	req.Metadata["fee_type"] = string(trFee.FeeType)
+	if trFee.RuleID != nil {
+		req.Metadata["fee_rule_id"] = *trFee.RuleID
+	}
 
 	// Execute with common pattern
 	return uc.executeWithReceipt(
@@ -1130,11 +1208,12 @@ func (uc *TransactionUsecase) ConvertAndTransfer(
 		txReq,
 		func(ctx context.Context) (*domain.LedgerAggregate, error) {
 			req.ExternalRef = txReq.ExternalRef
-			req.ReceiptCode = txReq.ReceiptCode
+			req. ReceiptCode = txReq.ReceiptCode
+			req.TransactionFee = &transactionFee
 			return uc.transactionRepo.ConvertAndTransfer(ctx, req)
 		},
 		func(agg *domain.LedgerAggregate) {
-			uc.publishConversionEvent(agg, req)
+			uc. publishConversionEvent(agg, req)
 		},
 	)
 }

@@ -35,7 +35,7 @@ TRUNCATE
   transaction_fee_rules,
   demo_account_resets,
   demo_account_metadata,
-  agent_relationships,
+  agents,
   audit_log,
   accounts
 RESTART IDENTITY CASCADE;

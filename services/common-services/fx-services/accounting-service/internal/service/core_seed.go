@@ -349,6 +349,16 @@ func (s *SystemSeeder) SeedSystemAccounts(ctx context.Context) error {
 			InitialBalance: 0,
 			OverdraftLimit: 0,
 		})
+
+		batch = append(batch, &domain.CreateAccountRequest{
+			OwnerType:      domain.OwnerTypeSystem,
+			OwnerID:        "system",
+			Currency:       currency,
+			Purpose:        domain.PurposeRevenue,
+			AccountType:    domain.AccountTypeReal,
+			InitialBalance: 0,
+			OverdraftLimit: 0,
+		})
 	}
 
 	// Create all system accounts

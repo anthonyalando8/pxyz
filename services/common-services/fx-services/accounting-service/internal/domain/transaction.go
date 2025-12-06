@@ -42,6 +42,8 @@ type TransactionRequest struct {
 	// Ledger entries (must balance)
 	Entries []*LedgerEntryRequest
 
+	TransactionFee *TransactionFee
+
 	// Optional receipt
 	GenerateReceipt bool
 	ReceiptCode     *string
@@ -100,6 +102,7 @@ type CreditRequest struct {
 	CreatedByType       OwnerType              `json:"created_by_type"`
 	Metadata            map[string]interface{} `json:"metadata,omitempty"`
 	ReceiptCode         *string
+	TransactionType     TransactionType `json:"transaction_type"`
 }
 
 // DebitRequest represents a simple debit operation (remove money from account)
@@ -115,6 +118,7 @@ type DebitRequest struct {
 	CreatedByType       OwnerType              `json:"created_by_type"`
 	Metadata            map[string]interface{} `json:"metadata,omitempty"`
 	ReceiptCode         *string
+	TransactionType     TransactionType `json:"transaction_type"`
 }
 
 // TransferRequest represents a transfer between two accounts (same currency)
@@ -131,6 +135,8 @@ type TransferRequest struct {
 	AgentExternalID     *string                `json:"agent_external_id,omitempty"` // Agent who facilitated
 	Metadata            map[string]interface{} `json:"metadata,omitempty"`
 	ReceiptCode         *string
+	TransactionType     TransactionType `json:"transaction_type"`
+	TransactionFee *TransactionFee
 }
 
 // ConversionRequest represents a currency conversion transfer
@@ -146,6 +152,7 @@ type ConversionRequest struct {
 	AgentExternalID     *string                `json:"agent_external_id,omitempty"`
 	Metadata            map[string]interface{} `json:"metadata,omitempty"`
 	ReceiptCode         *string
+	TransactionFee *TransactionFee
 }
 
 type AgentCommissionRequest struct {

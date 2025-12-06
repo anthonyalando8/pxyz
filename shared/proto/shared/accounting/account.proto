@@ -597,6 +597,7 @@ message CreditRequest {
     optional string external_ref = 7;
     string created_by_external_id = 8;
     OwnerType created_by_type = 9;
+    TransactionType transaction_type = 10;
 }
 
 message CreditResponse {
@@ -616,6 +617,7 @@ message DebitRequest {
     optional string external_ref = 7;
     string created_by_external_id = 8;
     OwnerType created_by_type = 9;
+    TransactionType transaction_type = 10;
 }
 
 message DebitResponse {
@@ -636,6 +638,7 @@ message TransferRequest {
     string created_by_external_id = 8;
     OwnerType created_by_type = 9;
     optional string agent_external_id = 10; // Agent who facilitated
+    TransactionType transaction_type = 11;
 }
 
 message TransferResponse {

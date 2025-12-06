@@ -17,6 +17,7 @@ import (
 	receiptclient "x/shared/common/receipt"
 	notificationclient "x/shared/notification"
 	partnerclient "x/shared/partner"
+	feecalculator "accounting-service/internal/pkg"
 
 	"x/shared/utils/id"
 
@@ -140,6 +141,12 @@ func NewAccountingGRPCServer(cfg config.AppConfig) {
 	// USECASES (Business Logic Layer)
 	// ===============================
 	// Initialize in dependency order to avoid nil references
+	feeCal := feecalculator.NewTransactionFeeCalculator(
+		feeRepo,
+		feeRuleRepo,
+		rdb,
+	)
+	log.Println("✅ Fee calculator initialized")
 	
 	// 1. Account Usecase - No dependencies on other usecases
 	accountUC := usecase.NewAccountUsecase(
@@ -163,6 +170,7 @@ func NewAccountingGRPCServer(cfg config.AppConfig) {
 		feeRepo,      // Repository for fee records
 		feeRuleRepo,  // Repository for fee rules
 		rdb,          // Redis for caching
+		feeCal,
 	)
 	log.Println("✅ Fee usecase initialized")
 	
@@ -218,6 +226,7 @@ func NewAccountingGRPCServer(cfg config.AppConfig) {
 		rdb,                // Redis for caching and status tracking
 		kafkaWriter,        // Kafka for event streaming
 		pub,
+		feeCal,
 		//sf,                 // Snowflake for ID generation
 	)
 	log.Println("✅ Transaction usecase initialized")

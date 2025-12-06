@@ -47,8 +47,13 @@ type AccountRepository interface {
 	Lock(ctx context.Context, accountID int64, tx pgx.Tx) error
 	Unlock(ctx context.Context, accountID int64, tx pgx.Tx) error
 
-	GetSystemAccount(ctx context.Context, currency string, accountType domain.AccountType) (*domain.Account, error)
+	GetSystemAccount(ctx context.Context, currency string, purpose domain.AccountPurpose) (*domain.Account, error)
+	GetSystemAccountTx(ctx context. Context, tx pgx.Tx, currency string, purpose domain.AccountPurpose) (*domain.Account, error)
+	
+	// Convenience methods (deprecated - use GetSystemAccount instead)
 	GetSystemFeeAccount(ctx context.Context, currency string) (*domain.Account, error)
+	GetSystemLiquidityAccount(ctx context.Context, currency string) (*domain.Account, error)
+	GetSystemRevenueAccount(ctx context.Context, currency string) (*domain.Account, error)
 	GetAgentAccount(ctx context.Context, agentExternalID string, currency string) (*domain.Account, error)
 	GetOrCreateAgentAccount(ctx context.Context, tx pgx.Tx, agentExternalID string, currency string, commissionRate *string) (*domain.Account, error)
 
@@ -745,57 +750,6 @@ func (r *accountRepo) Unlock(ctx context.Context, accountID int64, tx pgx.Tx) er
 	return nil
 }
 
-func (r *accountRepo) GetSystemAccount(
-	ctx context.Context,
-	currency string,
-	accountType domain.AccountType,
-) (*domain.Account, error) {
-	// System accounts follow pattern: SYS-LIQ-{CURRENCY}
-	accountNumber := fmt.Sprintf("SYS-LIQ-%s", currency)
-
-	account, err := r.GetByAccountNumber(ctx, accountNumber)
-	if err != nil {
-		return nil, fmt.Errorf("system account not found for currency %s: %w", currency, err)
-	}
-
-	if account.OwnerType != domain.OwnerTypeSystem {
-		return nil, errors.New("account is not a system account")
-	}
-
-	if account.Purpose != domain.PurposeLiquidity {
-		return nil, fmt.Errorf("expected liquidity account, got %s", account.Purpose)
-	}
-
-	return account, nil
-}
-
-// GetSystemFeeAccount retrieves system fee collection account for a currency
-// Pattern: SYS-FEE-{CURRENCY}
-// OPTIMIZED: Uses unique account_number index
-func (r *accountRepo) GetSystemFeeAccount(
-	ctx context.Context,
-	currency string,
-) (*domain.Account, error) {
-	// System fee accounts follow pattern: SYS-FEE-{CURRENCY}
-	accountNumber := fmt.Sprintf("SYS-FEE-%s", currency)
-
-	account, err := r.GetByAccountNumber(ctx, accountNumber)
-	if err != nil {
-		return nil, fmt.Errorf("system fee account not found for currency %s: %w", currency, err)
-	}
-
-	if account.OwnerType != domain.OwnerTypeSystem {
-		return nil, errors.New("account is not a system account")
-	}
-
-	if account.Purpose != domain.PurposeFees {
-		return nil, fmt.Errorf("expected fees account, got %s", account.Purpose)
-	}
-
-	return account, nil
-}
-
-
 
 // GetOrCreateAgentAccount ensures agent has a commission account
 // Creates account if it doesn't exist
@@ -866,45 +820,100 @@ func (r *accountRepo) GetOrCreateAgentAccount(
 // ADDITIONAL HELPER METHODS
 // ========================================
 
-// GetSystemAccountTx retrieves system account within a transaction
-func (r *accountRepo) GetSystemAccountTx(
+// GetSystemAccount retrieves a system account by currency and purpose
+// No longer relies on hard-coded account number patterns
+func (r *accountRepo) GetSystemAccount(
 	ctx context.Context,
-	tx pgx.Tx,
 	currency string,
-	accountType domain.AccountType,
+	purpose domain.AccountPurpose,
 ) (*domain.Account, error) {
-	accountNumber := fmt.Sprintf("SYS-LIQ-%s", currency)
+	query := baseSelectQuery + `
+		WHERE owner_type = $1
+		  AND owner_id = $2
+		  AND currency = $3
+		  AND purpose = $4
+		  AND account_type = 'real'
+		  AND is_active = true
+		LIMIT 1
+	`
 
-	account, err := r.GetByAccountNumberTx(ctx, accountNumber, tx)
+	row := r.db.QueryRow(ctx, query,
+		domain. OwnerTypeSystem,
+		"system", // System owner_id
+		currency,
+		purpose,
+	)
+
+	account, err := scanAccount(row)
 	if err != nil {
-		return nil, fmt.Errorf("system account not found for currency %s: %w", currency, err)
-	}
-
-	if account.OwnerType != domain.OwnerTypeSystem {
-		return nil, errors.New("account is not a system account")
+		if errors.Is(err, xerrors.ErrNotFound) {
+			return nil, fmt. Errorf("system %s account not found for currency %s: %w",
+				purpose, currency, xerrors.ErrNotFound)
+		}
+		return nil, fmt.Errorf("failed to get system %s account: %w", purpose, err)
 	}
 
 	return account, nil
 }
 
-// GetSystemFeeAccountTx retrieves system fee account within a transaction
-func (r *accountRepo) GetSystemFeeAccountTx(
+// GetSystemAccountTx - Transaction version
+func (r *accountRepo) GetSystemAccountTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	currency string,
+	purpose domain.AccountPurpose,
 ) (*domain.Account, error) {
-	accountNumber := fmt.Sprintf("SYS-FEE-%s", currency)
+	query := baseSelectQuery + `
+		WHERE owner_type = $1
+		  AND owner_id = $2
+		  AND currency = $3
+		  AND purpose = $4
+		  AND account_type = 'real'
+		  AND is_active = true
+		LIMIT 1
+	`
 
-	account, err := r.GetByAccountNumberTx(ctx, accountNumber, tx)
+	row := tx.QueryRow(ctx, query,
+		domain.OwnerTypeSystem,
+		"system",
+		currency,
+		purpose,
+	)
+
+	account, err := scanAccount(row)
 	if err != nil {
-		return nil, fmt.Errorf("system fee account not found for currency %s: %w", currency, err)
-	}
-
-	if account.OwnerType != domain.OwnerTypeSystem {
-		return nil, errors.New("account is not a system account")
+		if errors.Is(err, xerrors.ErrNotFound) {
+			return nil, fmt. Errorf("system %s account not found for currency %s: %w",
+				purpose, currency, xerrors.ErrNotFound)
+		}
+		return nil, fmt.Errorf("failed to get system %s account: %w", purpose, err)
 	}
 
 	return account, nil
+}
+
+// GetSystemFeeAccount is now a convenience wrapper
+func (r *accountRepo) GetSystemFeeAccount(
+	ctx context.Context,
+	currency string,
+) (*domain.Account, error) {
+	return r. GetSystemAccount(ctx, currency, domain.PurposeFees)
+}
+
+// GetSystemLiquidityAccount - Convenience method for liquidity accounts
+func (r *accountRepo) GetSystemLiquidityAccount(
+	ctx context.Context,
+	currency string,
+) (*domain.Account, error) {
+	return r.GetSystemAccount(ctx, currency, domain.PurposeLiquidity)
+}
+
+// GetSystemRevenueAccount - Convenience method for revenue accounts
+func (r *accountRepo) GetSystemRevenueAccount(
+	ctx context.Context,
+	currency string,
+) (*domain.Account, error) {
+	return r.GetSystemAccount(ctx, currency, domain.PurposeRevenue)
 }
 
 // GetAgentAccountTx retrieves agent account within a transaction

@@ -2,6 +2,14 @@
 
 BEGIN;
 
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $func$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$func$ LANGUAGE plpgsql;
+
 -- Add to user database
 CREATE TABLE deposit_requests (
     id BIGSERIAL PRIMARY KEY,
@@ -11,6 +19,7 @@ CREATE TABLE deposit_requests (
     amount NUMERIC(20,2) NOT NULL,
     currency TEXT NOT NULL,
     service TEXT NOT NULL, -- mpesa, paypal, etc
+    agent_external_id TEXT, -- External agent ID if applicable
     payment_method TEXT,
     status TEXT NOT NULL DEFAULT 'pending', -- pending, sent_to_partner, processing, completed, failed, cancelled
     partner_transaction_ref TEXT, -- Partner's reference (once they respond)
@@ -33,7 +42,7 @@ CREATE INDEX idx_deposit_requests_partner_ref ON deposit_requests(partner_transa
 CREATE TRIGGER trg_deposit_requests_set_updated_at
     BEFORE UPDATE ON deposit_requests
     FOR EACH ROW
-    EXECUTE FUNCTION set_updated_at();
+    EXECUTE FUNCTION update_updated_at_column();
 
 -- Withdrawal requests table
 CREATE TABLE withdrawal_requests (
@@ -62,6 +71,6 @@ CREATE INDEX idx_withdrawal_requests_ref ON withdrawal_requests(request_ref);
 CREATE TRIGGER trg_withdrawal_requests_set_updated_at
     BEFORE UPDATE ON withdrawal_requests
     FOR EACH ROW
-    EXECUTE FUNCTION set_updated_at();
+    EXECUTE FUNCTION update_updated_at_column();
 
 COMMIT;

@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"accounting-service/internal/domain"
+
 	xerrors "x/shared/utils/errors"
 
 	"github.com/jackc/pgx/v5"
@@ -64,6 +65,7 @@ func NewTransactionRepo(
 	currencyRepo CurrencyRepository, // FX operations
 	feeRepo TransactionFeeRepository,
 	agent        AgentRepository,
+
 	logger *zap.Logger,
 ) TransactionRepository {
 	return &transactionRepo{
@@ -105,7 +107,7 @@ func (r *transactionRepo) Credit(
 	}
 
 	// Get system liquidity account for currency
-	systemAccount, err := r.accountRepo.GetSystemAccount(ctx, req.Currency, req.AccountType)
+	systemAccount, err := r.accountRepo.GetSystemLiquidityAccount(ctx, req.Currency)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get system account: %w", err)
 	}
@@ -115,11 +117,15 @@ func (r *transactionRepo) Credit(
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user account: %w", err)
 	}
+	transactionType := domain.TransactionTypeDeposit
+	if string(req.TransactionType) != "" {
+		transactionType = req.TransactionType
+	}
 
 	// Build transaction request
 	txReq := &domain.TransactionRequest{
 		IdempotencyKey:      req.IdempotencyKey,
-		TransactionType:     domain.TransactionTypeDeposit,
+		TransactionType:     transactionType,
 		AccountType:         req.AccountType,
 		ExternalRef:         req.ExternalRef,
 		Description:         strPtr(req.Description),
@@ -163,7 +169,7 @@ func (r *transactionRepo) Debit(
 	}
 
 	// Get system liquidity account
-	systemAccount, err := r.accountRepo.GetSystemAccount(ctx, req.Currency, req.AccountType)
+	systemAccount, err := r.accountRepo.GetSystemLiquidityAccount(ctx, req.Currency)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get system account: %w", err)
 	}
@@ -173,11 +179,15 @@ func (r *transactionRepo) Debit(
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user account: %w", err)
 	}
+	transactionType := domain.TransactionTypeWithdrawal
+	if string(req.TransactionType) != "" {
+		transactionType = req.TransactionType
+	}
 
 	// Build transaction request
 	txReq := &domain.TransactionRequest{
 		IdempotencyKey:      req.IdempotencyKey,
-		TransactionType:     domain.TransactionTypeWithdrawal,
+		TransactionType:     transactionType,
 		AccountType:         req.AccountType,
 		ExternalRef:         req.ExternalRef,
 		Description:         strPtr(req.Description),
@@ -216,13 +226,13 @@ func (r *transactionRepo) Debit(
 func (r *transactionRepo) Transfer(
 	ctx context.Context,
 	req *domain.TransferRequest,
-) (*domain.LedgerAggregate, error) {
+) (*domain. LedgerAggregate, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
 
 	// Get source account
-	sourceAccount, err := r.accountRepo.GetByAccountNumber(ctx, req.FromAccountNumber)
+	sourceAccount, err := r. accountRepo.GetByAccountNumber(ctx, req.FromAccountNumber)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get source account: %w", err)
 	}
@@ -238,10 +248,37 @@ func (r *transactionRepo) Transfer(
 		return nil, xerrors.ErrCurrencyMismatch
 	}
 
+	// ✅ Calculate amounts
+	var (
+		debitAmount      = req.Amount // Amount to debit from source
+		creditAmount     = req.Amount // Amount to credit to destination
+		feeAmount        = 0.0
+		systemRevAccount *domain.Account
+	)
+
+	// ✅ If there's a fee, reduce the credit amount
+	if req.TransactionFee != nil && req.TransactionFee.Amount > 0 {
+		feeAmount = req.TransactionFee.Amount
+		creditAmount = req.Amount - feeAmount // ✅ Destination gets less
+
+		// Get system revenue account for fee
+		currency := sourceAccount.Currency
+
+		var err error
+		systemRevAccount, err = r.accountRepo.GetSystemRevenueAccount(ctx, currency)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get system revenue account: %w", err)
+		}
+
+		if systemRevAccount == nil {
+			return nil, fmt.Errorf("system revenue account not found for currency %s", currency)
+		}
+	}
+
 	// Build transaction request
 	txReq := &domain.TransactionRequest{
 		IdempotencyKey:      req.IdempotencyKey,
-		TransactionType:     domain.TransactionTypeTransfer,
+		TransactionType:     req.TransactionType,
 		AccountType:         req.AccountType,
 		ExternalRef:         req.ExternalRef,
 		Description:         strPtr(req.Description),
@@ -250,26 +287,41 @@ func (r *transactionRepo) Transfer(
 		AgentExternalID:     req.AgentExternalID,
 		IsSystemTransaction: false, // FEES APPLY
 		Entries: []*domain.LedgerEntryRequest{
+			// Source: Debit full amount
 			{
 				AccountNumber: sourceAccount.AccountNumber,
-				Amount:        req.Amount,
+				Amount:        debitAmount, // Full amount
 				DrCr:          domain.DrCrDebit,
-				Currency:      sourceAccount.Currency,
+				Currency:      sourceAccount. Currency,
 				ReceiptCode:   req.ReceiptCode,
 				Description:   strPtr(req.Description),
 				Metadata:      req.Metadata,
 			},
+			// Destination: Credit amount minus fee
 			{
 				AccountNumber: destAccount.AccountNumber,
-				Amount:        req.Amount,
+				Amount:        creditAmount, // Amount - Fee
 				DrCr:          domain.DrCrCredit,
-				ReceiptCode:   req.ReceiptCode,
 				Currency:      destAccount.Currency,
+				ReceiptCode:   req.ReceiptCode,
 				Description:   strPtr(req.Description),
 				Metadata:      req.Metadata,
 			},
 		},
 		GenerateReceipt: true,
+	}
+
+	// Add fee entry if applicable
+	if systemRevAccount != nil && feeAmount > 0 {
+		txReq.Entries = append(txReq.  Entries, &domain.LedgerEntryRequest{
+			AccountNumber: systemRevAccount.AccountNumber,
+			Amount:        feeAmount,
+			DrCr:          domain.DrCrCredit,
+			Currency:      systemRevAccount.Currency,
+			ReceiptCode:   req.ReceiptCode,
+			Description:   strPtr(fmt.Sprintf("Transfer fee (%.2f%%)", (feeAmount/req.Amount)*100)),
+			Metadata:      req.Metadata,
+		})
 	}
 
 	return r.ExecuteTransaction(ctx, txReq)
@@ -298,27 +350,49 @@ func (r *transactionRepo) ConvertAndTransfer(
 	// Get destination account
 	destAccount, err := r.accountRepo.GetByAccountNumber(ctx, req.ToAccountNumber)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get destination account: %w", err)
+		return nil, fmt. Errorf("failed to get destination account: %w", err)
 	}
 
 	// Currencies must be different
-	if sourceAccount.Currency == destAccount.Currency {
+	if sourceAccount. Currency == destAccount.Currency {
 		return nil, errors.New("use Transfer for same currency operations")
 	}
 
-	// Get current FX rate using currency repository
-	fxRate, err := r.currencyRepo.GetCurrentFXRate(ctx, sourceAccount.Currency, destAccount.Currency)
+	// Get current FX rate
+	fxRate, err := r.currencyRepo.GetCurrentFXRate(ctx, sourceAccount. Currency, destAccount.Currency)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get FX rate for %s/%s: %w",
 			sourceAccount.Currency, destAccount.Currency, err)
 	}
-	// Calculate converted amount
-	rate, err := strconv.ParseFloat(fxRate.Rate, 64)
+
+	// Parse rate
+	rate, err := strconv. ParseFloat(fxRate.Rate, 64)
 	if err != nil {
 		return nil, fmt.Errorf("invalid fx rate %q: %w", fxRate.Rate, err)
 	}
-	convertedAmount := r.calculateConversion(req.Amount, rate)
-	//convertedAmount := r.calculateConversion(req.Amount, fxRate.Rate)
+
+	// Calculate converted amount (before fee)
+	convertedAmount := r. calculateConversion(req.Amount, rate)
+
+	// Calculate fee and final credit amount
+	var (
+		feeAmount          = 0.0
+		finalCreditAmount  = convertedAmount // Amount to credit after fee deduction
+		systemRevAccount   *domain.Account
+	)
+
+	// Get fee if applicable
+	if req.TransactionFee != nil && req.TransactionFee.Amount > 0 {
+		// Fee is typically in destination currency for conversions
+		feeAmount = req.TransactionFee.Amount
+		finalCreditAmount = convertedAmount - feeAmount // Reduce credit by fee
+
+		// Get system revenue account in destination currency
+		systemRevAccount, err = r.accountRepo.GetSystemRevenueAccount(ctx, destAccount.Currency)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get system revenue account: %w", err)
+		}
+	}
 
 	// Build metadata with FX information
 	metadata := req.Metadata
@@ -331,8 +405,10 @@ func (r *transactionRepo) ConvertAndTransfer(
 	metadata["dest_currency"] = destAccount.Currency
 	metadata["source_amount"] = req.Amount
 	metadata["converted_amount"] = convertedAmount
+	metadata["fee_amount"] = feeAmount
+	metadata["final_credit_amount"] = finalCreditAmount
 	if fxRate.BidRate != nil {
-		metadata["bid_rate"] = *fxRate.BidRate
+		metadata["bid_rate"] = *fxRate. BidRate
 	}
 	if fxRate.AskRate != nil {
 		metadata["ask_rate"] = *fxRate.AskRate
@@ -344,34 +420,50 @@ func (r *transactionRepo) ConvertAndTransfer(
 		TransactionType: domain.TransactionTypeConversion,
 		AccountType:     req.AccountType,
 		ExternalRef:     req.ExternalRef,
-		Description: strPtr(fmt.Sprintf("Currency conversion: %s to %s (Rate: %.6s)",
+		Description: strPtr(fmt.Sprintf("Currency conversion: %s to %s (Rate: %s)",
 			sourceAccount.Currency, destAccount.Currency, fxRate.Rate)),
-		CreatedByExternalID: &req.CreatedByExternalID,
+		CreatedByExternalID: &req. CreatedByExternalID,
 		CreatedByType:       &req.CreatedByType,
 		AgentExternalID:     req.AgentExternalID,
 		IsSystemTransaction: false, // FEES APPLY
-		ReceiptCode: req.ReceiptCode,
+		ReceiptCode:         req.ReceiptCode,
 		Entries: []*domain.LedgerEntryRequest{
+			// Debit source account (original amount)
 			{
 				AccountNumber: sourceAccount.AccountNumber,
-				Amount:        req.Amount,
+				Amount:        req. Amount,
 				DrCr:          domain.DrCrDebit,
 				Currency:      sourceAccount.Currency,
 				ReceiptCode:   req.ReceiptCode,
 				Description:   strPtr(fmt.Sprintf("Convert from %s", sourceAccount.Currency)),
 				Metadata:      metadata,
 			},
+			// Credit destination account (converted amount minus fee)
 			{
 				AccountNumber: destAccount.AccountNumber,
-				Amount:        convertedAmount,
+				Amount:        finalCreditAmount, // Reduced by fee
 				DrCr:          domain.DrCrCredit,
-				Currency:      destAccount.Currency,
+				Currency:      destAccount. Currency,
 				ReceiptCode:   req.ReceiptCode,
-				Description:   strPtr(fmt.Sprintf("Convert to %s", destAccount.Currency)),
+				Description:   strPtr(fmt.Sprintf("Convert to %s (%.2f %s - %.2f fee)", 
+					destAccount.Currency, convertedAmount, destAccount.Currency, feeAmount)),
 				Metadata:      metadata,
 			},
 		},
 		GenerateReceipt: true,
+	}
+
+	// Add fee entry if applicable
+	if systemRevAccount != nil && feeAmount > 0 {
+		txReq.Entries = append(txReq.Entries, &domain.LedgerEntryRequest{
+			AccountNumber: systemRevAccount.AccountNumber,
+			Amount:        feeAmount,
+			DrCr:          domain.DrCrCredit,
+			Currency:      systemRevAccount.Currency,
+			ReceiptCode:   req.ReceiptCode,
+			Description:   strPtr("Conversion fee"),
+			Metadata:      metadata,
+		})
 	}
 
 	return r.ExecuteTransaction(ctx, txReq)
@@ -420,6 +512,7 @@ func (r *transactionRepo) ProcessTradeWin(
 		CreatedByExternalID: req.CreatedByExternalID,
 		CreatedByType:       req.CreatedByType,
 		Metadata:            metadata,
+		TransactionType:     domain.TransactionTypeTrade,
 	}
 
 	return r.Credit(ctx, creditReq)
@@ -457,8 +550,8 @@ func (r *transactionRepo) ProcessTradeLoss(
 		CreatedByExternalID: req.CreatedByExternalID,
 		CreatedByType:       req.CreatedByType,
 		Metadata:            metadata,
+		TransactionType:     domain.TransactionTypeTrade,
 	}
-
 	return r.Debit(ctx, debitReq)
 }
 
@@ -1048,7 +1141,7 @@ func (r *transactionRepo) createFees(
 		receiptCode = *req. ExternalRef
 	}
 
-	// 🔥 CRITICAL: If no receipt code available, return error or skip fee creation
+	// CRITICAL: If no receipt code available, return error or skip fee creation
 	if receiptCode == "" {
 		r.logger.Warn("skipping fee creation: no receipt code available",
 			zap.Int64("journal_id", journal.ID))
@@ -1056,34 +1149,17 @@ func (r *transactionRepo) createFees(
 	}
 
 	if req.IsSystemTransaction {
-		// Create 0-fee record for system transactions
-		fee := &domain.TransactionFee{
-			ReceiptCode: receiptCode,
-			FeeType:     domain.FeeTypePlatform,
-			Amount:      0,
-			Currency:    req.GetCurrency(),
-		}
-		return r.feeRepo.Create(ctx, tx, fee)
+		r.logger.Info("skipping fee creation for system transaction",
+			zap.String("receipt_code", receiptCode))
+		return nil
 	}
 
 	// Calculate and create fees for non-system transactions
-	totalFee, err := r.calculateTransactionFee(ctx, req)
-	if err != nil {
-		r.logger. Warn("failed to calculate fee",
-			zap.Error(err),
-			zap.String("receipt_code", receiptCode))
-		// Don't fail transaction if fee calculation fails
-		totalFee = 0
-	}
+	totalFee := req.TransactionFee.Amount
 
 	// Create platform fee record
 	if totalFee > 0 {
-		platformFee := &domain.TransactionFee{
-			ReceiptCode: receiptCode,
-			FeeType:     domain.FeeTypePlatform,
-			Amount:      totalFee,
-			Currency:    req.GetCurrency(),
-		}
+		platformFee := req.TransactionFee
 		if err := r.feeRepo. Create(ctx, tx, platformFee); err != nil {
 			return fmt.Errorf("failed to create platform fee: %w", err)
 		}
@@ -1118,39 +1194,13 @@ func (r *transactionRepo) processAgentCommissionForTransaction(
 	// Try to create commission (all failures are non-fatal)
 	commissionAmount, commissionID := r.tryCreateAgentCommission(ctx, tx, req, receiptCode)
 
-	// ALWAYS create fee record (failure here WILL fail transaction)
-	agentFee := &domain.TransactionFee{
-		ReceiptCode:     receiptCode,
-		FeeType:         domain.FeeTypeAgentCommission,
-		Amount:          commissionAmount, // 0 if commission failed
-		Currency:        req.GetCurrency(),
-		AgentExternalID: req.AgentExternalID,
-	}
-
-	// Get commission rate for fee record if available
-	if commissionAmount > 0 {
-		agent, _ := r.agent.GetAgentByAgentID(ctx, *req.AgentExternalID)
-		if agent != nil && agent.CommissionRate != nil {
-			agentFee.CommissionRate = ptrString(agent. CommissionRate.String())
-		}
-	}
-
-	// Fee creation failure WILL fail the transaction
-	if err := r.feeRepo.Create(ctx, tx, agentFee); err != nil {
-		return fmt.Errorf("failed to create agent commission fee: %w", err)
-	}
-
-	if commissionAmount > 0 {
-		r.logger.Info("agent commission and fee created",
-			zap.String("agent_id", *req.AgentExternalID),
-			zap.Int64("commission_id", commissionID),
-			zap.Float64("amount", commissionAmount),
-			zap.String("receipt", receiptCode))
-	} else {
-		r.logger.Info("agent fee created with zero commission",
-			zap.String("agent_id", *req.AgentExternalID),
-			zap.String("receipt", receiptCode))
-	}
+	r.logger.Info("agent commission processed",
+		zap.String("agent_id", *req.AgentExternalID),
+		zap.String("receipt_code", receiptCode),
+		zap.Float64("commission_amount", commissionAmount),
+		zap.Int64("commission_id", commissionID),
+		zap.Float64("platform_fee", platformFee),
+	)
 
 	return nil
 }
