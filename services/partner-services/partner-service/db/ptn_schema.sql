@@ -400,6 +400,7 @@ CREATE TABLE IF NOT EXISTS partner_transactions (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE(partner_id, transaction_ref)
 );
+
 CREATE INDEX idx_partner_transactions_partner ON partner_transactions(partner_id, created_at DESC);
 CREATE INDEX idx_partner_transactions_user ON partner_transactions(user_id, created_at DESC);
 CREATE INDEX idx_partner_transactions_status ON partner_transactions(status);

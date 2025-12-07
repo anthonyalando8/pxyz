@@ -13,6 +13,8 @@ import (
 	"net/http"
 	"partner-service/internal/domain"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 // UpdateWebhookConfig updates webhook settings for a partner
@@ -32,14 +34,23 @@ func (uc *PartnerUsecase) SendWebhook(ctx context.Context, partnerID, eventType 
 	}
 
 	if partner.WebhookURL == nil || *partner.WebhookURL == "" {
-		return errors.New("partner has no webhook URL configured")
+		uc.logger.Debug("partner has no webhook URL configured",
+			zap.String("partner_id", partnerID),
+			zap.String("event_type", eventType))
+		return nil // ✅ Don't return error if webhook not configured
+	}
+
+	// ✅ Marshal payload to JSON bytes
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal payload: %w", err)
 	}
 
 	// Create webhook record
 	webhook := &domain.PartnerWebhook{
 		PartnerID:   partnerID,
 		EventType:   eventType,
-		Payload:     payload,
+		Payload:     payloadBytes, // ✅ Store as []byte
 		Status:      "pending",
 		Attempts:    0,
 		MaxAttempts: 3,
@@ -53,7 +64,7 @@ func (uc *PartnerUsecase) SendWebhook(ctx context.Context, partnerID, eventType 
 	}
 
 	// Send webhook asynchronously
-	go uc.executeWebhook(context.Background(), webhook.ID, partner)
+	go uc.executeWebhook(context.Background(), webhook. ID, partner)
 
 	return nil
 }
@@ -62,15 +73,14 @@ func (uc *PartnerUsecase) SendWebhook(ctx context.Context, partnerID, eventType 
 func (uc *PartnerUsecase) executeWebhook(ctx context.Context, webhookID int64, partner *domain.Partner) {
 	webhook, err := uc.partnerRepo.GetWebhookByID(ctx, webhookID)
 	if err != nil {
+		uc.logger.Error("failed to get webhook",
+			zap.Int64("webhook_id", webhookID),
+			zap.Error(err))
 		return
 	}
 
-	// Marshal payload
-	payloadBytes, err := json.Marshal(webhook.Payload)
-	if err != nil {
-		uc.updateWebhookStatus(ctx, webhookID, "failed", 0, "", fmt.Sprintf("failed to marshal payload: %v", err))
-		return
-	}
+	// ✅ Payload is already []byte from the database
+	payloadBytes := webhook.Payload
 
 	// Create signature
 	var signature string
@@ -81,22 +91,37 @@ func (uc *PartnerUsecase) executeWebhook(ctx context.Context, webhookID int64, p
 	}
 
 	// Create HTTP request
-	req, err := http.NewRequestWithContext(ctx, "POST", *partner.WebhookURL, bytes.NewBuffer(payloadBytes))
+	req, err := http.NewRequestWithContext(ctx, "POST", *partner.WebhookURL, bytes. NewBuffer(payloadBytes))
 	if err != nil {
 		uc.updateWebhookStatus(ctx, webhookID, "failed", 0, "", fmt.Sprintf("failed to create request: %v", err))
 		return
 	}
 
+	// Set headers
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Webhook-Signature", signature)
-	req.Header.Set("X-Webhook-Event", webhook.EventType)
+	req.Header.Set("User-Agent", "Partner-Service-Webhook/1.0")
+	req.Header.Set("X-Webhook-Event", webhook. EventType)
 	req.Header.Set("X-Webhook-ID", fmt.Sprintf("%d", webhookID))
+	req.Header.Set("X-Partner-ID", partner.ID)
+	
+	if signature != "" {
+		req. Header.Set("X-Webhook-Signature", signature)
+	}
 
-	// Send request
+	// Send request with timeout
+	startTime := time.Now()
 	client := &http.Client{Timeout: 30 * time.Second}
+	
 	resp, err := client.Do(req)
+	latency := time.Since(startTime). Milliseconds()
+
 	if err != nil {
-		uc.updateWebhookStatus(ctx, webhookID, "retrying", 0, "", fmt.Sprintf("request failed: %v", err))
+		uc. logger.Error("webhook request failed",
+			zap.String("partner_id", partner.ID),
+			zap.String("webhook_url", *partner.WebhookURL),
+			zap.Int64("latency_ms", latency),
+			zap.Error(err))
+		uc.updateWebhookStatus(ctx, webhookID, "retrying", 0, "", fmt. Sprintf("request failed: %v", err))
 		return
 	}
 	defer resp.Body.Close()
@@ -104,18 +129,34 @@ func (uc *PartnerUsecase) executeWebhook(ctx context.Context, webhookID int64, p
 	// Read response
 	var responseBody bytes.Buffer
 	responseBody.ReadFrom(resp.Body)
+	responseStr := responseBody.String()
 
-	// Update webhook status
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		uc.updateWebhookStatus(ctx, webhookID, "sent", resp.StatusCode, responseBody.String(), "")
+	// Update webhook status based on response
+	if resp.StatusCode >= 200 && resp. StatusCode < 300 {
+		uc.logger.Info("webhook delivered successfully",
+			zap.String("partner_id", partner.ID),
+			zap.String("event_type", webhook.EventType),
+			zap.Int("status_code", resp.StatusCode),
+			zap.Int64("latency_ms", latency))
+		uc.updateWebhookStatus(ctx, webhookID, "sent", resp.StatusCode, responseStr, "")
 	} else {
-		uc.updateWebhookStatus(ctx, webhookID, "retrying", resp.StatusCode, responseBody.String(), fmt.Sprintf("received status code %d", resp.StatusCode))
+		uc.logger. Warn("webhook delivery failed",
+			zap.String("partner_id", partner.ID),
+			zap.String("event_type", webhook.EventType),
+			zap.Int("status_code", resp.StatusCode),
+			zap.Int64("latency_ms", latency),
+			zap.String("response", responseStr))
+		uc. updateWebhookStatus(ctx, webhookID, "retrying", resp.StatusCode, responseStr, 
+			fmt.Sprintf("HTTP %d", resp.StatusCode))
 	}
 }
 
 func (uc *PartnerUsecase) updateWebhookStatus(ctx context.Context, webhookID int64, status string, statusCode int, responseBody, errorMsg string) {
-	// Implement webhook status update in repo
-	uc.partnerRepo.UpdateWebhookStatus(ctx, webhookID, status, statusCode, responseBody, errorMsg)
+	if err := uc.partnerRepo.UpdateWebhookStatus(ctx, webhookID, status, statusCode, responseBody, errorMsg); err != nil {
+		uc.logger.Error("failed to update webhook status",
+			zap. Int64("webhook_id", webhookID),
+			zap. Error(err))
+	}
 }
 
 // usecase/partner_webhooks.go - ADD THESE METHODS

@@ -21,8 +21,10 @@ import (
 
 	accountingclient "x/shared/common/accounting"
 	authpb "x/shared/genproto/partner/authpb"
+	"partner-service/internal/events"
 
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 )
 
 type PartnerHandler struct {
@@ -32,6 +34,9 @@ type PartnerHandler struct {
 	emailClient     *emailclient.EmailClient
 	smsClient       *smsclient.SMSClient
 	accountingClient *accountingclient.AccountingClient
+
+	logger *zap.Logger
+	eventPublisher *events.EventPublisher
 }
 
 func NewPartnerHandler(
@@ -41,6 +46,9 @@ func NewPartnerHandler(
 	emailClient *emailclient.EmailClient,
 	smsClient *smsclient.SMSClient,
 	accountingClient *accountingclient.AccountingClient,
+	logger *zap.Logger,
+	eventPublisher *events.EventPublisher,
+
 ) *PartnerHandler {
 	return &PartnerHandler{
 		uc:              uc,
@@ -49,6 +57,8 @@ func NewPartnerHandler(
 		emailClient:     emailClient,
 		smsClient:       smsClient,
 		accountingClient: accountingClient,
+		logger:          logger,
+		eventPublisher:  eventPublisher,
 	}
 }
 

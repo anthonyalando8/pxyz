@@ -11,18 +11,22 @@ import (
 	"partner-service/internal/router"
 	"partner-service/internal/usecase"
 	"x/shared/auth/middleware"
+	partnerMiddleware "partner-service/pkg/auth"
 	otp "x/shared/auth/otp"
 	email "x/shared/email"
 	sms "x/shared/sms"
 	"x/shared/utils/id"
 	authclient "x/shared/auth"
 	accountingclient "x/shared/common/accounting" //
+	"partner-service/internal/events"
 
 
 	"github.com/go-chi/chi/v5"
 	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+		"go.uber.org/zap"
+
 
 	partnersvcpb "x/shared/genproto/partner/svcpb"
 )
@@ -39,6 +43,8 @@ func NewServer(cfg config.AppConfig) *Server {
 		log.Fatalf("failed to connect to DB: %v", err)
 	}
 
+	logger, _ := zap.NewProduction()
+	defer logger.Sync()
 	// --- Repositories ---
 	partnerRepo := repository.NewPartnerRepo(db)
 	partnerUserRepo := repository.NewPartnerUserRepo(db)
@@ -55,9 +61,11 @@ func NewServer(cfg config.AppConfig) *Server {
 		Password: cfg.RedisPass,
 		DB:       0,
 	})
-
+	// --- Event Publisher ---
+	eventPublisher := events.NewEventPublisher(rdb, logger)
 	// --- Usecase ---
-	partnerUC := usecase.NewPartnerUsecase(partnerRepo, partnerUserRepo, sf)
+	partnerUC := usecase.NewPartnerUsecase(partnerRepo, partnerUserRepo, sf, logger, )
+	apiKeyAuth := partnerMiddleware.NewAPIKeyAuthMiddleware(partnerRepo, logger)
 
 	// --- Middleware and service clients ---
 	authMiddleware := middleware.RequireAuth()
@@ -82,6 +90,8 @@ func NewServer(cfg config.AppConfig) *Server {
 		emailCli,
 		smsCli,
 		accountingClient,
+		logger,
+		eventPublisher,
 	)
 
 	grpcPartnerHandler := handler.NewGRPCPartnerHandler(partnerUC,
@@ -95,7 +105,7 @@ func NewServer(cfg config.AppConfig) *Server {
 
 	// --- HTTP router ---
 	r := chi.NewRouter()
-	r = router.SetupRoutes(r, partnerHandler, authMiddleware, rdb).(*chi.Mux)
+	r = router.SetupRoutes(r, partnerHandler, authMiddleware,apiKeyAuth, rdb).(*chi.Mux)
 
 	// --- HTTP server ---
 	httpSrv := &http.Server{

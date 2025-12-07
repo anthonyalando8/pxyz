@@ -64,7 +64,7 @@ type PartnerWebhook struct {
 	ID             int64
 	PartnerID      string
 	EventType      string
-	Payload        map[string]interface{}
+	Payload        []byte
 	Status         string
 	Attempts       int
 	MaxAttempts    int

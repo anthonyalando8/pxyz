@@ -2,10 +2,12 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"partner-service/internal/domain"
 	"time"
+	xerrors "x/shared/utils/errors"
 	"x/shared/utils/id"
 
 	"github.com/jackc/pgx/v5"
@@ -305,17 +307,93 @@ func (r *PartnerRepo) RevokeAPICredentials(ctx context.Context, partnerID string
 func (r *PartnerRepo) GetPartnerByAPIKey(ctx context.Context, apiKey string) (*domain.Partner, error) {
 	query := `
 		SELECT id, name, country, contact_email, contact_phone, status, service, currency,
+		       local_currency, rate, inverse_rate, commission_rate,
 		       api_key, api_secret_hash, webhook_url, webhook_secret, callback_url,
 		       is_api_enabled, api_rate_limit, allowed_ips, metadata, created_at, updated_at
 		FROM partners
 		WHERE api_key = $1 AND is_api_enabled = true
 	`
-	_ = query
-	// Implement scanning logic similar to GetPartnerByID
-	// Return *domain.Partner
-	return nil, nil // placeholder
-}
 
+	var partner domain.Partner
+	var (
+		apiKeyPtr        *string
+		apiSecretHash    *string
+		webhookURL       *string
+		webhookSecret    *string
+		callbackURL      *string
+		allowedIPsJSON   []byte
+		metadataJSON     []byte
+		localCurrency    *string
+		rate             *string
+		inverseRate      *string
+	)
+
+	err := r.db.QueryRow(ctx, query, apiKey). Scan(
+		&partner. ID,
+		&partner.Name,
+		&partner.Country,
+		&partner.ContactEmail,
+		&partner.ContactPhone,
+		&partner.Status,
+		&partner.Service,
+		&partner.Currency,
+		&localCurrency,
+		&rate,
+		&inverseRate,
+		&partner.CommissionRate,
+		&apiKeyPtr,
+		&apiSecretHash,
+		&webhookURL,
+		&webhookSecret,
+		&callbackURL,
+		&partner.IsAPIEnabled,
+		&partner.APIRateLimit,
+		&allowedIPsJSON,
+		&metadataJSON,
+		&partner.CreatedAt,
+		&partner.UpdatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("partner not found or API access disabled: %w", xerrors.ErrNotFound)
+		}
+		return nil, fmt.Errorf("failed to get partner by API key: %w", err)
+	}
+
+	// Assign optional fields
+	partner.APIKey = apiKeyPtr
+	partner.APISecretHash = apiSecretHash
+	partner. WebhookURL = webhookURL
+	partner.WebhookSecret = webhookSecret
+	partner. CallbackURL = callbackURL
+
+	if localCurrency != nil {
+		partner.LocalCurrency = *localCurrency
+	}
+	if rate != nil {
+		partner.Rate = *rate
+	}
+	if inverseRate != nil {
+		partner.InverseRate = *inverseRate
+	}
+
+	// Parse allowed IPs
+	if len(allowedIPsJSON) > 0 {
+		if err := json.Unmarshal(allowedIPsJSON, &partner.AllowedIPs); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal allowed IPs: %w", err)
+		}
+	}
+
+	// Parse metadata
+	if len(metadataJSON) > 0 {
+		if err := json.Unmarshal(metadataJSON, &partner.Metadata); err != nil {
+			return nil, fmt. Errorf("failed to unmarshal metadata: %w", err)
+		}
+	}
+
+	return &partner, nil
+}
 func (r *PartnerRepo) UpdateWebhookConfig(ctx context.Context, partnerID, webhookURL, webhookSecret, callbackURL string) error {
 	query := `
 		UPDATE partners

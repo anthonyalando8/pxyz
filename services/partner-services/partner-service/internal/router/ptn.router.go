@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
 	"github.com/redis/go-redis/v9"
+	ptnmiddleware "partner-service/pkg/auth"
 
 	"partner-service/internal/handler"
 	"x/shared/auth/middleware"
@@ -19,6 +20,7 @@ func SetupRoutes(
 	r chi.Router,
 	h *handler. PartnerHandler,
 	auth *middleware. MiddlewareWithClient,
+	ptnAuth *ptnmiddleware. APIKeyAuthMiddleware,
 	rdb *redis. Client,
 ) chi.Router {
 	// ---- Global Middleware ----
@@ -40,10 +42,10 @@ func SetupRoutes(
 	// ============================================================================
 	// API KEY AUTHENTICATED ROUTES (External Partner API)
 	// ============================================================================
-	r.Route("/partner/api/v1", func(api chi.Router) {
-		// Use API key authentication middleware for these routes
-		//api.Use(auth.RequireAPIKey()) // You'll need to implement this middleware
-
+	r.Route("/partner/api/", func(api chi.Router) {
+		// Apply API key authentication middleware
+		api.Use(ptnAuth.RequireAPIKey())
+	
 		// Credit user wallet (external API call)
 		api.Post("/transactions/credit", h.CreditUser)
 		

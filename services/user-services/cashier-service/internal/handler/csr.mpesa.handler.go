@@ -14,6 +14,14 @@ import (
     "cashier-service/internal/usecase/transaction"
     notificationclient "x/shared/notification"
 
+    	"x/shared/auth/otp"
+    "x/shared/account"
+    //"cashier-service/internal/usecase"
+    "github.com/redis/go-redis/v9"
+    "go.uber.org/zap"
+
+    "x/shared/utils/profile"
+
 	// notificationpb "x/shared/genproto/shared/notificationpb"
 
 	// "github.com/google/uuid"
@@ -21,31 +29,47 @@ import (
 )
 
 type PaymentHandler struct {
-    uc *mpesausecase.PaymentUsecase
-    partnerClient    *partnerclient.PartnerService
-	accountingClient *accountingclient.AccountingClient
-    notificationClient *notificationclient.NotificationService
-    userUc *usecase.UserUsecase
-    hub *Hub
+	uc                 *mpesausecase.PaymentUsecase
+	partnerClient      *partnerclient.PartnerService
+	accountingClient   *accountingclient. AccountingClient
+	notificationClient *notificationclient. NotificationService
+	userUc             *usecase.UserUsecase
+	hub                *Hub
+	otp                *otpclient.OTPService
+	accountClient      *accountclient.  AccountClient
+	rdb                *redis.Client //  Add Redis client
+	logger             *zap.Logger   //  Add logger
+    profileFetcher     *helpers.ProfileFetcher
+
 }
 
 func NewPaymentHandler(
-    uc *mpesausecase.PaymentUsecase,
-    partnerClient    *partnerclient.PartnerService,
+	uc *mpesausecase.PaymentUsecase,
+	partnerClient *partnerclient.PartnerService,
 	accountingClient *accountingclient.AccountingClient,
-    notificationClient *notificationclient.NotificationService,
-    userUc *usecase.UserUsecase,
-    hub *Hub,
+	notificationClient *notificationclient.NotificationService,
+	userUc *usecase.UserUsecase,
+	hub *Hub,
+	otp *otpclient.OTPService,
+	accountClient *accountclient.AccountClient,
+	rdb *redis.Client, //  Add Redis
+	logger *zap.Logger, //  Add logger
+    profileFetcher     *helpers.ProfileFetcher,
 
 ) *PaymentHandler {
-    return &PaymentHandler{
-        uc: uc,
-        partnerClient:    partnerClient,
-		accountingClient: accountingClient,
-        notificationClient: notificationClient,
-        userUc: userUc,
-        hub: hub,
-    }
+	return &PaymentHandler{
+		uc:                 uc,
+		partnerClient:      partnerClient,
+		accountingClient:   accountingClient,
+		notificationClient: notificationClient,
+		userUc:             userUc,
+		hub:                hub,
+		otp:                otp,
+		accountClient:      accountClient,
+		rdb:                rdb,
+		logger:             logger,
+        profileFetcher:     profileFetcher,
+	}
 }
 
 func (h *PaymentHandler) Deposit(w http.ResponseWriter, r *http.Request) {

@@ -654,7 +654,7 @@ services:
     container_name: partner-service
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.partner-svc.rule=PathPrefix(`/api/v1/partner/svc`)"
+      - "traefik.http.routers.partner-svc.rule=PathPrefix(`/api/v1/partner/svc`) || PathPrefix(`/api/v1/partner/api`)"
       - "traefik.http.services.partner-svc.loadbalancer.server.port=7510"
 
       # 🔸 Strip the `/api/v1` prefix

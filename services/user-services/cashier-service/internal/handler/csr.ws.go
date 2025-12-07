@@ -2,15 +2,16 @@
 package handler
 
 import (
-    //"context"
-    "encoding/json"
-    "log"
-    "net/http"
-    "sync"
-    "time"
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+	"sync"
+	"time"
 
-    "github.com/gorilla/websocket"
-    "x/shared/auth/middleware"
+	"x/shared/auth/middleware"
+
+	"github.com/gorilla/websocket"
 )
 
 var upgrader = websocket.Upgrader{
@@ -51,7 +52,7 @@ func (h *Hub) Run() {
         case client := <-h.register:
             h.mu.Lock()
             h.clients[client.UserID] = client
-            h.mu.Unlock()
+            h. mu.Unlock()
             log.Printf("[WebSocket] User %s connected", client.UserID)
 
         case client := <-h. unregister:
@@ -63,13 +64,13 @@ func (h *Hub) Run() {
             }
             h.mu. Unlock()
 
-        case message := <-h. broadcast:
-            h.mu. RLock()
-            for _, client := range h.clients {
+        case message := <-h.broadcast:
+            h.mu.RLock()
+            for _, client := range h. clients {
                 select {
-                case client. Send <- message:
+                case client.Send <- message:
                 default:
-                    close(client. Send)
+                    close(client.Send)
                     delete(h.clients, client.UserID)
                 }
             }
@@ -78,87 +79,47 @@ func (h *Hub) Run() {
     }
 }
 
+// GetClient retrieves a client by user ID
+func (h *Hub) GetClient(userID string) (*Client, bool) {
+    h. mu.RLock()
+    defer h.mu.RUnlock()
+    
+    client, exists := h.clients[userID]
+    return client, exists
+}
+
+// SendToUser sends a message to a specific user
 func (h *Hub) SendToUser(userID string, message []byte) {
     h.mu. RLock()
     defer h.mu.RUnlock()
 
-    if client, ok := h.clients[userID]; ok {
+    if client, ok := h. clients[userID]; ok {
         select {
-        case client.Send <- message:
+        case client. Send <- message:
         default:
             log.Printf("[WebSocket] Failed to send message to user %s", userID)
         }
     }
 }
 
-func (c *Client) ReadPump(handler *PaymentHandler) {
-    defer func() {
-        c.Hub. unregister <- c
-        c.Conn.Close()
-    }()
+// ✅ SendJSON sends a JSON message directly (for event handlers)
+func (c *Client) SendJSON(data interface{}) error {
+    bytes, err := json.Marshal(data)
+    if err != nil {
+        log.Printf("[WebSocket] Failed to marshal JSON: %v", err)
+        return err
+    }
 
-    c.Conn. SetReadDeadline(time. Now().Add(60 * time.Second))
-    c.Conn.SetPongHandler(func(string) error {
-        c.Conn.SetReadDeadline(time.Now().Add(60 * time. Second))
+    select {
+    case c. Send <- bytes:
         return nil
-    })
-
-    for {
-        _, message, err := c.Conn. ReadMessage()
-        if err != nil {
-            if websocket. IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-                log.Printf("[WebSocket] Error: %v", err)
-            }
-            break
-        }
-
-        // Parse incoming message
-        var msg WSMessage
-        if err := json. Unmarshal(message, &msg); err != nil {
-            c.SendError("invalid message format")
-            continue
-        }
-
-        // Route message to appropriate handler
-        handler.HandleWSMessage(c, &msg)
+    default:
+        log.Printf("[WebSocket] Send channel full for user %s", c.UserID)
+        return ErrChannelFull
     }
 }
 
-func (c *Client) WritePump() {
-    ticker := time.NewTicker(54 * time.Second)
-    defer func() {
-        ticker.Stop()
-        c.Conn. Close()
-    }()
-
-    for {
-        select {
-        case message, ok := <-c.Send:
-            c.Conn.SetWriteDeadline(time. Now().Add(10 * time.Second))
-            if !ok {
-                c.Conn. WriteMessage(websocket.CloseMessage, []byte{})
-                return
-            }
-
-            w, err := c.Conn.NextWriter(websocket.TextMessage)
-            if err != nil {
-                return
-            }
-            w.Write(message)
-
-            if err := w.Close(); err != nil {
-                return
-            }
-
-        case <-ticker.C:
-            c.Conn.SetWriteDeadline(time. Now().Add(10 * time.Second))
-            if err := c.Conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-                return
-            }
-        }
-    }
-}
-
+// SendMessage sends a structured message with type and data
 func (c *Client) SendMessage(msgType string, data interface{}) {
     msg := WSResponse{
         Type:      msgType,
@@ -179,10 +140,12 @@ func (c *Client) SendMessage(msgType string, data interface{}) {
     }
 }
 
+// SendError sends an error message
 func (c *Client) SendError(message string) {
     c.SendMessage("error", map[string]string{"message": message})
 }
 
+// SendSuccess sends a success message
 func (c *Client) SendSuccess(message string, data interface{}) {
     c.SendMessage("success", map[string]interface{}{
         "message": message,
@@ -190,6 +153,77 @@ func (c *Client) SendSuccess(message string, data interface{}) {
     })
 }
 
+// ReadPump handles incoming WebSocket messages
+func (c *Client) ReadPump(handler *PaymentHandler) {
+    defer func() {
+        c.Hub.unregister <- c
+        c.Conn.Close()
+    }()
+
+    c. Conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+    c.Conn.SetPongHandler(func(string) error {
+        c.Conn.SetReadDeadline(time.Now(). Add(60 * time.Second))
+        return nil
+    })
+
+    for {
+        _, message, err := c.Conn. ReadMessage()
+        if err != nil {
+            if websocket. IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+                log.Printf("[WebSocket] Error: %v", err)
+            }
+            break
+        }
+
+        // Parse incoming message
+        var msg WSMessage
+        if err := json.Unmarshal(message, &msg); err != nil {
+            c.SendError("invalid message format")
+            continue
+        }
+
+        // Route message to appropriate handler
+        handler.HandleWSMessage(c, &msg)
+    }
+}
+
+// WritePump handles outgoing WebSocket messages
+func (c *Client) WritePump() {
+    ticker := time.NewTicker(54 * time.Second)
+    defer func() {
+        ticker.Stop()
+        c.Conn. Close()
+    }()
+
+    for {
+        select {
+        case message, ok := <-c.Send:
+            c. Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+            if !ok {
+                c. Conn.WriteMessage(websocket.CloseMessage, []byte{})
+                return
+            }
+
+            w, err := c. Conn.NextWriter(websocket. TextMessage)
+            if err != nil {
+                return
+            }
+            w.Write(message)
+
+            if err := w.Close(); err != nil {
+                return
+            }
+
+        case <-ticker.C:
+            c. Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+            if err := c.Conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+                return
+            }
+        }
+    }
+}
+
+// WebSocket message types
 type WSMessage struct {
     Type string          `json:"type"` // deposit, withdraw, get_partners, get_accounts, get_history
     Data json.RawMessage `json:"data"`
@@ -201,16 +235,21 @@ type WSResponse struct {
     Timestamp int64       `json:"timestamp"`
 }
 
-// WebSocket endpoint
-func (h *PaymentHandler) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
+// Custom errors
+var (
+    ErrChannelFull = fmt.Errorf("send channel is full")
+)
+
+// WebSocket endpoint handler
+func (h *PaymentHandler) HandleWebSocket(w http. ResponseWriter, r *http.Request) {
     // Get authenticated user
-    userID, ok := r.Context().Value(middleware. ContextUserID).(string)
+    userID, ok := r.Context().Value(middleware.ContextUserID).(string)
     if !ok || userID == "" {
         http.Error(w, "Unauthorized", http.StatusUnauthorized)
         return
     }
 
-    conn, err := upgrader.Upgrade(w, r, nil)
+    conn, err := upgrader. Upgrade(w, r, nil)
     if err != nil {
         log.Printf("[WebSocket] Upgrade error: %v", err)
         return
@@ -225,7 +264,13 @@ func (h *PaymentHandler) HandleWebSocket(w http.ResponseWriter, r *http.Request)
 
     client.Hub.register <- client
 
+    // Send welcome message
+    client.SendMessage("connected", map[string]interface{}{
+        "user_id":   userID,
+        "timestamp": time.Now().Unix(),
+    })
+
     // Start goroutines
     go client.WritePump()
-    go client. ReadPump(h)
+    go client.ReadPump(h)
 }

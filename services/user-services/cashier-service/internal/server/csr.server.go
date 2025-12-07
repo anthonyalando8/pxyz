@@ -11,23 +11,37 @@ import (
 	"cashier-service/internal/provider/mpesa"
 	"cashier-service/internal/repository"
 	"cashier-service/internal/router"
-	mpesausecase "cashier-service/internal/usecase/mpesa"
-	usecase "cashier-service/internal/usecase/transaction"
-
 	"cashier-service/internal/sub"
+	mpesausecase "cashier-service/internal/usecase/mpesa"
+	transaction "cashier-service/internal/event_handler"
+	usecase "cashier-service/internal/usecase/transaction"
+	authclient "x/shared/auth"
+
+
 	"x/shared/auth/middleware"
 	accountingclient "x/shared/common/accounting"
 	notificationclient "x/shared/notification"
 	partnerclient "x/shared/partner"
 	"x/shared/utils/id"
+	"x/shared/auth/otp"
+	accountclient "x/shared/account"
+	"x/shared/utils/profile"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 )
 
-func NewServer(cfg config.AppConfig) *http.Server {
+func NewServer(cfg config.AppConfig) *http. Server {
+	// --- Init Logger ---
+	logger, err := zap. NewProduction()
+	if err != nil {
+		log.Fatalf("failed to initialize logger: %v", err)
+	}
+	defer logger.Sync()
+
 	// --- Connect Postgres ---
-	db, err := config.ConnectDB()
+	db, err := config. ConnectDB()
 	if err != nil {
 		log. Fatalf("failed to connect DB: %v", err)
 	}
@@ -45,12 +59,24 @@ func NewServer(cfg config.AppConfig) *http.Server {
 		Password: cfg.RedisPass,
 		DB:       0,
 	})
+	
 	// Test Redis connection
 	ctx := context.Background()
 	if err := rdb.Ping(ctx).Err(); err != nil {
-		log.Fatalf("failed to connect to Redis: %v", err)
+		log.  Fatalf("failed to connect to Redis: %v", err)
 	}
 	log.Println("[Redis] ✅ Connected successfully")
+
+	authClient, err := authclient.DialAuthService(authclient.AllAuthServices)
+	if err != nil {
+        log.Fatalf("failed to dial auth service: %v", err)
+    }
+	profileFetcher := helpers.NewProfileFetcher(authClient)
+
+
+	otpSvc := otpclient.NewOTPService()
+	accountClient := accountclient.NewAccountClient()
+
 	// --- Init gRPC Clients ---
 	partnerSvc := partnerclient. NewPartnerService()
 	accountingClient := accountingclient. NewAccountingClient()
@@ -78,23 +104,47 @@ func NewServer(cfg config.AppConfig) *http.Server {
 	go hub.Run() // Start hub in background goroutine
 	log. Println("[WebSocket] Hub started")
 
+	// ✅ --- Init Deposit Event Handler ---
+	depositEventHandler := transaction.NewDepositEventHandler(
+		userRepo,
+		hub,
+		logger,
+	)
+
+	// ✅ --- Start Transaction Event Subscriber (your existing one) ---
 	transactionSub := subscriber.NewTransactionEventSubscriber(rdb, hub)
-	if err := transactionSub.Start(ctx); err != nil {
-		log.Fatalf("failed to start transaction subscriber: %v", err)
-	}
+	go func() {
+		if err := transactionSub.Start(ctx); err != nil {
+			log. Fatalf("transaction subscriber failed: %v", err)
+		}
+	}()
 	log.Println("[TransactionSubscriber] ✅ Started")
+
+	// ✅ --- Start Deposit Event Subscriber (new one for partner events) ---
+	depositSub := subscriber.NewEventSubscriber(rdb, logger, depositEventHandler)
+	go func() {
+		if err := depositSub.Start(ctx); err != nil {
+			log.Fatalf("deposit subscriber failed: %v", err)
+		}
+	}()
+	log.Println("[DepositSubscriber] ✅ Started - listening to partner:deposit:completed, partner:deposit:failed")
 
 	// --- Init Middleware ---
 	auth := middleware.RequireAuth()
 
 	// --- Init Handlers ---
 	paymentHandler := handler.NewPaymentHandler(
-		paymentUC,partnerSvc,
+		paymentUC,
+		partnerSvc,
 		accountingClient,
 		notificationCli,
 		userUC,
 		hub,
-		//sf,
+		otpSvc,
+		accountClient,
+		rdb,
+		logger,
+		profileFetcher,
 	)
 
 	// --- Router ---
