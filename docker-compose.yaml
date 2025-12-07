@@ -652,20 +652,34 @@ services:
       context: .
       dockerfile: services/partner-services/partner-service/Dockerfile
     container_name: partner-service
+    
     labels:
-      - "traefik. enable=true"
+      # Enable Traefik
+      - "traefik.enable=true"
+      
+      # Router configuration
       - "traefik.http.routers.partner-svc.rule=PathPrefix(`/api/v1/partner/svc`) || PathPrefix(`/api/v1/partner/api`)"
-      - "traefik.http.services.partner-svc.loadbalancer.server.port=7510"
-
-      # 🔸 Strip the `/api/v1` prefix
-      - "traefik.http.middlewares.partner-svc-stripprefix. stripprefix.prefixes=/api/v1"
-      - "traefik.http.routers.partner-svc.middlewares=partner-svc-stripprefix"  
+      - "traefik.http.routers.partner-svc.entrypoints=web"  # ✅ Explicit entrypoint
+      
+      # Service configuration
+      - "traefik.http.services. partner-svc.loadbalancer.server.port=7510"
+      
+      # Middleware configuration
+      - "traefik.http.middlewares.partner-svc-stripprefix.stripprefix.prefixes=/api/v1"
+      - "traefik.http.routers.partner-svc.middlewares=partner-svc-stripprefix"
+    
     env_file:
       - ./services/partner-services/partner-service/.env
+    
     volumes:
       - ./services/partner-services/partner-service/secrets:/app/secrets:ro
+    
     networks:
       - micro_net
+    
+    extra_hosts:
+      - "212.95.35.81:host-gateway"
+    
     environment:
       DB_HOST: 212.95.35.81
       DB_PORT: 5432
@@ -677,43 +691,13 @@ services:
       REDIS_ADDR: redis:6379
       REDIS_PASS: ""
       JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    
     depends_on:
-      - redis
-
-  # 🔹Ptn Auth Service
-  ptn-auth-service:
-    build:
-      context: .
-      dockerfile: services/partner-services/ptn-auth-service/Dockerfile
-    container_name: ptn-auth-service
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.partner-auth.rule=PathPrefix(`/api/v1/partner/auth`)"
-      - "traefik.http.services.partner-auth.loadbalancer.server.port=7500"
-
-      # 🔸 Strip the `/api/v1` prefix
-      - "traefik.http.middlewares.partner-auth-stripprefix.stripprefix.prefixes=/api/v1"
-      - "traefik.http.routers.partner-auth.middlewares=ptnaccess-stripprefix"
-    env_file:
-      - ./services/partner-services/ptn-auth-service/.env
-    volumes:
-      - ./services/partner-services/ptn-auth-service/secrets:/app/secrets:ro
-      - ./uploads:/app/uploads
-    environment:
-      DB_HOST: 212.95.35.81
-      DB_PORT: 5432
-      DB_USER: sam
-      DB_PASSWORD: Kenya_2025!
-      DB_NAME: pxyz_partner
-      REDIS_ADDR: redis:6379
-    networks:
-      - micro_net
-    depends_on:
-      - redis
-      - core-service
-      - ptn-session-service
-      - email-service
-      - otp-service
+      redis:
+        condition: service_healthy  # ✅ Wait for Redis
+    
+    restart: unless-stopped  # ✅ Auto-restart on failure
+    
 
   # 🔹 Ptn Session Service
   ptn-session-service:
