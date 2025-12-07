@@ -555,7 +555,7 @@ func (h *PartnerHandler) sendDepositWebhook(
 	transferResp *accountingpb.TransferResponse,
 	balances *AccountBalances,
 ) {
-	go h. uc.SendWebhook(context.Background(), partnerID, "deposit. completed", map[string]interface{}{
+	go h.uc.SendWebhook(context.Background(), partnerID, "deposit.completed", map[string]interface{}{
 		"transaction_ref": req.TransactionRef,
 		"user_id":         req.UserID,
 		"amount":          req.Amount,

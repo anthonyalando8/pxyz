@@ -474,13 +474,15 @@ func (r *PartnerRepo) UpdateTransaction(ctx context.Context, txn *domain.Partner
 }
 
 // UpdateTransactionWithReceipt updates transaction with accounting receipt code
-func (r *PartnerRepo) UpdateTransactionWithReceipt(ctx context.Context, txID int64, receiptCode string, journalID int64, status string) error {
+func (r *PartnerRepo) UpdateTransactionWithReceipt(ctx context. Context, txID int64, receiptCode string, journalID int64, status string) error {
 	query := `
 		UPDATE partner_transactions 
 		SET 
 			status = $1,
 			external_ref = $2,
-			metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('journal_id', $3, 'receipt_code', $2),
+			metadata = COALESCE(metadata, '{}'::jsonb) || 
+				jsonb_build_object('journal_id', $3::bigint) ||  -- ✅ Cast to bigint
+				jsonb_build_object('receipt_code', $2::text),    -- ✅ Cast to text
 			processed_at = NOW(),
 			updated_at = NOW()
 		WHERE id = $4
@@ -492,7 +494,7 @@ func (r *PartnerRepo) UpdateTransactionWithReceipt(ctx context.Context, txID int
 
 	rowsAffected := result.RowsAffected()
 	if rowsAffected == 0 {
-		return fmt. Errorf("transaction not found: id=%d", txID)
+		return fmt.Errorf("transaction not found: id=%d", txID)
 	}
 
 	return nil
