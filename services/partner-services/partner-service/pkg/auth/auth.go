@@ -5,7 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/subtle"
-	"encoding/base64"
+	//"encoding/base64"
 	"encoding/hex"
 
 	//"fmt"
@@ -18,7 +18,7 @@ import (
 
 	"github.com/go-chi/render"
 	"go.uber.org/zap"
-	"golang.org/x/crypto/bcrypt"
+	//"golang.org/x/crypto/bcrypt"
 )
 
 type contextKey string
