@@ -146,7 +146,7 @@ func (h *GRPCPartnerHandler) CreatePartner(
 					OwnerType:   accountingpb.OwnerType_OWNER_TYPE_PARTNER,
 					OwnerId:     p.ID,
 					Currency:    p.Currency,
-					Purpose:     accountingpb.AccountPurpose_ACCOUNT_PURPOSE_LIQUIDITY,
+					Purpose:     accountingpb.AccountPurpose_ACCOUNT_PURPOSE_SETTLEMENT,
 					AccountType: accountingpb.AccountType_ACCOUNT_TYPE_REAL,
 				},
 			},

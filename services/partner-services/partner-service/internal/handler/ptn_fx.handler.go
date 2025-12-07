@@ -333,7 +333,7 @@ func (h *PartnerHandler) getAndValidateTransaction(ctx context.Context, partnerI
 // getTransferAccounts retrieves partner and user accounts
 func (h *PartnerHandler) getTransferAccounts(ctx context.Context, partnerID, userID, currency string) (*accountingpb.Account, *accountingpb.Account, error) {
 	// Get partner account
-	partnerAccount, err := h.getWalletAccount(ctx, accountingpb. OwnerType_OWNER_TYPE_PARTNER, partnerID, currency)
+	partnerAccount, err := h.getWalletAccount(ctx, accountingpb. OwnerType_OWNER_TYPE_PARTNER, accountingpb.AccountPurpose_ACCOUNT_PURPOSE_SETTLEMENT, partnerID, currency)
 	if err != nil {
 		h.logger.Error("failed to get partner account",
 			zap.String("partner_id", partnerID),
@@ -343,7 +343,7 @@ func (h *PartnerHandler) getTransferAccounts(ctx context.Context, partnerID, use
 	}
 
 	// Get user account
-	userAccount, err := h.getWalletAccount(ctx, accountingpb.OwnerType_OWNER_TYPE_USER, userID, currency)
+	userAccount, err := h.getWalletAccount(ctx, accountingpb.OwnerType_OWNER_TYPE_USER, accountingpb.AccountPurpose_ACCOUNT_PURPOSE_WALLET, userID, currency)
 	if err != nil {
 		h.logger. Error("failed to get user account",
 			zap.String("user_id", userID),
@@ -356,7 +356,7 @@ func (h *PartnerHandler) getTransferAccounts(ctx context.Context, partnerID, use
 }
 
 // getWalletAccount retrieves a wallet account for an owner
-func (h *PartnerHandler) getWalletAccount(ctx context.Context, ownerType accountingpb.OwnerType, ownerID, currency string) (*accountingpb.Account, error) {
+func (h *PartnerHandler) getWalletAccount(ctx context.Context, ownerType accountingpb.OwnerType, accountPurpose accountingpb.AccountPurpose, ownerID, currency string) (*accountingpb.Account, error) {
 	accountsResp, err := h.accountingClient.Client.GetAccountsByOwner(ctx, &accountingpb.GetAccountsByOwnerRequest{
 		OwnerType:   ownerType,
 		OwnerId:     ownerID,
@@ -372,7 +372,7 @@ func (h *PartnerHandler) getWalletAccount(ctx context.Context, ownerType account
 
 	// Find wallet account in requested currency
 	for _, acc := range accountsResp. Accounts {
-		if acc.Currency == currency && acc.Purpose == accountingpb.AccountPurpose_ACCOUNT_PURPOSE_WALLET {
+		if acc.Currency == currency && acc.Purpose == accountPurpose {
 			return acc, nil
 		}
 	}
