@@ -3,8 +3,11 @@ package middleware
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
+	"encoding/hex"
+
 	//"fmt"
 	"net/http"
 	"strings"
@@ -128,21 +131,12 @@ func (m *APIKeyAuthMiddleware) verifyAPISecret(providedSecret string, storedHash
 		return false
 	}
 
-	// Decode base64 if secret is base64 encoded
-	decodedSecret, err := base64.StdEncoding.DecodeString(providedSecret)
-	if err != nil {
-		// If not base64, use as-is
-		decodedSecret = []byte(providedSecret)
-	}
+	// Hash the provided secret with SHA256 (same as generation)
+	hash := sha256. Sum256([]byte(providedSecret))
+	providedHash := hex.EncodeToString(hash[:])
 
-	// Compare using bcrypt
-	err = bcrypt.CompareHashAndPassword([]byte(*storedHash), decodedSecret)
-	if err != nil {
-		// Try constant-time comparison for plain text (legacy support)
-		return subtle.ConstantTimeCompare([]byte(providedSecret), []byte(*storedHash)) == 1
-	}
-
-	return true
+	// Constant-time comparison
+	return subtle.ConstantTimeCompare([]byte(providedHash), []byte(*storedHash)) == 1
 }
 
 // isIPAllowed checks if client IP is in whitelist
