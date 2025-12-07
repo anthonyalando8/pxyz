@@ -653,13 +653,13 @@ services:
       dockerfile: services/partner-services/partner-service/Dockerfile
     container_name: partner-service
     labels:
-      - "traefik.enable=true"
+      - "traefik. enable=true"
       - "traefik.http.routers.partner-svc.rule=PathPrefix(`/api/v1/partner/svc`) || PathPrefix(`/api/v1/partner/api`)"
       - "traefik.http.services.partner-svc.loadbalancer.server.port=7510"
 
       # 🔸 Strip the `/api/v1` prefix
-      - "traefik.http.middlewares.partner-svc-stripprefix.stripprefix.prefixes=/api/v1"
-      - "traefik.http.routers.partner-svc.middlewares=ptnaccess-stripprefix"
+      - "traefik.http.middlewares.partner-svc-stripprefix. stripprefix.prefixes=/api/v1"
+      - "traefik.http.routers.partner-svc.middlewares=partner-svc-stripprefix"  
     env_file:
       - ./services/partner-services/partner-service/.env
     volumes:
