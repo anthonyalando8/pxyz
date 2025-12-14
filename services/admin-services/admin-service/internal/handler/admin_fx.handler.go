@@ -20,7 +20,7 @@ import (
 type CreditDebitDTO struct {
 	AccountNumber string  `json:"account_number"`
 	Amount        float64 `json:"amount"`
-	Currency      string  `json:"currency"`
+	//Currency      string  `json:"currency"`
 	Description   string  `json:"description"`
 }
 
@@ -349,7 +349,7 @@ func (h *AdminHandler) CreditAccount(w http.ResponseWriter, r *http.Request) {
 		req := &accountingpb.CreditRequest{
 			AccountNumber:       dto.AccountNumber,
 			Amount:              dto. Amount,
-			Currency:            dto.Currency,
+			//Currency:            dto.Currency,
 			AccountType:         accountingpb.AccountType_ACCOUNT_TYPE_REAL,
 			Description:         dto.Description,
 			CreatedByExternalId: userID,
@@ -373,7 +373,7 @@ func (h *AdminHandler) CreditAccount(w http.ResponseWriter, r *http.Request) {
 		TransactionType: accountingpb.TransactionType_TRANSACTION_TYPE_DEPOSIT,
 		AccountNumber:   dto.AccountNumber,
 		Amount:          dto.Amount,
-		Currency:        dto.Currency,
+		//Currency:        dto.Currency,
 		Description:     dto. Description,
 	}
 
@@ -410,7 +410,7 @@ func (h *AdminHandler) DebitAccount(w http.ResponseWriter, r *http.Request) {
 		req := &accountingpb.DebitRequest{
 			AccountNumber:       dto.AccountNumber,
 			Amount:              dto.Amount,
-			Currency:            dto.Currency,
+			//Currency:            dto.Currency,
 			AccountType:         accountingpb.AccountType_ACCOUNT_TYPE_REAL,
 			Description:         dto.Description,
 			CreatedByExternalId: userID,
@@ -434,7 +434,7 @@ func (h *AdminHandler) DebitAccount(w http.ResponseWriter, r *http.Request) {
 		TransactionType: accountingpb.TransactionType_TRANSACTION_TYPE_WITHDRAWAL,
 		AccountNumber:   dto.AccountNumber,
 		Amount:          dto.Amount,
-		Currency:        dto.Currency,
+		//Currency:        dto.Currency,
 		Description:     dto.Description,
 	}
 
@@ -552,7 +552,7 @@ func (h *AdminHandler) ProcessTradeWin(w http. ResponseWriter, r *http.Request) 
 	req := &accountingpb.TradeRequest{
 		AccountNumber:       dto.AccountNumber,
 		Amount:              dto.Amount,
-		Currency:            dto.Currency,
+		//Currency:            dto.Currency,
 		AccountType:         accountingpb.AccountType_ACCOUNT_TYPE_REAL,
 		TradeId:             dto.TradeID,
 		TradeType:           dto.TradeType,
@@ -591,7 +591,7 @@ func (h *AdminHandler) ProcessTradeLoss(w http.ResponseWriter, r *http.Request) 
 	req := &accountingpb.TradeRequest{
 		AccountNumber:       dto.AccountNumber,
 		Amount:              dto. Amount,
-		Currency:            dto.Currency,
+		//Currency:            dto.Currency,
 		AccountType:         accountingpb.AccountType_ACCOUNT_TYPE_REAL,
 		TradeId:             dto.TradeID,
 		TradeType:           dto.TradeType,

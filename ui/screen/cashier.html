@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebSocket API Tester</title>
+    <title>Deposit & Withdrawal Tester</title>
     <style>
         * {
             margin: 0;
@@ -12,8 +12,8 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background:  linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 20px;
         }
@@ -22,8 +22,8 @@
             max-width: 1400px;
             margin: 0 auto;
             background: white;
-            border-radius: 12px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
             overflow: hidden;
         }
 
@@ -35,40 +35,36 @@
         }
 
         .header h1 {
-            font-size: 28px;
+            font-size: 2.5em;
             margin-bottom: 10px;
-        }
-
-        .header p {
-            opacity: 0.9;
-            font-size: 14px;
         }
 
         .main-content {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 0;
-            min-height: 600px;
+            gap: 20px;
+            padding: 20px;
         }
 
         .left-panel, .right-panel {
-            padding: 30px;
-        }
-
-        .left-panel {
-            border-right: 1px solid #e0e0e0;
             background: #f8f9fa;
+            padding: 20px;
+            border-radius:  10px;
         }
 
         .connection-section {
-            margin-bottom: 30px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
 
         .section-title {
-            font-size: 18px;
-            font-weight: 600;
+            font-size: 1.3em;
+            font-weight: bold;
             margin-bottom: 15px;
-            color: #333;
+            color: #667eea;
             display: flex;
             align-items: center;
             gap: 10px;
@@ -79,300 +75,277 @@
             height: 12px;
             border-radius: 50%;
             background: #dc3545;
-            animation: pulse 2s infinite;
+            display: inline-block;
         }
 
         .status-indicator.connected {
             background: #28a745;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+            box-shadow: 0 0 10px #28a745;
         }
 
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
 
-        label {
+        .form-group label {
             display: block;
-            margin-bottom: 8px;
-            font-weight: 500;
-            color: #555;
-            font-size: 14px;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #495057;
         }
 
-        input[type="text"],
-        input[type="password"],
-        textarea,
-        select {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
+        .form-group input, .form-group select, .form-group textarea {
+            width:  100%;
+            padding: 10px;
+            border: 2px solid #e9ecef;
             border-radius: 8px;
-            font-size: 14px;
-            transition: all 0.3s;
+            font-size:  14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 120px;
             font-family: 'Courier New', monospace;
         }
 
-        input:focus,
-        textarea:focus,
-        select:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-
-        textarea {
-            min-height: 120px;
-            resize: vertical;
-        }
-
-        button {
+        .btn {
             padding: 12px 24px;
             border: none;
             border-radius: 8px;
-            font-size: 14px;
+            font-size: 16px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            width: 100%;
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #667eea;
             color: white;
-            width: 100%;
-            margin-bottom: 10px;
         }
 
         .btn-primary:hover {
+            background: #5568d3;
             transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
-        }
-
-        .btn-primary:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .btn-secondary {
-            background: #6c757d;
-            color: white;
-            width: 100%;
-        }
-
-        .btn-secondary:hover {
-            background: #5a6268;
-        }
-
-        .btn-danger {
-            background: #dc3545;
-            color: white;
-            width: 100%;
-        }
-
-        .btn-danger:hover {
-            background: #c82333;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
         }
 
         .btn-success {
             background: #28a745;
             color: white;
-            width: 100%;
         }
 
         .btn-success:hover {
-            background: #218838;
+            background:  #218838;
+            transform:  translateY(-2px);
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #000;
+        }
+
+        .btn-warning:hover {
+            background: #e0a800;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+            margin:  5px 0;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .workflow {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .step {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 4px solid #e9ecef;
+        }
+
+        .step.active {
+            border-left-color: #667eea;
+            background: #f0f3ff;
+        }
+
+        .step.completed {
+            border-left-color: #28a745;
+            background: #d4edda;
+        }
+
+        .step-number {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            line-height: 30px;
+            text-align: center;
+            border-radius: 50%;
+            background: #e9ecef;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+
+        .step.active .step-number {
+            background: #667eea;
+            color: white;
+        }
+
+        .step.completed .step-number {
+            background: #28a745;
+            color: white;
+        }
+
+        .response-container {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            border-radius: 10px;
+            height: 600px;
+            overflow-y:  auto;
+            font-family: 'Courier New', monospace;
+        }
+
+        .response-item {
+            margin-bottom: 15px;
+            padding: 15px;
+            border-radius:  8px;
+            border-left: 4px solid #666;
+        }
+
+        .response-item.sent {
+            border-left-color: #3b82f6;
+            background: #1e3a5f;
+        }
+
+        .response-item.received {
+            border-left-color: #10b981;
+            background: #1e3a2f;
+        }
+
+        .response-item.error {
+            border-left-color: #ef4444;
+            background: #3a1e1e;
+        }
+
+        .response-item.info {
+            border-left-color: #f59e0b;
+            background: #3a2e1e;
+        }
+
+        .response-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        .response-type {
+            text-transform: uppercase;
+            font-size: 12px;
+        }
+
+        .response-time {
+            font-size: 12px;
+            opacity: 0.7;
+        }
+
+        .response-content {
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-size: 13px;
+        }
+
+        .clear-btn {
+            float: right;
+            padding: 5px 15px;
+            background: #dc3545;
+            color: white;
+            border:  none;
+            border-radius:  5px;
+            cursor:  pointer;
         }
 
         .quick-actions {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 10px;
-            margin-top: 20px;
-        }
-
-        .quick-actions button {
-            padding: 10px;
-            font-size: 12px;
-        }
-
-        .response-container {
-            background: #1e1e1e;
-            border-radius: 8px;
-            padding: 20px;
-            height: calc(100vh - 300px);
-            overflow-y: auto;
-            font-family: 'Courier New', monospace;
-            font-size: 13px;
-        }
-
-        .response-item {
-            margin-bottom: 15px;
-            padding: 15px;
-            border-radius: 6px;
-            border-left: 4px solid;
-            animation: slideIn 0.3s;
-        }
-
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateX(-20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateX(0);
-            }
-        }
-
-        .response-item.sent {
-            background: #1a2332;
-            border-left-color: #667eea;
-        }
-
-        .response-item.received {
-            background: #1a2d1a;
-            border-left-color: #28a745;
-        }
-
-        .response-item.error {
-            background: #2d1a1a;
-            border-left-color: #dc3545;
-        }
-
-        .response-item.info {
-            background: #2d2a1a;
-            border-left-color: #ffc107;
-        }
-
-        .response-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-
-        .response-type {
-            font-weight: 600;
-            text-transform: uppercase;
-            font-size: 11px;
-            letter-spacing: 1px;
-        }
-
-        .response-item.sent .response-type {
-            color: #667eea;
-        }
-
-        .response-item.received .response-type {
-            color: #28a745;
-        }
-
-        .response-item.error .response-type {
-            color: #dc3545;
-        }
-
-        .response-item.info .response-type {
-            color: #ffc107;
-        }
-
-        .response-time {
-            color: #888;
-            font-size: 11px;
-        }
-
-        .response-content {
-            color: #e0e0e0;
-            line-height: 1.6;
-            white-space: pre-wrap;
-            word-break: break-all;
-        }
-
-        .templates {
-            margin-top: 20px;
+            margin-top:  10px;
         }
 
         .template-btn {
-            display: block;
-            width: 100%;
             padding: 10px;
-            margin-bottom: 8px;
-            background: white;
-            border: 2px solid #e0e0e0;
-            border-radius: 6px;
-            text-align: left;
-            font-size: 13px;
+            margin: 5px 0;
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
             cursor: pointer;
+            text-align: left;
             transition: all 0.3s;
         }
 
         .template-btn:hover {
             border-color: #667eea;
-            background: #f8f9ff;
+            background: #f0f3ff;
             transform: translateX(5px);
         }
 
-        .clear-btn {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            padding: 8px 16px;
-            background: #dc3545;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 12px;
+        .verification-status {
+            padding: 15px;
+            border-radius: 8px;
+            margin:  10px 0;
+            font-weight: bold;
+            text-align: center;
         }
 
-        .clear-btn:hover {
-            background: #c82333;
+        .verification-status.pending {
+            background: #fff3cd;
+            color: #856404;
         }
 
-        ::-webkit-scrollbar {
-            width: 8px;
+        .verification-status.verified {
+            background: #d4edda;
+            color:  #155724;
         }
 
-        ::-webkit-scrollbar-track {
-            background: #2d2d2d;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: #667eea;
-            border-radius: 4px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: #764ba2;
-        }
-
-        @media (max-width: 1024px) {
-            .main-content {
-                grid-template-columns: 1fr;
-            }
-
-            .left-panel {
-                border-right: none;
-                border-bottom: 1px solid #e0e0e0;
-            }
+        .verification-status.failed {
+            background: #f8d7da;
+            color: #721c24;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🔌 WebSocket API Tester</h1>
-            <p>Test your WebSocket API endpoints with real-time responses</p>
+            <h1>💰 Deposit & Withdrawal Tester</h1>
+            <p>Test deposit and withdrawal flows with verification</p>
         </div>
 
         <div class="main-content">
-            <!-- Left Panel: Input -->
+            <!-- Left Panel -->
             <div class="left-panel">
-                <!-- Connection Section -->
+                <!-- Connection -->
                 <div class="connection-section">
                     <div class="section-title">
                         <span class="status-indicator" id="statusIndicator"></span>
@@ -380,95 +353,59 @@
                     </div>
                     
                     <div class="form-group">
-                        <label for="wsUrl">WebSocket URL</label>
-                        <input type="text" id="wsUrl" placeholder="wss://your-domain.com/cashier/svc/ws" value="ws://212.95.35.81:70/api/v1/cashier/svc/ws">
+                        <label>WebSocket URL</label>
+                        <input type="text" id="wsUrl" value="ws://212.95.35.81:70/api/v1/cashier/svc/ws">
                     </div>
 
                     <div class="form-group">
-                        <label for="bearerToken">Bearer Token (JWT)</label>
-                        <input type="password" id="bearerToken" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." value="eyJhbGciOiJSUzI1NiIsImtpZCI6ImtpZC12MSIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiIzNzU1Njk4MTY0MTg4MTE5MDQiLCJkZXZpY2UiOiIzNTUyMDM2ODQ5MjMwODQ4MDAiLCJpc190ZW1wIjpmYWxzZSwidHlwZSI6InVzZXIiLCJwdXJwb3NlIjoiZ2VuZXJhbCIsInJvbGUiOiJhbnkiLCJpc3MiOiJhdXRoLXNlcnZpY2UiLCJzdWIiOiIzNzU1Njk4MTY0MTg4MTE5MDQiLCJhdWQiOlsicHh5ei1jbGllbnRzIl0sImV4cCI6MTc2NTEyMjkxOCwibmJmIjoxNzY1MTA0OTE4LCJpYXQiOjE3NjUxMDQ5MTgsImp0aSI6IjAxS0JXNzc4MkVRMlIyNllaQ00yTUdROTYxIn0.BSau68jvSnOE7IqyDztMYRZInBDuCLbTAkjiqAJ9naEx36_ON_iherS_sno3O0UR9lTXV452rddttKR8FewL11vxDrxMLPZlvfR9sGZPZalALIS1_sSIhx8uAZNc7R3MaY9_uD3LhywRMZ3ZJOIt2wzy1EmY7k1IHsEcjOHGKXKgkNneR3ENcyPytN2JNC1inJbOpMalQ6_9knkwvTBGADBqpYbZue87hIGMtrL24Yc1GFqJ-QuFJG9FHfg1oqGrZDp1f0BlYmjUlubeDvHwm3uFAyNJ2Asmyo6ovcJJGj_g70YSX5KfkdvN67lL0nVS6gApy8LK1HNqdXyvYowNEIfDDsp3tFD2stT1n0L7Au4cTsMqelEJqPgLAHKaUc9IGee9CdQwR_k66RdrlBZvCvsrLRoAUsSTyKD0Ip4UbU1xyJpsqoWTti9jDW1xEXZtOwCFsoeTvWWqFEH9J3hhA01D_pdz0YILVb3o3Gn378-c4fBfijldWSp-0x5of7EqciCXF5lrIf_rG4dbCb14dDW3mcqOksK1cfrWt6cglqrNa2UhaQPI1AP987TQY335rUv1boHHDRYJge-wHDRCB2ZqbyK5joZ-orXR16YkVHVKb6IGNAee8Q3RTW7OOuEI4Nq0dSAmwWwDEY790okEW0zvWJx17zdUtza4vz1DOvM">
+                        <label>Bearer Token</label>
+                        <input type="password" id="bearerToken" value="eyJhbGciOiJSUzI1NiIsImtpZCI6ImtpZC12MSIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiIzNzU1Njk4MTY0MTg4MTE5MDQiLCJkZXZpY2UiOiIzNTUyMDM2ODQ5MjMwODQ4MDAiLCJpc190ZW1wIjpmYWxzZSwidHlwZSI6InVzZXIiLCJwdXJwb3NlIjoiZ2VuZXJhbCIsInJvbGUiOiJhbnkiLCJpc3MiOiJhdXRoLXNlcnZpY2UiLCJzdWIiOiIzNzU1Njk4MTY0MTg4MTE5MDQiLCJhdWQiOlsicHh5ei1jbGllbnRzIl0sImV4cCI6MTc2NTEyMjkxOCwibmJmIjoxNzY1MTA0OTE4LCJpYXQiOjE3NjUxMDQ5MTgsImp0aSI6IjAxS0JXNzc4MkVRMlIyNllaQ00yTUdROTYxIn0.BSau68jvSnOE7IqyDztMYRZInBDuCLbTAkjiqAJ9naEx36_ON_iherS_sno3O0UR9lTXV452rddttKR8FewL11vxDrxMLPZlvfR9sGZPZalALIS1_sSIhx8uAZNc7R3MaY9_uD3LhywRMZ3ZJOIt2wzy1EmY7k1IHsEcjOHGKXKgkNneR3ENcyPytN2JNC1inJbOpMalQ6_9knkwvTBGADBqpYbZue87hIGMtrL24Yc1GFqJ-QuFJG9FHfg1oqGrZDp1f0BlYmjUlubeDvHwm3uFAyNJ2Asmyo6ovcJJGj_g70YSX5KfkdvN67lL0nVS6gApy8LK1HNqdXyvYowNEIfDDsp3tFD2stT1n0L7Au4cTsMqelEJqPgLAHKaUc9IGee9CdQwR_k66RdrlBZvCvsrLRoAUsSTyKD0Ip4UbU1xyJpsqoWTti9jDW1xEXZtOwCFsoeTvWWqFEH9J3hhA01D_pdz0YILVb3o3Gn378-c4fBfijldWSp-0x5of7EqciCXF5lrIf_rG4dbCb14dDW3mcqOksK1cfrWt6cglqrNa2UhaQPI1AP987TQY335rUv1boHHDRYJge-wHDRCB2ZqbyK5joZ-orXR16YkVHVKb6IGNAee8Q3RTW7OOuEI4Nq0dSAmwWwDEY790okEW0zvWJx17zdUtza4vz1DOvM">
                     </div>
 
-                    <button class="btn-primary" id="connectBtn" onclick="toggleConnection()">
-                        Connect
-                    </button>
+                    <button class="btn btn-primary" id="connectBtn" onclick="toggleConnection()">Connect</button>
                 </div>
 
-                <!-- Message Section -->
+                <!-- Workflow Selection -->
+                <div class="workflow">
+                    <div class="section-title">📋 Select Workflow</div>
+                    <button class="btn btn-secondary" onclick="startDepositFlow()">💰 Deposit Flow</button>
+                    <button class="btn btn-secondary" onclick="startWithdrawalFlow()">💸 Withdrawal Flow</button>
+                </div>
+
+                <!-- Current Workflow Steps -->
+                <div class="workflow" id="workflowSteps" style="display: none;">
+                    <div class="section-title">Current Flow</div>
+                    <div id="stepsContainer"></div>
+                </div>
+
+                <!-- Message Form -->
                 <div class="connection-section">
-                    <div class="section-title">Send Message</div>
+                    <div class="section-title">Message</div>
                     
                     <div class="form-group">
-                        <label for="messageType">Message Type</label>
-                        <select id="messageType">
-                            <option value="">-- Select Message Type --</option>
-                            <optgroup label="🔐 Verification">
-                                <option value="verification_request">Verification Request</option>
-                                <option value="verify_otp">Verify OTP</option>
-                                <option value="verify_totp">Verify TOTP</option>
-                            </optgroup>
-                            <optgroup label="🤝 Partners">
-                                <option value="get_partners">Get Partners</option>
-                            </optgroup>
-                            <optgroup label="💳 Accounts">
-                                <option value="get_accounts">Get Accounts</option>
-                                <option value="get_account_balance">Get Account Balance</option>
-                                <option value="get_owner_summary">Get Owner Summary</option>
-                            </optgroup>
-                            <optgroup label="💰 Deposits">
-                                <option value="deposit_request">Deposit Request</option>
-                                <option value="get_deposit_status">Get Deposit Status</option>
-                                <option value="cancel_deposit">Cancel Deposit</option>
-                            </optgroup>
-                            <optgroup label="💸 Withdrawals">
-                                <option value="withdraw_request">Withdraw Request</option>
-                            </optgroup>
-                            <optgroup label="🔄 Transfers">
-                                <option value="transfer">P2P Transfer</option>
-                                <option value="convert_and_transfer">Currency Conversion</option>
-                            </optgroup>
-                            <optgroup label="📊 History & Reports">
-                                <option value="get_history">Get History</option>
-                                <option value="get_transaction_by_receipt">Get Transaction by Receipt</option>
-                                <option value="get_account_statement">Get Account Statement</option>
-                                <option value="get_owner_statement">Get Owner Statement</option>
-                                <option value="get_ledgers">Get Ledgers</option>
-                            </optgroup>
-                            <optgroup label="💵 Fees">
-                                <option value="calculate_fee">Calculate Fee</option>
-                            </optgroup>
-                        </select>
+                        <label>Message Type</label>
+                        <input type="text" id="messageType" readonly>
                     </div>
 
                     <div class="form-group">
-                        <label for="messageData">Message Data (JSON)</label>
-                        <textarea id="messageData" placeholder='{"key": "value"}'></textarea>
+                        <label>Message Data (JSON)</label>
+                        <textarea id="messageData"></textarea>
                     </div>
 
-                    <button class="btn-success" id="sendBtn" onclick="sendMessage()" disabled>
-                        Send Message
-                    </button>
+                    <button class="btn btn-success" id="sendBtn" onclick="sendMessage()" disabled>Send Message</button>
 
                     <div class="quick-actions">
-                        <button class="btn-secondary" onclick="formatJSON()">Format JSON</button>
-                        <button class="btn-secondary" onclick="clearInput()">Clear Input</button>
+                        <button class="btn btn-secondary" onclick="formatJSON()">Format JSON</button>
+                        <button class="btn btn-secondary" onclick="clearInput()">Clear Input</button>
                     </div>
                 </div>
 
-                <!-- Quick Templates -->
-                <div class="templates">
-                    <div class="section-title">📋 Quick Templates</div>
-                    <button class="template-btn" onclick="loadTemplate('verification')">🔐 Verification Request (OTP Email)</button>
-                    <button class="template-btn" onclick="loadTemplate('deposit')">💰 Deposit Request</button>
-                    <button class="template-btn" onclick="loadTemplate('withdraw')">💸 Withdrawal Request</button>
-                    <button class="template-btn" onclick="loadTemplate('transfer')">🔄 P2P Transfer</button>
-                    <button class="template-btn" onclick="loadTemplate('get_accounts')">💳 Get Accounts</button>
-                    <button class="template-btn" onclick="loadTemplate('get_balance')">💵 Get Balance</button>
-                </div>
+                <!-- Verification Status -->
+                <div id="verificationStatus" class="verification-status" style="display:none;"></div>
             </div>
 
-            <!-- Right Panel: Responses -->
-            <div class="right-panel" style="position: relative;">
+            <!-- Right Panel:  Responses -->
+            <div class="right-panel">
                 <div class="section-title">
                     📨 Responses
                     <button class="clear-btn" onclick="clearResponses()">Clear All</button>
@@ -479,7 +416,7 @@
                             <span class="response-type">Info</span>
                             <span class="response-time">Ready</span>
                         </div>
-                        <div class="response-content">WebSocket tester ready. Enter your connection details and click "Connect".</div>
+                        <div class="response-content">WebSocket tester ready. Connect and select a workflow to begin.</div>
                     </div>
                 </div>
             </div>
@@ -489,57 +426,144 @@
     <script>
         let ws = null;
         let isConnected = false;
+        let currentFlow = null;
+        let currentStep = 0;
+        let verificationToken = null;
+
+        // Workflow definitions
+        const workflows = {
+            deposit: {
+                name: 'Deposit Flow',
+                steps: [
+                    { name: 'Initiate Deposit', type: 'deposit_request', template: 'deposit' },
+                    { name: 'Check Deposit Status', type: 'get_deposit_status', template: 'check_deposit' }
+                ]
+            },
+            withdrawal: {
+                name: 'Withdrawal Flow (with Verification)',
+                steps: [
+                    { name: 'Request Verification (OTP Email)', type: 'verification_request', template: 'verification' },
+                    { name:  'Verify OTP Code', type: 'verify_otp', template: 'verify_otp' },
+                    { name: 'Initiate Withdrawal', type: 'withdraw_request', template: 'withdraw' }
+                ]
+            }
+        };
 
         // Message templates
         const templates = {
             verification: {
-                type: 'verification_request',
-                data: {
-                    method: 'otp_email',
-                    purpose: 'withdrawal'
-                }
+                method: 'otp_email',
+                purpose: 'withdrawal'
+            },
+            verify_otp: {
+                code: '123456',
+                purpose: 'withdrawal'
             },
             deposit: {
-                type: 'deposit_request',
-                data: {
-                    amount: 100.00,
-                    currency: 'USD',
-                    service: 'mpesa',
-                    payment_method: 'mobile_money'
-                }
+                amount: 1000,
+                local_currency: 'KES',
+                target_currency: 'USD',
+                service:  'mpesa',
+                payment_method: 'mobile_money'
+            },
+            check_deposit: {
+                request_ref: 'DEP-XXX-XXXXX'
             },
             withdraw: {
-                type: 'withdraw_request',
-                data: {
-                    amount: 50.00,
-                    currency: 'USD',
-                    destination: '+254712345678',
-                    service: 'mpesa',
-                    verification_token: 'your_token_here'
-                }
-            },
-            transfer: {
-                type: 'transfer',
-                data: {
-                    to_user_id: '456',
-                    amount: 25.00,
-                    currency: 'USD',
-                    description: 'Payment for lunch'
-                }
-            },
-            get_accounts: {
-                type: 'get_accounts',
-                data: {}
-            },
-            get_balance: {
-                type: 'get_account_balance',
-                data: {
-                    account_number: 'ACC-USER-USD-123'
-                }
+                amount: 50,
+                local_currency: 'KES',
+                destination: '+254712345678',
+                service: 'mpesa',
+                verification_token: 'your_token_here'
             }
         };
 
-        // Toggle connection
+        // Start deposit flow
+        function startDepositFlow() {
+            if (! isConnected) {
+                alert('Please connect to WebSocket first');
+                return;
+            }
+            currentFlow = 'deposit';
+            currentStep = 0;
+            renderWorkflow();
+            loadStepTemplate();
+        }
+
+        // Start withdrawal flow
+        function startWithdrawalFlow() {
+            if (!isConnected) {
+                alert('Please connect to WebSocket first');
+                return;
+            }
+            currentFlow = 'withdrawal';
+            currentStep = 0;
+            verificationToken = null;
+            renderWorkflow();
+            loadStepTemplate();
+        }
+
+        // Render workflow steps
+        function renderWorkflow() {
+            const workflow = workflows[currentFlow];
+            if (!workflow) return;
+
+            document.getElementById('workflowSteps').style.display = 'block';
+            const container = document.getElementById('stepsContainer');
+            container.innerHTML = '';
+
+            workflow.steps.forEach((step, index) => {
+                const stepDiv = document.createElement('div');
+                stepDiv.className = 'step';
+                if (index < currentStep) stepDiv.classList.add('completed');
+                if (index === currentStep) stepDiv.classList.add('active');
+
+                stepDiv.innerHTML = `
+                    <span class="step-number">${index + 1}</span>
+                    <strong>${step.name}</strong>
+                    <div style="font-size: 12px;color:#666;margin-left:40px;">${step.type}</div>
+                `;
+                container.appendChild(stepDiv);
+            });
+        }
+
+        // Load current step template
+        function loadStepTemplate() {
+            const workflow = workflows[currentFlow];
+            if (!workflow) return;
+
+            const step = workflow.steps[currentStep];
+            if (!step) return;
+
+            document.getElementById('messageType').value = step.type;
+            const templateData = templates[step.template];
+            
+            if (templateData) {
+                document.getElementById('messageData').value = JSON.stringify(templateData, null, 2);
+            }
+
+            document.getElementById('sendBtn').disabled = false;
+        }
+
+        // Move to next step
+        function nextStep() {
+            const workflow = workflows[currentFlow];
+            if (!workflow) return;
+
+            currentStep++;
+            if (currentStep >= workflow.steps.length) {
+                showVerificationStatus('completed', `✅ ${workflow.name} completed! `);
+                currentFlow = null;
+                currentStep = 0;
+                document.getElementById('workflowSteps').style.display = 'none';
+                return;
+            }
+
+            renderWorkflow();
+            loadStepTemplate();
+        }
+
+        // Connect/Disconnect
         function toggleConnection() {
             if (isConnected) {
                 disconnect();
@@ -548,27 +572,22 @@
             }
         }
 
-        // Connect to WebSocket
         function connect() {
             var url = document.getElementById('wsUrl').value;
-            console.log('Connecting to URL:', url);
             const token = document.getElementById('bearerToken').value;
+
             if (token) {
                 const separator = url.includes('?') ? '&' : '?';
                 url = url + separator + 'token=' + encodeURIComponent(token);
             }
 
-
-            if (!url) {
+            if (! url) {
                 addResponse('error', 'WebSocket URL is required', {});
                 return;
             }
 
             try {
                 addResponse('info', 'Connecting to ' + url, {});
-
-                // Create WebSocket connection with token in URL (some implementations)
-                // Or you can send token in first message after connection
                 ws = new WebSocket(url);
 
                 ws.onopen = () => {
@@ -578,18 +597,13 @@
                         url: url,
                         timestamp: new Date().toISOString()
                     });
-
-                    // Send authentication if token provided
-                    if (token) {
-                        // Some implementations might need auth message
-                        // ws.send(JSON.stringify({ type: 'auth', token: token }));
-                    }
                 };
 
                 ws.onmessage = (event) => {
                     try {
                         const data = JSON.parse(event.data);
                         addResponse('received', 'Message received', data);
+                        handleServerResponse(data);
                     } catch (e) {
                         addResponse('received', 'Message received (non-JSON)', { raw: event.data });
                     }
@@ -610,7 +624,6 @@
             }
         }
 
-        // Disconnect
         function disconnect() {
             if (ws) {
                 ws.close();
@@ -643,18 +656,80 @@
                 };
 
                 ws.send(JSON.stringify(message));
-                addResponse('sent', 'Message sent: ' + type, message);
+                addResponse('sent', 'Message sent:  ' + type, message);
             } catch (error) {
                 addResponse('error', 'Invalid JSON in message data', { error: error.message });
             }
         }
 
-        // Load template
-        function loadTemplate(name) {
-            const template = templates[name];
-            if (template) {
-                document.getElementById('messageType').value = template.type;
-                document.getElementById('messageData').value = JSON.stringify(template.data, null, 2);
+        // Handle server response
+        function handleServerResponse(response) {
+            if (!currentFlow) return;
+
+            const workflow = workflows[currentFlow];
+            const step = workflow.steps[currentStep];
+
+            // Handle based on current step
+            if (step.type === 'verification_request' && response.type === 'success') {
+                showVerificationStatus('pending', '📧 OTP sent!  Check your email and enter the code.');
+                setTimeout(() => nextStep(), 1000);
+            }
+
+            if (step.type === 'verify_otp' && response.type === 'success') {
+                if (response.data && response.data.verification_token) {
+                    verificationToken = response.data.verification_token;
+                    showVerificationStatus('verified', '✅ Verification successful! Token received.');
+                    
+                    // Auto-fill token in withdrawal template
+                    if (workflow.steps[currentStep + 1]) {
+                        setTimeout(() => {
+                            nextStep();
+                            const withdrawData = JSON.parse(document.getElementById('messageData').value);
+                            withdrawData.verification_token = verificationToken;
+                            document.getElementById('messageData').value = JSON.stringify(withdrawData, null, 2);
+                        }, 1500);
+                    }
+                }
+            }
+
+            if (step.type === 'deposit_request' && response.type === 'success') {
+                if (response.data && response.data.request_ref) {
+                    showVerificationStatus('verified', `✅ Deposit initiated:  ${response.data.request_ref}`);
+                    
+                    // Auto-fill request_ref for status check
+                    setTimeout(() => {
+                        nextStep();
+                        const statusData = JSON.parse(document.getElementById('messageData').value);
+                        statusData.request_ref = response.data.request_ref;
+                        document.getElementById('messageData').value = JSON.stringify(statusData, null, 2);
+                    }, 1500);
+                }
+            }
+
+            if (step.type === 'withdraw_request' && response.type === 'success') {
+                showVerificationStatus('verified', '✅ Withdrawal completed successfully!');
+                setTimeout(() => {
+                    currentFlow = null;
+                    document.getElementById('workflowSteps').style.display = 'none';
+                }, 2000);
+            }
+
+            if (response.type === 'error') {
+                showVerificationStatus('failed', `❌ Error: ${response.message || 'Unknown error'}`);
+            }
+        }
+
+        // Show verification status
+        function showVerificationStatus(status, message) {
+            const statusDiv = document.getElementById('verificationStatus');
+            statusDiv.style.display = 'block';
+            statusDiv.className = `verification-status ${status}`;
+            statusDiv.textContent = message;
+
+            if (status === 'completed') {
+                setTimeout(() => {
+                    statusDiv.style.display = 'none';
+                }, 3000);
             }
         }
 
@@ -704,41 +779,19 @@
         function updateConnectionUI() {
             const indicator = document.getElementById('statusIndicator');
             const connectBtn = document.getElementById('connectBtn');
-            const sendBtn = document.getElementById('sendBtn');
 
             if (isConnected) {
                 indicator.classList.add('connected');
                 connectBtn.textContent = 'Disconnect';
-                connectBtn.classList.remove('btn-primary');
                 connectBtn.classList.add('btn-danger');
-                sendBtn.disabled = false;
+                connectBtn.classList.remove('btn-primary');
             } else {
                 indicator.classList.remove('connected');
                 connectBtn.textContent = 'Connect';
-                connectBtn.classList.remove('btn-danger');
                 connectBtn.classList.add('btn-primary');
-                sendBtn.disabled = true;
+                connectBtn.classList.remove('btn-danger');
             }
         }
-
-        // Enable send button when message type is selected
-        document.getElementById('messageType').addEventListener('change', function() {
-            if (isConnected && this.value) {
-                document.getElementById('sendBtn').disabled = false;
-            }
-        });
-
-        // Allow Enter key to send in textarea (Ctrl+Enter)
-        document.getElementById('messageData').addEventListener('keydown', function(e) {
-            if (e.ctrlKey && e.key === 'Enter') {
-                sendMessage();
-            }
-        });
-
-        // Auto-format JSON when template is loaded
-        document.getElementById('messageType').addEventListener('change', function() {
-            // Could auto-load template based on type if needed
-        });
     </script>
 </body>
 </html>

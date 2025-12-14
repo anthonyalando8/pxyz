@@ -172,12 +172,23 @@ func SetupRoutes(
 
 			// ---------------- Agent Management ----------------
 			acc.Route("/agents", func(agt chi.Router) {
+				// Basic CRUD operations
 				agt.Post("/", h.CreateAgent)                             // Create agent
-				agt. Get("/", h.ListAgents)                               // List all agents (with pagination)
-				agt.Get("/{agent_id}", h.GetAgentByID)                   // Get agent by ID
-				agt. Put("/{agent_id}", h.UpdateAgent)                    // Update agent
-				agt. Delete("/{agent_id}", h.DeleteAgent)                 // Delete agent
-				agt.Get("/user/{user_id}", h.GetAgentByUserID)           // Get agent by user ID
+				agt.Get("/", h.ListAgents)                               // List all agents (with pagination and filters)
+				agt.Get("/{agent_id}", h. GetAgentByID)                   // Get agent by ID
+				agt.Put("/{agent_id}", h.UpdateAgent)                    // Update agent
+				agt. Delete("/{agent_id}", h.DeleteAgent)                 // Delete agent (soft delete)
+				
+				// ✅ NEW: Stats endpoint (must come before /{agent_id} to avoid route conflict)
+				agt.Get("/stats", h.GetAgentStats)                       // Get agent statistics
+				
+				// ✅ NEW: Multi-country filter endpoint
+				agt.Get("/by-countries", h.GetAgentsByCountries)         // Get agents by multiple countries
+				
+				// User-based lookup
+				agt.Get("/user/{user_id}", h. GetAgentByUserID)           // Get agent by user ID
+				
+				// Commission operations
 				agt.Get("/{agent_id}/commissions", h.ListCommissionsForAgent) // List agent commissions
 			})
 		})

@@ -9,6 +9,7 @@ import (
 	partnerclient "x/shared/partner"
 	accountingclient "x/shared/common/accounting" // 👈 added
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 )
 
 type AdminHandler struct {
@@ -20,6 +21,7 @@ type AdminHandler struct {
 	coreClient       *coreclient.CoreService
 	partnerClient    *partnerclient.PartnerService
 	accountingClient *accountingclient.AccountingClient // 👈 added
+	logger *zap.Logger
 }
 
 func NewAdminHandler(
@@ -31,6 +33,8 @@ func NewAdminHandler(
 	coreClient *coreclient.CoreService,
 	partnerClient *partnerclient.PartnerService,
 	accountingClient *accountingclient.AccountingClient, // 👈 added
+	logger *zap.Logger,
+
 ) *AdminHandler {
 	return &AdminHandler{
 		auth:             auth,
@@ -41,5 +45,6 @@ func NewAdminHandler(
 		coreClient:       coreClient,
 		partnerClient:    partnerClient,
 		accountingClient: accountingClient, // 👈 added
+		logger: logger,
 	}
 }

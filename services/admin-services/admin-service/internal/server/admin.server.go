@@ -12,9 +12,10 @@ import (
 	coreclient "x/shared/core"
 	emailclient "x/shared/email"
 	smsclient "x/shared/sms"
-	accountingclient "x/shared/common/accounting" //
+	accountingclient "x/shared/common/accounting"
 
 	"x/shared/auth/middleware"
+	"go.uber.org/zap"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/redis/go-redis/v9"
@@ -34,6 +35,8 @@ func NewServer(cfg config.AppConfig) *http.Server {
 		Password: cfg.RedisPass,
 		DB:       0,
 	})
+	logger, _ := zap.NewProduction()
+	defer logger.Sync()
 
 	// --- Init Clients ---
 	coreSvc := coreclient.NewCoreService()
@@ -55,6 +58,7 @@ func NewServer(cfg config.AppConfig) *http.Server {
 		coreSvc,
 		partnerSvc,
 		accountingClient,
+		logger,
 	)
 
 	// --- Router ---

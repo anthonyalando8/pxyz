@@ -105,36 +105,237 @@ ON CONFLICT (account_id) DO UPDATE
 
 INSERT INTO transaction_fee_rules (
     rule_name, transaction_type, source_currency, target_currency, account_type, owner_type,
-    fee_type, calculation_method, fee_value, min_fee, max_fee, tiers, is_active, priority, created_at, updated_at
+    fee_type, calculation_method, fee_value, min_fee, max_fee, tiers, tariffs, is_active, priority, created_at, updated_at
 ) VALUES
-  -- Deposit fees
-  ('Deposit: USD - platform pct', 'deposit', 'USD', NULL, 'real', NULL, 'platform', 'percentage', 0.001, 1.00, 500.00, NULL, TRUE, 10, now(), now()),
-  ('Deposit: USDT - platform pct', 'deposit', 'USDT', NULL, 'real', NULL, 'platform', 'percentage', 0.0005, 0.50, 200.00, NULL, TRUE, 10, now(), now()),
-  ('Deposit: BTC - network/fixed', 'deposit', 'BTC', NULL, 'real', NULL, 'network', 'fixed', 0.0, 0.0005, 0.005, NULL, TRUE, 10, now(), now()),
+  -- ============================================================================
+  -- DEPOSIT FEES WITH TARIFFS
+  -- ============================================================================
+  
+  -- USD Deposits:  Amount-based tariffs (lower fees for larger deposits)
+  ('Deposit: USD - tariffs', 'deposit', 'USD', NULL, 'real', NULL, 'platform', 'percentage', 0.001, 0.50, 500.00, NULL,
+    '[
+      {
+        "min_amount": 0,
+        "max_amount": 100,
+        "calculation_method": "percentage",
+        "fee_bps": 100,
+        "fixed_fee":  0.50
+      },
+      {
+        "min_amount":  100,
+        "max_amount": 1000,
+        "calculation_method": "percentage",
+        "fee_bps":  75,
+        "fixed_fee":  null
+      },
+      {
+        "min_amount": 1000,
+        "max_amount":  5000,
+        "calculation_method": "percentage",
+        "fee_bps": 50,
+        "fixed_fee": null
+      },
+      {
+        "min_amount": 5000,
+        "max_amount": null,
+        "calculation_method": "percentage",
+        "fee_bps": 25,
+        "fixed_fee": null
+      }
+    ]':: JSONB,
+    TRUE, 10, now(), now()),
 
-  -- Withdrawal fees
-  ('Withdrawal: USD - fixed', 'withdrawal', 'USD', NULL, 'real', NULL, 'platform', 'fixed', 0.0, 2.00, NULL, NULL, TRUE, 10, now(), now()),
-  ('Withdrawal: USDT - fixed', 'withdrawal', 'USDT', NULL, 'real', NULL, 'network', 'fixed', 0.0, 1.00, NULL, NULL, TRUE, 10, now(), now()),
-  ('Withdrawal: BTC - percentage+min', 'withdrawal', 'BTC', NULL, 'real', NULL, 'network', 'percentage', 0.001, 0.0005, 0.01, NULL, TRUE, 10, now(), now()),
+  -- USDT Deposits:  Lower fees, encouraging crypto deposits
+  ('Deposit: USDT - tariffs', 'deposit', 'USDT', NULL, 'real', NULL, 'platform', 'percentage', 0.0005, 0.25, 200.00, NULL,
+    '[
+      {
+        "min_amount": 0,
+        "max_amount": 100,
+        "calculation_method":  "percentage",
+        "fee_bps": 50,
+        "fixed_fee":  0.25
+      },
+      {
+        "min_amount": 100,
+        "max_amount": 1000,
+        "calculation_method": "percentage",
+        "fee_bps": 40,
+        "fixed_fee":  null
+      },
+      {
+        "min_amount": 1000,
+        "max_amount": null,
+        "calculation_method":  "percentage",
+        "fee_bps": 25,
+        "fixed_fee":  null
+      }
+    ]'::JSONB,
+    TRUE, 10, now(), now()),
 
-  -- Transfer (P2P) fees
-  ('P2P Transfer: same-currency pct', 'transfer', NULL, NULL, 'real', NULL, 'platform', 'percentage', 0.001, 0.10, 100.00, NULL, TRUE, 20, now(), now()),
-  ('P2P Transfer: USD fixed', 'transfer', 'USD', NULL, 'real', NULL, 'platform', 'fixed', 0.0, 0.50, NULL, NULL, TRUE, 20, now(), now()),
+  -- BTC Deposits: Fixed network fees (blockchain gas fees)
+  ('Deposit: BTC - network/fixed', 'deposit', 'BTC', NULL, 'real', NULL, 'network', 'fixed', 0.0, 0.0005, 0.005, NULL, NULL, TRUE, 10, now(), now()),
 
-  -- Conversion fees (example cross-currency)
-  ('Conversion: USD->USDT pct', 'conversion', 'USD', 'USDT', 'real', NULL, 'conversion', 'percentage', 0.003, 0.50, 500.00, NULL, TRUE, 30, now(), now()),
-  ('Conversion: USDT->BTC pct', 'conversion', 'USDT', 'BTC', 'real', NULL, 'conversion', 'percentage', 0.004, 0.50, 1000.00, NULL, TRUE, 30, now(), now()),
-  ('Conversion: BTC->USD pct', 'conversion', 'BTC', 'USD', 'real', NULL, 'conversion', 'percentage', 0.005, 10.00, 10000.00, NULL, TRUE, 30, now(), now()),
+  -- ============================================================================
+  -- WITHDRAWAL FEES WITH TARIFFS
+  -- ============================================================================
+
+  -- USD Withdrawals: Amount-based tariffs (higher fees for larger amounts)
+  ('Withdrawal: USD - tariffs', 'withdrawal', 'USD', NULL, 'real', NULL, 'platform', 'fixed', 0.0, 1.00, 100.00, NULL,
+    '[
+      {
+        "min_amount": 0,
+        "max_amount": 50,
+        "calculation_method":  "fixed",
+        "fixed_fee": 1.00
+      },
+      {
+        "min_amount": 50,
+        "max_amount": 500,
+        "calculation_method": "percentage",
+        "fee_bps": 150,
+        "fixed_fee":  null
+      },
+      {
+        "min_amount": 500,
+        "max_amount":  2000,
+        "calculation_method": "percentage",
+        "fee_bps": 200,
+        "fixed_fee":  null
+      },
+      {
+        "min_amount": 2000,
+        "max_amount": null,
+        "calculation_method":  "percentage",
+        "fee_bps": 250,
+        "fixed_fee":  null
+      }
+    ]'::JSONB,
+    TRUE, 10, now(), now()),
+
+  -- USDT Withdrawals: Fixed fees for small amounts, percentage for large
+  ('Withdrawal: USDT - tariffs', 'withdrawal', 'USDT', NULL, 'real', NULL, 'network', 'fixed', 0.0, 0.50, 50.00, NULL,
+    '[
+      {
+        "min_amount": 0,
+        "max_amount": 100,
+        "calculation_method":  "fixed",
+        "fixed_fee": 1.00
+      },
+      {
+        "min_amount": 100,
+        "max_amount": 500,
+        "calculation_method": "fixed",
+        "fixed_fee":  2.00
+      },
+      {
+        "min_amount": 500,
+        "max_amount": 2000,
+        "calculation_method": "percentage",
+        "fee_bps": 100,
+        "fixed_fee":  null
+      },
+      {
+        "min_amount": 2000,
+        "max_amount": null,
+        "calculation_method": "percentage",
+        "fee_bps": 75,
+        "fixed_fee":  null
+      }
+    ]'::JSONB,
+    TRUE, 10, now(), now()),
+
+  -- BTC Withdrawals: Network fees with tariffs
+  ('Withdrawal: BTC - tariffs', 'withdrawal', 'BTC', NULL, 'real', NULL, 'network', 'percentage', 0.001, 0.0005, 0.01, NULL,
+    '[
+      {
+        "min_amount": 0,
+        "max_amount": 0.01,
+        "calculation_method":  "fixed",
+        "fixed_fee":  0.0005
+      },
+      {
+        "min_amount": 0.01,
+        "max_amount": 0.1,
+        "calculation_method": "percentage",
+        "fee_bps": 100,
+        "fixed_fee":  null
+      },
+      {
+        "min_amount": 0.1,
+        "max_amount": null,
+        "calculation_method":  "percentage",
+        "fee_bps": 75,
+        "fixed_fee":  null
+      }
+    ]'::JSONB,
+    TRUE, 10, now(), now()),
+
+  -- ============================================================================
+  -- TRANSFER (P2P) FEES
+  -- ============================================================================
+
+  -- P2P Transfer: same-currency with tariffs (encourage small transfers)
+  ('P2P Transfer: tariffs', 'transfer', NULL, NULL, 'real', NULL, 'platform', 'percentage', 0.001, 0.10, 100.00, NULL,
+    '[
+      {
+        "min_amount": 0,
+        "max_amount":  10,
+        "calculation_method": "fixed",
+        "fixed_fee":  0.10
+      },
+      {
+        "min_amount": 10,
+        "max_amount": 100,
+        "calculation_method": "percentage",
+        "fee_bps": 50,
+        "fixed_fee":  null
+      },
+      {
+        "min_amount": 100,
+        "max_amount":  1000,
+        "calculation_method": "percentage",
+        "fee_bps": 75,
+        "fixed_fee":  null
+      },
+      {
+        "min_amount": 1000,
+        "max_amount": null,
+        "calculation_method":  "percentage",
+        "fee_bps": 100,
+        "fixed_fee":  null
+      }
+    ]'::JSONB,
+    TRUE, 20, now(), now()),
+
+  -- P2P Transfer:  USD specific (flat fees)
+  ('P2P Transfer:  USD fixed', 'transfer', 'USD', NULL, 'real', NULL, 'platform', 'fixed', 0.0, 0.50, NULL, NULL, NULL, TRUE, 20, now(), now()),
+
+  -- ============================================================================
+  -- CONVERSION FEES
+  -- ============================================================================
+
+  -- Conversion: USD->USDT pct
+  ('Conversion: USD->USDT pct', 'conversion', 'USD', 'USDT', 'real', NULL, 'conversion', 'percentage', 0.003, 0.50, 500.00, NULL, NULL, TRUE, 30, now(), now()),
+  
+  -- Conversion: USDT->BTC pct
+  ('Conversion: USDT->BTC pct', 'conversion', 'USDT', 'BTC', 'real', NULL, 'conversion', 'percentage', 0.004, 0.50, 1000.00, NULL, NULL, TRUE, 30, now(), now()),
+  
+  -- Conversion: BTC->USD pct
+  ('Conversion: BTC->USD pct', 'conversion', 'BTC', 'USD', 'real', NULL, 'conversion', 'percentage', 0.005, 10.00, 10000.00, NULL, NULL, TRUE, 30, now(), now()),
+
+  -- ============================================================================
+  -- VIP/TIERED FEES (Using tiers, not tariffs)
+  -- ============================================================================
 
   -- Tiered withdrawal example (user-level VIP tiers)
   ('VIP Withdrawal - tiered', 'withdrawal', NULL, NULL, 'real', 'user', 'platform', 'tiered', 0.0, NULL, NULL,
     '[
-      {"min_amount": 0.00, "max_amount": 1000.00, "rate": 0.002, "fixed_fee": 1.00},
-      {"min_amount": 1000.00, "max_amount": 5000.00, "rate": 0.0015, "fixed_fee": 1.50},
-      {"min_amount": 5000.00, "max_amount": null, "rate": 0.001, "fixed_fee": 2.00}
+      {"min_amount": 0.00, "max_amount": 1000.00, "rate": "200", "fixed_fee": 1.00},
+      {"min_amount": 1000.00, "max_amount": 5000.00, "rate": "150", "fixed_fee": 1.50},
+      {"min_amount": 5000.00, "max_amount": null, "rate": "100", "fixed_fee": 2.00}
     ]'::JSONB,
-    TRUE, 5, now(), now()
-  )
+    NULL,
+    TRUE, 5, now(), now())
 
  ON CONFLICT DO NOTHING;
 

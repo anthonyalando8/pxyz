@@ -27,8 +27,13 @@ const (
 	PartnerService_RotateAPISecret_FullMethodName        = "/partner.svc.PartnerService/RotateAPISecret"
 	PartnerService_UpdateAPISettings_FullMethodName      = "/partner.svc.PartnerService/UpdateAPISettings"
 	PartnerService_InitiateDeposit_FullMethodName        = "/partner.svc.PartnerService/InitiateDeposit"
+	PartnerService_InitiateWithdrawal_FullMethodName     = "/partner.svc.PartnerService/InitiateWithdrawal"
 	PartnerService_GetTransactionStatus_FullMethodName   = "/partner.svc.PartnerService/GetTransactionStatus"
+	PartnerService_GetTransactionByRef_FullMethodName    = "/partner.svc.PartnerService/GetTransactionByRef"
 	PartnerService_ListTransactions_FullMethodName       = "/partner.svc.PartnerService/ListTransactions"
+	PartnerService_ListTransactionsByType_FullMethodName = "/partner.svc.PartnerService/ListTransactionsByType"
+	PartnerService_CancelTransaction_FullMethodName      = "/partner.svc.PartnerService/CancelTransaction"
+	PartnerService_GetTransactionStats_FullMethodName    = "/partner.svc.PartnerService/GetTransactionStats"
 	PartnerService_UpdateWebhookConfig_FullMethodName    = "/partner.svc.PartnerService/UpdateWebhookConfig"
 	PartnerService_TestWebhook_FullMethodName            = "/partner.svc.PartnerService/TestWebhook"
 	PartnerService_ListWebhookLogs_FullMethodName        = "/partner.svc.PartnerService/ListWebhookLogs"
@@ -55,8 +60,13 @@ type PartnerServiceClient interface {
 	UpdateAPISettings(ctx context.Context, in *UpdateAPISettingsRequest, opts ...grpc.CallOption) (*PartnerResponse, error)
 	// Transaction Management
 	InitiateDeposit(ctx context.Context, in *InitiateDepositRequest, opts ...grpc.CallOption) (*InitiateDepositResponse, error)
+	InitiateWithdrawal(ctx context.Context, in *InitiateWithdrawalRequest, opts ...grpc.CallOption) (*InitiateWithdrawalResponse, error)
 	GetTransactionStatus(ctx context.Context, in *GetTransactionStatusRequest, opts ...grpc.CallOption) (*TransactionStatusResponse, error)
+	GetTransactionByRef(ctx context.Context, in *GetTransactionByRefRequest, opts ...grpc.CallOption) (*TransactionResponse, error)
 	ListTransactions(ctx context.Context, in *ListTransactionsRequest, opts ...grpc.CallOption) (*ListTransactionsResponse, error)
+	ListTransactionsByType(ctx context.Context, in *ListTransactionsByTypeRequest, opts ...grpc.CallOption) (*ListTransactionsResponse, error)
+	CancelTransaction(ctx context.Context, in *CancelTransactionRequest, opts ...grpc.CallOption) (*CancelTransactionResponse, error)
+	GetTransactionStats(ctx context.Context, in *GetTransactionStatsRequest, opts ...grpc.CallOption) (*GetTransactionStatsResponse, error)
 	// Webhook Management
 	UpdateWebhookConfig(ctx context.Context, in *UpdateWebhookConfigRequest, opts ...grpc.CallOption) (*WebhookConfigResponse, error)
 	TestWebhook(ctx context.Context, in *TestWebhookRequest, opts ...grpc.CallOption) (*TestWebhookResponse, error)
@@ -159,6 +169,16 @@ func (c *partnerServiceClient) InitiateDeposit(ctx context.Context, in *Initiate
 	return out, nil
 }
 
+func (c *partnerServiceClient) InitiateWithdrawal(ctx context.Context, in *InitiateWithdrawalRequest, opts ...grpc.CallOption) (*InitiateWithdrawalResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(InitiateWithdrawalResponse)
+	err := c.cc.Invoke(ctx, PartnerService_InitiateWithdrawal_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *partnerServiceClient) GetTransactionStatus(ctx context.Context, in *GetTransactionStatusRequest, opts ...grpc.CallOption) (*TransactionStatusResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(TransactionStatusResponse)
@@ -169,10 +189,50 @@ func (c *partnerServiceClient) GetTransactionStatus(ctx context.Context, in *Get
 	return out, nil
 }
 
+func (c *partnerServiceClient) GetTransactionByRef(ctx context.Context, in *GetTransactionByRefRequest, opts ...grpc.CallOption) (*TransactionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TransactionResponse)
+	err := c.cc.Invoke(ctx, PartnerService_GetTransactionByRef_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *partnerServiceClient) ListTransactions(ctx context.Context, in *ListTransactionsRequest, opts ...grpc.CallOption) (*ListTransactionsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListTransactionsResponse)
 	err := c.cc.Invoke(ctx, PartnerService_ListTransactions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *partnerServiceClient) ListTransactionsByType(ctx context.Context, in *ListTransactionsByTypeRequest, opts ...grpc.CallOption) (*ListTransactionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListTransactionsResponse)
+	err := c.cc.Invoke(ctx, PartnerService_ListTransactionsByType_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *partnerServiceClient) CancelTransaction(ctx context.Context, in *CancelTransactionRequest, opts ...grpc.CallOption) (*CancelTransactionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CancelTransactionResponse)
+	err := c.cc.Invoke(ctx, PartnerService_CancelTransaction_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *partnerServiceClient) GetTransactionStats(ctx context.Context, in *GetTransactionStatsRequest, opts ...grpc.CallOption) (*GetTransactionStatsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetTransactionStatsResponse)
+	err := c.cc.Invoke(ctx, PartnerService_GetTransactionStats_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -302,8 +362,13 @@ type PartnerServiceServer interface {
 	UpdateAPISettings(context.Context, *UpdateAPISettingsRequest) (*PartnerResponse, error)
 	// Transaction Management
 	InitiateDeposit(context.Context, *InitiateDepositRequest) (*InitiateDepositResponse, error)
+	InitiateWithdrawal(context.Context, *InitiateWithdrawalRequest) (*InitiateWithdrawalResponse, error)
 	GetTransactionStatus(context.Context, *GetTransactionStatusRequest) (*TransactionStatusResponse, error)
+	GetTransactionByRef(context.Context, *GetTransactionByRefRequest) (*TransactionResponse, error)
 	ListTransactions(context.Context, *ListTransactionsRequest) (*ListTransactionsResponse, error)
+	ListTransactionsByType(context.Context, *ListTransactionsByTypeRequest) (*ListTransactionsResponse, error)
+	CancelTransaction(context.Context, *CancelTransactionRequest) (*CancelTransactionResponse, error)
+	GetTransactionStats(context.Context, *GetTransactionStatsRequest) (*GetTransactionStatsResponse, error)
 	// Webhook Management
 	UpdateWebhookConfig(context.Context, *UpdateWebhookConfigRequest) (*WebhookConfigResponse, error)
 	TestWebhook(context.Context, *TestWebhookRequest) (*TestWebhookResponse, error)
@@ -350,11 +415,26 @@ func (UnimplementedPartnerServiceServer) UpdateAPISettings(context.Context, *Upd
 func (UnimplementedPartnerServiceServer) InitiateDeposit(context.Context, *InitiateDepositRequest) (*InitiateDepositResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method InitiateDeposit not implemented")
 }
+func (UnimplementedPartnerServiceServer) InitiateWithdrawal(context.Context, *InitiateWithdrawalRequest) (*InitiateWithdrawalResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method InitiateWithdrawal not implemented")
+}
 func (UnimplementedPartnerServiceServer) GetTransactionStatus(context.Context, *GetTransactionStatusRequest) (*TransactionStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetTransactionStatus not implemented")
 }
+func (UnimplementedPartnerServiceServer) GetTransactionByRef(context.Context, *GetTransactionByRefRequest) (*TransactionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetTransactionByRef not implemented")
+}
 func (UnimplementedPartnerServiceServer) ListTransactions(context.Context, *ListTransactionsRequest) (*ListTransactionsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListTransactions not implemented")
+}
+func (UnimplementedPartnerServiceServer) ListTransactionsByType(context.Context, *ListTransactionsByTypeRequest) (*ListTransactionsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListTransactionsByType not implemented")
+}
+func (UnimplementedPartnerServiceServer) CancelTransaction(context.Context, *CancelTransactionRequest) (*CancelTransactionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CancelTransaction not implemented")
+}
+func (UnimplementedPartnerServiceServer) GetTransactionStats(context.Context, *GetTransactionStatsRequest) (*GetTransactionStatsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetTransactionStats not implemented")
 }
 func (UnimplementedPartnerServiceServer) UpdateWebhookConfig(context.Context, *UpdateWebhookConfigRequest) (*WebhookConfigResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateWebhookConfig not implemented")
@@ -551,6 +631,24 @@ func _PartnerService_InitiateDeposit_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PartnerService_InitiateWithdrawal_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InitiateWithdrawalRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PartnerServiceServer).InitiateWithdrawal(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PartnerService_InitiateWithdrawal_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PartnerServiceServer).InitiateWithdrawal(ctx, req.(*InitiateWithdrawalRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _PartnerService_GetTransactionStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetTransactionStatusRequest)
 	if err := dec(in); err != nil {
@@ -569,6 +667,24 @@ func _PartnerService_GetTransactionStatus_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PartnerService_GetTransactionByRef_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTransactionByRefRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PartnerServiceServer).GetTransactionByRef(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PartnerService_GetTransactionByRef_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PartnerServiceServer).GetTransactionByRef(ctx, req.(*GetTransactionByRefRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _PartnerService_ListTransactions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListTransactionsRequest)
 	if err := dec(in); err != nil {
@@ -583,6 +699,60 @@ func _PartnerService_ListTransactions_Handler(srv interface{}, ctx context.Conte
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PartnerServiceServer).ListTransactions(ctx, req.(*ListTransactionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PartnerService_ListTransactionsByType_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListTransactionsByTypeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PartnerServiceServer).ListTransactionsByType(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PartnerService_ListTransactionsByType_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PartnerServiceServer).ListTransactionsByType(ctx, req.(*ListTransactionsByTypeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PartnerService_CancelTransaction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CancelTransactionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PartnerServiceServer).CancelTransaction(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PartnerService_CancelTransaction_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PartnerServiceServer).CancelTransaction(ctx, req.(*CancelTransactionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PartnerService_GetTransactionStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTransactionStatsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PartnerServiceServer).GetTransactionStats(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PartnerService_GetTransactionStats_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PartnerServiceServer).GetTransactionStats(ctx, req.(*GetTransactionStatsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -800,12 +970,32 @@ var PartnerService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _PartnerService_InitiateDeposit_Handler,
 		},
 		{
+			MethodName: "InitiateWithdrawal",
+			Handler:    _PartnerService_InitiateWithdrawal_Handler,
+		},
+		{
 			MethodName: "GetTransactionStatus",
 			Handler:    _PartnerService_GetTransactionStatus_Handler,
 		},
 		{
+			MethodName: "GetTransactionByRef",
+			Handler:    _PartnerService_GetTransactionByRef_Handler,
+		},
+		{
 			MethodName: "ListTransactions",
 			Handler:    _PartnerService_ListTransactions_Handler,
+		},
+		{
+			MethodName: "ListTransactionsByType",
+			Handler:    _PartnerService_ListTransactionsByType_Handler,
+		},
+		{
+			MethodName: "CancelTransaction",
+			Handler:    _PartnerService_CancelTransaction_Handler,
+		},
+		{
+			MethodName: "GetTransactionStats",
+			Handler:    _PartnerService_GetTransactionStats_Handler,
 		},
 		{
 			MethodName: "UpdateWebhookConfig",

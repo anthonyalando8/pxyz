@@ -33,6 +33,7 @@ CREATE TABLE deposit_requests (
     completed_at TIMESTAMPTZ
 );
 
+
 CREATE INDEX idx_deposit_requests_user ON deposit_requests(user_id, created_at DESC);
 CREATE INDEX idx_deposit_requests_status ON deposit_requests(status);
 CREATE INDEX idx_deposit_requests_ref ON deposit_requests(request_ref);
@@ -54,6 +55,8 @@ CREATE TABLE withdrawal_requests (
     destination TEXT NOT NULL, -- phone number, account number, etc
     service TEXT, -- mpesa, bank, etc
     agent_external_id TEXT, -- External agent ID if applicable
+    partner_id TEXT,
+    partner_transaction_ref TEXT, -- Partner's reference (once they respond)
     status TEXT NOT NULL DEFAULT 'pending', -- pending, processing, completed, failed, cancelled
     receipt_code TEXT,
     journal_id BIGINT,
@@ -63,6 +66,10 @@ CREATE TABLE withdrawal_requests (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     completed_at TIMESTAMPTZ
 );
+
+ALTER TABLE withdrawal_requests
+ADD COLUMN partner_id TEXT,
+ADD COLUMN partner_transaction_ref TEXT;
 
 CREATE INDEX idx_withdrawal_requests_user ON withdrawal_requests(user_id, created_at DESC);
 CREATE INDEX idx_withdrawal_requests_status ON withdrawal_requests(status);

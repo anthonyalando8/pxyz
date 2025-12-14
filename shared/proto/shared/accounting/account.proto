@@ -590,7 +590,7 @@ message TransactionEvent {
 message CreditRequest {
     string account_number = 1;
     double amount = 2;
-    string currency = 3;
+    string currenccy = 3;
     AccountType account_type = 4;
     string description = 5;
     optional string idempotency_key = 6;
@@ -610,7 +610,7 @@ message CreditResponse {
 message DebitRequest {
     string account_number = 1;
     double amount = 2;
-    string currency = 3;
+    string currenccy = 3;
     AccountType account_type = 4;
     string description = 5;
     optional string idempotency_key = 6;
@@ -677,7 +677,7 @@ message ConversionResponse {
 message TradeRequest {
     string account_number = 1;
     double amount = 2;
-    string currency = 3;
+    string currenccy = 3;
     AccountType account_type = 4;
     string trade_id = 5;
     string trade_type = 6; // e.g., "forex", "crypto", "sports"
@@ -797,6 +797,10 @@ message GetApprovalHistoryResponse {
 // AGENT MESSAGES
 // ===============================
 
+// ===============================
+// ENUMS
+// ===============================
+
 enum RelationshipType {
     RELATIONSHIP_TYPE_UNSPECIFIED = 0;
     RELATIONSHIP_TYPE_DIRECT = 1;
@@ -804,6 +808,17 @@ enum RelationshipType {
     RELATIONSHIP_TYPE_PARTNER = 3;
     RELATIONSHIP_TYPE_FRANCHISE = 4;
 }
+
+enum AgentStatus {
+    AGENT_STATUS_UNSPECIFIED = 0;
+    AGENT_STATUS_ACTIVE = 1;
+    AGENT_STATUS_INACTIVE = 2;
+    AGENT_STATUS_DELETED = 3;
+}
+
+// ===============================
+// MESSAGES
+// ===============================
 
 message Agent {
     string agent_external_id = 1;
@@ -814,9 +829,15 @@ message Agent {
     bool is_active = 6;
     optional string name = 7;
     map<string, string> metadata = 8;
-    google.protobuf. Timestamp created_at = 9;
+    google.protobuf.Timestamp created_at = 9;
     google.protobuf.Timestamp updated_at = 10;
     repeated Account accounts = 11; // ✅ Agent's accounts (commission account, etc.)
+    
+    // ✅ NEW FIELDS
+    optional string commission_rate_for_deposit = 12; // NUMERIC as string (e.g., "0.015" for 1.5%)
+    optional string payment_method = 13; // mpesa, bank, cash, etc. 
+    map<string, bool> location = 14; // Country codes with flags:  {"KE": true, "UG": false}
+    AgentStatus status = 15; // active, inactive, deleted
 }
 
 message AgentCommission {
@@ -833,7 +854,7 @@ message AgentCommission {
     bool paid_out = 11;
     optional string payout_receipt_code = 12;
     optional google.protobuf.Timestamp paid_out_at = 13;
-    google. protobuf.Timestamp created_at = 14;
+    google.protobuf. Timestamp created_at = 14;
 }
 
 message CreateAgentRequest {
@@ -845,6 +866,12 @@ message CreateAgentRequest {
     optional string name = 6;
     map<string, string> metadata = 7;
     bool create_accounts = 8; // ✅ Whether to auto-create commission accounts
+    
+    // ✅ NEW FIELDS
+    optional string commission_rate_for_deposit = 9;
+    optional string payment_method = 10;
+    map<string, bool> location = 11; // {"KE": true, "UG": true, "TZ": false}
+    optional AgentStatus status = 12; // defaults to ACTIVE
 }
 
 message CreateAgentResponse {
@@ -861,6 +888,12 @@ message UpdateAgentRequest {
     optional bool is_active = 6;
     optional string name = 7;
     map<string, string> metadata = 8;
+    
+    // ✅ NEW FIELDS
+    optional string commission_rate_for_deposit = 9;
+    optional string payment_method = 10;
+    map<string, bool> location = 11;
+    optional AgentStatus status = 12;
 }
 
 message UpdateAgentResponse {
@@ -898,6 +931,12 @@ message ListAgentsRequest {
     int32 limit = 1; // Max 100
     int32 offset = 2;
     bool include_accounts = 3; // ✅ Whether to include accounts for each agent
+    
+    // ✅ NEW FILTERS
+    optional string country_code = 4; // Filter by country (e.g., "KE", "UG")
+    optional string payment_method = 5; // Filter by payment method (e.g., "mpesa", "bank")
+    optional AgentStatus status = 6; // Filter by status
+    optional RelationshipType relationship_type = 7; // Filter by relationship type
 }
 
 message ListAgentsResponse {
@@ -914,6 +953,34 @@ message ListCommissionsForAgentRequest {
 message ListCommissionsForAgentResponse {
     repeated AgentCommission commissions = 1;
     int32 total = 2;
+}
+
+// ✅ NEW:  Get agents by multiple countries
+message GetAgentsByCountriesRequest {
+    repeated string country_codes = 1; // ["KE", "UG", "TZ"]
+    int32 limit = 2;
+    int32 offset = 3;
+    bool include_accounts = 4;
+    optional AgentStatus status = 5; // Filter by status
+}
+
+message GetAgentsByCountriesResponse {
+    repeated Agent agents = 1;
+    int32 total = 2;
+}
+
+// ✅ NEW: Get agent statistics
+message GetAgentStatsRequest {
+    optional string country_code = 1;
+    optional string payment_method = 2;
+}
+
+message GetAgentStatsResponse {
+    int32 total_agents = 1;
+    int32 active_agents = 2;
+    int32 inactive_agents = 3;
+    map<string, int32> agents_by_country = 4; // {"KE": 50, "UG": 30}
+    map<string, int32> agents_by_payment_method = 5; // {"mpesa": 40, "bank": 40}
 }
 // ===============================
 // SERVICE DEFINITION
@@ -1088,8 +1155,14 @@ service AccountingService {
     // Get agent by user external ID
     rpc GetAgentByUserID(GetAgentByUserIDRequest) returns (GetAgentByUserIDResponse);
     
-    // List all agents with pagination
+    // List all agents with pagination and filters
     rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse);
+    
+    // ✅ NEW: Get agents by multiple countries
+    rpc GetAgentsByCountries(GetAgentsByCountriesRequest) returns (GetAgentsByCountriesResponse);
+    
+    // ✅ NEW: Get agent statistics
+    rpc GetAgentStats(GetAgentStatsRequest) returns (GetAgentStatsResponse);
     
     // ===============================
     // AGENT COMMISSION QUERIES
@@ -1097,5 +1170,6 @@ service AccountingService {
     
     // List commissions for a specific agent
     rpc ListCommissionsForAgent(ListCommissionsForAgentRequest) returns (ListCommissionsForAgentResponse);
+
 
 }

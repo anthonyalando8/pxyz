@@ -36,6 +36,30 @@ CREATE TABLE IF NOT EXISTS agents (
   updated_at           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Add commission_rate_for_deposit field
+ALTER TABLE agents 
+ADD COLUMN commission_rate_for_deposit NUMERIC(5,4);
+
+-- Add payment_method field (dictionary/enum-like)
+ALTER TABLE agents 
+ADD COLUMN payment_method TEXT;
+
+-- Add location field (dictionary stored as JSONB for country flags)
+ALTER TABLE agents 
+ADD COLUMN location JSONB DEFAULT '{}'::jsonb;
+
+-- Add status field for soft delete tracking
+ALTER TABLE agents 
+ADD COLUMN status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'deleted'));
+
+-- Add comment for clarity on location field
+COMMENT ON COLUMN agents.location IS 'Dictionary of countries with boolean flags, e.g. {"KE": true, "UG": false}';
+
+-- Add comment for payment_method
+COMMENT ON COLUMN agents.payment_method IS 'Payment method type:  mpesa, bank, cash, etc. ';
+
+-- Add comment for status
+COMMENT ON COLUMN agents. status IS 'Status for tracking:  active, inactive, or deleted (soft delete)';
 COMMENT ON TABLE agents IS 'Agent metadata (agent_external_id is primary key). user_external_id is the auth user id for the agent.';
 
 -- 3) If agents exists but missing columns, add them (idempotent)

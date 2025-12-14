@@ -4,7 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math/big"
+	"math"
+	"strconv"
+
+	//"math/big"
 	"time"
 
 	"accounting-service/internal/domain"
@@ -128,82 +131,111 @@ func (uc *TransactionFeeCalculator) CalculateMultipleFees(
 	return calculations, nil
 }
 
-// calculateFeeFromRule calculates fee based on a specific rule
+// service/fee_calculator.go
+
 func (uc *TransactionFeeCalculator) calculateFeeFromRule(rule *domain.TransactionFeeRule, amount float64) (*domain.FeeCalculation, error) {
 	calc := &domain.FeeCalculation{
 		RuleID:  &rule.ID,
 		FeeType: rule.FeeType,
 	}
+
 	if rule.TargetCurrency != nil && *rule.TargetCurrency != "" {
 		calc.Currency = *rule.TargetCurrency
-	}else {
+	} else {
 		calc.Currency = ptrStrToStr(rule.SourceCurrency)
 	}
 
 	var feeAmount float64
 
+	// ✅ NEW: Check if rule has tariffs (amount-based pricing)
+	if rule.Tariffs != nil && *rule.Tariffs != "" {
+		return uc.calculateFeeFromTariffs(rule, amount, calc)
+	}
+
+	// ✅ Existing calculation methods (percentage, fixed, tiered)
 	switch rule.CalculationMethod {
 	case domain.FeeCalculationPercentage:
-	// Parse fee value as decimal
-		feeRate := new(big.Float)
-		if _, ok := feeRate.SetString(rule.FeeValue); !ok {
-			return nil, fmt.Errorf("invalid fee value: %s", rule.FeeValue)
+		basisPoints, err := strconv.ParseFloat(rule.FeeValue, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid fee value (basis points expected): %s", rule.FeeValue)
 		}
 
-		// ✅ Calculate: amount * rate (both float64)
-		amountFloat := new(big.Float).SetFloat64(amount)  // ✅ Use SetFloat64
-		feeFloat := new(big.Float).Mul(amountFloat, feeRate)
+		if basisPoints < 0 || basisPoints > 10000 {
+			return nil, fmt.Errorf("basis points out of range (0-10000): %.2f", basisPoints)
+		}
 
-		// ✅ Convert back to float64
-		feeAmount, _ = feeFloat.Float64()  // ✅ Direct float64
+		feeRate := basisPoints / 10000.0
+		feeAmount = amount * feeRate
 
 		calc.AppliedRate = &rule.FeeValue
-		calc.CalculatedFrom = fmt.Sprintf("percentage: %s", rule.FeeValue)
+		calc.CalculatedFrom = fmt.Sprintf("percentage: %.4f%% (%s bps)", feeRate*100, rule.FeeValue)
 
 	case domain.FeeCalculationFixed:
-		// Fixed fee - just use min_fee
-		if rule.MinFee != nil {
-			feeAmount = *rule.MinFee
+		fixedAmount, err := strconv.ParseFloat(rule.FeeValue, 64)
+		if err != nil {
+			if rule.MinFee != nil {
+				feeAmount = *rule.MinFee
+			} else {
+				return nil, fmt.Errorf("invalid fixed fee value: %s", rule.FeeValue)
+			}
 		} else {
-			feeAmount = 0
+			feeAmount = fixedAmount
 		}
-		calc.CalculatedFrom = "fixed fee"
+
+		calc.CalculatedFrom = fmt.Sprintf("fixed fee: %.2f", feeAmount)
 
 	case domain.FeeCalculationTiered:
-		// Tiered fee - find applicable tier
 		tiers, err := rule.GetTiers()
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse tiers: %w", err)
 		}
 
+		tierFound := false
 		for _, tier := range tiers {
-			// Check if amount falls in this tier
-			if amount >= tier.MinAmount && (tier.MaxAmount == nil || amount <= *tier.MaxAmount) {
+			inRange := amount >= tier.MinAmount
+			if tier.MaxAmount != nil {
+				inRange = inRange && amount <= *tier.MaxAmount
+			}
+
+			if inRange {
+				tierFound = true
+
 				if tier.Rate != nil {
-					// Apply tier rate
-					feeRate := new(big.Float)
-					if _, ok := feeRate.SetString(*tier.Rate); !ok {
-						return nil, fmt.Errorf("invalid tier rate: %s", *tier. Rate)
+					basisPoints, err := strconv.ParseFloat(*tier.Rate, 64)
+					if err != nil {
+						return nil, fmt.Errorf("invalid tier rate:  %s", *tier.Rate)
 					}
 
-					// ✅ Use SetFloat64 instead of SetInt64
-					amountFloat := new(big.Float).SetFloat64(amount)
-					feeFloat := new(big.Float).Mul(amountFloat, feeRate)
-					
-					// ✅ Convert to float64 instead of int64
-					feeAmount, _ = feeFloat.Float64()
+					if basisPoints < 0 || basisPoints > 10000 {
+						return nil, fmt.Errorf("tier basis points out of range:  %.2f", basisPoints)
+					}
+
+					feeRate := basisPoints / 10000.0
+					feeAmount += amount * feeRate
 
 					calc.AppliedRate = tier.Rate
-					calc. CalculatedFrom = fmt.Sprintf("tiered rate: %s (amount: %.2f-%.2f)",
-						*tier.Rate, tier.MinAmount, *tier.MaxAmount)  // ✅ Use %. 2f for float
+
+					maxAmountStr := "∞"
+					if tier.MaxAmount != nil {
+						maxAmountStr = fmt.Sprintf("%.2f", *tier.MaxAmount)
+					}
+					calc.CalculatedFrom = fmt.Sprintf("tiered rate: %.4f%% (%s bps) for range %.2f-%s",
+						feeRate*100, *tier.Rate, tier.MinAmount, maxAmountStr)
 				}
 
 				if tier.FixedFee != nil {
 					feeAmount += *tier.FixedFee
+					if calc.CalculatedFrom != "" {
+						calc.CalculatedFrom += fmt.Sprintf(" + fixed:  %.2f", *tier.FixedFee)
+					}
 				}
 
 				break
 			}
+		}
+
+		if !tierFound {
+			return nil, fmt.Errorf("no tier found for amount: %.2f", amount)
 		}
 
 	default:
@@ -211,21 +243,119 @@ func (uc *TransactionFeeCalculator) calculateFeeFromRule(rule *domain.Transactio
 	}
 
 	// Apply min/max limits
+	originalFee := feeAmount
+
 	if rule.MinFee != nil && feeAmount < *rule.MinFee {
 		feeAmount = *rule.MinFee
-		calc.CalculatedFrom += " (min applied)"
+		calc.CalculatedFrom += fmt.Sprintf(" → min %.2f applied (was %.2f)", *rule.MinFee, originalFee)
 	}
 
 	if rule.MaxFee != nil && feeAmount > *rule.MaxFee {
 		feeAmount = *rule.MaxFee
-		calc.CalculatedFrom += " (max applied)"
+		calc.CalculatedFrom += fmt.Sprintf(" → max %.2f applied (was %.2f)", *rule.MaxFee, originalFee)
 	}
 
+	feeAmount = math.Round(feeAmount*100) / 100
 	calc.Amount = feeAmount
 
 	return calc, nil
 }
 
+// ✅ NEW: Calculate fee using tariffs (amount-based pricing)
+// service/fee_calculator.go
+
+// ✅ UPDATED: Calculate fee using tariffs (supports both percentage and fixed)
+func (uc *TransactionFeeCalculator) calculateFeeFromTariffs(
+	rule *domain.TransactionFeeRule,
+	amount float64,
+	calc *domain.FeeCalculation,
+) (*domain.FeeCalculation, error) {
+	// Find applicable tariff for this amount
+	tariff, err := rule.FindApplicableTariff(amount)
+	if err != nil {
+		return nil, err
+	}
+
+	if tariff == nil {
+		return nil, fmt.Errorf("no tariff found for amount:  %.2f", amount)
+	}
+
+	var feeAmount float64
+	
+	switch tariff.CalculationMethod {
+	case domain.TariffCalculationPercentage:
+		// Percentage-based fee
+		if tariff.FeeBps == nil {
+			return nil, fmt.Errorf("fee_bps is required for percentage calculation method")
+		}
+
+		if *tariff.FeeBps < 0 || *tariff.FeeBps > 10000 {
+			return nil, fmt.Errorf("tariff fee_bps out of range (0-10000): %.2f", *tariff.FeeBps)
+		}
+
+		feeRate := *tariff.FeeBps / 10000.0
+		feeAmount = amount * feeRate
+
+		// Add fixed fee if present (combination)
+		if tariff.FixedFee != nil {
+			feeAmount += *tariff.FixedFee
+		}
+
+		// Build description
+		maxAmountStr := "∞"
+		if tariff.MaxAmount != nil {
+			maxAmountStr = fmt.Sprintf("%.2f", *tariff.MaxAmount)
+		}
+
+		feeBpsStr := fmt.Sprintf("%.0f", *tariff.FeeBps)
+		calc.AppliedRate = &feeBpsStr
+		calc.CalculatedFrom = fmt.Sprintf("tariff percentage:  %.4f%% (%.0f bps) for $%.2f-$%s",
+			feeRate*100, *tariff.FeeBps, tariff.MinAmount, maxAmountStr)
+
+		if tariff.FixedFee != nil {
+			calc.CalculatedFrom += fmt.Sprintf(" + fixed: $%.2f", *tariff.FixedFee)
+		}
+
+	case domain.TariffCalculationFixed:
+		// Fixed fee only
+		if tariff.FixedFee == nil {
+			return nil, fmt.Errorf("fixed_fee is required for fixed calculation method")
+		}
+
+		feeAmount = *tariff.FixedFee
+
+		// Build description
+		maxAmountStr := "∞"
+		if tariff.MaxAmount != nil {
+			maxAmountStr = fmt.Sprintf("%.2f", *tariff.MaxAmount)
+		}
+
+		calc.CalculatedFrom = fmt.Sprintf("tariff fixed: $%.2f for $%.2f-$%s",
+			*tariff.FixedFee, tariff.MinAmount, maxAmountStr)
+
+	default:
+		return nil, fmt.Errorf("unsupported tariff calculation method: %s", tariff.CalculationMethod)
+	}
+
+	// Apply min/max limits (from rule-level)
+	originalFee := feeAmount
+
+	if rule.MinFee != nil && feeAmount < *rule.MinFee {
+		feeAmount = *rule.MinFee
+		calc.CalculatedFrom += fmt.Sprintf(" → min $%.2f applied (was $%.2f)", *rule.MinFee, originalFee)
+	}
+
+	if rule.MaxFee != nil && feeAmount > *rule.MaxFee {
+		feeAmount = *rule.MaxFee
+		calc.CalculatedFrom += fmt.Sprintf(" → max $%.2f applied (was $%.2f)", *rule.MaxFee, originalFee)
+	}
+
+	// Round to 2 decimal places
+	feeAmount = math.Round(feeAmount*100) / 100
+	calc.Amount = feeAmount
+
+	return calc, nil
+}
 
 // ===============================
 // CACHE MANAGEMENT

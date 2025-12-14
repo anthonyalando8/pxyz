@@ -932,9 +932,9 @@ func (h *AccountingHandler) Credit(
 	if req.Amount <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "amount must be positive")
 	}
-	if req.Currency == "" {
-		return nil, status.Error(codes.InvalidArgument, "currency is required")
-	}
+	// if req.Currency == "" {
+	// 	return nil, status.Error(codes.InvalidArgument, "currency is required")
+	// }
 	transactionType := domain.TransactionTypeTransfer
 	if req.TransactionType != 0 {
 		transactionType = convertTransactionTypeToDomain(req.TransactionType)
@@ -944,7 +944,7 @@ func (h *AccountingHandler) Credit(
 	domainReq := &domain.CreditRequest{
 		AccountNumber:       req.AccountNumber,
 		Amount:              req.Amount,
-		Currency:            req.Currency,
+		//Currency:            req.Currency,
 		AccountType:         convertAccountTypeToDomain(req.AccountType),
 		Description:         req.Description,
 		IdempotencyKey:      req.IdempotencyKey,
@@ -996,9 +996,9 @@ func (h *AccountingHandler) Debit(
 	if req.Amount <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "amount must be positive")
 	}
-	if req.Currency == "" {
-		return nil, status.Error(codes.InvalidArgument, "currency is required")
-	}
+	// if req.Currency == "" {
+	// 	return nil, status.Error(codes.InvalidArgument, "currency is required")
+	// }
 	transactionType := domain.TransactionTypeTransfer
 	if req.TransactionType != 0 {
 		transactionType = convertTransactionTypeToDomain(req.TransactionType)
@@ -1008,7 +1008,7 @@ func (h *AccountingHandler) Debit(
 	domainReq := &domain.DebitRequest{
 		AccountNumber:       req.AccountNumber,
 		Amount:              req.Amount,
-		Currency:            req.Currency,
+		//Currency:            req.Currency,
 		AccountType:         convertAccountTypeToDomain(req.AccountType),
 		Description:         req.Description,
 		IdempotencyKey:      req.IdempotencyKey,
@@ -1236,7 +1236,7 @@ func (h *AccountingHandler) ProcessTradeWin(
 	domainReq := &domain.TradeRequest{
 		AccountNumber:       req.AccountNumber,
 		Amount:              req.Amount,
-		Currency:            req.Currency,
+		//Currency:            req.Currency,
 		AccountType:         convertAccountTypeToDomain(req.AccountType),
 		TradeID:             req.TradeId,
 		TradeType:           req.TradeType,
@@ -1297,7 +1297,7 @@ func (h *AccountingHandler) ProcessTradeLoss(
 	domainReq := &domain.TradeRequest{
 		AccountNumber:       req.AccountNumber,
 		Amount:              req.Amount,
-		Currency:            req.Currency,
+		//Currency:            req.Currency,
 		AccountType:         convertAccountTypeToDomain(req.AccountType),
 		TradeID:             req.TradeId,
 		TradeType:           req.TradeType,

@@ -547,6 +547,58 @@ func (RelationshipType) EnumDescriptor() ([]byte, []int) {
 	return file_proto_shared_accounting_account_proto_rawDescGZIP(), []int{8}
 }
 
+type AgentStatus int32
+
+const (
+	AgentStatus_AGENT_STATUS_UNSPECIFIED AgentStatus = 0
+	AgentStatus_AGENT_STATUS_ACTIVE      AgentStatus = 1
+	AgentStatus_AGENT_STATUS_INACTIVE    AgentStatus = 2
+	AgentStatus_AGENT_STATUS_DELETED     AgentStatus = 3
+)
+
+// Enum value maps for AgentStatus.
+var (
+	AgentStatus_name = map[int32]string{
+		0: "AGENT_STATUS_UNSPECIFIED",
+		1: "AGENT_STATUS_ACTIVE",
+		2: "AGENT_STATUS_INACTIVE",
+		3: "AGENT_STATUS_DELETED",
+	}
+	AgentStatus_value = map[string]int32{
+		"AGENT_STATUS_UNSPECIFIED": 0,
+		"AGENT_STATUS_ACTIVE":      1,
+		"AGENT_STATUS_INACTIVE":    2,
+		"AGENT_STATUS_DELETED":     3,
+	}
+)
+
+func (x AgentStatus) Enum() *AgentStatus {
+	p := new(AgentStatus)
+	*p = x
+	return p
+}
+
+func (x AgentStatus) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (AgentStatus) Descriptor() protoreflect.EnumDescriptor {
+	return file_proto_shared_accounting_account_proto_enumTypes[9].Descriptor()
+}
+
+func (AgentStatus) Type() protoreflect.EnumType {
+	return &file_proto_shared_accounting_account_proto_enumTypes[9]
+}
+
+func (x AgentStatus) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use AgentStatus.Descriptor instead.
+func (AgentStatus) EnumDescriptor() ([]byte, []int) {
+	return file_proto_shared_accounting_account_proto_rawDescGZIP(), []int{9}
+}
+
 type Account struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	Id             int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -5149,7 +5201,7 @@ type CreditRequest struct {
 	state               protoimpl.MessageState `protogen:"open.v1"`
 	AccountNumber       string                 `protobuf:"bytes,1,opt,name=account_number,json=accountNumber,proto3" json:"account_number,omitempty"`
 	Amount              float64                `protobuf:"fixed64,2,opt,name=amount,proto3" json:"amount,omitempty"`
-	Currency            string                 `protobuf:"bytes,3,opt,name=currency,proto3" json:"currency,omitempty"`
+	Currenccy           string                 `protobuf:"bytes,3,opt,name=currenccy,proto3" json:"currenccy,omitempty"`
 	AccountType         AccountType            `protobuf:"varint,4,opt,name=account_type,json=accountType,proto3,enum=accounting.v1.AccountType" json:"account_type,omitempty"`
 	Description         string                 `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
 	IdempotencyKey      *string                `protobuf:"bytes,6,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
@@ -5205,9 +5257,9 @@ func (x *CreditRequest) GetAmount() float64 {
 	return 0
 }
 
-func (x *CreditRequest) GetCurrency() string {
+func (x *CreditRequest) GetCurrenccy() string {
 	if x != nil {
-		return x.Currency
+		return x.Currenccy
 	}
 	return ""
 }
@@ -5333,7 +5385,7 @@ type DebitRequest struct {
 	state               protoimpl.MessageState `protogen:"open.v1"`
 	AccountNumber       string                 `protobuf:"bytes,1,opt,name=account_number,json=accountNumber,proto3" json:"account_number,omitempty"`
 	Amount              float64                `protobuf:"fixed64,2,opt,name=amount,proto3" json:"amount,omitempty"`
-	Currency            string                 `protobuf:"bytes,3,opt,name=currency,proto3" json:"currency,omitempty"`
+	Currenccy           string                 `protobuf:"bytes,3,opt,name=currenccy,proto3" json:"currenccy,omitempty"`
 	AccountType         AccountType            `protobuf:"varint,4,opt,name=account_type,json=accountType,proto3,enum=accounting.v1.AccountType" json:"account_type,omitempty"`
 	Description         string                 `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
 	IdempotencyKey      *string                `protobuf:"bytes,6,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
@@ -5389,9 +5441,9 @@ func (x *DebitRequest) GetAmount() float64 {
 	return 0
 }
 
-func (x *DebitRequest) GetCurrency() string {
+func (x *DebitRequest) GetCurrenccy() string {
 	if x != nil {
-		return x.Currency
+		return x.Currenccy
 	}
 	return ""
 }
@@ -5941,7 +5993,7 @@ type TradeRequest struct {
 	state               protoimpl.MessageState `protogen:"open.v1"`
 	AccountNumber       string                 `protobuf:"bytes,1,opt,name=account_number,json=accountNumber,proto3" json:"account_number,omitempty"`
 	Amount              float64                `protobuf:"fixed64,2,opt,name=amount,proto3" json:"amount,omitempty"`
-	Currency            string                 `protobuf:"bytes,3,opt,name=currency,proto3" json:"currency,omitempty"`
+	Currenccy           string                 `protobuf:"bytes,3,opt,name=currenccy,proto3" json:"currenccy,omitempty"`
 	AccountType         AccountType            `protobuf:"varint,4,opt,name=account_type,json=accountType,proto3,enum=accounting.v1.AccountType" json:"account_type,omitempty"`
 	TradeId             string                 `protobuf:"bytes,5,opt,name=trade_id,json=tradeId,proto3" json:"trade_id,omitempty"`
 	TradeType           string                 `protobuf:"bytes,6,opt,name=trade_type,json=tradeType,proto3" json:"trade_type,omitempty"` // e.g., "forex", "crypto", "sports"
@@ -5996,9 +6048,9 @@ func (x *TradeRequest) GetAmount() float64 {
 	return 0
 }
 
-func (x *TradeRequest) GetCurrency() string {
+func (x *TradeRequest) GetCurrenccy() string {
 	if x != nil {
-		return x.Currency
+		return x.Currenccy
 	}
 	return ""
 }
@@ -6970,8 +7022,13 @@ type Agent struct {
 	CreatedAt        *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt        *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	Accounts         []*Account             `protobuf:"bytes,11,rep,name=accounts,proto3" json:"accounts,omitempty"` // ✅ Agent's accounts (commission account, etc.)
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// ✅ NEW FIELDS
+	CommissionRateForDeposit *string         `protobuf:"bytes,12,opt,name=commission_rate_for_deposit,json=commissionRateForDeposit,proto3,oneof" json:"commission_rate_for_deposit,omitempty"`  // NUMERIC as string (e.g., "0.015" for 1.5%)
+	PaymentMethod            *string         `protobuf:"bytes,13,opt,name=payment_method,json=paymentMethod,proto3,oneof" json:"payment_method,omitempty"`                                       // mpesa, bank, cash, etc.
+	Location                 map[string]bool `protobuf:"bytes,14,rep,name=location,proto3" json:"location,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"` // Country codes with flags:  {"KE": true, "UG": false}
+	Status                   AgentStatus     `protobuf:"varint,15,opt,name=status,proto3,enum=accounting.v1.AgentStatus" json:"status,omitempty"`                                                // active, inactive, deleted
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
 }
 
 func (x *Agent) Reset() {
@@ -7079,6 +7136,34 @@ func (x *Agent) GetAccounts() []*Account {
 		return x.Accounts
 	}
 	return nil
+}
+
+func (x *Agent) GetCommissionRateForDeposit() string {
+	if x != nil && x.CommissionRateForDeposit != nil {
+		return *x.CommissionRateForDeposit
+	}
+	return ""
+}
+
+func (x *Agent) GetPaymentMethod() string {
+	if x != nil && x.PaymentMethod != nil {
+		return *x.PaymentMethod
+	}
+	return ""
+}
+
+func (x *Agent) GetLocation() map[string]bool {
+	if x != nil {
+		return x.Location
+	}
+	return nil
+}
+
+func (x *Agent) GetStatus() AgentStatus {
+	if x != nil {
+		return x.Status
+	}
+	return AgentStatus_AGENT_STATUS_UNSPECIFIED
 }
 
 type AgentCommission struct {
@@ -7239,8 +7324,13 @@ type CreateAgentRequest struct {
 	Name             *string                `protobuf:"bytes,6,opt,name=name,proto3,oneof" json:"name,omitempty"`
 	Metadata         map[string]string      `protobuf:"bytes,7,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	CreateAccounts   bool                   `protobuf:"varint,8,opt,name=create_accounts,json=createAccounts,proto3" json:"create_accounts,omitempty"` // ✅ Whether to auto-create commission accounts
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// ✅ NEW FIELDS
+	CommissionRateForDeposit *string         `protobuf:"bytes,9,opt,name=commission_rate_for_deposit,json=commissionRateForDeposit,proto3,oneof" json:"commission_rate_for_deposit,omitempty"`
+	PaymentMethod            *string         `protobuf:"bytes,10,opt,name=payment_method,json=paymentMethod,proto3,oneof" json:"payment_method,omitempty"`
+	Location                 map[string]bool `protobuf:"bytes,11,rep,name=location,proto3" json:"location,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"` // {"KE": true, "UG": true, "TZ": false}
+	Status                   *AgentStatus    `protobuf:"varint,12,opt,name=status,proto3,enum=accounting.v1.AgentStatus,oneof" json:"status,omitempty"`                                          // defaults to ACTIVE
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
 }
 
 func (x *CreateAgentRequest) Reset() {
@@ -7329,6 +7419,34 @@ func (x *CreateAgentRequest) GetCreateAccounts() bool {
 	return false
 }
 
+func (x *CreateAgentRequest) GetCommissionRateForDeposit() string {
+	if x != nil && x.CommissionRateForDeposit != nil {
+		return *x.CommissionRateForDeposit
+	}
+	return ""
+}
+
+func (x *CreateAgentRequest) GetPaymentMethod() string {
+	if x != nil && x.PaymentMethod != nil {
+		return *x.PaymentMethod
+	}
+	return ""
+}
+
+func (x *CreateAgentRequest) GetLocation() map[string]bool {
+	if x != nil {
+		return x.Location
+	}
+	return nil
+}
+
+func (x *CreateAgentRequest) GetStatus() AgentStatus {
+	if x != nil && x.Status != nil {
+		return *x.Status
+	}
+	return AgentStatus_AGENT_STATUS_UNSPECIFIED
+}
+
 type CreateAgentResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Agent         *Agent                 `protobuf:"bytes,1,opt,name=agent,proto3" json:"agent,omitempty"`
@@ -7391,8 +7509,13 @@ type UpdateAgentRequest struct {
 	IsActive         *bool                  `protobuf:"varint,6,opt,name=is_active,json=isActive,proto3,oneof" json:"is_active,omitempty"`
 	Name             *string                `protobuf:"bytes,7,opt,name=name,proto3,oneof" json:"name,omitempty"`
 	Metadata         map[string]string      `protobuf:"bytes,8,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// ✅ NEW FIELDS
+	CommissionRateForDeposit *string         `protobuf:"bytes,9,opt,name=commission_rate_for_deposit,json=commissionRateForDeposit,proto3,oneof" json:"commission_rate_for_deposit,omitempty"`
+	PaymentMethod            *string         `protobuf:"bytes,10,opt,name=payment_method,json=paymentMethod,proto3,oneof" json:"payment_method,omitempty"`
+	Location                 map[string]bool `protobuf:"bytes,11,rep,name=location,proto3" json:"location,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	Status                   *AgentStatus    `protobuf:"varint,12,opt,name=status,proto3,enum=accounting.v1.AgentStatus,oneof" json:"status,omitempty"`
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
 }
 
 func (x *UpdateAgentRequest) Reset() {
@@ -7479,6 +7602,34 @@ func (x *UpdateAgentRequest) GetMetadata() map[string]string {
 		return x.Metadata
 	}
 	return nil
+}
+
+func (x *UpdateAgentRequest) GetCommissionRateForDeposit() string {
+	if x != nil && x.CommissionRateForDeposit != nil {
+		return *x.CommissionRateForDeposit
+	}
+	return ""
+}
+
+func (x *UpdateAgentRequest) GetPaymentMethod() string {
+	if x != nil && x.PaymentMethod != nil {
+		return *x.PaymentMethod
+	}
+	return ""
+}
+
+func (x *UpdateAgentRequest) GetLocation() map[string]bool {
+	if x != nil {
+		return x.Location
+	}
+	return nil
+}
+
+func (x *UpdateAgentRequest) GetStatus() AgentStatus {
+	if x != nil && x.Status != nil {
+		return *x.Status
+	}
+	return AgentStatus_AGENT_STATUS_UNSPECIFIED
 }
 
 type UpdateAgentResponse struct {
@@ -7818,8 +7969,13 @@ type ListAgentsRequest struct {
 	Limit           int32                  `protobuf:"varint,1,opt,name=limit,proto3" json:"limit,omitempty"` // Max 100
 	Offset          int32                  `protobuf:"varint,2,opt,name=offset,proto3" json:"offset,omitempty"`
 	IncludeAccounts bool                   `protobuf:"varint,3,opt,name=include_accounts,json=includeAccounts,proto3" json:"include_accounts,omitempty"` // ✅ Whether to include accounts for each agent
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// ✅ NEW FILTERS
+	CountryCode      *string           `protobuf:"bytes,4,opt,name=country_code,json=countryCode,proto3,oneof" json:"country_code,omitempty"`                                                     // Filter by country (e.g., "KE", "UG")
+	PaymentMethod    *string           `protobuf:"bytes,5,opt,name=payment_method,json=paymentMethod,proto3,oneof" json:"payment_method,omitempty"`                                               // Filter by payment method (e.g., "mpesa", "bank")
+	Status           *AgentStatus      `protobuf:"varint,6,opt,name=status,proto3,enum=accounting.v1.AgentStatus,oneof" json:"status,omitempty"`                                                  // Filter by status
+	RelationshipType *RelationshipType `protobuf:"varint,7,opt,name=relationship_type,json=relationshipType,proto3,enum=accounting.v1.RelationshipType,oneof" json:"relationship_type,omitempty"` // Filter by relationship type
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *ListAgentsRequest) Reset() {
@@ -7871,6 +8027,34 @@ func (x *ListAgentsRequest) GetIncludeAccounts() bool {
 		return x.IncludeAccounts
 	}
 	return false
+}
+
+func (x *ListAgentsRequest) GetCountryCode() string {
+	if x != nil && x.CountryCode != nil {
+		return *x.CountryCode
+	}
+	return ""
+}
+
+func (x *ListAgentsRequest) GetPaymentMethod() string {
+	if x != nil && x.PaymentMethod != nil {
+		return *x.PaymentMethod
+	}
+	return ""
+}
+
+func (x *ListAgentsRequest) GetStatus() AgentStatus {
+	if x != nil && x.Status != nil {
+		return *x.Status
+	}
+	return AgentStatus_AGENT_STATUS_UNSPECIFIED
+}
+
+func (x *ListAgentsRequest) GetRelationshipType() RelationshipType {
+	if x != nil && x.RelationshipType != nil {
+		return *x.RelationshipType
+	}
+	return RelationshipType_RELATIONSHIP_TYPE_UNSPECIFIED
 }
 
 type ListAgentsResponse struct {
@@ -8035,6 +8219,264 @@ func (x *ListCommissionsForAgentResponse) GetTotal() int32 {
 		return x.Total
 	}
 	return 0
+}
+
+// ✅ NEW:  Get agents by multiple countries
+type GetAgentsByCountriesRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	CountryCodes    []string               `protobuf:"bytes,1,rep,name=country_codes,json=countryCodes,proto3" json:"country_codes,omitempty"` // ["KE", "UG", "TZ"]
+	Limit           int32                  `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
+	Offset          int32                  `protobuf:"varint,3,opt,name=offset,proto3" json:"offset,omitempty"`
+	IncludeAccounts bool                   `protobuf:"varint,4,opt,name=include_accounts,json=includeAccounts,proto3" json:"include_accounts,omitempty"`
+	Status          *AgentStatus           `protobuf:"varint,5,opt,name=status,proto3,enum=accounting.v1.AgentStatus,oneof" json:"status,omitempty"` // Filter by status
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *GetAgentsByCountriesRequest) Reset() {
+	*x = GetAgentsByCountriesRequest{}
+	mi := &file_proto_shared_accounting_account_proto_msgTypes[105]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAgentsByCountriesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAgentsByCountriesRequest) ProtoMessage() {}
+
+func (x *GetAgentsByCountriesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_shared_accounting_account_proto_msgTypes[105]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAgentsByCountriesRequest.ProtoReflect.Descriptor instead.
+func (*GetAgentsByCountriesRequest) Descriptor() ([]byte, []int) {
+	return file_proto_shared_accounting_account_proto_rawDescGZIP(), []int{105}
+}
+
+func (x *GetAgentsByCountriesRequest) GetCountryCodes() []string {
+	if x != nil {
+		return x.CountryCodes
+	}
+	return nil
+}
+
+func (x *GetAgentsByCountriesRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+func (x *GetAgentsByCountriesRequest) GetOffset() int32 {
+	if x != nil {
+		return x.Offset
+	}
+	return 0
+}
+
+func (x *GetAgentsByCountriesRequest) GetIncludeAccounts() bool {
+	if x != nil {
+		return x.IncludeAccounts
+	}
+	return false
+}
+
+func (x *GetAgentsByCountriesRequest) GetStatus() AgentStatus {
+	if x != nil && x.Status != nil {
+		return *x.Status
+	}
+	return AgentStatus_AGENT_STATUS_UNSPECIFIED
+}
+
+type GetAgentsByCountriesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Agents        []*Agent               `protobuf:"bytes,1,rep,name=agents,proto3" json:"agents,omitempty"`
+	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetAgentsByCountriesResponse) Reset() {
+	*x = GetAgentsByCountriesResponse{}
+	mi := &file_proto_shared_accounting_account_proto_msgTypes[106]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAgentsByCountriesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAgentsByCountriesResponse) ProtoMessage() {}
+
+func (x *GetAgentsByCountriesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_shared_accounting_account_proto_msgTypes[106]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAgentsByCountriesResponse.ProtoReflect.Descriptor instead.
+func (*GetAgentsByCountriesResponse) Descriptor() ([]byte, []int) {
+	return file_proto_shared_accounting_account_proto_rawDescGZIP(), []int{106}
+}
+
+func (x *GetAgentsByCountriesResponse) GetAgents() []*Agent {
+	if x != nil {
+		return x.Agents
+	}
+	return nil
+}
+
+func (x *GetAgentsByCountriesResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+// ✅ NEW: Get agent statistics
+type GetAgentStatsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	CountryCode   *string                `protobuf:"bytes,1,opt,name=country_code,json=countryCode,proto3,oneof" json:"country_code,omitempty"`
+	PaymentMethod *string                `protobuf:"bytes,2,opt,name=payment_method,json=paymentMethod,proto3,oneof" json:"payment_method,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetAgentStatsRequest) Reset() {
+	*x = GetAgentStatsRequest{}
+	mi := &file_proto_shared_accounting_account_proto_msgTypes[107]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAgentStatsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAgentStatsRequest) ProtoMessage() {}
+
+func (x *GetAgentStatsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_shared_accounting_account_proto_msgTypes[107]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAgentStatsRequest.ProtoReflect.Descriptor instead.
+func (*GetAgentStatsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_shared_accounting_account_proto_rawDescGZIP(), []int{107}
+}
+
+func (x *GetAgentStatsRequest) GetCountryCode() string {
+	if x != nil && x.CountryCode != nil {
+		return *x.CountryCode
+	}
+	return ""
+}
+
+func (x *GetAgentStatsRequest) GetPaymentMethod() string {
+	if x != nil && x.PaymentMethod != nil {
+		return *x.PaymentMethod
+	}
+	return ""
+}
+
+type GetAgentStatsResponse struct {
+	state                 protoimpl.MessageState `protogen:"open.v1"`
+	TotalAgents           int32                  `protobuf:"varint,1,opt,name=total_agents,json=totalAgents,proto3" json:"total_agents,omitempty"`
+	ActiveAgents          int32                  `protobuf:"varint,2,opt,name=active_agents,json=activeAgents,proto3" json:"active_agents,omitempty"`
+	InactiveAgents        int32                  `protobuf:"varint,3,opt,name=inactive_agents,json=inactiveAgents,proto3" json:"inactive_agents,omitempty"`
+	AgentsByCountry       map[string]int32       `protobuf:"bytes,4,rep,name=agents_by_country,json=agentsByCountry,proto3" json:"agents_by_country,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`                     // {"KE": 50, "UG": 30}
+	AgentsByPaymentMethod map[string]int32       `protobuf:"bytes,5,rep,name=agents_by_payment_method,json=agentsByPaymentMethod,proto3" json:"agents_by_payment_method,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"` // {"mpesa": 40, "bank": 40}
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
+}
+
+func (x *GetAgentStatsResponse) Reset() {
+	*x = GetAgentStatsResponse{}
+	mi := &file_proto_shared_accounting_account_proto_msgTypes[108]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAgentStatsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAgentStatsResponse) ProtoMessage() {}
+
+func (x *GetAgentStatsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_shared_accounting_account_proto_msgTypes[108]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAgentStatsResponse.ProtoReflect.Descriptor instead.
+func (*GetAgentStatsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_shared_accounting_account_proto_rawDescGZIP(), []int{108}
+}
+
+func (x *GetAgentStatsResponse) GetTotalAgents() int32 {
+	if x != nil {
+		return x.TotalAgents
+	}
+	return 0
+}
+
+func (x *GetAgentStatsResponse) GetActiveAgents() int32 {
+	if x != nil {
+		return x.ActiveAgents
+	}
+	return 0
+}
+
+func (x *GetAgentStatsResponse) GetInactiveAgents() int32 {
+	if x != nil {
+		return x.InactiveAgents
+	}
+	return 0
+}
+
+func (x *GetAgentStatsResponse) GetAgentsByCountry() map[string]int32 {
+	if x != nil {
+		return x.AgentsByCountry
+	}
+	return nil
+}
+
+func (x *GetAgentStatsResponse) GetAgentsByPaymentMethod() map[string]int32 {
+	if x != nil {
+		return x.AgentsByPaymentMethod
+	}
+	return nil
 }
 
 var File_proto_shared_accounting_account_proto protoreflect.FileDescriptor
@@ -8484,11 +8926,11 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\bcurrency\x18\x06 \x01(\tR\bcurrency\x12(\n" +
 	"\rerror_message\x18\a \x01(\tH\x00R\ferrorMessage\x88\x01\x01\x128\n" +
 	"\ttimestamp\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\ttimestampB\x10\n" +
-	"\x0e_error_message\"\x88\x04\n" +
+	"\x0e_error_message\"\x8a\x04\n" +
 	"\rCreditRequest\x12%\n" +
 	"\x0eaccount_number\x18\x01 \x01(\tR\raccountNumber\x12\x16\n" +
-	"\x06amount\x18\x02 \x01(\x01R\x06amount\x12\x1a\n" +
-	"\bcurrency\x18\x03 \x01(\tR\bcurrency\x12=\n" +
+	"\x06amount\x18\x02 \x01(\x01R\x06amount\x12\x1c\n" +
+	"\tcurrenccy\x18\x03 \x01(\tR\tcurrenccy\x12=\n" +
 	"\faccount_type\x18\x04 \x01(\x0e2\x1a.accounting.v1.AccountTypeR\vaccountType\x12 \n" +
 	"\vdescription\x18\x05 \x01(\tR\vdescription\x12,\n" +
 	"\x0fidempotency_key\x18\x06 \x01(\tH\x00R\x0eidempotencyKey\x88\x01\x01\x12&\n" +
@@ -8505,11 +8947,11 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\freceipt_code\x18\x02 \x01(\tR\vreceiptCode\x12#\n" +
 	"\rbalance_after\x18\x03 \x01(\x01R\fbalanceAfter\x129\n" +
 	"\n" +
-	"created_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\x87\x04\n" +
+	"created_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\x89\x04\n" +
 	"\fDebitRequest\x12%\n" +
 	"\x0eaccount_number\x18\x01 \x01(\tR\raccountNumber\x12\x16\n" +
-	"\x06amount\x18\x02 \x01(\x01R\x06amount\x12\x1a\n" +
-	"\bcurrency\x18\x03 \x01(\tR\bcurrency\x12=\n" +
+	"\x06amount\x18\x02 \x01(\x01R\x06amount\x12\x1c\n" +
+	"\tcurrenccy\x18\x03 \x01(\tR\tcurrenccy\x12=\n" +
 	"\faccount_type\x18\x04 \x01(\x0e2\x1a.accounting.v1.AccountTypeR\vaccountType\x12 \n" +
 	"\vdescription\x18\x05 \x01(\tR\vdescription\x12,\n" +
 	"\x0fidempotency_key\x18\x06 \x01(\tH\x00R\x0eidempotencyKey\x88\x01\x01\x12&\n" +
@@ -8580,11 +9022,11 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"fee_amount\x18\t \x01(\x01R\tfeeAmount\x129\n" +
 	"\n" +
 	"created_at\x18\n" +
-	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\x9b\x03\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\x9d\x03\n" +
 	"\fTradeRequest\x12%\n" +
 	"\x0eaccount_number\x18\x01 \x01(\tR\raccountNumber\x12\x16\n" +
-	"\x06amount\x18\x02 \x01(\x01R\x06amount\x12\x1a\n" +
-	"\bcurrency\x18\x03 \x01(\tR\bcurrency\x12=\n" +
+	"\x06amount\x18\x02 \x01(\x01R\x06amount\x12\x1c\n" +
+	"\tcurrenccy\x18\x03 \x01(\tR\tcurrenccy\x12=\n" +
 	"\faccount_type\x18\x04 \x01(\x0e2\x1a.accounting.v1.AccountTypeR\vaccountType\x12\x19\n" +
 	"\btrade_id\x18\x05 \x01(\tR\atradeId\x12\x1d\n" +
 	"\n" +
@@ -8689,7 +9131,7 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\x03_to\"t\n" +
 	"\x1aGetApprovalHistoryResponse\x12@\n" +
 	"\tapprovals\x18\x01 \x03(\v2\".accounting.v1.TransactionApprovalR\tapprovals\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x05R\x05total\"\x98\x05\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\xec\a\n" +
 	"\x05Agent\x12*\n" +
 	"\x11agent_external_id\x18\x01 \x01(\tR\x0fagentExternalId\x12-\n" +
 	"\x10user_external_id\x18\x02 \x01(\tH\x00R\x0euserExternalId\x88\x01\x01\x12\x1d\n" +
@@ -8704,15 +9146,24 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\n" +
 	"updated_at\x18\n" +
 	" \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x122\n" +
-	"\baccounts\x18\v \x03(\v2\x16.accounting.v1.AccountR\baccounts\x1a;\n" +
+	"\baccounts\x18\v \x03(\v2\x16.accounting.v1.AccountR\baccounts\x12B\n" +
+	"\x1bcommission_rate_for_deposit\x18\f \x01(\tH\x04R\x18commissionRateForDeposit\x88\x01\x01\x12*\n" +
+	"\x0epayment_method\x18\r \x01(\tH\x05R\rpaymentMethod\x88\x01\x01\x12>\n" +
+	"\blocation\x18\x0e \x03(\v2\".accounting.v1.Agent.LocationEntryR\blocation\x122\n" +
+	"\x06status\x18\x0f \x01(\x0e2\x1a.accounting.v1.AgentStatusR\x06status\x1a;\n" +
 	"\rMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\x13\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a;\n" +
+	"\rLocationEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\bR\x05value:\x028\x01B\x13\n" +
 	"\x11_user_external_idB\n" +
 	"\n" +
 	"\b_serviceB\x12\n" +
 	"\x10_commission_rateB\a\n" +
-	"\x05_name\"\x81\x05\n" +
+	"\x05_nameB\x1e\n" +
+	"\x1c_commission_rate_for_depositB\x11\n" +
+	"\x0f_payment_method\"\x81\x05\n" +
 	"\x0fAgentCommission\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12*\n" +
 	"\x11agent_external_id\x18\x02 \x01(\tR\x0fagentExternalId\x12(\n" +
@@ -8731,7 +9182,7 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAtB\x16\n" +
 	"\x14_payout_receipt_codeB\x0e\n" +
-	"\f_paid_out_at\"\x85\x04\n" +
+	"\f_paid_out_at\"\xf6\x06\n" +
 	"\x12CreateAgentRequest\x12-\n" +
 	"\x10user_external_id\x18\x01 \x01(\tH\x00R\x0euserExternalId\x88\x01\x01\x12\x1d\n" +
 	"\aservice\x18\x02 \x01(\tH\x01R\aservice\x88\x01\x01\x12,\n" +
@@ -8740,18 +9191,29 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\tis_active\x18\x05 \x01(\bR\bisActive\x12\x17\n" +
 	"\x04name\x18\x06 \x01(\tH\x03R\x04name\x88\x01\x01\x12K\n" +
 	"\bmetadata\x18\a \x03(\v2/.accounting.v1.CreateAgentRequest.MetadataEntryR\bmetadata\x12'\n" +
-	"\x0fcreate_accounts\x18\b \x01(\bR\x0ecreateAccounts\x1a;\n" +
+	"\x0fcreate_accounts\x18\b \x01(\bR\x0ecreateAccounts\x12B\n" +
+	"\x1bcommission_rate_for_deposit\x18\t \x01(\tH\x04R\x18commissionRateForDeposit\x88\x01\x01\x12*\n" +
+	"\x0epayment_method\x18\n" +
+	" \x01(\tH\x05R\rpaymentMethod\x88\x01\x01\x12K\n" +
+	"\blocation\x18\v \x03(\v2/.accounting.v1.CreateAgentRequest.LocationEntryR\blocation\x127\n" +
+	"\x06status\x18\f \x01(\x0e2\x1a.accounting.v1.AgentStatusH\x06R\x06status\x88\x01\x01\x1a;\n" +
 	"\rMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\x13\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a;\n" +
+	"\rLocationEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\bR\x05value:\x028\x01B\x13\n" +
 	"\x11_user_external_idB\n" +
 	"\n" +
 	"\b_serviceB\x12\n" +
 	"\x10_commission_rateB\a\n" +
-	"\x05_name\"[\n" +
+	"\x05_nameB\x1e\n" +
+	"\x1c_commission_rate_for_depositB\x11\n" +
+	"\x0f_payment_methodB\t\n" +
+	"\a_status\"[\n" +
 	"\x13CreateAgentResponse\x12*\n" +
 	"\x05agent\x18\x01 \x01(\v2\x14.accounting.v1.AgentR\x05agent\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"\xb6\x04\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"\xa7\a\n" +
 	"\x12UpdateAgentRequest\x12*\n" +
 	"\x11agent_external_id\x18\x01 \x01(\tR\x0fagentExternalId\x12-\n" +
 	"\x10user_external_id\x18\x02 \x01(\tH\x00R\x0euserExternalId\x88\x01\x01\x12\x1d\n" +
@@ -8760,10 +9222,18 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\x11relationship_type\x18\x05 \x01(\x0e2\x1f.accounting.v1.RelationshipTypeH\x03R\x10relationshipType\x88\x01\x01\x12 \n" +
 	"\tis_active\x18\x06 \x01(\bH\x04R\bisActive\x88\x01\x01\x12\x17\n" +
 	"\x04name\x18\a \x01(\tH\x05R\x04name\x88\x01\x01\x12K\n" +
-	"\bmetadata\x18\b \x03(\v2/.accounting.v1.UpdateAgentRequest.MetadataEntryR\bmetadata\x1a;\n" +
+	"\bmetadata\x18\b \x03(\v2/.accounting.v1.UpdateAgentRequest.MetadataEntryR\bmetadata\x12B\n" +
+	"\x1bcommission_rate_for_deposit\x18\t \x01(\tH\x06R\x18commissionRateForDeposit\x88\x01\x01\x12*\n" +
+	"\x0epayment_method\x18\n" +
+	" \x01(\tH\aR\rpaymentMethod\x88\x01\x01\x12K\n" +
+	"\blocation\x18\v \x03(\v2/.accounting.v1.UpdateAgentRequest.LocationEntryR\blocation\x127\n" +
+	"\x06status\x18\f \x01(\x0e2\x1a.accounting.v1.AgentStatusH\bR\x06status\x88\x01\x01\x1a;\n" +
 	"\rMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\x13\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a;\n" +
+	"\rLocationEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\bR\x05value:\x028\x01B\x13\n" +
 	"\x11_user_external_idB\n" +
 	"\n" +
 	"\b_serviceB\x12\n" +
@@ -8771,7 +9241,10 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\x12_relationship_typeB\f\n" +
 	"\n" +
 	"_is_activeB\a\n" +
-	"\x05_name\"[\n" +
+	"\x05_nameB\x1e\n" +
+	"\x1c_commission_rate_for_depositB\x11\n" +
+	"\x0f_payment_methodB\t\n" +
+	"\a_status\"[\n" +
 	"\x13UpdateAgentResponse\x12*\n" +
 	"\x05agent\x18\x01 \x01(\v2\x14.accounting.v1.AgentR\x05agent\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\"@\n" +
@@ -8788,11 +9261,19 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\x10user_external_id\x18\x01 \x01(\tR\x0euserExternalId\x12)\n" +
 	"\x10include_accounts\x18\x02 \x01(\bR\x0fincludeAccounts\"F\n" +
 	"\x18GetAgentByUserIDResponse\x12*\n" +
-	"\x05agent\x18\x01 \x01(\v2\x14.accounting.v1.AgentR\x05agent\"l\n" +
+	"\x05agent\x18\x01 \x01(\v2\x14.accounting.v1.AgentR\x05agent\"\x91\x03\n" +
 	"\x11ListAgentsRequest\x12\x14\n" +
 	"\x05limit\x18\x01 \x01(\x05R\x05limit\x12\x16\n" +
 	"\x06offset\x18\x02 \x01(\x05R\x06offset\x12)\n" +
-	"\x10include_accounts\x18\x03 \x01(\bR\x0fincludeAccounts\"X\n" +
+	"\x10include_accounts\x18\x03 \x01(\bR\x0fincludeAccounts\x12&\n" +
+	"\fcountry_code\x18\x04 \x01(\tH\x00R\vcountryCode\x88\x01\x01\x12*\n" +
+	"\x0epayment_method\x18\x05 \x01(\tH\x01R\rpaymentMethod\x88\x01\x01\x127\n" +
+	"\x06status\x18\x06 \x01(\x0e2\x1a.accounting.v1.AgentStatusH\x02R\x06status\x88\x01\x01\x12Q\n" +
+	"\x11relationship_type\x18\a \x01(\x0e2\x1f.accounting.v1.RelationshipTypeH\x03R\x10relationshipType\x88\x01\x01B\x0f\n" +
+	"\r_country_codeB\x11\n" +
+	"\x0f_payment_methodB\t\n" +
+	"\a_statusB\x14\n" +
+	"\x12_relationship_type\"X\n" +
 	"\x12ListAgentsResponse\x12,\n" +
 	"\x06agents\x18\x01 \x03(\v2\x14.accounting.v1.AgentR\x06agents\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x05R\x05total\"z\n" +
@@ -8802,7 +9283,34 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\x06offset\x18\x03 \x01(\x05R\x06offset\"y\n" +
 	"\x1fListCommissionsForAgentResponse\x12@\n" +
 	"\vcommissions\x18\x01 \x03(\v2\x1e.accounting.v1.AgentCommissionR\vcommissions\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x05R\x05total*\x97\x01\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\xdf\x01\n" +
+	"\x1bGetAgentsByCountriesRequest\x12#\n" +
+	"\rcountry_codes\x18\x01 \x03(\tR\fcountryCodes\x12\x14\n" +
+	"\x05limit\x18\x02 \x01(\x05R\x05limit\x12\x16\n" +
+	"\x06offset\x18\x03 \x01(\x05R\x06offset\x12)\n" +
+	"\x10include_accounts\x18\x04 \x01(\bR\x0fincludeAccounts\x127\n" +
+	"\x06status\x18\x05 \x01(\x0e2\x1a.accounting.v1.AgentStatusH\x00R\x06status\x88\x01\x01B\t\n" +
+	"\a_status\"b\n" +
+	"\x1cGetAgentsByCountriesResponse\x12,\n" +
+	"\x06agents\x18\x01 \x03(\v2\x14.accounting.v1.AgentR\x06agents\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\x8e\x01\n" +
+	"\x14GetAgentStatsRequest\x12&\n" +
+	"\fcountry_code\x18\x01 \x01(\tH\x00R\vcountryCode\x88\x01\x01\x12*\n" +
+	"\x0epayment_method\x18\x02 \x01(\tH\x01R\rpaymentMethod\x88\x01\x01B\x0f\n" +
+	"\r_country_codeB\x11\n" +
+	"\x0f_payment_method\"\xf7\x03\n" +
+	"\x15GetAgentStatsResponse\x12!\n" +
+	"\ftotal_agents\x18\x01 \x01(\x05R\vtotalAgents\x12#\n" +
+	"\ractive_agents\x18\x02 \x01(\x05R\factiveAgents\x12'\n" +
+	"\x0finactive_agents\x18\x03 \x01(\x05R\x0einactiveAgents\x12e\n" +
+	"\x11agents_by_country\x18\x04 \x03(\v29.accounting.v1.GetAgentStatsResponse.AgentsByCountryEntryR\x0fagentsByCountry\x12x\n" +
+	"\x18agents_by_payment_method\x18\x05 \x03(\v2?.accounting.v1.GetAgentStatsResponse.AgentsByPaymentMethodEntryR\x15agentsByPaymentMethod\x1aB\n" +
+	"\x14AgentsByCountryEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\x05R\x05value:\x028\x01\x1aH\n" +
+	"\x1aAgentsByPaymentMethodEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\x05R\x05value:\x028\x01*\x97\x01\n" +
 	"\tOwnerType\x12\x1a\n" +
 	"\x16OWNER_TYPE_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fOWNER_TYPE_USER\x10\x01\x12\x16\n" +
@@ -8867,7 +9375,12 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\x18RELATIONSHIP_TYPE_DIRECT\x10\x01\x12\x1e\n" +
 	"\x1aRELATIONSHIP_TYPE_REFERRAL\x10\x02\x12\x1d\n" +
 	"\x19RELATIONSHIP_TYPE_PARTNER\x10\x03\x12\x1f\n" +
-	"\x1bRELATIONSHIP_TYPE_FRANCHISE\x10\x042\xff#\n" +
+	"\x1bRELATIONSHIP_TYPE_FRANCHISE\x10\x04*y\n" +
+	"\vAgentStatus\x12\x1c\n" +
+	"\x18AGENT_STATUS_UNSPECIFIED\x10\x00\x12\x17\n" +
+	"\x13AGENT_STATUS_ACTIVE\x10\x01\x12\x19\n" +
+	"\x15AGENT_STATUS_INACTIVE\x10\x02\x12\x18\n" +
+	"\x14AGENT_STATUS_DELETED\x10\x032\xcc%\n" +
 	"\x11AccountingService\x12Z\n" +
 	"\rCreateAccount\x12#.accounting.v1.CreateAccountRequest\x1a$.accounting.v1.CreateAccountResponse\x12]\n" +
 	"\x0eCreateAccounts\x12$.accounting.v1.CreateAccountsRequest\x1a%.accounting.v1.CreateAccountsResponse\x12Q\n" +
@@ -8917,7 +9430,9 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\fGetAgentByID\x12\".accounting.v1.GetAgentByIDRequest\x1a#.accounting.v1.GetAgentByIDResponse\x12c\n" +
 	"\x10GetAgentByUserID\x12&.accounting.v1.GetAgentByUserIDRequest\x1a'.accounting.v1.GetAgentByUserIDResponse\x12Q\n" +
 	"\n" +
-	"ListAgents\x12 .accounting.v1.ListAgentsRequest\x1a!.accounting.v1.ListAgentsResponse\x12x\n" +
+	"ListAgents\x12 .accounting.v1.ListAgentsRequest\x1a!.accounting.v1.ListAgentsResponse\x12o\n" +
+	"\x14GetAgentsByCountries\x12*.accounting.v1.GetAgentsByCountriesRequest\x1a+.accounting.v1.GetAgentsByCountriesResponse\x12Z\n" +
+	"\rGetAgentStats\x12#.accounting.v1.GetAgentStatsRequest\x1a$.accounting.v1.GetAgentStatsResponse\x12x\n" +
 	"\x17ListCommissionsForAgent\x12-.accounting.v1.ListCommissionsForAgentRequest\x1a..accounting.v1.ListCommissionsForAgentResponseB,Z*genproto/shared/accounting/v1;accountingpbb\x06proto3"
 
 var (
@@ -8932,8 +9447,8 @@ func file_proto_shared_accounting_account_proto_rawDescGZIP() []byte {
 	return file_proto_shared_accounting_account_proto_rawDescData
 }
 
-var file_proto_shared_accounting_account_proto_enumTypes = make([]protoimpl.EnumInfo, 9)
-var file_proto_shared_accounting_account_proto_msgTypes = make([]protoimpl.MessageInfo, 114)
+var file_proto_shared_accounting_account_proto_enumTypes = make([]protoimpl.EnumInfo, 10)
+var file_proto_shared_accounting_account_proto_msgTypes = make([]protoimpl.MessageInfo, 123)
 var file_proto_shared_accounting_account_proto_goTypes = []any{
 	(OwnerType)(0),                            // 0: accounting.v1.OwnerType
 	(AccountType)(0),                          // 1: accounting.v1.AccountType
@@ -8944,378 +9459,404 @@ var file_proto_shared_accounting_account_proto_goTypes = []any{
 	(FeeType)(0),                              // 6: accounting.v1.FeeType
 	(ApprovalStatus)(0),                       // 7: accounting.v1.ApprovalStatus
 	(RelationshipType)(0),                     // 8: accounting.v1.RelationshipType
-	(*Account)(nil),                           // 9: accounting.v1.Account
-	(*Balance)(nil),                           // 10: accounting.v1.Balance
-	(*CreateAccountRequest)(nil),              // 11: accounting.v1.CreateAccountRequest
-	(*CreateAccountsRequest)(nil),             // 12: accounting.v1.CreateAccountsRequest
-	(*CreateAccountResponse)(nil),             // 13: accounting.v1.CreateAccountResponse
-	(*CreateAccountsResponse)(nil),            // 14: accounting.v1.CreateAccountsResponse
-	(*GetAccountRequest)(nil),                 // 15: accounting.v1.GetAccountRequest
-	(*GetAccountResponse)(nil),                // 16: accounting.v1.GetAccountResponse
-	(*GetAccountsByOwnerRequest)(nil),         // 17: accounting.v1.GetAccountsByOwnerRequest
-	(*GetAccountsByOwnerResponse)(nil),        // 18: accounting.v1.GetAccountsByOwnerResponse
-	(*GetOrCreateUserAccountsRequest)(nil),    // 19: accounting.v1.GetOrCreateUserAccountsRequest
-	(*GetOrCreateUserAccountsResponse)(nil),   // 20: accounting.v1.GetOrCreateUserAccountsResponse
-	(*UpdateAccountRequest)(nil),              // 21: accounting.v1.UpdateAccountRequest
-	(*UpdateAccountResponse)(nil),             // 22: accounting.v1.UpdateAccountResponse
-	(*GetBalanceRequest)(nil),                 // 23: accounting.v1.GetBalanceRequest
-	(*GetBalanceResponse)(nil),                // 24: accounting.v1.GetBalanceResponse
-	(*LedgerEntry)(nil),                       // 25: accounting.v1.LedgerEntry
-	(*ExecuteTransactionRequest)(nil),         // 26: accounting.v1.ExecuteTransactionRequest
-	(*ExecuteTransactionResponse)(nil),        // 27: accounting.v1.ExecuteTransactionResponse
-	(*ExecuteTransactionSyncRequest)(nil),     // 28: accounting.v1.ExecuteTransactionSyncRequest
-	(*ExecuteTransactionSyncResponse)(nil),    // 29: accounting.v1.ExecuteTransactionSyncResponse
-	(*GetTransactionStatusRequest)(nil),       // 30: accounting.v1.GetTransactionStatusRequest
-	(*GetTransactionStatusResponse)(nil),      // 31: accounting.v1.GetTransactionStatusResponse
-	(*GetTransactionByReceiptRequest)(nil),    // 32: accounting.v1.GetTransactionByReceiptRequest
-	(*GetTransactionByReceiptResponse)(nil),   // 33: accounting.v1.GetTransactionByReceiptResponse
-	(*Journal)(nil),                           // 34: accounting.v1.Journal
-	(*Ledger)(nil),                            // 35: accounting.v1.Ledger
-	(*GetJournalRequest)(nil),                 // 36: accounting.v1.GetJournalRequest
-	(*GetJournalResponse)(nil),                // 37: accounting.v1.GetJournalResponse
-	(*ListJournalsRequest)(nil),               // 38: accounting.v1.ListJournalsRequest
-	(*ListJournalsResponse)(nil),              // 39: accounting.v1.ListJournalsResponse
-	(*ListLedgersByJournalRequest)(nil),       // 40: accounting.v1.ListLedgersByJournalRequest
-	(*ListLedgersByJournalResponse)(nil),      // 41: accounting.v1.ListLedgersByJournalResponse
-	(*ListLedgersByAccountRequest)(nil),       // 42: accounting.v1.ListLedgersByAccountRequest
-	(*ListLedgersByAccountResponse)(nil),      // 43: accounting.v1.ListLedgersByAccountResponse
-	(*AccountStatement)(nil),                  // 44: accounting.v1.AccountStatement
-	(*GetAccountStatementRequest)(nil),        // 45: accounting.v1.GetAccountStatementRequest
-	(*GetAccountStatementResponse)(nil),       // 46: accounting.v1.GetAccountStatementResponse
-	(*GetOwnerStatementRequest)(nil),          // 47: accounting.v1.GetOwnerStatementRequest
-	(*GetOwnerStatementResponse)(nil),         // 48: accounting.v1.GetOwnerStatementResponse
-	(*OwnerSummary)(nil),                      // 49: accounting.v1.OwnerSummary
-	(*AccountBalance)(nil),                    // 50: accounting.v1.AccountBalance
-	(*GetOwnerSummaryRequest)(nil),            // 51: accounting.v1.GetOwnerSummaryRequest
-	(*GetOwnerSummaryResponse)(nil),           // 52: accounting.v1.GetOwnerSummaryResponse
-	(*DailyReport)(nil),                       // 53: accounting.v1.DailyReport
-	(*GenerateDailyReportRequest)(nil),        // 54: accounting.v1.GenerateDailyReportRequest
-	(*GenerateDailyReportResponse)(nil),       // 55: accounting.v1.GenerateDailyReportResponse
-	(*TransactionSummary)(nil),                // 56: accounting.v1.TransactionSummary
-	(*GetTransactionSummaryRequest)(nil),      // 57: accounting.v1.GetTransactionSummaryRequest
-	(*GetTransactionSummaryResponse)(nil),     // 58: accounting.v1.GetTransactionSummaryResponse
-	(*GetSystemHoldingsRequest)(nil),          // 59: accounting.v1.GetSystemHoldingsRequest
-	(*GetSystemHoldingsResponse)(nil),         // 60: accounting.v1.GetSystemHoldingsResponse
-	(*TransactionFee)(nil),                    // 61: accounting.v1.TransactionFee
-	(*CalculateFeeRequest)(nil),               // 62: accounting.v1.CalculateFeeRequest
-	(*FeeCalculation)(nil),                    // 63: accounting.v1.FeeCalculation
-	(*CalculateFeeResponse)(nil),              // 64: accounting.v1.CalculateFeeResponse
-	(*GetFeesByReceiptRequest)(nil),           // 65: accounting.v1.GetFeesByReceiptRequest
-	(*GetFeesByReceiptResponse)(nil),          // 66: accounting.v1.GetFeesByReceiptResponse
-	(*GetAgentCommissionSummaryRequest)(nil),  // 67: accounting.v1.GetAgentCommissionSummaryRequest
-	(*GetAgentCommissionSummaryResponse)(nil), // 68: accounting.v1.GetAgentCommissionSummaryResponse
-	(*HealthCheckRequest)(nil),                // 69: accounting.v1.HealthCheckRequest
-	(*HealthCheckResponse)(nil),               // 70: accounting.v1.HealthCheckResponse
-	(*BatchExecuteTransactionsRequest)(nil),   // 71: accounting.v1.BatchExecuteTransactionsRequest
-	(*BatchExecuteTransactionsResponse)(nil),  // 72: accounting.v1.BatchExecuteTransactionsResponse
-	(*BatchGetBalancesRequest)(nil),           // 73: accounting.v1.BatchGetBalancesRequest
-	(*BatchGetBalancesResponse)(nil),          // 74: accounting.v1.BatchGetBalancesResponse
-	(*StreamTransactionEventsRequest)(nil),    // 75: accounting.v1.StreamTransactionEventsRequest
-	(*TransactionEvent)(nil),                  // 76: accounting.v1.TransactionEvent
-	(*CreditRequest)(nil),                     // 77: accounting.v1.CreditRequest
-	(*CreditResponse)(nil),                    // 78: accounting.v1.CreditResponse
-	(*DebitRequest)(nil),                      // 79: accounting.v1.DebitRequest
-	(*DebitResponse)(nil),                     // 80: accounting.v1.DebitResponse
-	(*TransferRequest)(nil),                   // 81: accounting.v1.TransferRequest
-	(*TransferResponse)(nil),                  // 82: accounting.v1.TransferResponse
-	(*ConversionRequest)(nil),                 // 83: accounting.v1.ConversionRequest
-	(*ConversionResponse)(nil),                // 84: accounting.v1.ConversionResponse
-	(*TradeRequest)(nil),                      // 85: accounting.v1.TradeRequest
-	(*TradeResponse)(nil),                     // 86: accounting.v1.TradeResponse
-	(*AgentCommissionRequest)(nil),            // 87: accounting.v1.AgentCommissionRequest
-	(*AgentCommissionResponse)(nil),           // 88: accounting.v1.AgentCommissionResponse
-	(*TransactionApproval)(nil),               // 89: accounting.v1.TransactionApproval
-	(*CreateTransactionApprovalRequest)(nil),  // 90: accounting.v1.CreateTransactionApprovalRequest
-	(*CreateTransactionApprovalResponse)(nil), // 91: accounting.v1.CreateTransactionApprovalResponse
-	(*GetPendingApprovalsRequest)(nil),        // 92: accounting.v1.GetPendingApprovalsRequest
-	(*GetPendingApprovalsResponse)(nil),       // 93: accounting.v1.GetPendingApprovalsResponse
-	(*ApproveTransactionRequest)(nil),         // 94: accounting.v1.ApproveTransactionRequest
-	(*ApproveTransactionResponse)(nil),        // 95: accounting.v1.ApproveTransactionResponse
-	(*GetApprovalHistoryRequest)(nil),         // 96: accounting.v1.GetApprovalHistoryRequest
-	(*GetApprovalHistoryResponse)(nil),        // 97: accounting.v1.GetApprovalHistoryResponse
-	(*Agent)(nil),                             // 98: accounting.v1.Agent
-	(*AgentCommission)(nil),                   // 99: accounting.v1.AgentCommission
-	(*CreateAgentRequest)(nil),                // 100: accounting.v1.CreateAgentRequest
-	(*CreateAgentResponse)(nil),               // 101: accounting.v1.CreateAgentResponse
-	(*UpdateAgentRequest)(nil),                // 102: accounting.v1.UpdateAgentRequest
-	(*UpdateAgentResponse)(nil),               // 103: accounting.v1.UpdateAgentResponse
-	(*DeleteAgentRequest)(nil),                // 104: accounting.v1.DeleteAgentRequest
-	(*DeleteAgentResponse)(nil),               // 105: accounting.v1.DeleteAgentResponse
-	(*GetAgentByIDRequest)(nil),               // 106: accounting.v1.GetAgentByIDRequest
-	(*GetAgentByIDResponse)(nil),              // 107: accounting.v1.GetAgentByIDResponse
-	(*GetAgentByUserIDRequest)(nil),           // 108: accounting.v1.GetAgentByUserIDRequest
-	(*GetAgentByUserIDResponse)(nil),          // 109: accounting.v1.GetAgentByUserIDResponse
-	(*ListAgentsRequest)(nil),                 // 110: accounting.v1.ListAgentsRequest
-	(*ListAgentsResponse)(nil),                // 111: accounting.v1.ListAgentsResponse
-	(*ListCommissionsForAgentRequest)(nil),    // 112: accounting.v1.ListCommissionsForAgentRequest
-	(*ListCommissionsForAgentResponse)(nil),   // 113: accounting.v1.ListCommissionsForAgentResponse
-	nil,                                       // 114: accounting.v1.CreateAccountsResponse.ErrorsEntry
-	nil,                                       // 115: accounting.v1.GetSystemHoldingsResponse.HoldingsEntry
-	nil,                                       // 116: accounting.v1.GetAgentCommissionSummaryResponse.CommissionsEntry
-	nil,                                       // 117: accounting.v1.HealthCheckResponse.ComponentsEntry
-	nil,                                       // 118: accounting.v1.BatchExecuteTransactionsResponse.ErrorsEntry
-	nil,                                       // 119: accounting.v1.BatchGetBalancesResponse.ErrorsEntry
-	nil,                                       // 120: accounting.v1.Agent.MetadataEntry
-	nil,                                       // 121: accounting.v1.CreateAgentRequest.MetadataEntry
-	nil,                                       // 122: accounting.v1.UpdateAgentRequest.MetadataEntry
-	(*timestamppb.Timestamp)(nil),             // 123: google.protobuf.Timestamp
+	(AgentStatus)(0),                          // 9: accounting.v1.AgentStatus
+	(*Account)(nil),                           // 10: accounting.v1.Account
+	(*Balance)(nil),                           // 11: accounting.v1.Balance
+	(*CreateAccountRequest)(nil),              // 12: accounting.v1.CreateAccountRequest
+	(*CreateAccountsRequest)(nil),             // 13: accounting.v1.CreateAccountsRequest
+	(*CreateAccountResponse)(nil),             // 14: accounting.v1.CreateAccountResponse
+	(*CreateAccountsResponse)(nil),            // 15: accounting.v1.CreateAccountsResponse
+	(*GetAccountRequest)(nil),                 // 16: accounting.v1.GetAccountRequest
+	(*GetAccountResponse)(nil),                // 17: accounting.v1.GetAccountResponse
+	(*GetAccountsByOwnerRequest)(nil),         // 18: accounting.v1.GetAccountsByOwnerRequest
+	(*GetAccountsByOwnerResponse)(nil),        // 19: accounting.v1.GetAccountsByOwnerResponse
+	(*GetOrCreateUserAccountsRequest)(nil),    // 20: accounting.v1.GetOrCreateUserAccountsRequest
+	(*GetOrCreateUserAccountsResponse)(nil),   // 21: accounting.v1.GetOrCreateUserAccountsResponse
+	(*UpdateAccountRequest)(nil),              // 22: accounting.v1.UpdateAccountRequest
+	(*UpdateAccountResponse)(nil),             // 23: accounting.v1.UpdateAccountResponse
+	(*GetBalanceRequest)(nil),                 // 24: accounting.v1.GetBalanceRequest
+	(*GetBalanceResponse)(nil),                // 25: accounting.v1.GetBalanceResponse
+	(*LedgerEntry)(nil),                       // 26: accounting.v1.LedgerEntry
+	(*ExecuteTransactionRequest)(nil),         // 27: accounting.v1.ExecuteTransactionRequest
+	(*ExecuteTransactionResponse)(nil),        // 28: accounting.v1.ExecuteTransactionResponse
+	(*ExecuteTransactionSyncRequest)(nil),     // 29: accounting.v1.ExecuteTransactionSyncRequest
+	(*ExecuteTransactionSyncResponse)(nil),    // 30: accounting.v1.ExecuteTransactionSyncResponse
+	(*GetTransactionStatusRequest)(nil),       // 31: accounting.v1.GetTransactionStatusRequest
+	(*GetTransactionStatusResponse)(nil),      // 32: accounting.v1.GetTransactionStatusResponse
+	(*GetTransactionByReceiptRequest)(nil),    // 33: accounting.v1.GetTransactionByReceiptRequest
+	(*GetTransactionByReceiptResponse)(nil),   // 34: accounting.v1.GetTransactionByReceiptResponse
+	(*Journal)(nil),                           // 35: accounting.v1.Journal
+	(*Ledger)(nil),                            // 36: accounting.v1.Ledger
+	(*GetJournalRequest)(nil),                 // 37: accounting.v1.GetJournalRequest
+	(*GetJournalResponse)(nil),                // 38: accounting.v1.GetJournalResponse
+	(*ListJournalsRequest)(nil),               // 39: accounting.v1.ListJournalsRequest
+	(*ListJournalsResponse)(nil),              // 40: accounting.v1.ListJournalsResponse
+	(*ListLedgersByJournalRequest)(nil),       // 41: accounting.v1.ListLedgersByJournalRequest
+	(*ListLedgersByJournalResponse)(nil),      // 42: accounting.v1.ListLedgersByJournalResponse
+	(*ListLedgersByAccountRequest)(nil),       // 43: accounting.v1.ListLedgersByAccountRequest
+	(*ListLedgersByAccountResponse)(nil),      // 44: accounting.v1.ListLedgersByAccountResponse
+	(*AccountStatement)(nil),                  // 45: accounting.v1.AccountStatement
+	(*GetAccountStatementRequest)(nil),        // 46: accounting.v1.GetAccountStatementRequest
+	(*GetAccountStatementResponse)(nil),       // 47: accounting.v1.GetAccountStatementResponse
+	(*GetOwnerStatementRequest)(nil),          // 48: accounting.v1.GetOwnerStatementRequest
+	(*GetOwnerStatementResponse)(nil),         // 49: accounting.v1.GetOwnerStatementResponse
+	(*OwnerSummary)(nil),                      // 50: accounting.v1.OwnerSummary
+	(*AccountBalance)(nil),                    // 51: accounting.v1.AccountBalance
+	(*GetOwnerSummaryRequest)(nil),            // 52: accounting.v1.GetOwnerSummaryRequest
+	(*GetOwnerSummaryResponse)(nil),           // 53: accounting.v1.GetOwnerSummaryResponse
+	(*DailyReport)(nil),                       // 54: accounting.v1.DailyReport
+	(*GenerateDailyReportRequest)(nil),        // 55: accounting.v1.GenerateDailyReportRequest
+	(*GenerateDailyReportResponse)(nil),       // 56: accounting.v1.GenerateDailyReportResponse
+	(*TransactionSummary)(nil),                // 57: accounting.v1.TransactionSummary
+	(*GetTransactionSummaryRequest)(nil),      // 58: accounting.v1.GetTransactionSummaryRequest
+	(*GetTransactionSummaryResponse)(nil),     // 59: accounting.v1.GetTransactionSummaryResponse
+	(*GetSystemHoldingsRequest)(nil),          // 60: accounting.v1.GetSystemHoldingsRequest
+	(*GetSystemHoldingsResponse)(nil),         // 61: accounting.v1.GetSystemHoldingsResponse
+	(*TransactionFee)(nil),                    // 62: accounting.v1.TransactionFee
+	(*CalculateFeeRequest)(nil),               // 63: accounting.v1.CalculateFeeRequest
+	(*FeeCalculation)(nil),                    // 64: accounting.v1.FeeCalculation
+	(*CalculateFeeResponse)(nil),              // 65: accounting.v1.CalculateFeeResponse
+	(*GetFeesByReceiptRequest)(nil),           // 66: accounting.v1.GetFeesByReceiptRequest
+	(*GetFeesByReceiptResponse)(nil),          // 67: accounting.v1.GetFeesByReceiptResponse
+	(*GetAgentCommissionSummaryRequest)(nil),  // 68: accounting.v1.GetAgentCommissionSummaryRequest
+	(*GetAgentCommissionSummaryResponse)(nil), // 69: accounting.v1.GetAgentCommissionSummaryResponse
+	(*HealthCheckRequest)(nil),                // 70: accounting.v1.HealthCheckRequest
+	(*HealthCheckResponse)(nil),               // 71: accounting.v1.HealthCheckResponse
+	(*BatchExecuteTransactionsRequest)(nil),   // 72: accounting.v1.BatchExecuteTransactionsRequest
+	(*BatchExecuteTransactionsResponse)(nil),  // 73: accounting.v1.BatchExecuteTransactionsResponse
+	(*BatchGetBalancesRequest)(nil),           // 74: accounting.v1.BatchGetBalancesRequest
+	(*BatchGetBalancesResponse)(nil),          // 75: accounting.v1.BatchGetBalancesResponse
+	(*StreamTransactionEventsRequest)(nil),    // 76: accounting.v1.StreamTransactionEventsRequest
+	(*TransactionEvent)(nil),                  // 77: accounting.v1.TransactionEvent
+	(*CreditRequest)(nil),                     // 78: accounting.v1.CreditRequest
+	(*CreditResponse)(nil),                    // 79: accounting.v1.CreditResponse
+	(*DebitRequest)(nil),                      // 80: accounting.v1.DebitRequest
+	(*DebitResponse)(nil),                     // 81: accounting.v1.DebitResponse
+	(*TransferRequest)(nil),                   // 82: accounting.v1.TransferRequest
+	(*TransferResponse)(nil),                  // 83: accounting.v1.TransferResponse
+	(*ConversionRequest)(nil),                 // 84: accounting.v1.ConversionRequest
+	(*ConversionResponse)(nil),                // 85: accounting.v1.ConversionResponse
+	(*TradeRequest)(nil),                      // 86: accounting.v1.TradeRequest
+	(*TradeResponse)(nil),                     // 87: accounting.v1.TradeResponse
+	(*AgentCommissionRequest)(nil),            // 88: accounting.v1.AgentCommissionRequest
+	(*AgentCommissionResponse)(nil),           // 89: accounting.v1.AgentCommissionResponse
+	(*TransactionApproval)(nil),               // 90: accounting.v1.TransactionApproval
+	(*CreateTransactionApprovalRequest)(nil),  // 91: accounting.v1.CreateTransactionApprovalRequest
+	(*CreateTransactionApprovalResponse)(nil), // 92: accounting.v1.CreateTransactionApprovalResponse
+	(*GetPendingApprovalsRequest)(nil),        // 93: accounting.v1.GetPendingApprovalsRequest
+	(*GetPendingApprovalsResponse)(nil),       // 94: accounting.v1.GetPendingApprovalsResponse
+	(*ApproveTransactionRequest)(nil),         // 95: accounting.v1.ApproveTransactionRequest
+	(*ApproveTransactionResponse)(nil),        // 96: accounting.v1.ApproveTransactionResponse
+	(*GetApprovalHistoryRequest)(nil),         // 97: accounting.v1.GetApprovalHistoryRequest
+	(*GetApprovalHistoryResponse)(nil),        // 98: accounting.v1.GetApprovalHistoryResponse
+	(*Agent)(nil),                             // 99: accounting.v1.Agent
+	(*AgentCommission)(nil),                   // 100: accounting.v1.AgentCommission
+	(*CreateAgentRequest)(nil),                // 101: accounting.v1.CreateAgentRequest
+	(*CreateAgentResponse)(nil),               // 102: accounting.v1.CreateAgentResponse
+	(*UpdateAgentRequest)(nil),                // 103: accounting.v1.UpdateAgentRequest
+	(*UpdateAgentResponse)(nil),               // 104: accounting.v1.UpdateAgentResponse
+	(*DeleteAgentRequest)(nil),                // 105: accounting.v1.DeleteAgentRequest
+	(*DeleteAgentResponse)(nil),               // 106: accounting.v1.DeleteAgentResponse
+	(*GetAgentByIDRequest)(nil),               // 107: accounting.v1.GetAgentByIDRequest
+	(*GetAgentByIDResponse)(nil),              // 108: accounting.v1.GetAgentByIDResponse
+	(*GetAgentByUserIDRequest)(nil),           // 109: accounting.v1.GetAgentByUserIDRequest
+	(*GetAgentByUserIDResponse)(nil),          // 110: accounting.v1.GetAgentByUserIDResponse
+	(*ListAgentsRequest)(nil),                 // 111: accounting.v1.ListAgentsRequest
+	(*ListAgentsResponse)(nil),                // 112: accounting.v1.ListAgentsResponse
+	(*ListCommissionsForAgentRequest)(nil),    // 113: accounting.v1.ListCommissionsForAgentRequest
+	(*ListCommissionsForAgentResponse)(nil),   // 114: accounting.v1.ListCommissionsForAgentResponse
+	(*GetAgentsByCountriesRequest)(nil),       // 115: accounting.v1.GetAgentsByCountriesRequest
+	(*GetAgentsByCountriesResponse)(nil),      // 116: accounting.v1.GetAgentsByCountriesResponse
+	(*GetAgentStatsRequest)(nil),              // 117: accounting.v1.GetAgentStatsRequest
+	(*GetAgentStatsResponse)(nil),             // 118: accounting.v1.GetAgentStatsResponse
+	nil,                                       // 119: accounting.v1.CreateAccountsResponse.ErrorsEntry
+	nil,                                       // 120: accounting.v1.GetSystemHoldingsResponse.HoldingsEntry
+	nil,                                       // 121: accounting.v1.GetAgentCommissionSummaryResponse.CommissionsEntry
+	nil,                                       // 122: accounting.v1.HealthCheckResponse.ComponentsEntry
+	nil,                                       // 123: accounting.v1.BatchExecuteTransactionsResponse.ErrorsEntry
+	nil,                                       // 124: accounting.v1.BatchGetBalancesResponse.ErrorsEntry
+	nil,                                       // 125: accounting.v1.Agent.MetadataEntry
+	nil,                                       // 126: accounting.v1.Agent.LocationEntry
+	nil,                                       // 127: accounting.v1.CreateAgentRequest.MetadataEntry
+	nil,                                       // 128: accounting.v1.CreateAgentRequest.LocationEntry
+	nil,                                       // 129: accounting.v1.UpdateAgentRequest.MetadataEntry
+	nil,                                       // 130: accounting.v1.UpdateAgentRequest.LocationEntry
+	nil,                                       // 131: accounting.v1.GetAgentStatsResponse.AgentsByCountryEntry
+	nil,                                       // 132: accounting.v1.GetAgentStatsResponse.AgentsByPaymentMethodEntry
+	(*timestamppb.Timestamp)(nil),             // 133: google.protobuf.Timestamp
 }
 var file_proto_shared_accounting_account_proto_depIdxs = []int32{
 	0,   // 0: accounting.v1.Account.owner_type:type_name -> accounting.v1.OwnerType
 	2,   // 1: accounting.v1.Account.purpose:type_name -> accounting.v1.AccountPurpose
 	1,   // 2: accounting.v1.Account.account_type:type_name -> accounting.v1.AccountType
-	123, // 3: accounting.v1.Account.created_at:type_name -> google.protobuf.Timestamp
-	123, // 4: accounting.v1.Account.updated_at:type_name -> google.protobuf.Timestamp
-	123, // 5: accounting.v1.Balance.last_transaction_at:type_name -> google.protobuf.Timestamp
+	133, // 3: accounting.v1.Account.created_at:type_name -> google.protobuf.Timestamp
+	133, // 4: accounting.v1.Account.updated_at:type_name -> google.protobuf.Timestamp
+	133, // 5: accounting.v1.Balance.last_transaction_at:type_name -> google.protobuf.Timestamp
 	0,   // 6: accounting.v1.CreateAccountRequest.owner_type:type_name -> accounting.v1.OwnerType
 	2,   // 7: accounting.v1.CreateAccountRequest.purpose:type_name -> accounting.v1.AccountPurpose
 	1,   // 8: accounting.v1.CreateAccountRequest.account_type:type_name -> accounting.v1.AccountType
-	11,  // 9: accounting.v1.CreateAccountsRequest.accounts:type_name -> accounting.v1.CreateAccountRequest
-	9,   // 10: accounting.v1.CreateAccountResponse.account:type_name -> accounting.v1.Account
-	9,   // 11: accounting.v1.CreateAccountsResponse.accounts:type_name -> accounting.v1.Account
-	114, // 12: accounting.v1.CreateAccountsResponse.errors:type_name -> accounting.v1.CreateAccountsResponse.ErrorsEntry
-	9,   // 13: accounting.v1.GetAccountResponse.account:type_name -> accounting.v1.Account
+	12,  // 9: accounting.v1.CreateAccountsRequest.accounts:type_name -> accounting.v1.CreateAccountRequest
+	10,  // 10: accounting.v1.CreateAccountResponse.account:type_name -> accounting.v1.Account
+	10,  // 11: accounting.v1.CreateAccountsResponse.accounts:type_name -> accounting.v1.Account
+	119, // 12: accounting.v1.CreateAccountsResponse.errors:type_name -> accounting.v1.CreateAccountsResponse.ErrorsEntry
+	10,  // 13: accounting.v1.GetAccountResponse.account:type_name -> accounting.v1.Account
 	0,   // 14: accounting.v1.GetAccountsByOwnerRequest.owner_type:type_name -> accounting.v1.OwnerType
 	1,   // 15: accounting.v1.GetAccountsByOwnerRequest.account_type:type_name -> accounting.v1.AccountType
-	9,   // 16: accounting.v1.GetAccountsByOwnerResponse.accounts:type_name -> accounting.v1.Account
+	10,  // 16: accounting.v1.GetAccountsByOwnerResponse.accounts:type_name -> accounting.v1.Account
 	1,   // 17: accounting.v1.GetOrCreateUserAccountsRequest.account_type:type_name -> accounting.v1.AccountType
 	0,   // 18: accounting.v1.GetOrCreateUserAccountsRequest.owner_type:type_name -> accounting.v1.OwnerType
-	9,   // 19: accounting.v1.GetOrCreateUserAccountsResponse.accounts:type_name -> accounting.v1.Account
-	9,   // 20: accounting.v1.UpdateAccountResponse.account:type_name -> accounting.v1.Account
-	10,  // 21: accounting.v1.GetBalanceResponse.balance:type_name -> accounting.v1.Balance
+	10,  // 19: accounting.v1.GetOrCreateUserAccountsResponse.accounts:type_name -> accounting.v1.Account
+	10,  // 20: accounting.v1.UpdateAccountResponse.account:type_name -> accounting.v1.Account
+	11,  // 21: accounting.v1.GetBalanceResponse.balance:type_name -> accounting.v1.Balance
 	3,   // 22: accounting.v1.LedgerEntry.dr_cr:type_name -> accounting.v1.DrCr
 	4,   // 23: accounting.v1.ExecuteTransactionRequest.transaction_type:type_name -> accounting.v1.TransactionType
 	1,   // 24: accounting.v1.ExecuteTransactionRequest.account_type:type_name -> accounting.v1.AccountType
-	25,  // 25: accounting.v1.ExecuteTransactionRequest.entries:type_name -> accounting.v1.LedgerEntry
+	26,  // 25: accounting.v1.ExecuteTransactionRequest.entries:type_name -> accounting.v1.LedgerEntry
 	0,   // 26: accounting.v1.ExecuteTransactionRequest.created_by_type:type_name -> accounting.v1.OwnerType
 	5,   // 27: accounting.v1.ExecuteTransactionResponse.status:type_name -> accounting.v1.TransactionStatus
-	123, // 28: accounting.v1.ExecuteTransactionResponse.created_at:type_name -> google.protobuf.Timestamp
+	133, // 28: accounting.v1.ExecuteTransactionResponse.created_at:type_name -> google.protobuf.Timestamp
 	4,   // 29: accounting.v1.ExecuteTransactionSyncRequest.transaction_type:type_name -> accounting.v1.TransactionType
 	1,   // 30: accounting.v1.ExecuteTransactionSyncRequest.account_type:type_name -> accounting.v1.AccountType
-	25,  // 31: accounting.v1.ExecuteTransactionSyncRequest.entries:type_name -> accounting.v1.LedgerEntry
+	26,  // 31: accounting.v1.ExecuteTransactionSyncRequest.entries:type_name -> accounting.v1.LedgerEntry
 	0,   // 32: accounting.v1.ExecuteTransactionSyncRequest.created_by_type:type_name -> accounting.v1.OwnerType
 	5,   // 33: accounting.v1.ExecuteTransactionSyncResponse.status:type_name -> accounting.v1.TransactionStatus
-	123, // 34: accounting.v1.ExecuteTransactionSyncResponse.created_at:type_name -> google.protobuf.Timestamp
+	133, // 34: accounting.v1.ExecuteTransactionSyncResponse.created_at:type_name -> google.protobuf.Timestamp
 	5,   // 35: accounting.v1.GetTransactionStatusResponse.status:type_name -> accounting.v1.TransactionStatus
-	123, // 36: accounting.v1.GetTransactionStatusResponse.started_at:type_name -> google.protobuf.Timestamp
-	123, // 37: accounting.v1.GetTransactionStatusResponse.completed_at:type_name -> google.protobuf.Timestamp
-	34,  // 38: accounting.v1.GetTransactionByReceiptResponse.journal:type_name -> accounting.v1.Journal
-	35,  // 39: accounting.v1.GetTransactionByReceiptResponse.ledgers:type_name -> accounting.v1.Ledger
-	61,  // 40: accounting.v1.GetTransactionByReceiptResponse.fees:type_name -> accounting.v1.TransactionFee
+	133, // 36: accounting.v1.GetTransactionStatusResponse.started_at:type_name -> google.protobuf.Timestamp
+	133, // 37: accounting.v1.GetTransactionStatusResponse.completed_at:type_name -> google.protobuf.Timestamp
+	35,  // 38: accounting.v1.GetTransactionByReceiptResponse.journal:type_name -> accounting.v1.Journal
+	36,  // 39: accounting.v1.GetTransactionByReceiptResponse.ledgers:type_name -> accounting.v1.Ledger
+	62,  // 40: accounting.v1.GetTransactionByReceiptResponse.fees:type_name -> accounting.v1.TransactionFee
 	4,   // 41: accounting.v1.Journal.transaction_type:type_name -> accounting.v1.TransactionType
 	1,   // 42: accounting.v1.Journal.account_type:type_name -> accounting.v1.AccountType
 	0,   // 43: accounting.v1.Journal.created_by_type:type_name -> accounting.v1.OwnerType
-	123, // 44: accounting.v1.Journal.created_at:type_name -> google.protobuf.Timestamp
+	133, // 44: accounting.v1.Journal.created_at:type_name -> google.protobuf.Timestamp
 	3,   // 45: accounting.v1.Ledger.dr_cr:type_name -> accounting.v1.DrCr
-	123, // 46: accounting.v1.Ledger.created_at:type_name -> google.protobuf.Timestamp
-	34,  // 47: accounting.v1.GetJournalResponse.journal:type_name -> accounting.v1.Journal
+	133, // 46: accounting.v1.Ledger.created_at:type_name -> google.protobuf.Timestamp
+	35,  // 47: accounting.v1.GetJournalResponse.journal:type_name -> accounting.v1.Journal
 	4,   // 48: accounting.v1.ListJournalsRequest.transaction_type:type_name -> accounting.v1.TransactionType
 	1,   // 49: accounting.v1.ListJournalsRequest.account_type:type_name -> accounting.v1.AccountType
-	123, // 50: accounting.v1.ListJournalsRequest.from:type_name -> google.protobuf.Timestamp
-	123, // 51: accounting.v1.ListJournalsRequest.to:type_name -> google.protobuf.Timestamp
-	34,  // 52: accounting.v1.ListJournalsResponse.journals:type_name -> accounting.v1.Journal
-	35,  // 53: accounting.v1.ListLedgersByJournalResponse.ledgers:type_name -> accounting.v1.Ledger
+	133, // 50: accounting.v1.ListJournalsRequest.from:type_name -> google.protobuf.Timestamp
+	133, // 51: accounting.v1.ListJournalsRequest.to:type_name -> google.protobuf.Timestamp
+	35,  // 52: accounting.v1.ListJournalsResponse.journals:type_name -> accounting.v1.Journal
+	36,  // 53: accounting.v1.ListLedgersByJournalResponse.ledgers:type_name -> accounting.v1.Ledger
 	1,   // 54: accounting.v1.ListLedgersByAccountRequest.account_type:type_name -> accounting.v1.AccountType
-	123, // 55: accounting.v1.ListLedgersByAccountRequest.from:type_name -> google.protobuf.Timestamp
-	123, // 56: accounting.v1.ListLedgersByAccountRequest.to:type_name -> google.protobuf.Timestamp
-	35,  // 57: accounting.v1.ListLedgersByAccountResponse.ledgers:type_name -> accounting.v1.Ledger
+	133, // 55: accounting.v1.ListLedgersByAccountRequest.from:type_name -> google.protobuf.Timestamp
+	133, // 56: accounting.v1.ListLedgersByAccountRequest.to:type_name -> google.protobuf.Timestamp
+	36,  // 57: accounting.v1.ListLedgersByAccountResponse.ledgers:type_name -> accounting.v1.Ledger
 	1,   // 58: accounting.v1.AccountStatement.account_type:type_name -> accounting.v1.AccountType
-	35,  // 59: accounting.v1.AccountStatement.ledgers:type_name -> accounting.v1.Ledger
-	123, // 60: accounting.v1.AccountStatement.period_start:type_name -> google.protobuf.Timestamp
-	123, // 61: accounting.v1.AccountStatement.period_end:type_name -> google.protobuf.Timestamp
+	36,  // 59: accounting.v1.AccountStatement.ledgers:type_name -> accounting.v1.Ledger
+	133, // 60: accounting.v1.AccountStatement.period_start:type_name -> google.protobuf.Timestamp
+	133, // 61: accounting.v1.AccountStatement.period_end:type_name -> google.protobuf.Timestamp
 	1,   // 62: accounting.v1.GetAccountStatementRequest.account_type:type_name -> accounting.v1.AccountType
-	123, // 63: accounting.v1.GetAccountStatementRequest.from:type_name -> google.protobuf.Timestamp
-	123, // 64: accounting.v1.GetAccountStatementRequest.to:type_name -> google.protobuf.Timestamp
-	44,  // 65: accounting.v1.GetAccountStatementResponse.statement:type_name -> accounting.v1.AccountStatement
+	133, // 63: accounting.v1.GetAccountStatementRequest.from:type_name -> google.protobuf.Timestamp
+	133, // 64: accounting.v1.GetAccountStatementRequest.to:type_name -> google.protobuf.Timestamp
+	45,  // 65: accounting.v1.GetAccountStatementResponse.statement:type_name -> accounting.v1.AccountStatement
 	0,   // 66: accounting.v1.GetOwnerStatementRequest.owner_type:type_name -> accounting.v1.OwnerType
 	1,   // 67: accounting.v1.GetOwnerStatementRequest.account_type:type_name -> accounting.v1.AccountType
-	123, // 68: accounting.v1.GetOwnerStatementRequest.from:type_name -> google.protobuf.Timestamp
-	123, // 69: accounting.v1.GetOwnerStatementRequest.to:type_name -> google.protobuf.Timestamp
-	44,  // 70: accounting.v1.GetOwnerStatementResponse.statements:type_name -> accounting.v1.AccountStatement
+	133, // 68: accounting.v1.GetOwnerStatementRequest.from:type_name -> google.protobuf.Timestamp
+	133, // 69: accounting.v1.GetOwnerStatementRequest.to:type_name -> google.protobuf.Timestamp
+	45,  // 70: accounting.v1.GetOwnerStatementResponse.statements:type_name -> accounting.v1.AccountStatement
 	0,   // 71: accounting.v1.OwnerSummary.owner_type:type_name -> accounting.v1.OwnerType
 	1,   // 72: accounting.v1.OwnerSummary.account_type:type_name -> accounting.v1.AccountType
-	50,  // 73: accounting.v1.OwnerSummary.account_balances:type_name -> accounting.v1.AccountBalance
+	51,  // 73: accounting.v1.OwnerSummary.account_balances:type_name -> accounting.v1.AccountBalance
 	0,   // 74: accounting.v1.GetOwnerSummaryRequest.owner_type:type_name -> accounting.v1.OwnerType
 	1,   // 75: accounting.v1.GetOwnerSummaryRequest.account_type:type_name -> accounting.v1.AccountType
-	49,  // 76: accounting.v1.GetOwnerSummaryResponse.summary:type_name -> accounting.v1.OwnerSummary
+	50,  // 76: accounting.v1.GetOwnerSummaryResponse.summary:type_name -> accounting.v1.OwnerSummary
 	0,   // 77: accounting.v1.DailyReport.owner_type:type_name -> accounting.v1.OwnerType
-	123, // 78: accounting.v1.DailyReport.date:type_name -> google.protobuf.Timestamp
-	123, // 79: accounting.v1.GenerateDailyReportRequest.date:type_name -> google.protobuf.Timestamp
+	133, // 78: accounting.v1.DailyReport.date:type_name -> google.protobuf.Timestamp
+	133, // 79: accounting.v1.GenerateDailyReportRequest.date:type_name -> google.protobuf.Timestamp
 	1,   // 80: accounting.v1.GenerateDailyReportRequest.account_type:type_name -> accounting.v1.AccountType
-	53,  // 81: accounting.v1.GenerateDailyReportResponse.reports:type_name -> accounting.v1.DailyReport
+	54,  // 81: accounting.v1.GenerateDailyReportResponse.reports:type_name -> accounting.v1.DailyReport
 	4,   // 82: accounting.v1.TransactionSummary.transaction_type:type_name -> accounting.v1.TransactionType
 	1,   // 83: accounting.v1.GetTransactionSummaryRequest.account_type:type_name -> accounting.v1.AccountType
-	123, // 84: accounting.v1.GetTransactionSummaryRequest.from:type_name -> google.protobuf.Timestamp
-	123, // 85: accounting.v1.GetTransactionSummaryRequest.to:type_name -> google.protobuf.Timestamp
-	56,  // 86: accounting.v1.GetTransactionSummaryResponse.summaries:type_name -> accounting.v1.TransactionSummary
+	133, // 84: accounting.v1.GetTransactionSummaryRequest.from:type_name -> google.protobuf.Timestamp
+	133, // 85: accounting.v1.GetTransactionSummaryRequest.to:type_name -> google.protobuf.Timestamp
+	57,  // 86: accounting.v1.GetTransactionSummaryResponse.summaries:type_name -> accounting.v1.TransactionSummary
 	1,   // 87: accounting.v1.GetSystemHoldingsRequest.account_type:type_name -> accounting.v1.AccountType
-	115, // 88: accounting.v1.GetSystemHoldingsResponse.holdings:type_name -> accounting.v1.GetSystemHoldingsResponse.HoldingsEntry
+	120, // 88: accounting.v1.GetSystemHoldingsResponse.holdings:type_name -> accounting.v1.GetSystemHoldingsResponse.HoldingsEntry
 	6,   // 89: accounting.v1.TransactionFee.fee_type:type_name -> accounting.v1.FeeType
-	123, // 90: accounting.v1.TransactionFee.created_at:type_name -> google.protobuf.Timestamp
+	133, // 90: accounting.v1.TransactionFee.created_at:type_name -> google.protobuf.Timestamp
 	4,   // 91: accounting.v1.CalculateFeeRequest.transaction_type:type_name -> accounting.v1.TransactionType
 	1,   // 92: accounting.v1.CalculateFeeRequest.account_type:type_name -> accounting.v1.AccountType
 	0,   // 93: accounting.v1.CalculateFeeRequest.owner_type:type_name -> accounting.v1.OwnerType
 	6,   // 94: accounting.v1.FeeCalculation.fee_type:type_name -> accounting.v1.FeeType
-	63,  // 95: accounting.v1.CalculateFeeResponse.calculation:type_name -> accounting.v1.FeeCalculation
-	61,  // 96: accounting.v1.GetFeesByReceiptResponse.fees:type_name -> accounting.v1.TransactionFee
-	123, // 97: accounting.v1.GetAgentCommissionSummaryRequest.from:type_name -> google.protobuf.Timestamp
-	123, // 98: accounting.v1.GetAgentCommissionSummaryRequest.to:type_name -> google.protobuf.Timestamp
-	116, // 99: accounting.v1.GetAgentCommissionSummaryResponse.commissions:type_name -> accounting.v1.GetAgentCommissionSummaryResponse.CommissionsEntry
-	117, // 100: accounting.v1.HealthCheckResponse.components:type_name -> accounting.v1.HealthCheckResponse.ComponentsEntry
-	26,  // 101: accounting.v1.BatchExecuteTransactionsRequest.transactions:type_name -> accounting.v1.ExecuteTransactionRequest
-	27,  // 102: accounting.v1.BatchExecuteTransactionsResponse.results:type_name -> accounting.v1.ExecuteTransactionResponse
-	118, // 103: accounting.v1.BatchExecuteTransactionsResponse.errors:type_name -> accounting.v1.BatchExecuteTransactionsResponse.ErrorsEntry
-	10,  // 104: accounting.v1.BatchGetBalancesResponse.balances:type_name -> accounting.v1.Balance
-	119, // 105: accounting.v1.BatchGetBalancesResponse.errors:type_name -> accounting.v1.BatchGetBalancesResponse.ErrorsEntry
+	64,  // 95: accounting.v1.CalculateFeeResponse.calculation:type_name -> accounting.v1.FeeCalculation
+	62,  // 96: accounting.v1.GetFeesByReceiptResponse.fees:type_name -> accounting.v1.TransactionFee
+	133, // 97: accounting.v1.GetAgentCommissionSummaryRequest.from:type_name -> google.protobuf.Timestamp
+	133, // 98: accounting.v1.GetAgentCommissionSummaryRequest.to:type_name -> google.protobuf.Timestamp
+	121, // 99: accounting.v1.GetAgentCommissionSummaryResponse.commissions:type_name -> accounting.v1.GetAgentCommissionSummaryResponse.CommissionsEntry
+	122, // 100: accounting.v1.HealthCheckResponse.components:type_name -> accounting.v1.HealthCheckResponse.ComponentsEntry
+	27,  // 101: accounting.v1.BatchExecuteTransactionsRequest.transactions:type_name -> accounting.v1.ExecuteTransactionRequest
+	28,  // 102: accounting.v1.BatchExecuteTransactionsResponse.results:type_name -> accounting.v1.ExecuteTransactionResponse
+	123, // 103: accounting.v1.BatchExecuteTransactionsResponse.errors:type_name -> accounting.v1.BatchExecuteTransactionsResponse.ErrorsEntry
+	11,  // 104: accounting.v1.BatchGetBalancesResponse.balances:type_name -> accounting.v1.Balance
+	124, // 105: accounting.v1.BatchGetBalancesResponse.errors:type_name -> accounting.v1.BatchGetBalancesResponse.ErrorsEntry
 	0,   // 106: accounting.v1.StreamTransactionEventsRequest.owner_type:type_name -> accounting.v1.OwnerType
 	1,   // 107: accounting.v1.StreamTransactionEventsRequest.account_type:type_name -> accounting.v1.AccountType
 	5,   // 108: accounting.v1.TransactionEvent.status:type_name -> accounting.v1.TransactionStatus
-	123, // 109: accounting.v1.TransactionEvent.timestamp:type_name -> google.protobuf.Timestamp
+	133, // 109: accounting.v1.TransactionEvent.timestamp:type_name -> google.protobuf.Timestamp
 	1,   // 110: accounting.v1.CreditRequest.account_type:type_name -> accounting.v1.AccountType
 	0,   // 111: accounting.v1.CreditRequest.created_by_type:type_name -> accounting.v1.OwnerType
 	4,   // 112: accounting.v1.CreditRequest.transaction_type:type_name -> accounting.v1.TransactionType
-	123, // 113: accounting.v1.CreditResponse.created_at:type_name -> google.protobuf.Timestamp
+	133, // 113: accounting.v1.CreditResponse.created_at:type_name -> google.protobuf.Timestamp
 	1,   // 114: accounting.v1.DebitRequest.account_type:type_name -> accounting.v1.AccountType
 	0,   // 115: accounting.v1.DebitRequest.created_by_type:type_name -> accounting.v1.OwnerType
 	4,   // 116: accounting.v1.DebitRequest.transaction_type:type_name -> accounting.v1.TransactionType
-	123, // 117: accounting.v1.DebitResponse.created_at:type_name -> google.protobuf.Timestamp
+	133, // 117: accounting.v1.DebitResponse.created_at:type_name -> google.protobuf.Timestamp
 	1,   // 118: accounting.v1.TransferRequest.account_type:type_name -> accounting.v1.AccountType
 	0,   // 119: accounting.v1.TransferRequest.created_by_type:type_name -> accounting.v1.OwnerType
 	4,   // 120: accounting.v1.TransferRequest.transaction_type:type_name -> accounting.v1.TransactionType
-	123, // 121: accounting.v1.TransferResponse.created_at:type_name -> google.protobuf.Timestamp
+	133, // 121: accounting.v1.TransferResponse.created_at:type_name -> google.protobuf.Timestamp
 	1,   // 122: accounting.v1.ConversionRequest.account_type:type_name -> accounting.v1.AccountType
 	0,   // 123: accounting.v1.ConversionRequest.created_by_type:type_name -> accounting.v1.OwnerType
-	123, // 124: accounting.v1.ConversionResponse.created_at:type_name -> google.protobuf.Timestamp
+	133, // 124: accounting.v1.ConversionResponse.created_at:type_name -> google.protobuf.Timestamp
 	1,   // 125: accounting.v1.TradeRequest.account_type:type_name -> accounting.v1.AccountType
 	0,   // 126: accounting.v1.TradeRequest.created_by_type:type_name -> accounting.v1.OwnerType
-	123, // 127: accounting.v1.TradeResponse.created_at:type_name -> google.protobuf.Timestamp
-	123, // 128: accounting.v1.AgentCommissionResponse.created_at:type_name -> google.protobuf.Timestamp
+	133, // 127: accounting.v1.TradeResponse.created_at:type_name -> google.protobuf.Timestamp
+	133, // 128: accounting.v1.AgentCommissionResponse.created_at:type_name -> google.protobuf.Timestamp
 	4,   // 129: accounting.v1.TransactionApproval.transaction_type:type_name -> accounting.v1.TransactionType
 	7,   // 130: accounting.v1.TransactionApproval.status:type_name -> accounting.v1.ApprovalStatus
-	123, // 131: accounting.v1.TransactionApproval.created_at:type_name -> google.protobuf.Timestamp
-	123, // 132: accounting.v1.TransactionApproval.updated_at:type_name -> google.protobuf.Timestamp
+	133, // 131: accounting.v1.TransactionApproval.created_at:type_name -> google.protobuf.Timestamp
+	133, // 132: accounting.v1.TransactionApproval.updated_at:type_name -> google.protobuf.Timestamp
 	4,   // 133: accounting.v1.CreateTransactionApprovalRequest.transaction_type:type_name -> accounting.v1.TransactionType
-	89,  // 134: accounting.v1.CreateTransactionApprovalResponse.approval:type_name -> accounting.v1.TransactionApproval
-	89,  // 135: accounting.v1.GetPendingApprovalsResponse.approvals:type_name -> accounting.v1.TransactionApproval
-	89,  // 136: accounting.v1.ApproveTransactionResponse.approval:type_name -> accounting.v1.TransactionApproval
+	90,  // 134: accounting.v1.CreateTransactionApprovalResponse.approval:type_name -> accounting.v1.TransactionApproval
+	90,  // 135: accounting.v1.GetPendingApprovalsResponse.approvals:type_name -> accounting.v1.TransactionApproval
+	90,  // 136: accounting.v1.ApproveTransactionResponse.approval:type_name -> accounting.v1.TransactionApproval
 	7,   // 137: accounting.v1.GetApprovalHistoryRequest.status:type_name -> accounting.v1.ApprovalStatus
-	123, // 138: accounting.v1.GetApprovalHistoryRequest.from:type_name -> google.protobuf.Timestamp
-	123, // 139: accounting.v1.GetApprovalHistoryRequest.to:type_name -> google.protobuf.Timestamp
-	89,  // 140: accounting.v1.GetApprovalHistoryResponse.approvals:type_name -> accounting.v1.TransactionApproval
+	133, // 138: accounting.v1.GetApprovalHistoryRequest.from:type_name -> google.protobuf.Timestamp
+	133, // 139: accounting.v1.GetApprovalHistoryRequest.to:type_name -> google.protobuf.Timestamp
+	90,  // 140: accounting.v1.GetApprovalHistoryResponse.approvals:type_name -> accounting.v1.TransactionApproval
 	8,   // 141: accounting.v1.Agent.relationship_type:type_name -> accounting.v1.RelationshipType
-	120, // 142: accounting.v1.Agent.metadata:type_name -> accounting.v1.Agent.MetadataEntry
-	123, // 143: accounting.v1.Agent.created_at:type_name -> google.protobuf.Timestamp
-	123, // 144: accounting.v1.Agent.updated_at:type_name -> google.protobuf.Timestamp
-	9,   // 145: accounting.v1.Agent.accounts:type_name -> accounting.v1.Account
-	123, // 146: accounting.v1.AgentCommission.paid_out_at:type_name -> google.protobuf.Timestamp
-	123, // 147: accounting.v1.AgentCommission.created_at:type_name -> google.protobuf.Timestamp
-	8,   // 148: accounting.v1.CreateAgentRequest.relationship_type:type_name -> accounting.v1.RelationshipType
-	121, // 149: accounting.v1.CreateAgentRequest.metadata:type_name -> accounting.v1.CreateAgentRequest.MetadataEntry
-	98,  // 150: accounting.v1.CreateAgentResponse.agent:type_name -> accounting.v1.Agent
-	8,   // 151: accounting.v1.UpdateAgentRequest.relationship_type:type_name -> accounting.v1.RelationshipType
-	122, // 152: accounting.v1.UpdateAgentRequest.metadata:type_name -> accounting.v1.UpdateAgentRequest.MetadataEntry
-	98,  // 153: accounting.v1.UpdateAgentResponse.agent:type_name -> accounting.v1.Agent
-	98,  // 154: accounting.v1.GetAgentByIDResponse.agent:type_name -> accounting.v1.Agent
-	98,  // 155: accounting.v1.GetAgentByUserIDResponse.agent:type_name -> accounting.v1.Agent
-	98,  // 156: accounting.v1.ListAgentsResponse.agents:type_name -> accounting.v1.Agent
-	99,  // 157: accounting.v1.ListCommissionsForAgentResponse.commissions:type_name -> accounting.v1.AgentCommission
-	11,  // 158: accounting.v1.AccountingService.CreateAccount:input_type -> accounting.v1.CreateAccountRequest
-	12,  // 159: accounting.v1.AccountingService.CreateAccounts:input_type -> accounting.v1.CreateAccountsRequest
-	15,  // 160: accounting.v1.AccountingService.GetAccount:input_type -> accounting.v1.GetAccountRequest
-	17,  // 161: accounting.v1.AccountingService.GetAccountsByOwner:input_type -> accounting.v1.GetAccountsByOwnerRequest
-	19,  // 162: accounting.v1.AccountingService.GetOrCreateUserAccounts:input_type -> accounting.v1.GetOrCreateUserAccountsRequest
-	21,  // 163: accounting.v1.AccountingService.UpdateAccount:input_type -> accounting.v1.UpdateAccountRequest
-	23,  // 164: accounting.v1.AccountingService.GetBalance:input_type -> accounting.v1.GetBalanceRequest
-	73,  // 165: accounting.v1.AccountingService.BatchGetBalances:input_type -> accounting.v1.BatchGetBalancesRequest
-	26,  // 166: accounting.v1.AccountingService.ExecuteTransaction:input_type -> accounting.v1.ExecuteTransactionRequest
-	28,  // 167: accounting.v1.AccountingService.ExecuteTransactionSync:input_type -> accounting.v1.ExecuteTransactionSyncRequest
-	71,  // 168: accounting.v1.AccountingService.BatchExecuteTransactions:input_type -> accounting.v1.BatchExecuteTransactionsRequest
-	30,  // 169: accounting.v1.AccountingService.GetTransactionStatus:input_type -> accounting.v1.GetTransactionStatusRequest
-	32,  // 170: accounting.v1.AccountingService.GetTransactionByReceipt:input_type -> accounting.v1.GetTransactionByReceiptRequest
-	36,  // 171: accounting.v1.AccountingService.GetJournal:input_type -> accounting.v1.GetJournalRequest
-	38,  // 172: accounting.v1.AccountingService.ListJournals:input_type -> accounting.v1.ListJournalsRequest
-	40,  // 173: accounting.v1.AccountingService.ListLedgersByJournal:input_type -> accounting.v1.ListLedgersByJournalRequest
-	42,  // 174: accounting.v1.AccountingService.ListLedgersByAccount:input_type -> accounting.v1.ListLedgersByAccountRequest
-	45,  // 175: accounting.v1.AccountingService.GetAccountStatement:input_type -> accounting.v1.GetAccountStatementRequest
-	47,  // 176: accounting.v1.AccountingService.GetOwnerStatement:input_type -> accounting.v1.GetOwnerStatementRequest
-	51,  // 177: accounting.v1.AccountingService.GetOwnerSummary:input_type -> accounting.v1.GetOwnerSummaryRequest
-	54,  // 178: accounting.v1.AccountingService.GenerateDailyReport:input_type -> accounting.v1.GenerateDailyReportRequest
-	57,  // 179: accounting.v1.AccountingService.GetTransactionSummary:input_type -> accounting.v1.GetTransactionSummaryRequest
-	59,  // 180: accounting.v1.AccountingService.GetSystemHoldings:input_type -> accounting.v1.GetSystemHoldingsRequest
-	62,  // 181: accounting.v1.AccountingService.CalculateFee:input_type -> accounting.v1.CalculateFeeRequest
-	65,  // 182: accounting.v1.AccountingService.GetFeesByReceipt:input_type -> accounting.v1.GetFeesByReceiptRequest
-	67,  // 183: accounting.v1.AccountingService.GetAgentCommissionSummary:input_type -> accounting.v1.GetAgentCommissionSummaryRequest
-	75,  // 184: accounting.v1.AccountingService.StreamTransactionEvents:input_type -> accounting.v1.StreamTransactionEventsRequest
-	77,  // 185: accounting.v1.AccountingService.Credit:input_type -> accounting.v1.CreditRequest
-	79,  // 186: accounting.v1.AccountingService.Debit:input_type -> accounting.v1.DebitRequest
-	81,  // 187: accounting.v1.AccountingService.Transfer:input_type -> accounting.v1.TransferRequest
-	83,  // 188: accounting.v1.AccountingService.ConvertAndTransfer:input_type -> accounting.v1.ConversionRequest
-	85,  // 189: accounting.v1.AccountingService.ProcessTradeWin:input_type -> accounting.v1.TradeRequest
-	85,  // 190: accounting.v1.AccountingService.ProcessTradeLoss:input_type -> accounting.v1.TradeRequest
-	87,  // 191: accounting.v1.AccountingService.ProcessAgentCommission:input_type -> accounting.v1.AgentCommissionRequest
-	90,  // 192: accounting.v1.AccountingService.CreateTransactionApproval:input_type -> accounting.v1.CreateTransactionApprovalRequest
-	92,  // 193: accounting.v1.AccountingService.GetPendingApprovals:input_type -> accounting.v1.GetPendingApprovalsRequest
-	94,  // 194: accounting.v1.AccountingService.ApproveTransaction:input_type -> accounting.v1.ApproveTransactionRequest
-	96,  // 195: accounting.v1.AccountingService.GetApprovalHistory:input_type -> accounting.v1.GetApprovalHistoryRequest
-	69,  // 196: accounting.v1.AccountingService.HealthCheck:input_type -> accounting.v1.HealthCheckRequest
-	100, // 197: accounting.v1.AccountingService.CreateAgent:input_type -> accounting.v1.CreateAgentRequest
-	102, // 198: accounting.v1.AccountingService.UpdateAgent:input_type -> accounting.v1.UpdateAgentRequest
-	104, // 199: accounting.v1.AccountingService.DeleteAgent:input_type -> accounting.v1.DeleteAgentRequest
-	106, // 200: accounting.v1.AccountingService.GetAgentByID:input_type -> accounting.v1.GetAgentByIDRequest
-	108, // 201: accounting.v1.AccountingService.GetAgentByUserID:input_type -> accounting.v1.GetAgentByUserIDRequest
-	110, // 202: accounting.v1.AccountingService.ListAgents:input_type -> accounting.v1.ListAgentsRequest
-	112, // 203: accounting.v1.AccountingService.ListCommissionsForAgent:input_type -> accounting.v1.ListCommissionsForAgentRequest
-	13,  // 204: accounting.v1.AccountingService.CreateAccount:output_type -> accounting.v1.CreateAccountResponse
-	14,  // 205: accounting.v1.AccountingService.CreateAccounts:output_type -> accounting.v1.CreateAccountsResponse
-	16,  // 206: accounting.v1.AccountingService.GetAccount:output_type -> accounting.v1.GetAccountResponse
-	18,  // 207: accounting.v1.AccountingService.GetAccountsByOwner:output_type -> accounting.v1.GetAccountsByOwnerResponse
-	20,  // 208: accounting.v1.AccountingService.GetOrCreateUserAccounts:output_type -> accounting.v1.GetOrCreateUserAccountsResponse
-	22,  // 209: accounting.v1.AccountingService.UpdateAccount:output_type -> accounting.v1.UpdateAccountResponse
-	24,  // 210: accounting.v1.AccountingService.GetBalance:output_type -> accounting.v1.GetBalanceResponse
-	74,  // 211: accounting.v1.AccountingService.BatchGetBalances:output_type -> accounting.v1.BatchGetBalancesResponse
-	27,  // 212: accounting.v1.AccountingService.ExecuteTransaction:output_type -> accounting.v1.ExecuteTransactionResponse
-	29,  // 213: accounting.v1.AccountingService.ExecuteTransactionSync:output_type -> accounting.v1.ExecuteTransactionSyncResponse
-	72,  // 214: accounting.v1.AccountingService.BatchExecuteTransactions:output_type -> accounting.v1.BatchExecuteTransactionsResponse
-	31,  // 215: accounting.v1.AccountingService.GetTransactionStatus:output_type -> accounting.v1.GetTransactionStatusResponse
-	33,  // 216: accounting.v1.AccountingService.GetTransactionByReceipt:output_type -> accounting.v1.GetTransactionByReceiptResponse
-	37,  // 217: accounting.v1.AccountingService.GetJournal:output_type -> accounting.v1.GetJournalResponse
-	39,  // 218: accounting.v1.AccountingService.ListJournals:output_type -> accounting.v1.ListJournalsResponse
-	41,  // 219: accounting.v1.AccountingService.ListLedgersByJournal:output_type -> accounting.v1.ListLedgersByJournalResponse
-	43,  // 220: accounting.v1.AccountingService.ListLedgersByAccount:output_type -> accounting.v1.ListLedgersByAccountResponse
-	46,  // 221: accounting.v1.AccountingService.GetAccountStatement:output_type -> accounting.v1.GetAccountStatementResponse
-	48,  // 222: accounting.v1.AccountingService.GetOwnerStatement:output_type -> accounting.v1.GetOwnerStatementResponse
-	52,  // 223: accounting.v1.AccountingService.GetOwnerSummary:output_type -> accounting.v1.GetOwnerSummaryResponse
-	55,  // 224: accounting.v1.AccountingService.GenerateDailyReport:output_type -> accounting.v1.GenerateDailyReportResponse
-	58,  // 225: accounting.v1.AccountingService.GetTransactionSummary:output_type -> accounting.v1.GetTransactionSummaryResponse
-	60,  // 226: accounting.v1.AccountingService.GetSystemHoldings:output_type -> accounting.v1.GetSystemHoldingsResponse
-	64,  // 227: accounting.v1.AccountingService.CalculateFee:output_type -> accounting.v1.CalculateFeeResponse
-	66,  // 228: accounting.v1.AccountingService.GetFeesByReceipt:output_type -> accounting.v1.GetFeesByReceiptResponse
-	68,  // 229: accounting.v1.AccountingService.GetAgentCommissionSummary:output_type -> accounting.v1.GetAgentCommissionSummaryResponse
-	76,  // 230: accounting.v1.AccountingService.StreamTransactionEvents:output_type -> accounting.v1.TransactionEvent
-	78,  // 231: accounting.v1.AccountingService.Credit:output_type -> accounting.v1.CreditResponse
-	80,  // 232: accounting.v1.AccountingService.Debit:output_type -> accounting.v1.DebitResponse
-	82,  // 233: accounting.v1.AccountingService.Transfer:output_type -> accounting.v1.TransferResponse
-	84,  // 234: accounting.v1.AccountingService.ConvertAndTransfer:output_type -> accounting.v1.ConversionResponse
-	86,  // 235: accounting.v1.AccountingService.ProcessTradeWin:output_type -> accounting.v1.TradeResponse
-	86,  // 236: accounting.v1.AccountingService.ProcessTradeLoss:output_type -> accounting.v1.TradeResponse
-	88,  // 237: accounting.v1.AccountingService.ProcessAgentCommission:output_type -> accounting.v1.AgentCommissionResponse
-	91,  // 238: accounting.v1.AccountingService.CreateTransactionApproval:output_type -> accounting.v1.CreateTransactionApprovalResponse
-	93,  // 239: accounting.v1.AccountingService.GetPendingApprovals:output_type -> accounting.v1.GetPendingApprovalsResponse
-	95,  // 240: accounting.v1.AccountingService.ApproveTransaction:output_type -> accounting.v1.ApproveTransactionResponse
-	97,  // 241: accounting.v1.AccountingService.GetApprovalHistory:output_type -> accounting.v1.GetApprovalHistoryResponse
-	70,  // 242: accounting.v1.AccountingService.HealthCheck:output_type -> accounting.v1.HealthCheckResponse
-	101, // 243: accounting.v1.AccountingService.CreateAgent:output_type -> accounting.v1.CreateAgentResponse
-	103, // 244: accounting.v1.AccountingService.UpdateAgent:output_type -> accounting.v1.UpdateAgentResponse
-	105, // 245: accounting.v1.AccountingService.DeleteAgent:output_type -> accounting.v1.DeleteAgentResponse
-	107, // 246: accounting.v1.AccountingService.GetAgentByID:output_type -> accounting.v1.GetAgentByIDResponse
-	109, // 247: accounting.v1.AccountingService.GetAgentByUserID:output_type -> accounting.v1.GetAgentByUserIDResponse
-	111, // 248: accounting.v1.AccountingService.ListAgents:output_type -> accounting.v1.ListAgentsResponse
-	113, // 249: accounting.v1.AccountingService.ListCommissionsForAgent:output_type -> accounting.v1.ListCommissionsForAgentResponse
-	204, // [204:250] is the sub-list for method output_type
-	158, // [158:204] is the sub-list for method input_type
-	158, // [158:158] is the sub-list for extension type_name
-	158, // [158:158] is the sub-list for extension extendee
-	0,   // [0:158] is the sub-list for field type_name
+	125, // 142: accounting.v1.Agent.metadata:type_name -> accounting.v1.Agent.MetadataEntry
+	133, // 143: accounting.v1.Agent.created_at:type_name -> google.protobuf.Timestamp
+	133, // 144: accounting.v1.Agent.updated_at:type_name -> google.protobuf.Timestamp
+	10,  // 145: accounting.v1.Agent.accounts:type_name -> accounting.v1.Account
+	126, // 146: accounting.v1.Agent.location:type_name -> accounting.v1.Agent.LocationEntry
+	9,   // 147: accounting.v1.Agent.status:type_name -> accounting.v1.AgentStatus
+	133, // 148: accounting.v1.AgentCommission.paid_out_at:type_name -> google.protobuf.Timestamp
+	133, // 149: accounting.v1.AgentCommission.created_at:type_name -> google.protobuf.Timestamp
+	8,   // 150: accounting.v1.CreateAgentRequest.relationship_type:type_name -> accounting.v1.RelationshipType
+	127, // 151: accounting.v1.CreateAgentRequest.metadata:type_name -> accounting.v1.CreateAgentRequest.MetadataEntry
+	128, // 152: accounting.v1.CreateAgentRequest.location:type_name -> accounting.v1.CreateAgentRequest.LocationEntry
+	9,   // 153: accounting.v1.CreateAgentRequest.status:type_name -> accounting.v1.AgentStatus
+	99,  // 154: accounting.v1.CreateAgentResponse.agent:type_name -> accounting.v1.Agent
+	8,   // 155: accounting.v1.UpdateAgentRequest.relationship_type:type_name -> accounting.v1.RelationshipType
+	129, // 156: accounting.v1.UpdateAgentRequest.metadata:type_name -> accounting.v1.UpdateAgentRequest.MetadataEntry
+	130, // 157: accounting.v1.UpdateAgentRequest.location:type_name -> accounting.v1.UpdateAgentRequest.LocationEntry
+	9,   // 158: accounting.v1.UpdateAgentRequest.status:type_name -> accounting.v1.AgentStatus
+	99,  // 159: accounting.v1.UpdateAgentResponse.agent:type_name -> accounting.v1.Agent
+	99,  // 160: accounting.v1.GetAgentByIDResponse.agent:type_name -> accounting.v1.Agent
+	99,  // 161: accounting.v1.GetAgentByUserIDResponse.agent:type_name -> accounting.v1.Agent
+	9,   // 162: accounting.v1.ListAgentsRequest.status:type_name -> accounting.v1.AgentStatus
+	8,   // 163: accounting.v1.ListAgentsRequest.relationship_type:type_name -> accounting.v1.RelationshipType
+	99,  // 164: accounting.v1.ListAgentsResponse.agents:type_name -> accounting.v1.Agent
+	100, // 165: accounting.v1.ListCommissionsForAgentResponse.commissions:type_name -> accounting.v1.AgentCommission
+	9,   // 166: accounting.v1.GetAgentsByCountriesRequest.status:type_name -> accounting.v1.AgentStatus
+	99,  // 167: accounting.v1.GetAgentsByCountriesResponse.agents:type_name -> accounting.v1.Agent
+	131, // 168: accounting.v1.GetAgentStatsResponse.agents_by_country:type_name -> accounting.v1.GetAgentStatsResponse.AgentsByCountryEntry
+	132, // 169: accounting.v1.GetAgentStatsResponse.agents_by_payment_method:type_name -> accounting.v1.GetAgentStatsResponse.AgentsByPaymentMethodEntry
+	12,  // 170: accounting.v1.AccountingService.CreateAccount:input_type -> accounting.v1.CreateAccountRequest
+	13,  // 171: accounting.v1.AccountingService.CreateAccounts:input_type -> accounting.v1.CreateAccountsRequest
+	16,  // 172: accounting.v1.AccountingService.GetAccount:input_type -> accounting.v1.GetAccountRequest
+	18,  // 173: accounting.v1.AccountingService.GetAccountsByOwner:input_type -> accounting.v1.GetAccountsByOwnerRequest
+	20,  // 174: accounting.v1.AccountingService.GetOrCreateUserAccounts:input_type -> accounting.v1.GetOrCreateUserAccountsRequest
+	22,  // 175: accounting.v1.AccountingService.UpdateAccount:input_type -> accounting.v1.UpdateAccountRequest
+	24,  // 176: accounting.v1.AccountingService.GetBalance:input_type -> accounting.v1.GetBalanceRequest
+	74,  // 177: accounting.v1.AccountingService.BatchGetBalances:input_type -> accounting.v1.BatchGetBalancesRequest
+	27,  // 178: accounting.v1.AccountingService.ExecuteTransaction:input_type -> accounting.v1.ExecuteTransactionRequest
+	29,  // 179: accounting.v1.AccountingService.ExecuteTransactionSync:input_type -> accounting.v1.ExecuteTransactionSyncRequest
+	72,  // 180: accounting.v1.AccountingService.BatchExecuteTransactions:input_type -> accounting.v1.BatchExecuteTransactionsRequest
+	31,  // 181: accounting.v1.AccountingService.GetTransactionStatus:input_type -> accounting.v1.GetTransactionStatusRequest
+	33,  // 182: accounting.v1.AccountingService.GetTransactionByReceipt:input_type -> accounting.v1.GetTransactionByReceiptRequest
+	37,  // 183: accounting.v1.AccountingService.GetJournal:input_type -> accounting.v1.GetJournalRequest
+	39,  // 184: accounting.v1.AccountingService.ListJournals:input_type -> accounting.v1.ListJournalsRequest
+	41,  // 185: accounting.v1.AccountingService.ListLedgersByJournal:input_type -> accounting.v1.ListLedgersByJournalRequest
+	43,  // 186: accounting.v1.AccountingService.ListLedgersByAccount:input_type -> accounting.v1.ListLedgersByAccountRequest
+	46,  // 187: accounting.v1.AccountingService.GetAccountStatement:input_type -> accounting.v1.GetAccountStatementRequest
+	48,  // 188: accounting.v1.AccountingService.GetOwnerStatement:input_type -> accounting.v1.GetOwnerStatementRequest
+	52,  // 189: accounting.v1.AccountingService.GetOwnerSummary:input_type -> accounting.v1.GetOwnerSummaryRequest
+	55,  // 190: accounting.v1.AccountingService.GenerateDailyReport:input_type -> accounting.v1.GenerateDailyReportRequest
+	58,  // 191: accounting.v1.AccountingService.GetTransactionSummary:input_type -> accounting.v1.GetTransactionSummaryRequest
+	60,  // 192: accounting.v1.AccountingService.GetSystemHoldings:input_type -> accounting.v1.GetSystemHoldingsRequest
+	63,  // 193: accounting.v1.AccountingService.CalculateFee:input_type -> accounting.v1.CalculateFeeRequest
+	66,  // 194: accounting.v1.AccountingService.GetFeesByReceipt:input_type -> accounting.v1.GetFeesByReceiptRequest
+	68,  // 195: accounting.v1.AccountingService.GetAgentCommissionSummary:input_type -> accounting.v1.GetAgentCommissionSummaryRequest
+	76,  // 196: accounting.v1.AccountingService.StreamTransactionEvents:input_type -> accounting.v1.StreamTransactionEventsRequest
+	78,  // 197: accounting.v1.AccountingService.Credit:input_type -> accounting.v1.CreditRequest
+	80,  // 198: accounting.v1.AccountingService.Debit:input_type -> accounting.v1.DebitRequest
+	82,  // 199: accounting.v1.AccountingService.Transfer:input_type -> accounting.v1.TransferRequest
+	84,  // 200: accounting.v1.AccountingService.ConvertAndTransfer:input_type -> accounting.v1.ConversionRequest
+	86,  // 201: accounting.v1.AccountingService.ProcessTradeWin:input_type -> accounting.v1.TradeRequest
+	86,  // 202: accounting.v1.AccountingService.ProcessTradeLoss:input_type -> accounting.v1.TradeRequest
+	88,  // 203: accounting.v1.AccountingService.ProcessAgentCommission:input_type -> accounting.v1.AgentCommissionRequest
+	91,  // 204: accounting.v1.AccountingService.CreateTransactionApproval:input_type -> accounting.v1.CreateTransactionApprovalRequest
+	93,  // 205: accounting.v1.AccountingService.GetPendingApprovals:input_type -> accounting.v1.GetPendingApprovalsRequest
+	95,  // 206: accounting.v1.AccountingService.ApproveTransaction:input_type -> accounting.v1.ApproveTransactionRequest
+	97,  // 207: accounting.v1.AccountingService.GetApprovalHistory:input_type -> accounting.v1.GetApprovalHistoryRequest
+	70,  // 208: accounting.v1.AccountingService.HealthCheck:input_type -> accounting.v1.HealthCheckRequest
+	101, // 209: accounting.v1.AccountingService.CreateAgent:input_type -> accounting.v1.CreateAgentRequest
+	103, // 210: accounting.v1.AccountingService.UpdateAgent:input_type -> accounting.v1.UpdateAgentRequest
+	105, // 211: accounting.v1.AccountingService.DeleteAgent:input_type -> accounting.v1.DeleteAgentRequest
+	107, // 212: accounting.v1.AccountingService.GetAgentByID:input_type -> accounting.v1.GetAgentByIDRequest
+	109, // 213: accounting.v1.AccountingService.GetAgentByUserID:input_type -> accounting.v1.GetAgentByUserIDRequest
+	111, // 214: accounting.v1.AccountingService.ListAgents:input_type -> accounting.v1.ListAgentsRequest
+	115, // 215: accounting.v1.AccountingService.GetAgentsByCountries:input_type -> accounting.v1.GetAgentsByCountriesRequest
+	117, // 216: accounting.v1.AccountingService.GetAgentStats:input_type -> accounting.v1.GetAgentStatsRequest
+	113, // 217: accounting.v1.AccountingService.ListCommissionsForAgent:input_type -> accounting.v1.ListCommissionsForAgentRequest
+	14,  // 218: accounting.v1.AccountingService.CreateAccount:output_type -> accounting.v1.CreateAccountResponse
+	15,  // 219: accounting.v1.AccountingService.CreateAccounts:output_type -> accounting.v1.CreateAccountsResponse
+	17,  // 220: accounting.v1.AccountingService.GetAccount:output_type -> accounting.v1.GetAccountResponse
+	19,  // 221: accounting.v1.AccountingService.GetAccountsByOwner:output_type -> accounting.v1.GetAccountsByOwnerResponse
+	21,  // 222: accounting.v1.AccountingService.GetOrCreateUserAccounts:output_type -> accounting.v1.GetOrCreateUserAccountsResponse
+	23,  // 223: accounting.v1.AccountingService.UpdateAccount:output_type -> accounting.v1.UpdateAccountResponse
+	25,  // 224: accounting.v1.AccountingService.GetBalance:output_type -> accounting.v1.GetBalanceResponse
+	75,  // 225: accounting.v1.AccountingService.BatchGetBalances:output_type -> accounting.v1.BatchGetBalancesResponse
+	28,  // 226: accounting.v1.AccountingService.ExecuteTransaction:output_type -> accounting.v1.ExecuteTransactionResponse
+	30,  // 227: accounting.v1.AccountingService.ExecuteTransactionSync:output_type -> accounting.v1.ExecuteTransactionSyncResponse
+	73,  // 228: accounting.v1.AccountingService.BatchExecuteTransactions:output_type -> accounting.v1.BatchExecuteTransactionsResponse
+	32,  // 229: accounting.v1.AccountingService.GetTransactionStatus:output_type -> accounting.v1.GetTransactionStatusResponse
+	34,  // 230: accounting.v1.AccountingService.GetTransactionByReceipt:output_type -> accounting.v1.GetTransactionByReceiptResponse
+	38,  // 231: accounting.v1.AccountingService.GetJournal:output_type -> accounting.v1.GetJournalResponse
+	40,  // 232: accounting.v1.AccountingService.ListJournals:output_type -> accounting.v1.ListJournalsResponse
+	42,  // 233: accounting.v1.AccountingService.ListLedgersByJournal:output_type -> accounting.v1.ListLedgersByJournalResponse
+	44,  // 234: accounting.v1.AccountingService.ListLedgersByAccount:output_type -> accounting.v1.ListLedgersByAccountResponse
+	47,  // 235: accounting.v1.AccountingService.GetAccountStatement:output_type -> accounting.v1.GetAccountStatementResponse
+	49,  // 236: accounting.v1.AccountingService.GetOwnerStatement:output_type -> accounting.v1.GetOwnerStatementResponse
+	53,  // 237: accounting.v1.AccountingService.GetOwnerSummary:output_type -> accounting.v1.GetOwnerSummaryResponse
+	56,  // 238: accounting.v1.AccountingService.GenerateDailyReport:output_type -> accounting.v1.GenerateDailyReportResponse
+	59,  // 239: accounting.v1.AccountingService.GetTransactionSummary:output_type -> accounting.v1.GetTransactionSummaryResponse
+	61,  // 240: accounting.v1.AccountingService.GetSystemHoldings:output_type -> accounting.v1.GetSystemHoldingsResponse
+	65,  // 241: accounting.v1.AccountingService.CalculateFee:output_type -> accounting.v1.CalculateFeeResponse
+	67,  // 242: accounting.v1.AccountingService.GetFeesByReceipt:output_type -> accounting.v1.GetFeesByReceiptResponse
+	69,  // 243: accounting.v1.AccountingService.GetAgentCommissionSummary:output_type -> accounting.v1.GetAgentCommissionSummaryResponse
+	77,  // 244: accounting.v1.AccountingService.StreamTransactionEvents:output_type -> accounting.v1.TransactionEvent
+	79,  // 245: accounting.v1.AccountingService.Credit:output_type -> accounting.v1.CreditResponse
+	81,  // 246: accounting.v1.AccountingService.Debit:output_type -> accounting.v1.DebitResponse
+	83,  // 247: accounting.v1.AccountingService.Transfer:output_type -> accounting.v1.TransferResponse
+	85,  // 248: accounting.v1.AccountingService.ConvertAndTransfer:output_type -> accounting.v1.ConversionResponse
+	87,  // 249: accounting.v1.AccountingService.ProcessTradeWin:output_type -> accounting.v1.TradeResponse
+	87,  // 250: accounting.v1.AccountingService.ProcessTradeLoss:output_type -> accounting.v1.TradeResponse
+	89,  // 251: accounting.v1.AccountingService.ProcessAgentCommission:output_type -> accounting.v1.AgentCommissionResponse
+	92,  // 252: accounting.v1.AccountingService.CreateTransactionApproval:output_type -> accounting.v1.CreateTransactionApprovalResponse
+	94,  // 253: accounting.v1.AccountingService.GetPendingApprovals:output_type -> accounting.v1.GetPendingApprovalsResponse
+	96,  // 254: accounting.v1.AccountingService.ApproveTransaction:output_type -> accounting.v1.ApproveTransactionResponse
+	98,  // 255: accounting.v1.AccountingService.GetApprovalHistory:output_type -> accounting.v1.GetApprovalHistoryResponse
+	71,  // 256: accounting.v1.AccountingService.HealthCheck:output_type -> accounting.v1.HealthCheckResponse
+	102, // 257: accounting.v1.AccountingService.CreateAgent:output_type -> accounting.v1.CreateAgentResponse
+	104, // 258: accounting.v1.AccountingService.UpdateAgent:output_type -> accounting.v1.UpdateAgentResponse
+	106, // 259: accounting.v1.AccountingService.DeleteAgent:output_type -> accounting.v1.DeleteAgentResponse
+	108, // 260: accounting.v1.AccountingService.GetAgentByID:output_type -> accounting.v1.GetAgentByIDResponse
+	110, // 261: accounting.v1.AccountingService.GetAgentByUserID:output_type -> accounting.v1.GetAgentByUserIDResponse
+	112, // 262: accounting.v1.AccountingService.ListAgents:output_type -> accounting.v1.ListAgentsResponse
+	116, // 263: accounting.v1.AccountingService.GetAgentsByCountries:output_type -> accounting.v1.GetAgentsByCountriesResponse
+	118, // 264: accounting.v1.AccountingService.GetAgentStats:output_type -> accounting.v1.GetAgentStatsResponse
+	114, // 265: accounting.v1.AccountingService.ListCommissionsForAgent:output_type -> accounting.v1.ListCommissionsForAgentResponse
+	218, // [218:266] is the sub-list for method output_type
+	170, // [170:218] is the sub-list for method input_type
+	170, // [170:170] is the sub-list for extension type_name
+	170, // [170:170] is the sub-list for extension extendee
+	0,   // [0:170] is the sub-list for field type_name
 }
 
 func init() { file_proto_shared_accounting_account_proto_init() }
@@ -9360,13 +9901,16 @@ func file_proto_shared_accounting_account_proto_init() {
 	file_proto_shared_accounting_account_proto_msgTypes[90].OneofWrappers = []any{}
 	file_proto_shared_accounting_account_proto_msgTypes[91].OneofWrappers = []any{}
 	file_proto_shared_accounting_account_proto_msgTypes[93].OneofWrappers = []any{}
+	file_proto_shared_accounting_account_proto_msgTypes[101].OneofWrappers = []any{}
+	file_proto_shared_accounting_account_proto_msgTypes[105].OneofWrappers = []any{}
+	file_proto_shared_accounting_account_proto_msgTypes[107].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_shared_accounting_account_proto_rawDesc), len(file_proto_shared_accounting_account_proto_rawDesc)),
-			NumEnums:      9,
-			NumMessages:   114,
+			NumEnums:      10,
+			NumMessages:   123,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

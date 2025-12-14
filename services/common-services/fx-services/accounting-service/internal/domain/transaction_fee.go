@@ -2,6 +2,7 @@ package domain
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 )
 
@@ -40,6 +41,7 @@ type TransactionFeeRule struct {
 	MinFee            *float64             `json:"min_fee,omitempty" db:"min_fee"` // In smallest unit
 	MaxFee            *float64             `json:"max_fee,omitempty" db:"max_fee"` // In smallest unit
 	Tiers             json.RawMessage      `json:"tiers,omitempty" db:"tiers"`     // JSONB for tiered fees
+	Tariffs           *string         `json:"tariffs,omitempty"`
 	ValidFrom         time.Time            `json:"valid_from" db:"valid_from"`
 	ValidTo           *time.Time           `json:"valid_to,omitempty" db:"valid_to"`
 	IsActive          bool                 `json:"is_active" db:"is_active"`
@@ -89,6 +91,7 @@ type FeeRuleCreate struct {
 	ValidTo           *time.Time
 	IsActive          bool
 	Priority          int
+	Tariffs           *string         `json:"tariffs,omitempty"`
 }
 
 // FeeRuleFilter represents filter criteria for fee rule queries
@@ -172,6 +175,61 @@ func (r *TransactionFeeRule) SetTiers(tiers []FeeTier) error {
 	r.Tiers = bytes
 	return nil
 }
+
+// domain/fee_rule. go
+
+// Tariff structure (amount-based pricing)
+type Tariff struct {
+    MinAmount         float64  `json:"min_amount"`                    // Minimum amount (inclusive)
+    MaxAmount         *float64 `json:"max_amount,omitempty"`          // Maximum amount (inclusive), null = infinity
+    CalculationMethod string   `json:"calculation_method"`             // ✅ NEW: "percentage" or "fixed"
+    FeeBps            *float64 `json:"fee_bps,omitempty"`             // ✅ CHANGED: Optional - for percentage
+    FixedFee          *float64 `json:"fixed_fee,omitempty"`           // Optional - can be used alone or added to percentage
+}
+
+// Validation constants
+const (
+    TariffCalculationPercentage = "percentage"
+    TariffCalculationFixed      = "fixed"
+)
+// ✅ NEW:  GetTariffs parses the tariffs JSON
+func (r *TransactionFeeRule) GetTariffs() ([]Tariff, error) {
+	if r.Tariffs == nil || *r.Tariffs == "" {
+		return nil, nil
+	}
+
+	var tariffs []Tariff
+	err := json.Unmarshal([]byte(*r.Tariffs), &tariffs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse tariffs: %w", err)
+	}
+
+	return tariffs, nil
+}
+
+// ✅ NEW: FindApplicableTariff finds the tariff for a given amount
+func (r *TransactionFeeRule) FindApplicableTariff(amount float64) (*Tariff, error) {
+	tariffs, err := r.GetTariffs()
+	if err != nil {
+		return nil, err
+	}
+
+	if len(tariffs) == 0 {
+		return nil, nil // No tariffs defined
+	}
+
+	// Find matching tariff based on amount
+	for _, tariff := range tariffs {
+		if amount >= tariff.MinAmount {
+			if tariff.MaxAmount == nil || amount <= *tariff. MaxAmount {
+				return &tariff, nil
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("no tariff found for amount: %.2f", amount)
+}
+
 
 // DefaultTransactionFeeRules returns realistic fee rules matching the schema
 func DefaultTransactionFeeRules() []*TransactionFeeRule {

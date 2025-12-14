@@ -57,7 +57,8 @@ func (r *transactionFeeRuleRepo) BeginTx(ctx context.Context) (pgx.Tx, error) {
 // ===============================
 
 // Create inserts a new fee rule
-func (r *transactionFeeRuleRepo) Create(ctx context.Context, tx pgx.Tx, rule *domain.FeeRuleCreate) (*domain.TransactionFeeRule, error) {
+// Create inserts a new fee rule
+func (r *transactionFeeRuleRepo) Create(ctx context.Context, tx pgx. Tx, rule *domain.FeeRuleCreate) (*domain.TransactionFeeRule, error) {
 	if tx == nil {
 		return nil, errors.New("transaction cannot be nil")
 	}
@@ -67,42 +68,43 @@ func (r *transactionFeeRuleRepo) Create(ctx context.Context, tx pgx.Tx, rule *do
 		return nil, errors.New("source currency code must be 8 characters or less")
 	}
 	if rule.TargetCurrency != nil && len(*rule.TargetCurrency) > 8 {
-		return nil, errors.New("target currency code must be 8 characters or less")
+		return nil, errors. New("target currency code must be 8 characters or less")
 	}
 
 	query := `
 		INSERT INTO transaction_fee_rules (
 			rule_name, transaction_type, source_currency, target_currency,
 			account_type, owner_type, fee_type, calculation_method,
-			fee_value, min_fee, max_fee, tiers,
+			fee_value, min_fee, max_fee, tiers, tariffs,
 			valid_from, valid_to, is_active, priority, created_at, updated_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
 		RETURNING id, created_at, updated_at
 	`
 
 	now := time.Now()
-	if rule.ValidFrom.IsZero() {
+	if rule.ValidFrom. IsZero() {
 		rule.ValidFrom = now
 	}
 
 	var feeRule domain.TransactionFeeRule
 	feeRule.RuleName = rule.RuleName
-	feeRule.TransactionType = rule.TransactionType
-	feeRule.SourceCurrency = rule.SourceCurrency
+	feeRule.TransactionType = rule. TransactionType
+	feeRule.SourceCurrency = rule. SourceCurrency
 	feeRule.TargetCurrency = rule.TargetCurrency
 	feeRule.AccountType = rule.AccountType
 	feeRule.OwnerType = rule.OwnerType
 	feeRule.FeeType = rule.FeeType
 	feeRule.CalculationMethod = rule.CalculationMethod
 	feeRule.FeeValue = rule.FeeValue
-	feeRule.MinFee = rule.MinFee
+	feeRule.MinFee = rule. MinFee
 	feeRule.MaxFee = rule.MaxFee
-	feeRule.Tiers = rule.Tiers
+	feeRule. Tiers = rule.Tiers
+	feeRule. Tariffs = rule.Tariffs // ✅ NEW
 	feeRule.ValidFrom = rule.ValidFrom
 	feeRule.ValidTo = rule.ValidTo
 	feeRule.IsActive = rule.IsActive
-	feeRule.Priority = rule.Priority
+	feeRule.Priority = rule. Priority
 
 	err := tx.QueryRow(ctx, query,
 		rule.RuleName,
@@ -112,14 +114,15 @@ func (r *transactionFeeRuleRepo) Create(ctx context.Context, tx pgx.Tx, rule *do
 		rule.AccountType,
 		rule.OwnerType,
 		rule.FeeType,
-		rule.CalculationMethod,
-		rule.FeeValue,
-		rule.MinFee,
-		rule.MaxFee,
-		rule.Tiers,
+		rule. CalculationMethod,
+		rule. FeeValue,
+		rule. MinFee,
+		rule. MaxFee,
+		rule. Tiers,
+		rule. Tariffs, // ✅ NEW
 		rule.ValidFrom,
 		rule.ValidTo,
-		rule.IsActive,
+		rule. IsActive,
 		rule.Priority,
 		now,
 		now,
@@ -132,6 +135,7 @@ func (r *transactionFeeRuleRepo) Create(ctx context.Context, tx pgx.Tx, rule *do
 	return &feeRule, nil
 }
 
+// CreateBatch creates multiple fee rules (bulk insert)
 // CreateBatch creates multiple fee rules (bulk insert)
 func (r *transactionFeeRuleRepo) CreateBatch(ctx context.Context, tx pgx.Tx, rules []*domain.FeeRuleCreate) ([]*domain.TransactionFeeRule, map[int]error) {
 	if tx == nil {
@@ -150,10 +154,10 @@ func (r *transactionFeeRuleRepo) CreateBatch(ctx context.Context, tx pgx.Tx, rul
 		INSERT INTO transaction_fee_rules (
 			rule_name, transaction_type, source_currency, target_currency,
 			account_type, owner_type, fee_type, calculation_method,
-			fee_value, min_fee, max_fee, tiers,
+			fee_value, min_fee, max_fee, tiers, tariffs,
 			valid_from, valid_to, is_active, priority, created_at, updated_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
 		RETURNING id, created_at, updated_at
 	`
 
@@ -163,7 +167,7 @@ func (r *transactionFeeRuleRepo) CreateBatch(ctx context.Context, tx pgx.Tx, rul
 
 	for i, rule := range rules {
 		// Validate currency codes
-		if rule.SourceCurrency != nil && len(*rule.SourceCurrency) > 8 {
+		if rule.SourceCurrency != nil && len(*rule. SourceCurrency) > 8 {
 			errs[i] = errors.New("source currency code must be 8 characters or less")
 			continue
 		}
@@ -181,17 +185,18 @@ func (r *transactionFeeRuleRepo) CreateBatch(ctx context.Context, tx pgx.Tx, rul
 			rule.TransactionType,
 			rule.SourceCurrency,
 			rule.TargetCurrency,
-			rule.AccountType,
-			rule.OwnerType,
-			rule.FeeType,
-			rule.CalculationMethod,
+			rule. AccountType,
+			rule. OwnerType,
+			rule. FeeType,
+			rule. CalculationMethod,
 			rule.FeeValue,
 			rule.MinFee,
 			rule.MaxFee,
 			rule.Tiers,
+			rule.Tariffs, // ✅ NEW
 			rule.ValidFrom,
 			rule.ValidTo,
-			rule.IsActive,
+			rule. IsActive,
 			rule.Priority,
 			now,
 			now,
@@ -209,22 +214,23 @@ func (r *transactionFeeRuleRepo) CreateBatch(ctx context.Context, tx pgx.Tx, rul
 		rule := validRules[batchIdx]
 
 		var feeRule domain.TransactionFeeRule
-		feeRule.RuleName = rule.RuleName
+		feeRule. RuleName = rule.RuleName
 		feeRule.TransactionType = rule.TransactionType
 		feeRule.SourceCurrency = rule.SourceCurrency
-		feeRule.TargetCurrency = rule.TargetCurrency
+		feeRule. TargetCurrency = rule. TargetCurrency
 		feeRule.AccountType = rule.AccountType
-		feeRule.OwnerType = rule.OwnerType
-		feeRule.FeeType = rule.FeeType
-		feeRule.CalculationMethod = rule.CalculationMethod
-		feeRule.FeeValue = rule.FeeValue
+		feeRule. OwnerType = rule.OwnerType
+		feeRule. FeeType = rule.FeeType
+		feeRule. CalculationMethod = rule.CalculationMethod
+		feeRule. FeeValue = rule.FeeValue
 		feeRule.MinFee = rule.MinFee
 		feeRule.MaxFee = rule.MaxFee
 		feeRule.Tiers = rule.Tiers
+		feeRule.Tariffs = rule.Tariffs // ✅ NEW
 		feeRule.ValidFrom = rule.ValidFrom
 		feeRule.ValidTo = rule.ValidTo
-		feeRule.IsActive = rule.IsActive
-		feeRule.Priority = rule.Priority
+		feeRule.IsActive = rule. IsActive
+		feeRule. Priority = rule.Priority
 
 		err := br.QueryRow().Scan(&feeRule.ID, &feeRule.CreatedAt, &feeRule.UpdatedAt)
 		if err != nil {
@@ -239,7 +245,8 @@ func (r *transactionFeeRuleRepo) CreateBatch(ctx context.Context, tx pgx.Tx, rul
 }
 
 // Update updates an existing fee rule
-func (r *transactionFeeRuleRepo) Update(ctx context.Context, tx pgx.Tx, rule *domain.TransactionFeeRule) error {
+// Update updates an existing fee rule
+func (r *transactionFeeRuleRepo) Update(ctx context. Context, tx pgx.Tx, rule *domain.TransactionFeeRule) error {
 	if tx == nil {
 		return errors.New("transaction cannot be nil")
 	}
@@ -252,23 +259,25 @@ func (r *transactionFeeRuleRepo) Update(ctx context.Context, tx pgx.Tx, rule *do
 			min_fee = $4,
 			max_fee = $5,
 			tiers = $6,
-			valid_to = $7,
-			is_active = $8,
-			priority = $9,
-			updated_at = $10
+			tariffs = $7,
+			valid_to = $8,
+			is_active = $9,
+			priority = $10,
+			updated_at = $11
 		WHERE id = $1
 	`
 
-	cmdTag, err := tx.Exec(ctx, query,
+	cmdTag, err := tx. Exec(ctx, query,
 		rule.ID,
-		rule.RuleName,
-		rule.FeeValue,
-		rule.MinFee,
-		rule.MaxFee,
-		rule.Tiers,
+		rule. RuleName,
+		rule. FeeValue,
+		rule. MinFee,
+		rule. MaxFee,
+		rule. Tiers,
+		rule. Tariffs, // ✅ NEW
 		rule.ValidTo,
 		rule.IsActive,
-		rule.Priority,
+		rule. Priority,
 		time.Now(),
 	)
 
@@ -289,27 +298,28 @@ func (r *transactionFeeRuleRepo) GetByID(ctx context.Context, id int64) (*domain
 		SELECT 
 			id, rule_name, transaction_type, source_currency, target_currency,
 			account_type, owner_type, fee_type, calculation_method,
-			fee_value, min_fee, max_fee, tiers,
+			fee_value, min_fee, max_fee, tiers, tariffs,
 			valid_from, valid_to, is_active, priority, created_at, updated_at
 		FROM transaction_fee_rules
 		WHERE id = $1
 	`
 
 	var rule domain.TransactionFeeRule
-	err := r.db.QueryRow(ctx, query, id).Scan(
+	err := r.db. QueryRow(ctx, query, id).Scan(
 		&rule.ID,
-		&rule.RuleName,
+		&rule. RuleName,
 		&rule.TransactionType,
 		&rule.SourceCurrency,
 		&rule.TargetCurrency,
 		&rule.AccountType,
-		&rule.OwnerType,
+		&rule. OwnerType,
 		&rule.FeeType,
 		&rule.CalculationMethod,
 		&rule.FeeValue,
 		&rule.MinFee,
 		&rule.MaxFee,
-		&rule.Tiers,
+		&rule. Tiers,
+		&rule. Tariffs, // ✅ NEW
 		&rule.ValidFrom,
 		&rule.ValidTo,
 		&rule.IsActive,
@@ -320,9 +330,9 @@ func (r *transactionFeeRuleRepo) GetByID(ctx context.Context, id int64) (*domain
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, xerrors.ErrNotFound
+			return nil, xerrors. ErrNotFound
 		}
-		return nil, fmt.Errorf("failed to get fee rule: %w", err)
+		return nil, fmt.Errorf("failed to get fee rule:  %w", err)
 	}
 
 	return &rule, nil
@@ -356,7 +366,7 @@ func (r *transactionFeeRuleRepo) List(ctx context.Context, filter *domain.FeeRul
 		SELECT 
 			id, rule_name, transaction_type, source_currency, target_currency,
 			account_type, owner_type, fee_type, calculation_method,
-			fee_value, min_fee, max_fee, tiers,
+			fee_value, min_fee, max_fee, tiers, tariffs,
 			valid_from, valid_to, is_active, priority, created_at, updated_at
 		FROM transaction_fee_rules
 		WHERE 1=1
@@ -429,27 +439,28 @@ func (r *transactionFeeRuleRepo) List(ctx context.Context, filter *domain.FeeRul
 
 	rows, err := r.db.Query(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list fee rules: %w", err)
+		return nil, fmt. Errorf("failed to list fee rules: %w", err)
 	}
 	defer rows.Close()
 
-	var rules []*domain.TransactionFeeRule
+	var rules []*domain. TransactionFeeRule
 	for rows.Next() {
 		var rule domain.TransactionFeeRule
 		err := rows.Scan(
 			&rule.ID,
 			&rule.RuleName,
 			&rule.TransactionType,
-			&rule.SourceCurrency,
+			&rule. SourceCurrency,
 			&rule.TargetCurrency,
 			&rule.AccountType,
 			&rule.OwnerType,
 			&rule.FeeType,
-			&rule.CalculationMethod,
+			&rule. CalculationMethod,
 			&rule.FeeValue,
 			&rule.MinFee,
 			&rule.MaxFee,
 			&rule.Tiers,
+			&rule.Tariffs, // ✅ NEW
 			&rule.ValidFrom,
 			&rule.ValidTo,
 			&rule.IsActive,
@@ -463,20 +474,16 @@ func (r *transactionFeeRuleRepo) List(ctx context.Context, filter *domain.FeeRul
 		rules = append(rules, &rule)
 	}
 
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating fee rule rows: %w", err)
-	}
-
-	return rules, nil
+	return rules, rows.Err()
 }
 
 // ListActive fetches all active fee rules (uses idx_fee_rules_lookup)
-func (r *transactionFeeRuleRepo) ListActive(ctx context.Context) ([]*domain.TransactionFeeRule, error) {
+func (r *transactionFeeRuleRepo) ListActive(ctx context. Context) ([]*domain.TransactionFeeRule, error) {
 	query := `
 		SELECT 
 			id, rule_name, transaction_type, source_currency, target_currency,
 			account_type, owner_type, fee_type, calculation_method,
-			fee_value, min_fee, max_fee, tiers,
+			fee_value, min_fee, max_fee, tiers, tariffs,
 			valid_from, valid_to, is_active, priority, created_at, updated_at
 		FROM transaction_fee_rules
 		WHERE is_active = true AND valid_to IS NULL
@@ -485,27 +492,28 @@ func (r *transactionFeeRuleRepo) ListActive(ctx context.Context) ([]*domain.Tran
 
 	rows, err := r.db.Query(ctx, query)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list active fee rules: %w", err)
+		return nil, fmt. Errorf("failed to list active fee rules: %w", err)
 	}
-	defer rows.Close()
+	defer rows. Close()
 
 	var rules []*domain.TransactionFeeRule
 	for rows.Next() {
 		var rule domain.TransactionFeeRule
-		err := rows.Scan(
-			&rule.ID,
+		err := rows. Scan(
+			&rule. ID,
 			&rule.RuleName,
-			&rule.TransactionType,
+			&rule. TransactionType,
 			&rule.SourceCurrency,
 			&rule.TargetCurrency,
 			&rule.AccountType,
 			&rule.OwnerType,
-			&rule.FeeType,
+			&rule. FeeType,
 			&rule.CalculationMethod,
 			&rule.FeeValue,
 			&rule.MinFee,
 			&rule.MaxFee,
 			&rule.Tiers,
+			&rule. Tariffs, // ✅ NEW
 			&rule.ValidFrom,
 			&rule.ValidTo,
 			&rule.IsActive,
@@ -519,11 +527,7 @@ func (r *transactionFeeRuleRepo) ListActive(ctx context.Context) ([]*domain.Tran
 		rules = append(rules, &rule)
 	}
 
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating fee rule rows: %w", err)
-	}
-
-	return rules, nil
+	return rules, rows.Err()
 }
 
 // ===============================
@@ -533,17 +537,11 @@ func (r *transactionFeeRuleRepo) ListActive(ctx context.Context) ([]*domain.Tran
 // FindBestMatch finds the best matching fee rule based on priority
 // Returns the FIRST match (highest priority) or nil if no match
 func (r *transactionFeeRuleRepo) FindBestMatch(ctx context.Context, transactionType domain.TransactionType, sourceCurrency, targetCurrency *string, accountType *domain.AccountType, ownerType *domain.OwnerType) (*domain.TransactionFeeRule, error) {
-	// Priority matching logic:
-	// 1. Exact match (all fields)
-	// 2. Partial match (some NULL fields)
-	// 3. Generic match (only transaction_type)
-	// Always order by priority DESC
-
 	query := `
 		SELECT 
 			id, rule_name, transaction_type, source_currency, target_currency,
 			account_type, owner_type, fee_type, calculation_method,
-			fee_value, min_fee, max_fee, tiers,
+			fee_value, min_fee, max_fee, tiers, tariffs,
 			valid_from, valid_to, is_active, priority, created_at, updated_at
 		FROM transaction_fee_rules
 		WHERE is_active = true 
@@ -555,7 +553,7 @@ func (r *transactionFeeRuleRepo) FindBestMatch(ctx context.Context, transactionT
 		  AND (owner_type IS NULL OR owner_type = $5)
 		ORDER BY 
 			priority DESC,
-			(source_currency IS NOT NULL)::int DESC,
+			(source_currency IS NOT NULL):: int DESC,
 			(target_currency IS NOT NULL)::int DESC,
 			(account_type IS NOT NULL)::int DESC,
 			(owner_type IS NOT NULL)::int DESC
@@ -563,20 +561,21 @@ func (r *transactionFeeRuleRepo) FindBestMatch(ctx context.Context, transactionT
 	`
 
 	var rule domain.TransactionFeeRule
-	err := r.db.QueryRow(ctx, query, transactionType, sourceCurrency, targetCurrency, accountType, ownerType).Scan(
+	err := r. db.QueryRow(ctx, query, transactionType, sourceCurrency, targetCurrency, accountType, ownerType).Scan(
 		&rule.ID,
 		&rule.RuleName,
 		&rule.TransactionType,
 		&rule.SourceCurrency,
-		&rule.TargetCurrency,
+		&rule. TargetCurrency,
 		&rule.AccountType,
 		&rule.OwnerType,
 		&rule.FeeType,
 		&rule.CalculationMethod,
 		&rule.FeeValue,
-		&rule.MinFee,
+		&rule. MinFee,
 		&rule.MaxFee,
 		&rule.Tiers,
+		&rule.Tariffs, // ✅ NEW
 		&rule.ValidFrom,
 		&rule.ValidTo,
 		&rule.IsActive,
@@ -587,21 +586,20 @@ func (r *transactionFeeRuleRepo) FindBestMatch(ctx context.Context, transactionT
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil // No matching rule found
+			return nil, nil
 		}
-		return nil, fmt.Errorf("failed to find best match: %w", err)
+		return nil, fmt.Errorf("failed to find best match:  %w", err)
 	}
 
 	return &rule, nil
 }
-
 // FindAllMatches finds all matching fee rules (for debugging or multi-fee scenarios)
 func (r *transactionFeeRuleRepo) FindAllMatches(ctx context.Context, transactionType domain.TransactionType, sourceCurrency, targetCurrency *string, accountType *domain.AccountType, ownerType *domain.OwnerType) ([]*domain.TransactionFeeRule, error) {
 	query := `
 		SELECT 
 			id, rule_name, transaction_type, source_currency, target_currency,
 			account_type, owner_type, fee_type, calculation_method,
-			fee_value, min_fee, max_fee, tiers,
+			fee_value, min_fee, max_fee, tiers, tariffs,
 			valid_from, valid_to, is_active, priority, created_at, updated_at
 		FROM transaction_fee_rules
 		WHERE is_active = true 
@@ -621,22 +619,23 @@ func (r *transactionFeeRuleRepo) FindAllMatches(ctx context.Context, transaction
 	defer rows.Close()
 
 	var rules []*domain.TransactionFeeRule
-	for rows.Next() {
+	for rows. Next() {
 		var rule domain.TransactionFeeRule
 		err := rows.Scan(
 			&rule.ID,
 			&rule.RuleName,
 			&rule.TransactionType,
 			&rule.SourceCurrency,
-			&rule.TargetCurrency,
+			&rule. TargetCurrency,
 			&rule.AccountType,
 			&rule.OwnerType,
 			&rule.FeeType,
 			&rule.CalculationMethod,
 			&rule.FeeValue,
-			&rule.MinFee,
+			&rule. MinFee,
 			&rule.MaxFee,
 			&rule.Tiers,
+			&rule.Tariffs, // ✅ NEW
 			&rule.ValidFrom,
 			&rule.ValidTo,
 			&rule.IsActive,
@@ -645,18 +644,13 @@ func (r *transactionFeeRuleRepo) FindAllMatches(ctx context.Context, transaction
 			&rule.UpdatedAt,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan fee rule: %w", err)
+			return nil, fmt. Errorf("failed to scan fee rule: %w", err)
 		}
 		rules = append(rules, &rule)
 	}
 
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating fee rule rows: %w", err)
-	}
-
-	return rules, nil
+	return rules, rows.Err()
 }
-
 // ===============================
 // EXPIRATION
 // ===============================

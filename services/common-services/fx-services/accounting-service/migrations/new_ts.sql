@@ -629,6 +629,81 @@ CREATE TABLE IF NOT EXISTS transaction_fee_rules (
   CONSTRAINT chk_valid_date_range CHECK (valid_to IS NULL OR valid_from < valid_to)
 );
 
+-- Add tariffs column (similar to tiers but for amount-based pricing)
+ALTER TABLE transaction_fee_rules 
+ADD COLUMN tariffs JSONB;
+
+-- Add index for tariffs queries
+CREATE INDEX idx_transaction_fee_rules_tariffs ON transaction_fee_rules USING GIN (tariffs) 
+WHERE tariffs IS NOT NULL;
+
+-- Add constraint to ensure tariffs is valid JSON when present
+ALTER TABLE transaction_fee_rules
+ADD CONSTRAINT chk_tariffs_valid CHECK (
+    tariffs IS NULL OR jsonb_typeof(tariffs) = 'array'
+);
+
+COMMENT ON COLUMN transaction_fee_rules.tariffs IS 
+'Amount-based tariff structure:  [{"min_amount": 0, "max_amount": 100, "fee_bps": 50, "fixed_fee": 0.50}, ...]';
+
+-- CREATE TABLE IF NOT EXISTS tariffs (
+--   id                BIGSERIAL PRIMARY KEY,
+--   tariff_code       VARCHAR(50) NOT NULL UNIQUE,  -- e.g., 'STANDARD', 'VIP', 'PROMO_2024'
+--   tariff_name       TEXT NOT NULL,                -- e.g., 'Standard Plan', 'VIP Plan'
+--   description       TEXT,
+--   tariff_type       VARCHAR(50) NOT NULL,         -- 'user', 'agent', 'partner', 'system'
+  
+--   -- Pricing details
+--   is_default        BOOLEAN NOT NULL DEFAULT false,
+--   is_active         BOOLEAN NOT NULL DEFAULT true,
+--   priority          INT NOT NULL DEFAULT 0,       -- Higher priority = preferred when multiple match
+  
+--   -- Validity period
+--   valid_from        TIMESTAMPTZ NOT NULL DEFAULT now(),
+--   valid_to          TIMESTAMPTZ,
+  
+--   -- Metadata
+--   metadata          JSONB DEFAULT '{}'::jsonb,    -- Additional flexible data
+  
+--   -- Audit
+--   created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+--   updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+--   created_by        TEXT,
+  
+--   CONSTRAINT chk_valid_date_range CHECK (valid_to IS NULL OR valid_from < valid_to),
+--   CONSTRAINT chk_one_default_per_type UNIQUE (tariff_type, is_default) 
+--     WHERE is_default = true  -- Only one default per type
+-- );
+
+-- -- ============================================================================
+-- -- TARIFF FEE RULES JUNCTION TABLE
+-- -- ============================================================================
+-- CREATE TABLE IF NOT EXISTS tariff_fee_rules (
+--   id                BIGSERIAL PRIMARY KEY,
+--   tariff_id         BIGINT NOT NULL REFERENCES tariffs(id) ON DELETE CASCADE,
+--   fee_rule_id       BIGINT NOT NULL REFERENCES transaction_fee_rules(id) ON DELETE CASCADE,
+  
+--   -- Override fee values for this tariff (optional)
+--   override_fee_value      NUMERIC(10,6),
+--   override_min_fee        NUMERIC(30, 18),
+--   override_max_fee        NUMERIC(30, 18),
+  
+--   -- Priority within tariff
+--   priority          INT NOT NULL DEFAULT 0,
+--   is_active         BOOLEAN NOT NULL DEFAULT true,
+  
+--   -- Audit
+--   created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+--   updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  
+--   CONSTRAINT uq_tariff_fee_rule UNIQUE (tariff_id, fee_rule_id),
+--   CONSTRAINT chk_override_min_max CHECK (
+--     override_min_fee IS NULL OR 
+--     override_max_fee IS NULL OR 
+--     override_min_fee <= override_max_fee
+--   )
+-- );
+
 -- Indexes for fee rules (unchanged)
 CREATE UNIQUE INDEX IF NOT EXISTS uq_fee_rule_active_simple
   ON transaction_fee_rules (

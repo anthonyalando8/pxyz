@@ -77,8 +77,8 @@ type Partner struct {
 	Service        string                 `protobuf:"bytes,7,opt,name=service,proto3" json:"service,omitempty"`
 	Currency       string                 `protobuf:"bytes,8,opt,name=currency,proto3" json:"currency,omitempty"`
 	LocalCurrency  string                 `protobuf:"bytes,9,opt,name=local_currency,json=localCurrency,proto3" json:"local_currency,omitempty"`
-	Rate           string                 `protobuf:"bytes,10,opt,name=rate,proto3" json:"rate,omitempty"`
-	InverseRate    string                 `protobuf:"bytes,11,opt,name=inverse_rate,json=inverseRate,proto3" json:"inverse_rate,omitempty"`
+	Rate           float64                `protobuf:"fixed64,10,opt,name=rate,proto3" json:"rate,omitempty"`                                  // ✅ Changed from string to double
+	InverseRate    float64                `protobuf:"fixed64,11,opt,name=inverse_rate,json=inverseRate,proto3" json:"inverse_rate,omitempty"` // ✅ Changed from string to double
 	CommissionRate float64                `protobuf:"fixed64,12,opt,name=commission_rate,json=commissionRate,proto3" json:"commission_rate,omitempty"`
 	ApiKey         string                 `protobuf:"bytes,13,opt,name=api_key,json=apiKey,proto3" json:"api_key,omitempty"`
 	IsApiEnabled   bool                   `protobuf:"varint,14,opt,name=is_api_enabled,json=isApiEnabled,proto3" json:"is_api_enabled,omitempty"`
@@ -185,18 +185,18 @@ func (x *Partner) GetLocalCurrency() string {
 	return ""
 }
 
-func (x *Partner) GetRate() string {
+func (x *Partner) GetRate() float64 {
 	if x != nil {
 		return x.Rate
 	}
-	return ""
+	return 0
 }
 
-func (x *Partner) GetInverseRate() string {
+func (x *Partner) GetInverseRate() float64 {
 	if x != nil {
 		return x.InverseRate
 	}
-	return ""
+	return 0
 }
 
 func (x *Partner) GetCommissionRate() float64 {
@@ -263,21 +263,24 @@ func (x *Partner) GetAllowedIps() []string {
 }
 
 type PartnerTransaction struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	Id             int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	PartnerId      string                 `protobuf:"bytes,2,opt,name=partner_id,json=partnerId,proto3" json:"partner_id,omitempty"`
-	TransactionRef string                 `protobuf:"bytes,3,opt,name=transaction_ref,json=transactionRef,proto3" json:"transaction_ref,omitempty"`
-	UserId         string                 `protobuf:"bytes,4,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	Amount         float64                `protobuf:"fixed64,5,opt,name=amount,proto3" json:"amount,omitempty"`
-	Currency       string                 `protobuf:"bytes,6,opt,name=currency,proto3" json:"currency,omitempty"`
-	Status         string                 `protobuf:"bytes,7,opt,name=status,proto3" json:"status,omitempty"`
-	PaymentMethod  string                 `protobuf:"bytes,8,opt,name=payment_method,json=paymentMethod,proto3" json:"payment_method,omitempty"`
-	ExternalRef    string                 `protobuf:"bytes,9,opt,name=external_ref,json=externalRef,proto3" json:"external_ref,omitempty"`
-	ProcessedAt    *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=processed_at,json=processedAt,proto3" json:"processed_at,omitempty"`
-	CreatedAt      *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt      *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Id              int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	PartnerId       string                 `protobuf:"bytes,2,opt,name=partner_id,json=partnerId,proto3" json:"partner_id,omitempty"`
+	TransactionRef  string                 `protobuf:"bytes,3,opt,name=transaction_ref,json=transactionRef,proto3" json:"transaction_ref,omitempty"`
+	UserId          string                 `protobuf:"bytes,4,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Amount          float64                `protobuf:"fixed64,5,opt,name=amount,proto3" json:"amount,omitempty"`
+	Currency        string                 `protobuf:"bytes,6,opt,name=currency,proto3" json:"currency,omitempty"`
+	Status          string                 `protobuf:"bytes,7,opt,name=status,proto3" json:"status,omitempty"`
+	PaymentMethod   string                 `protobuf:"bytes,8,opt,name=payment_method,json=paymentMethod,proto3" json:"payment_method,omitempty"`
+	TransactionType string                 `protobuf:"bytes,9,opt,name=transaction_type,json=transactionType,proto3" json:"transaction_type,omitempty"`
+	ExternalRef     string                 `protobuf:"bytes,10,opt,name=external_ref,json=externalRef,proto3" json:"external_ref,omitempty"`
+	ErrorMessage    string                 `protobuf:"bytes,11,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	Metadata        map[string]string      `protobuf:"bytes,12,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	ProcessedAt     *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=processed_at,json=processedAt,proto3" json:"processed_at,omitempty"`
+	CreatedAt       *timestamppb.Timestamp `protobuf:"bytes,14,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt       *timestamppb.Timestamp `protobuf:"bytes,15,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *PartnerTransaction) Reset() {
@@ -366,11 +369,32 @@ func (x *PartnerTransaction) GetPaymentMethod() string {
 	return ""
 }
 
+func (x *PartnerTransaction) GetTransactionType() string {
+	if x != nil {
+		return x.TransactionType
+	}
+	return ""
+}
+
 func (x *PartnerTransaction) GetExternalRef() string {
 	if x != nil {
 		return x.ExternalRef
 	}
 	return ""
+}
+
+func (x *PartnerTransaction) GetErrorMessage() string {
+	if x != nil {
+		return x.ErrorMessage
+	}
+	return ""
+}
+
+func (x *PartnerTransaction) GetMetadata() map[string]string {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
 }
 
 func (x *PartnerTransaction) GetProcessedAt() *timestamppb.Timestamp {
@@ -441,7 +465,7 @@ func (x *GenerateAPICredentialsRequest) GetPartnerId() string {
 type APICredentialsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ApiKey        string                 `protobuf:"bytes,1,opt,name=api_key,json=apiKey,proto3" json:"api_key,omitempty"`
-	ApiSecret     string                 `protobuf:"bytes,2,opt,name=api_secret,json=apiSecret,proto3" json:"api_secret,omitempty"` // Only returned once during generation
+	ApiSecret     string                 `protobuf:"bytes,2,opt,name=api_secret,json=apiSecret,proto3" json:"api_secret,omitempty"`
 	PartnerId     string                 `protobuf:"bytes,3,opt,name=partner_id,json=partnerId,proto3" json:"partner_id,omitempty"`
 	ExpiresAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -717,7 +741,7 @@ func (x *UpdateAPISettingsRequest) GetAllowedIps() []string {
 type InitiateDepositRequest struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	PartnerId      string                 `protobuf:"bytes,1,opt,name=partner_id,json=partnerId,proto3" json:"partner_id,omitempty"`
-	TransactionRef string                 `protobuf:"bytes,2,opt,name=transaction_ref,json=transactionRef,proto3" json:"transaction_ref,omitempty"` // Partner's unique reference
+	TransactionRef string                 `protobuf:"bytes,2,opt,name=transaction_ref,json=transactionRef,proto3" json:"transaction_ref,omitempty"`
 	UserId         string                 `protobuf:"bytes,3,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	Amount         float64                `protobuf:"fixed64,4,opt,name=amount,proto3" json:"amount,omitempty"`
 	Currency       string                 `protobuf:"bytes,5,opt,name=currency,proto3" json:"currency,omitempty"`
@@ -815,13 +839,15 @@ func (x *InitiateDepositRequest) GetMetadata() map[string]string {
 }
 
 type InitiateDepositResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	TransactionId string                 `protobuf:"bytes,2,opt,name=transaction_id,json=transactionId,proto3" json:"transaction_id,omitempty"`
-	Status        string                 `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`
-	Message       string                 `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Success        bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	TransactionId  int64                  `protobuf:"varint,2,opt,name=transaction_id,json=transactionId,proto3" json:"transaction_id,omitempty"`
+	TransactionRef string                 `protobuf:"bytes,3,opt,name=transaction_ref,json=transactionRef,proto3" json:"transaction_ref,omitempty"`
+	Status         string                 `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"`
+	Message        string                 `protobuf:"bytes,5,opt,name=message,proto3" json:"message,omitempty"`
+	CreatedAt      *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *InitiateDepositResponse) Reset() {
@@ -861,9 +887,16 @@ func (x *InitiateDepositResponse) GetSuccess() bool {
 	return false
 }
 
-func (x *InitiateDepositResponse) GetTransactionId() string {
+func (x *InitiateDepositResponse) GetTransactionId() int64 {
 	if x != nil {
 		return x.TransactionId
+	}
+	return 0
+}
+
+func (x *InitiateDepositResponse) GetTransactionRef() string {
+	if x != nil {
+		return x.TransactionRef
 	}
 	return ""
 }
@@ -882,6 +915,293 @@ func (x *InitiateDepositResponse) GetMessage() string {
 	return ""
 }
 
+func (x *InitiateDepositResponse) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+type InitiateWithdrawalRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	PartnerId      string                 `protobuf:"bytes,1,opt,name=partner_id,json=partnerId,proto3" json:"partner_id,omitempty"`
+	TransactionRef string                 `protobuf:"bytes,2,opt,name=transaction_ref,json=transactionRef,proto3" json:"transaction_ref,omitempty"`
+	UserId         string                 `protobuf:"bytes,3,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Amount         float64                `protobuf:"fixed64,4,opt,name=amount,proto3" json:"amount,omitempty"`
+	Currency       string                 `protobuf:"bytes,5,opt,name=currency,proto3" json:"currency,omitempty"`
+	PaymentMethod  string                 `protobuf:"bytes,6,opt,name=payment_method,json=paymentMethod,proto3" json:"payment_method,omitempty"`
+	ExternalRef    string                 `protobuf:"bytes,7,opt,name=external_ref,json=externalRef,proto3" json:"external_ref,omitempty"`
+	Metadata       map[string]string      `protobuf:"bytes,8,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *InitiateWithdrawalRequest) Reset() {
+	*x = InitiateWithdrawalRequest{}
+	mi := &file_proto_partner_svc_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *InitiateWithdrawalRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*InitiateWithdrawalRequest) ProtoMessage() {}
+
+func (x *InitiateWithdrawalRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_partner_svc_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use InitiateWithdrawalRequest.ProtoReflect.Descriptor instead.
+func (*InitiateWithdrawalRequest) Descriptor() ([]byte, []int) {
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *InitiateWithdrawalRequest) GetPartnerId() string {
+	if x != nil {
+		return x.PartnerId
+	}
+	return ""
+}
+
+func (x *InitiateWithdrawalRequest) GetTransactionRef() string {
+	if x != nil {
+		return x.TransactionRef
+	}
+	return ""
+}
+
+func (x *InitiateWithdrawalRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *InitiateWithdrawalRequest) GetAmount() float64 {
+	if x != nil {
+		return x.Amount
+	}
+	return 0
+}
+
+func (x *InitiateWithdrawalRequest) GetCurrency() string {
+	if x != nil {
+		return x.Currency
+	}
+	return ""
+}
+
+func (x *InitiateWithdrawalRequest) GetPaymentMethod() string {
+	if x != nil {
+		return x.PaymentMethod
+	}
+	return ""
+}
+
+func (x *InitiateWithdrawalRequest) GetExternalRef() string {
+	if x != nil {
+		return x.ExternalRef
+	}
+	return ""
+}
+
+func (x *InitiateWithdrawalRequest) GetMetadata() map[string]string {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
+type InitiateWithdrawalResponse struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Success        bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	TransactionId  int64                  `protobuf:"varint,2,opt,name=transaction_id,json=transactionId,proto3" json:"transaction_id,omitempty"`
+	TransactionRef string                 `protobuf:"bytes,3,opt,name=transaction_ref,json=transactionRef,proto3" json:"transaction_ref,omitempty"`
+	Status         string                 `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"`
+	Message        string                 `protobuf:"bytes,5,opt,name=message,proto3" json:"message,omitempty"`
+	CreatedAt      *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *InitiateWithdrawalResponse) Reset() {
+	*x = InitiateWithdrawalResponse{}
+	mi := &file_proto_partner_svc_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *InitiateWithdrawalResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*InitiateWithdrawalResponse) ProtoMessage() {}
+
+func (x *InitiateWithdrawalResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_partner_svc_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use InitiateWithdrawalResponse.ProtoReflect.Descriptor instead.
+func (*InitiateWithdrawalResponse) Descriptor() ([]byte, []int) {
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *InitiateWithdrawalResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *InitiateWithdrawalResponse) GetTransactionId() int64 {
+	if x != nil {
+		return x.TransactionId
+	}
+	return 0
+}
+
+func (x *InitiateWithdrawalResponse) GetTransactionRef() string {
+	if x != nil {
+		return x.TransactionRef
+	}
+	return ""
+}
+
+func (x *InitiateWithdrawalResponse) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *InitiateWithdrawalResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *InitiateWithdrawalResponse) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+type GetTransactionByRefRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	PartnerId      string                 `protobuf:"bytes,1,opt,name=partner_id,json=partnerId,proto3" json:"partner_id,omitempty"`
+	TransactionRef string                 `protobuf:"bytes,2,opt,name=transaction_ref,json=transactionRef,proto3" json:"transaction_ref,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *GetTransactionByRefRequest) Reset() {
+	*x = GetTransactionByRefRequest{}
+	mi := &file_proto_partner_svc_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTransactionByRefRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTransactionByRefRequest) ProtoMessage() {}
+
+func (x *GetTransactionByRefRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_partner_svc_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTransactionByRefRequest.ProtoReflect.Descriptor instead.
+func (*GetTransactionByRefRequest) Descriptor() ([]byte, []int) {
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *GetTransactionByRefRequest) GetPartnerId() string {
+	if x != nil {
+		return x.PartnerId
+	}
+	return ""
+}
+
+func (x *GetTransactionByRefRequest) GetTransactionRef() string {
+	if x != nil {
+		return x.TransactionRef
+	}
+	return ""
+}
+
+type TransactionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Transaction   *PartnerTransaction    `protobuf:"bytes,1,opt,name=transaction,proto3" json:"transaction,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TransactionResponse) Reset() {
+	*x = TransactionResponse{}
+	mi := &file_proto_partner_svc_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TransactionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TransactionResponse) ProtoMessage() {}
+
+func (x *TransactionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_partner_svc_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TransactionResponse.ProtoReflect.Descriptor instead.
+func (*TransactionResponse) Descriptor() ([]byte, []int) {
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *TransactionResponse) GetTransaction() *PartnerTransaction {
+	if x != nil {
+		return x.Transaction
+	}
+	return nil
+}
+
 type GetTransactionStatusRequest struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	PartnerId      string                 `protobuf:"bytes,1,opt,name=partner_id,json=partnerId,proto3" json:"partner_id,omitempty"`
@@ -892,7 +1212,7 @@ type GetTransactionStatusRequest struct {
 
 func (x *GetTransactionStatusRequest) Reset() {
 	*x = GetTransactionStatusRequest{}
-	mi := &file_proto_partner_svc_proto_msgTypes[11]
+	mi := &file_proto_partner_svc_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -904,7 +1224,7 @@ func (x *GetTransactionStatusRequest) String() string {
 func (*GetTransactionStatusRequest) ProtoMessage() {}
 
 func (x *GetTransactionStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[11]
+	mi := &file_proto_partner_svc_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -917,7 +1237,7 @@ func (x *GetTransactionStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTransactionStatusRequest.ProtoReflect.Descriptor instead.
 func (*GetTransactionStatusRequest) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{11}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *GetTransactionStatusRequest) GetPartnerId() string {
@@ -943,7 +1263,7 @@ type TransactionStatusResponse struct {
 
 func (x *TransactionStatusResponse) Reset() {
 	*x = TransactionStatusResponse{}
-	mi := &file_proto_partner_svc_proto_msgTypes[12]
+	mi := &file_proto_partner_svc_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -955,7 +1275,7 @@ func (x *TransactionStatusResponse) String() string {
 func (*TransactionStatusResponse) ProtoMessage() {}
 
 func (x *TransactionStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[12]
+	mi := &file_proto_partner_svc_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -968,7 +1288,7 @@ func (x *TransactionStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TransactionStatusResponse.ProtoReflect.Descriptor instead.
 func (*TransactionStatusResponse) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{12}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *TransactionStatusResponse) GetTransaction() *PartnerTransaction {
@@ -983,7 +1303,7 @@ type ListTransactionsRequest struct {
 	PartnerId     string                 `protobuf:"bytes,1,opt,name=partner_id,json=partnerId,proto3" json:"partner_id,omitempty"`
 	Limit         int32                  `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
 	Offset        int32                  `protobuf:"varint,3,opt,name=offset,proto3" json:"offset,omitempty"`
-	Status        string                 `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"` // optional filter
+	Status        string                 `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"`
 	From          *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=from,proto3" json:"from,omitempty"`
 	To            *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=to,proto3" json:"to,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -992,7 +1312,7 @@ type ListTransactionsRequest struct {
 
 func (x *ListTransactionsRequest) Reset() {
 	*x = ListTransactionsRequest{}
-	mi := &file_proto_partner_svc_proto_msgTypes[13]
+	mi := &file_proto_partner_svc_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1004,7 +1324,7 @@ func (x *ListTransactionsRequest) String() string {
 func (*ListTransactionsRequest) ProtoMessage() {}
 
 func (x *ListTransactionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[13]
+	mi := &file_proto_partner_svc_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1017,7 +1337,7 @@ func (x *ListTransactionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTransactionsRequest.ProtoReflect.Descriptor instead.
 func (*ListTransactionsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{13}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *ListTransactionsRequest) GetPartnerId() string {
@@ -1062,6 +1382,82 @@ func (x *ListTransactionsRequest) GetTo() *timestamppb.Timestamp {
 	return nil
 }
 
+type ListTransactionsByTypeRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	PartnerId       string                 `protobuf:"bytes,1,opt,name=partner_id,json=partnerId,proto3" json:"partner_id,omitempty"`
+	TransactionType string                 `protobuf:"bytes,2,opt,name=transaction_type,json=transactionType,proto3" json:"transaction_type,omitempty"`
+	Limit           int32                  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
+	Offset          int32                  `protobuf:"varint,4,opt,name=offset,proto3" json:"offset,omitempty"`
+	Status          string                 `protobuf:"bytes,5,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *ListTransactionsByTypeRequest) Reset() {
+	*x = ListTransactionsByTypeRequest{}
+	mi := &file_proto_partner_svc_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListTransactionsByTypeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListTransactionsByTypeRequest) ProtoMessage() {}
+
+func (x *ListTransactionsByTypeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_partner_svc_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListTransactionsByTypeRequest.ProtoReflect.Descriptor instead.
+func (*ListTransactionsByTypeRequest) Descriptor() ([]byte, []int) {
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *ListTransactionsByTypeRequest) GetPartnerId() string {
+	if x != nil {
+		return x.PartnerId
+	}
+	return ""
+}
+
+func (x *ListTransactionsByTypeRequest) GetTransactionType() string {
+	if x != nil {
+		return x.TransactionType
+	}
+	return ""
+}
+
+func (x *ListTransactionsByTypeRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+func (x *ListTransactionsByTypeRequest) GetOffset() int32 {
+	if x != nil {
+		return x.Offset
+	}
+	return 0
+}
+
+func (x *ListTransactionsByTypeRequest) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
 type ListTransactionsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Transactions  []*PartnerTransaction  `protobuf:"bytes,1,rep,name=transactions,proto3" json:"transactions,omitempty"`
@@ -1072,7 +1468,7 @@ type ListTransactionsResponse struct {
 
 func (x *ListTransactionsResponse) Reset() {
 	*x = ListTransactionsResponse{}
-	mi := &file_proto_partner_svc_proto_msgTypes[14]
+	mi := &file_proto_partner_svc_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1084,7 +1480,7 @@ func (x *ListTransactionsResponse) String() string {
 func (*ListTransactionsResponse) ProtoMessage() {}
 
 func (x *ListTransactionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[14]
+	mi := &file_proto_partner_svc_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1097,7 +1493,7 @@ func (x *ListTransactionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTransactionsResponse.ProtoReflect.Descriptor instead.
 func (*ListTransactionsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{14}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ListTransactionsResponse) GetTransactions() []*PartnerTransaction {
@@ -1114,6 +1510,310 @@ func (x *ListTransactionsResponse) GetTotalCount() int64 {
 	return 0
 }
 
+type CancelTransactionRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	PartnerId      string                 `protobuf:"bytes,1,opt,name=partner_id,json=partnerId,proto3" json:"partner_id,omitempty"`
+	TransactionRef string                 `protobuf:"bytes,2,opt,name=transaction_ref,json=transactionRef,proto3" json:"transaction_ref,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *CancelTransactionRequest) Reset() {
+	*x = CancelTransactionRequest{}
+	mi := &file_proto_partner_svc_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CancelTransactionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CancelTransactionRequest) ProtoMessage() {}
+
+func (x *CancelTransactionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_partner_svc_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CancelTransactionRequest.ProtoReflect.Descriptor instead.
+func (*CancelTransactionRequest) Descriptor() ([]byte, []int) {
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *CancelTransactionRequest) GetPartnerId() string {
+	if x != nil {
+		return x.PartnerId
+	}
+	return ""
+}
+
+func (x *CancelTransactionRequest) GetTransactionRef() string {
+	if x != nil {
+		return x.TransactionRef
+	}
+	return ""
+}
+
+type CancelTransactionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	Transaction   *PartnerTransaction    `protobuf:"bytes,3,opt,name=transaction,proto3" json:"transaction,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CancelTransactionResponse) Reset() {
+	*x = CancelTransactionResponse{}
+	mi := &file_proto_partner_svc_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CancelTransactionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CancelTransactionResponse) ProtoMessage() {}
+
+func (x *CancelTransactionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_partner_svc_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CancelTransactionResponse.ProtoReflect.Descriptor instead.
+func (*CancelTransactionResponse) Descriptor() ([]byte, []int) {
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *CancelTransactionResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *CancelTransactionResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *CancelTransactionResponse) GetTransaction() *PartnerTransaction {
+	if x != nil {
+		return x.Transaction
+	}
+	return nil
+}
+
+type GetTransactionStatsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PartnerId     string                 `protobuf:"bytes,1,opt,name=partner_id,json=partnerId,proto3" json:"partner_id,omitempty"`
+	From          *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=from,proto3" json:"from,omitempty"`
+	To            *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=to,proto3" json:"to,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetTransactionStatsRequest) Reset() {
+	*x = GetTransactionStatsRequest{}
+	mi := &file_proto_partner_svc_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTransactionStatsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTransactionStatsRequest) ProtoMessage() {}
+
+func (x *GetTransactionStatsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_partner_svc_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTransactionStatsRequest.ProtoReflect.Descriptor instead.
+func (*GetTransactionStatsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *GetTransactionStatsRequest) GetPartnerId() string {
+	if x != nil {
+		return x.PartnerId
+	}
+	return ""
+}
+
+func (x *GetTransactionStatsRequest) GetFrom() *timestamppb.Timestamp {
+	if x != nil {
+		return x.From
+	}
+	return nil
+}
+
+func (x *GetTransactionStatsRequest) GetTo() *timestamppb.Timestamp {
+	if x != nil {
+		return x.To
+	}
+	return nil
+}
+
+type GetTransactionStatsResponse struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	TotalCount       int64                  `protobuf:"varint,1,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	CompletedCount   int64                  `protobuf:"varint,2,opt,name=completed_count,json=completedCount,proto3" json:"completed_count,omitempty"`
+	FailedCount      int64                  `protobuf:"varint,3,opt,name=failed_count,json=failedCount,proto3" json:"failed_count,omitempty"`
+	PendingCount     int64                  `protobuf:"varint,4,opt,name=pending_count,json=pendingCount,proto3" json:"pending_count,omitempty"`
+	DepositCount     int64                  `protobuf:"varint,5,opt,name=deposit_count,json=depositCount,proto3" json:"deposit_count,omitempty"`
+	WithdrawalCount  int64                  `protobuf:"varint,6,opt,name=withdrawal_count,json=withdrawalCount,proto3" json:"withdrawal_count,omitempty"`
+	TotalAmount      float64                `protobuf:"fixed64,7,opt,name=total_amount,json=totalAmount,proto3" json:"total_amount,omitempty"`
+	TotalDeposits    float64                `protobuf:"fixed64,8,opt,name=total_deposits,json=totalDeposits,proto3" json:"total_deposits,omitempty"`
+	TotalWithdrawals float64                `protobuf:"fixed64,9,opt,name=total_withdrawals,json=totalWithdrawals,proto3" json:"total_withdrawals,omitempty"`
+	AvgAmount        float64                `protobuf:"fixed64,10,opt,name=avg_amount,json=avgAmount,proto3" json:"avg_amount,omitempty"`
+	MinAmount        float64                `protobuf:"fixed64,11,opt,name=min_amount,json=minAmount,proto3" json:"min_amount,omitempty"`
+	MaxAmount        float64                `protobuf:"fixed64,12,opt,name=max_amount,json=maxAmount,proto3" json:"max_amount,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *GetTransactionStatsResponse) Reset() {
+	*x = GetTransactionStatsResponse{}
+	mi := &file_proto_partner_svc_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTransactionStatsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTransactionStatsResponse) ProtoMessage() {}
+
+func (x *GetTransactionStatsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_partner_svc_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTransactionStatsResponse.ProtoReflect.Descriptor instead.
+func (*GetTransactionStatsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *GetTransactionStatsResponse) GetTotalCount() int64 {
+	if x != nil {
+		return x.TotalCount
+	}
+	return 0
+}
+
+func (x *GetTransactionStatsResponse) GetCompletedCount() int64 {
+	if x != nil {
+		return x.CompletedCount
+	}
+	return 0
+}
+
+func (x *GetTransactionStatsResponse) GetFailedCount() int64 {
+	if x != nil {
+		return x.FailedCount
+	}
+	return 0
+}
+
+func (x *GetTransactionStatsResponse) GetPendingCount() int64 {
+	if x != nil {
+		return x.PendingCount
+	}
+	return 0
+}
+
+func (x *GetTransactionStatsResponse) GetDepositCount() int64 {
+	if x != nil {
+		return x.DepositCount
+	}
+	return 0
+}
+
+func (x *GetTransactionStatsResponse) GetWithdrawalCount() int64 {
+	if x != nil {
+		return x.WithdrawalCount
+	}
+	return 0
+}
+
+func (x *GetTransactionStatsResponse) GetTotalAmount() float64 {
+	if x != nil {
+		return x.TotalAmount
+	}
+	return 0
+}
+
+func (x *GetTransactionStatsResponse) GetTotalDeposits() float64 {
+	if x != nil {
+		return x.TotalDeposits
+	}
+	return 0
+}
+
+func (x *GetTransactionStatsResponse) GetTotalWithdrawals() float64 {
+	if x != nil {
+		return x.TotalWithdrawals
+	}
+	return 0
+}
+
+func (x *GetTransactionStatsResponse) GetAvgAmount() float64 {
+	if x != nil {
+		return x.AvgAmount
+	}
+	return 0
+}
+
+func (x *GetTransactionStatsResponse) GetMinAmount() float64 {
+	if x != nil {
+		return x.MinAmount
+	}
+	return 0
+}
+
+func (x *GetTransactionStatsResponse) GetMaxAmount() float64 {
+	if x != nil {
+		return x.MaxAmount
+	}
+	return 0
+}
+
 type UpdateWebhookConfigRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	PartnerId     string                 `protobuf:"bytes,1,opt,name=partner_id,json=partnerId,proto3" json:"partner_id,omitempty"`
@@ -1126,7 +1826,7 @@ type UpdateWebhookConfigRequest struct {
 
 func (x *UpdateWebhookConfigRequest) Reset() {
 	*x = UpdateWebhookConfigRequest{}
-	mi := &file_proto_partner_svc_proto_msgTypes[15]
+	mi := &file_proto_partner_svc_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1138,7 +1838,7 @@ func (x *UpdateWebhookConfigRequest) String() string {
 func (*UpdateWebhookConfigRequest) ProtoMessage() {}
 
 func (x *UpdateWebhookConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[15]
+	mi := &file_proto_partner_svc_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1151,7 +1851,7 @@ func (x *UpdateWebhookConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateWebhookConfigRequest.ProtoReflect.Descriptor instead.
 func (*UpdateWebhookConfigRequest) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{15}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *UpdateWebhookConfigRequest) GetPartnerId() string {
@@ -1192,7 +1892,7 @@ type WebhookConfigResponse struct {
 
 func (x *WebhookConfigResponse) Reset() {
 	*x = WebhookConfigResponse{}
-	mi := &file_proto_partner_svc_proto_msgTypes[16]
+	mi := &file_proto_partner_svc_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1204,7 +1904,7 @@ func (x *WebhookConfigResponse) String() string {
 func (*WebhookConfigResponse) ProtoMessage() {}
 
 func (x *WebhookConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[16]
+	mi := &file_proto_partner_svc_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1217,7 +1917,7 @@ func (x *WebhookConfigResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WebhookConfigResponse.ProtoReflect.Descriptor instead.
 func (*WebhookConfigResponse) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{16}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *WebhookConfigResponse) GetSuccess() bool {
@@ -1243,7 +1943,7 @@ type TestWebhookRequest struct {
 
 func (x *TestWebhookRequest) Reset() {
 	*x = TestWebhookRequest{}
-	mi := &file_proto_partner_svc_proto_msgTypes[17]
+	mi := &file_proto_partner_svc_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1255,7 +1955,7 @@ func (x *TestWebhookRequest) String() string {
 func (*TestWebhookRequest) ProtoMessage() {}
 
 func (x *TestWebhookRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[17]
+	mi := &file_proto_partner_svc_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1268,7 +1968,7 @@ func (x *TestWebhookRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestWebhookRequest.ProtoReflect.Descriptor instead.
 func (*TestWebhookRequest) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{17}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *TestWebhookRequest) GetPartnerId() string {
@@ -1289,7 +1989,7 @@ type TestWebhookResponse struct {
 
 func (x *TestWebhookResponse) Reset() {
 	*x = TestWebhookResponse{}
-	mi := &file_proto_partner_svc_proto_msgTypes[18]
+	mi := &file_proto_partner_svc_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1301,7 +2001,7 @@ func (x *TestWebhookResponse) String() string {
 func (*TestWebhookResponse) ProtoMessage() {}
 
 func (x *TestWebhookResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[18]
+	mi := &file_proto_partner_svc_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1314,7 +2014,7 @@ func (x *TestWebhookResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TestWebhookResponse.ProtoReflect.Descriptor instead.
 func (*TestWebhookResponse) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{18}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *TestWebhookResponse) GetSuccess() bool {
@@ -1349,7 +2049,7 @@ type ListWebhookLogsRequest struct {
 
 func (x *ListWebhookLogsRequest) Reset() {
 	*x = ListWebhookLogsRequest{}
-	mi := &file_proto_partner_svc_proto_msgTypes[19]
+	mi := &file_proto_partner_svc_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1361,7 +2061,7 @@ func (x *ListWebhookLogsRequest) String() string {
 func (*ListWebhookLogsRequest) ProtoMessage() {}
 
 func (x *ListWebhookLogsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[19]
+	mi := &file_proto_partner_svc_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1374,7 +2074,7 @@ func (x *ListWebhookLogsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListWebhookLogsRequest.ProtoReflect.Descriptor instead.
 func (*ListWebhookLogsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{19}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *ListWebhookLogsRequest) GetPartnerId() string {
@@ -1408,7 +2108,7 @@ type ListWebhookLogsResponse struct {
 
 func (x *ListWebhookLogsResponse) Reset() {
 	*x = ListWebhookLogsResponse{}
-	mi := &file_proto_partner_svc_proto_msgTypes[20]
+	mi := &file_proto_partner_svc_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1420,7 +2120,7 @@ func (x *ListWebhookLogsResponse) String() string {
 func (*ListWebhookLogsResponse) ProtoMessage() {}
 
 func (x *ListWebhookLogsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[20]
+	mi := &file_proto_partner_svc_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1433,7 +2133,7 @@ func (x *ListWebhookLogsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListWebhookLogsResponse.ProtoReflect.Descriptor instead.
 func (*ListWebhookLogsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{20}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *ListWebhookLogsResponse) GetLogs() []*WebhookLog {
@@ -1467,7 +2167,7 @@ type WebhookLog struct {
 
 func (x *WebhookLog) Reset() {
 	*x = WebhookLog{}
-	mi := &file_proto_partner_svc_proto_msgTypes[21]
+	mi := &file_proto_partner_svc_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1479,7 +2179,7 @@ func (x *WebhookLog) String() string {
 func (*WebhookLog) ProtoMessage() {}
 
 func (x *WebhookLog) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[21]
+	mi := &file_proto_partner_svc_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1492,7 +2192,7 @@ func (x *WebhookLog) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WebhookLog.ProtoReflect.Descriptor instead.
 func (*WebhookLog) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{21}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *WebhookLog) GetId() int64 {
@@ -1559,21 +2259,24 @@ func (x *WebhookLog) GetLastAttemptAt() *timestamppb.Timestamp {
 }
 
 type CreatePartnerRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Country       string                 `protobuf:"bytes,2,opt,name=country,proto3" json:"country,omitempty"`
-	ContactEmail  string                 `protobuf:"bytes,3,opt,name=contact_email,json=contactEmail,proto3" json:"contact_email,omitempty"`
-	ContactPhone  string                 `protobuf:"bytes,4,opt,name=contact_phone,json=contactPhone,proto3" json:"contact_phone,omitempty"`
-	Service       string                 `protobuf:"bytes,5,opt,name=service,proto3" json:"service,omitempty"`
-	Currency      string                 `protobuf:"bytes,6,opt,name=currency,proto3" json:"currency,omitempty"`
-	EnableApi     bool                   `protobuf:"varint,7,opt,name=enable_api,json=enableApi,proto3" json:"enable_api,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Name           string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Country        string                 `protobuf:"bytes,2,opt,name=country,proto3" json:"country,omitempty"`
+	ContactEmail   string                 `protobuf:"bytes,3,opt,name=contact_email,json=contactEmail,proto3" json:"contact_email,omitempty"`
+	ContactPhone   string                 `protobuf:"bytes,4,opt,name=contact_phone,json=contactPhone,proto3" json:"contact_phone,omitempty"`
+	Service        string                 `protobuf:"bytes,5,opt,name=service,proto3" json:"service,omitempty"`
+	Currency       string                 `protobuf:"bytes,6,opt,name=currency,proto3" json:"currency,omitempty"`
+	LocalCurrency  string                 `protobuf:"bytes,7,opt,name=local_currency,json=localCurrency,proto3" json:"local_currency,omitempty"`      // ✅ REQUIRED:  e.g., "KES"
+	Rate           float64                `protobuf:"fixed64,8,opt,name=rate,proto3" json:"rate,omitempty"`                                           // ✅ REQUIRED: e.g., 129.50 (1 USD = 129.50 KES)
+	CommissionRate float64                `protobuf:"fixed64,9,opt,name=commission_rate,json=commissionRate,proto3" json:"commission_rate,omitempty"` // ✅ OPTIONAL:  e.g., 0.005 (0.5%)
+	EnableApi      bool                   `protobuf:"varint,10,opt,name=enable_api,json=enableApi,proto3" json:"enable_api,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *CreatePartnerRequest) Reset() {
 	*x = CreatePartnerRequest{}
-	mi := &file_proto_partner_svc_proto_msgTypes[22]
+	mi := &file_proto_partner_svc_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1585,7 +2288,7 @@ func (x *CreatePartnerRequest) String() string {
 func (*CreatePartnerRequest) ProtoMessage() {}
 
 func (x *CreatePartnerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[22]
+	mi := &file_proto_partner_svc_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1598,7 +2301,7 @@ func (x *CreatePartnerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreatePartnerRequest.ProtoReflect.Descriptor instead.
 func (*CreatePartnerRequest) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{22}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *CreatePartnerRequest) GetName() string {
@@ -1643,6 +2346,27 @@ func (x *CreatePartnerRequest) GetCurrency() string {
 	return ""
 }
 
+func (x *CreatePartnerRequest) GetLocalCurrency() string {
+	if x != nil {
+		return x.LocalCurrency
+	}
+	return ""
+}
+
+func (x *CreatePartnerRequest) GetRate() float64 {
+	if x != nil {
+		return x.Rate
+	}
+	return 0
+}
+
+func (x *CreatePartnerRequest) GetCommissionRate() float64 {
+	if x != nil {
+		return x.CommissionRate
+	}
+	return 0
+}
+
 func (x *CreatePartnerRequest) GetEnableApi() bool {
 	if x != nil {
 		return x.EnableApi
@@ -1651,22 +2375,25 @@ func (x *CreatePartnerRequest) GetEnableApi() bool {
 }
 
 type UpdatePartnerRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Country       string                 `protobuf:"bytes,3,opt,name=country,proto3" json:"country,omitempty"`
-	ContactEmail  string                 `protobuf:"bytes,4,opt,name=contact_email,json=contactEmail,proto3" json:"contact_email,omitempty"`
-	ContactPhone  string                 `protobuf:"bytes,5,opt,name=contact_phone,json=contactPhone,proto3" json:"contact_phone,omitempty"`
-	Status        string                 `protobuf:"bytes,6,opt,name=status,proto3" json:"status,omitempty"`
-	Service       string                 `protobuf:"bytes,7,opt,name=service,proto3" json:"service,omitempty"`
-	Currency      string                 `protobuf:"bytes,8,opt,name=currency,proto3" json:"currency,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Id             string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name           string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Country        string                 `protobuf:"bytes,3,opt,name=country,proto3" json:"country,omitempty"`
+	ContactEmail   string                 `protobuf:"bytes,4,opt,name=contact_email,json=contactEmail,proto3" json:"contact_email,omitempty"`
+	ContactPhone   string                 `protobuf:"bytes,5,opt,name=contact_phone,json=contactPhone,proto3" json:"contact_phone,omitempty"`
+	Status         string                 `protobuf:"bytes,6,opt,name=status,proto3" json:"status,omitempty"`
+	Service        string                 `protobuf:"bytes,7,opt,name=service,proto3" json:"service,omitempty"`
+	Currency       string                 `protobuf:"bytes,8,opt,name=currency,proto3" json:"currency,omitempty"`
+	LocalCurrency  string                 `protobuf:"bytes,9,opt,name=local_currency,json=localCurrency,proto3" json:"local_currency,omitempty"`       // ✅ OPTIONAL: Can update rate
+	Rate           float64                `protobuf:"fixed64,10,opt,name=rate,proto3" json:"rate,omitempty"`                                           // ✅ OPTIONAL:  Can update rate
+	CommissionRate float64                `protobuf:"fixed64,11,opt,name=commission_rate,json=commissionRate,proto3" json:"commission_rate,omitempty"` // ✅ OPTIONAL: Can update commission
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *UpdatePartnerRequest) Reset() {
 	*x = UpdatePartnerRequest{}
-	mi := &file_proto_partner_svc_proto_msgTypes[23]
+	mi := &file_proto_partner_svc_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1678,7 +2405,7 @@ func (x *UpdatePartnerRequest) String() string {
 func (*UpdatePartnerRequest) ProtoMessage() {}
 
 func (x *UpdatePartnerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[23]
+	mi := &file_proto_partner_svc_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1691,7 +2418,7 @@ func (x *UpdatePartnerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdatePartnerRequest.ProtoReflect.Descriptor instead.
 func (*UpdatePartnerRequest) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{23}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *UpdatePartnerRequest) GetId() string {
@@ -1750,6 +2477,27 @@ func (x *UpdatePartnerRequest) GetCurrency() string {
 	return ""
 }
 
+func (x *UpdatePartnerRequest) GetLocalCurrency() string {
+	if x != nil {
+		return x.LocalCurrency
+	}
+	return ""
+}
+
+func (x *UpdatePartnerRequest) GetRate() float64 {
+	if x != nil {
+		return x.Rate
+	}
+	return 0
+}
+
+func (x *UpdatePartnerRequest) GetCommissionRate() float64 {
+	if x != nil {
+		return x.CommissionRate
+	}
+	return 0
+}
+
 type DeletePartnerRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -1759,7 +2507,7 @@ type DeletePartnerRequest struct {
 
 func (x *DeletePartnerRequest) Reset() {
 	*x = DeletePartnerRequest{}
-	mi := &file_proto_partner_svc_proto_msgTypes[24]
+	mi := &file_proto_partner_svc_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1771,7 +2519,7 @@ func (x *DeletePartnerRequest) String() string {
 func (*DeletePartnerRequest) ProtoMessage() {}
 
 func (x *DeletePartnerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[24]
+	mi := &file_proto_partner_svc_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1784,7 +2532,7 @@ func (x *DeletePartnerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeletePartnerRequest.ProtoReflect.Descriptor instead.
 func (*DeletePartnerRequest) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{24}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *DeletePartnerRequest) GetId() string {
@@ -1803,7 +2551,7 @@ type PartnerResponse struct {
 
 func (x *PartnerResponse) Reset() {
 	*x = PartnerResponse{}
-	mi := &file_proto_partner_svc_proto_msgTypes[25]
+	mi := &file_proto_partner_svc_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1815,7 +2563,7 @@ func (x *PartnerResponse) String() string {
 func (*PartnerResponse) ProtoMessage() {}
 
 func (x *PartnerResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[25]
+	mi := &file_proto_partner_svc_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1828,7 +2576,7 @@ func (x *PartnerResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PartnerResponse.ProtoReflect.Descriptor instead.
 func (*PartnerResponse) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{25}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *PartnerResponse) GetPartner() *Partner {
@@ -1847,7 +2595,7 @@ type DeletePartnerResponse struct {
 
 func (x *DeletePartnerResponse) Reset() {
 	*x = DeletePartnerResponse{}
-	mi := &file_proto_partner_svc_proto_msgTypes[26]
+	mi := &file_proto_partner_svc_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1859,7 +2607,7 @@ func (x *DeletePartnerResponse) String() string {
 func (*DeletePartnerResponse) ProtoMessage() {}
 
 func (x *DeletePartnerResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[26]
+	mi := &file_proto_partner_svc_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1872,7 +2620,7 @@ func (x *DeletePartnerResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeletePartnerResponse.ProtoReflect.Descriptor instead.
 func (*DeletePartnerResponse) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{26}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *DeletePartnerResponse) GetSuccess() bool {
@@ -1900,7 +2648,7 @@ type PartnerUser struct {
 
 func (x *PartnerUser) Reset() {
 	*x = PartnerUser{}
-	mi := &file_proto_partner_svc_proto_msgTypes[27]
+	mi := &file_proto_partner_svc_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1912,7 +2660,7 @@ func (x *PartnerUser) String() string {
 func (*PartnerUser) ProtoMessage() {}
 
 func (x *PartnerUser) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[27]
+	mi := &file_proto_partner_svc_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1925,7 +2673,7 @@ func (x *PartnerUser) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PartnerUser.ProtoReflect.Descriptor instead.
 func (*PartnerUser) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{27}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *PartnerUser) GetId() string {
@@ -2012,7 +2760,7 @@ type CreatePartnerUserRequest struct {
 
 func (x *CreatePartnerUserRequest) Reset() {
 	*x = CreatePartnerUserRequest{}
-	mi := &file_proto_partner_svc_proto_msgTypes[28]
+	mi := &file_proto_partner_svc_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2024,7 +2772,7 @@ func (x *CreatePartnerUserRequest) String() string {
 func (*CreatePartnerUserRequest) ProtoMessage() {}
 
 func (x *CreatePartnerUserRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[28]
+	mi := &file_proto_partner_svc_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2037,7 +2785,7 @@ func (x *CreatePartnerUserRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreatePartnerUserRequest.ProtoReflect.Descriptor instead.
 func (*CreatePartnerUserRequest) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{28}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *CreatePartnerUserRequest) GetPartnerId() string {
@@ -2097,7 +2845,7 @@ type UpdatePartnerUserRequest struct {
 
 func (x *UpdatePartnerUserRequest) Reset() {
 	*x = UpdatePartnerUserRequest{}
-	mi := &file_proto_partner_svc_proto_msgTypes[29]
+	mi := &file_proto_partner_svc_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2109,7 +2857,7 @@ func (x *UpdatePartnerUserRequest) String() string {
 func (*UpdatePartnerUserRequest) ProtoMessage() {}
 
 func (x *UpdatePartnerUserRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[29]
+	mi := &file_proto_partner_svc_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2122,7 +2870,7 @@ func (x *UpdatePartnerUserRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdatePartnerUserRequest.ProtoReflect.Descriptor instead.
 func (*UpdatePartnerUserRequest) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{29}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *UpdatePartnerUserRequest) GetId() string {
@@ -2183,7 +2931,7 @@ type PartnerUserResponse struct {
 
 func (x *PartnerUserResponse) Reset() {
 	*x = PartnerUserResponse{}
-	mi := &file_proto_partner_svc_proto_msgTypes[30]
+	mi := &file_proto_partner_svc_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2195,7 +2943,7 @@ func (x *PartnerUserResponse) String() string {
 func (*PartnerUserResponse) ProtoMessage() {}
 
 func (x *PartnerUserResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[30]
+	mi := &file_proto_partner_svc_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2208,7 +2956,7 @@ func (x *PartnerUserResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PartnerUserResponse.ProtoReflect.Descriptor instead.
 func (*PartnerUserResponse) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{30}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *PartnerUserResponse) GetUser() *PartnerUser {
@@ -2228,7 +2976,7 @@ type DeletePartnerUsersRequest struct {
 
 func (x *DeletePartnerUsersRequest) Reset() {
 	*x = DeletePartnerUsersRequest{}
-	mi := &file_proto_partner_svc_proto_msgTypes[31]
+	mi := &file_proto_partner_svc_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2240,7 +2988,7 @@ func (x *DeletePartnerUsersRequest) String() string {
 func (*DeletePartnerUsersRequest) ProtoMessage() {}
 
 func (x *DeletePartnerUsersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[31]
+	mi := &file_proto_partner_svc_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2253,7 +3001,7 @@ func (x *DeletePartnerUsersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeletePartnerUsersRequest.ProtoReflect.Descriptor instead.
 func (*DeletePartnerUsersRequest) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{31}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *DeletePartnerUsersRequest) GetPartnerId() string {
@@ -2280,7 +3028,7 @@ type DeletePartnerUsersResponse struct {
 
 func (x *DeletePartnerUsersResponse) Reset() {
 	*x = DeletePartnerUsersResponse{}
-	mi := &file_proto_partner_svc_proto_msgTypes[32]
+	mi := &file_proto_partner_svc_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2292,7 +3040,7 @@ func (x *DeletePartnerUsersResponse) String() string {
 func (*DeletePartnerUsersResponse) ProtoMessage() {}
 
 func (x *DeletePartnerUsersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[32]
+	mi := &file_proto_partner_svc_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2305,7 +3053,7 @@ func (x *DeletePartnerUsersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeletePartnerUsersResponse.ProtoReflect.Descriptor instead.
 func (*DeletePartnerUsersResponse) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{32}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *DeletePartnerUsersResponse) GetDeletedIds() []string {
@@ -2332,7 +3080,7 @@ type FailedUserDeletion struct {
 
 func (x *FailedUserDeletion) Reset() {
 	*x = FailedUserDeletion{}
-	mi := &file_proto_partner_svc_proto_msgTypes[33]
+	mi := &file_proto_partner_svc_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2344,7 +3092,7 @@ func (x *FailedUserDeletion) String() string {
 func (*FailedUserDeletion) ProtoMessage() {}
 
 func (x *FailedUserDeletion) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[33]
+	mi := &file_proto_partner_svc_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2357,7 +3105,7 @@ func (x *FailedUserDeletion) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FailedUserDeletion.ProtoReflect.Descriptor instead.
 func (*FailedUserDeletion) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{33}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *FailedUserDeletion) GetUserId() string {
@@ -2383,7 +3131,7 @@ type GetPartnersRequest struct {
 
 func (x *GetPartnersRequest) Reset() {
 	*x = GetPartnersRequest{}
-	mi := &file_proto_partner_svc_proto_msgTypes[34]
+	mi := &file_proto_partner_svc_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2395,7 +3143,7 @@ func (x *GetPartnersRequest) String() string {
 func (*GetPartnersRequest) ProtoMessage() {}
 
 func (x *GetPartnersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[34]
+	mi := &file_proto_partner_svc_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2408,7 +3156,7 @@ func (x *GetPartnersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPartnersRequest.ProtoReflect.Descriptor instead.
 func (*GetPartnersRequest) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{34}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *GetPartnersRequest) GetPartnerIds() []string {
@@ -2427,7 +3175,7 @@ type GetPartnersResponse struct {
 
 func (x *GetPartnersResponse) Reset() {
 	*x = GetPartnersResponse{}
-	mi := &file_proto_partner_svc_proto_msgTypes[35]
+	mi := &file_proto_partner_svc_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2439,7 +3187,7 @@ func (x *GetPartnersResponse) String() string {
 func (*GetPartnersResponse) ProtoMessage() {}
 
 func (x *GetPartnersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[35]
+	mi := &file_proto_partner_svc_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2452,7 +3200,7 @@ func (x *GetPartnersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPartnersResponse.ProtoReflect.Descriptor instead.
 func (*GetPartnersResponse) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{35}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *GetPartnersResponse) GetPartners() []*Partner {
@@ -2471,7 +3219,7 @@ type GetPartnerUsersRequest struct {
 
 func (x *GetPartnerUsersRequest) Reset() {
 	*x = GetPartnerUsersRequest{}
-	mi := &file_proto_partner_svc_proto_msgTypes[36]
+	mi := &file_proto_partner_svc_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2483,7 +3231,7 @@ func (x *GetPartnerUsersRequest) String() string {
 func (*GetPartnerUsersRequest) ProtoMessage() {}
 
 func (x *GetPartnerUsersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[36]
+	mi := &file_proto_partner_svc_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2496,7 +3244,7 @@ func (x *GetPartnerUsersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPartnerUsersRequest.ProtoReflect.Descriptor instead.
 func (*GetPartnerUsersRequest) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{36}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *GetPartnerUsersRequest) GetPartnerId() string {
@@ -2515,7 +3263,7 @@ type GetPartnerUsersResponse struct {
 
 func (x *GetPartnerUsersResponse) Reset() {
 	*x = GetPartnerUsersResponse{}
-	mi := &file_proto_partner_svc_proto_msgTypes[37]
+	mi := &file_proto_partner_svc_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2527,7 +3275,7 @@ func (x *GetPartnerUsersResponse) String() string {
 func (*GetPartnerUsersResponse) ProtoMessage() {}
 
 func (x *GetPartnerUsersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[37]
+	mi := &file_proto_partner_svc_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2540,7 +3288,7 @@ func (x *GetPartnerUsersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPartnerUsersResponse.ProtoReflect.Descriptor instead.
 func (*GetPartnerUsersResponse) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{37}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *GetPartnerUsersResponse) GetUsers() []*PartnerUser {
@@ -2559,7 +3307,7 @@ type GetPartnersByServiceRequest struct {
 
 func (x *GetPartnersByServiceRequest) Reset() {
 	*x = GetPartnersByServiceRequest{}
-	mi := &file_proto_partner_svc_proto_msgTypes[38]
+	mi := &file_proto_partner_svc_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2571,7 +3319,7 @@ func (x *GetPartnersByServiceRequest) String() string {
 func (*GetPartnersByServiceRequest) ProtoMessage() {}
 
 func (x *GetPartnersByServiceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_partner_svc_proto_msgTypes[38]
+	mi := &file_proto_partner_svc_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2584,7 +3332,7 @@ func (x *GetPartnersByServiceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPartnersByServiceRequest.ProtoReflect.Descriptor instead.
 func (*GetPartnersByServiceRequest) Descriptor() ([]byte, []int) {
-	return file_proto_partner_svc_proto_rawDescGZIP(), []int{38}
+	return file_proto_partner_svc_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *GetPartnersByServiceRequest) GetService() string {
@@ -2613,8 +3361,8 @@ const file_proto_partner_svc_proto_rawDesc = "" +
 	"\bcurrency\x18\b \x01(\tR\bcurrency\x12%\n" +
 	"\x0elocal_currency\x18\t \x01(\tR\rlocalCurrency\x12\x12\n" +
 	"\x04rate\x18\n" +
-	" \x01(\tR\x04rate\x12!\n" +
-	"\finverse_rate\x18\v \x01(\tR\vinverseRate\x12'\n" +
+	" \x01(\x01R\x04rate\x12!\n" +
+	"\finverse_rate\x18\v \x01(\x01R\vinverseRate\x12'\n" +
 	"\x0fcommission_rate\x18\f \x01(\x01R\x0ecommissionRate\x12\x17\n" +
 	"\aapi_key\x18\r \x01(\tR\x06apiKey\x12$\n" +
 	"\x0eis_api_enabled\x18\x0e \x01(\bR\fisApiEnabled\x12$\n" +
@@ -2627,7 +3375,7 @@ const file_proto_partner_svc_proto_rawDesc = "" +
 	"\n" +
 	"updated_at\x18\x13 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x1f\n" +
 	"\vallowed_ips\x18\x14 \x03(\tR\n" +
-	"allowedIps\"\xd0\x03\n" +
+	"allowedIps\"\xa8\x05\n" +
 	"\x12PartnerTransaction\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1d\n" +
 	"\n" +
@@ -2637,14 +3385,20 @@ const file_proto_partner_svc_proto_rawDesc = "" +
 	"\x06amount\x18\x05 \x01(\x01R\x06amount\x12\x1a\n" +
 	"\bcurrency\x18\x06 \x01(\tR\bcurrency\x12\x16\n" +
 	"\x06status\x18\a \x01(\tR\x06status\x12%\n" +
-	"\x0epayment_method\x18\b \x01(\tR\rpaymentMethod\x12!\n" +
-	"\fexternal_ref\x18\t \x01(\tR\vexternalRef\x12=\n" +
-	"\fprocessed_at\x18\n" +
-	" \x01(\v2\x1a.google.protobuf.TimestampR\vprocessedAt\x129\n" +
+	"\x0epayment_method\x18\b \x01(\tR\rpaymentMethod\x12)\n" +
+	"\x10transaction_type\x18\t \x01(\tR\x0ftransactionType\x12!\n" +
+	"\fexternal_ref\x18\n" +
+	" \x01(\tR\vexternalRef\x12#\n" +
+	"\rerror_message\x18\v \x01(\tR\ferrorMessage\x12I\n" +
+	"\bmetadata\x18\f \x03(\v2-.partner.svc.PartnerTransaction.MetadataEntryR\bmetadata\x12=\n" +
+	"\fprocessed_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\vprocessedAt\x129\n" +
 	"\n" +
-	"created_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"created_at\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\">\n" +
+	"updated_at\x18\x0f \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x1a;\n" +
+	"\rMetadataEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\">\n" +
 	"\x1dGenerateAPICredentialsRequest\x12\x1d\n" +
 	"\n" +
 	"partner_id\x18\x01 \x01(\tR\tpartnerId\"\xaa\x01\n" +
@@ -2684,12 +3438,42 @@ const file_proto_partner_svc_proto_rawDesc = "" +
 	"\bmetadata\x18\b \x03(\v21.partner.svc.InitiateDepositRequest.MetadataEntryR\bmetadata\x1a;\n" +
 	"\rMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x8c\x01\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xf0\x01\n" +
 	"\x17InitiateDepositResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12%\n" +
-	"\x0etransaction_id\x18\x02 \x01(\tR\rtransactionId\x12\x16\n" +
-	"\x06status\x18\x03 \x01(\tR\x06status\x12\x18\n" +
-	"\amessage\x18\x04 \x01(\tR\amessage\"e\n" +
+	"\x0etransaction_id\x18\x02 \x01(\x03R\rtransactionId\x12'\n" +
+	"\x0ftransaction_ref\x18\x03 \x01(\tR\x0etransactionRef\x12\x16\n" +
+	"\x06status\x18\x04 \x01(\tR\x06status\x12\x18\n" +
+	"\amessage\x18\x05 \x01(\tR\amessage\x129\n" +
+	"\n" +
+	"created_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\x89\x03\n" +
+	"\x19InitiateWithdrawalRequest\x12\x1d\n" +
+	"\n" +
+	"partner_id\x18\x01 \x01(\tR\tpartnerId\x12'\n" +
+	"\x0ftransaction_ref\x18\x02 \x01(\tR\x0etransactionRef\x12\x17\n" +
+	"\auser_id\x18\x03 \x01(\tR\x06userId\x12\x16\n" +
+	"\x06amount\x18\x04 \x01(\x01R\x06amount\x12\x1a\n" +
+	"\bcurrency\x18\x05 \x01(\tR\bcurrency\x12%\n" +
+	"\x0epayment_method\x18\x06 \x01(\tR\rpaymentMethod\x12!\n" +
+	"\fexternal_ref\x18\a \x01(\tR\vexternalRef\x12P\n" +
+	"\bmetadata\x18\b \x03(\v24.partner.svc.InitiateWithdrawalRequest.MetadataEntryR\bmetadata\x1a;\n" +
+	"\rMetadataEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xf3\x01\n" +
+	"\x1aInitiateWithdrawalResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12%\n" +
+	"\x0etransaction_id\x18\x02 \x01(\x03R\rtransactionId\x12'\n" +
+	"\x0ftransaction_ref\x18\x03 \x01(\tR\x0etransactionRef\x12\x16\n" +
+	"\x06status\x18\x04 \x01(\tR\x06status\x12\x18\n" +
+	"\amessage\x18\x05 \x01(\tR\amessage\x129\n" +
+	"\n" +
+	"created_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"d\n" +
+	"\x1aGetTransactionByRefRequest\x12\x1d\n" +
+	"\n" +
+	"partner_id\x18\x01 \x01(\tR\tpartnerId\x12'\n" +
+	"\x0ftransaction_ref\x18\x02 \x01(\tR\x0etransactionRef\"X\n" +
+	"\x13TransactionResponse\x12A\n" +
+	"\vtransaction\x18\x01 \x01(\v2\x1f.partner.svc.PartnerTransactionR\vtransaction\"e\n" +
 	"\x1bGetTransactionStatusRequest\x12\x1d\n" +
 	"\n" +
 	"partner_id\x18\x01 \x01(\tR\tpartnerId\x12'\n" +
@@ -2703,11 +3487,49 @@ const file_proto_partner_svc_proto_rawDesc = "" +
 	"\x06offset\x18\x03 \x01(\x05R\x06offset\x12\x16\n" +
 	"\x06status\x18\x04 \x01(\tR\x06status\x12.\n" +
 	"\x04from\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\x04from\x12*\n" +
-	"\x02to\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\x02to\"\x80\x01\n" +
+	"\x02to\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\x02to\"\xaf\x01\n" +
+	"\x1dListTransactionsByTypeRequest\x12\x1d\n" +
+	"\n" +
+	"partner_id\x18\x01 \x01(\tR\tpartnerId\x12)\n" +
+	"\x10transaction_type\x18\x02 \x01(\tR\x0ftransactionType\x12\x14\n" +
+	"\x05limit\x18\x03 \x01(\x05R\x05limit\x12\x16\n" +
+	"\x06offset\x18\x04 \x01(\x05R\x06offset\x12\x16\n" +
+	"\x06status\x18\x05 \x01(\tR\x06status\"\x80\x01\n" +
 	"\x18ListTransactionsResponse\x12C\n" +
 	"\ftransactions\x18\x01 \x03(\v2\x1f.partner.svc.PartnerTransactionR\ftransactions\x12\x1f\n" +
 	"\vtotal_count\x18\x02 \x01(\x03R\n" +
-	"totalCount\"\xa6\x01\n" +
+	"totalCount\"b\n" +
+	"\x18CancelTransactionRequest\x12\x1d\n" +
+	"\n" +
+	"partner_id\x18\x01 \x01(\tR\tpartnerId\x12'\n" +
+	"\x0ftransaction_ref\x18\x02 \x01(\tR\x0etransactionRef\"\x92\x01\n" +
+	"\x19CancelTransactionResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x12A\n" +
+	"\vtransaction\x18\x03 \x01(\v2\x1f.partner.svc.PartnerTransactionR\vtransaction\"\x97\x01\n" +
+	"\x1aGetTransactionStatsRequest\x12\x1d\n" +
+	"\n" +
+	"partner_id\x18\x01 \x01(\tR\tpartnerId\x12.\n" +
+	"\x04from\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x04from\x12*\n" +
+	"\x02to\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x02to\"\xd3\x03\n" +
+	"\x1bGetTransactionStatsResponse\x12\x1f\n" +
+	"\vtotal_count\x18\x01 \x01(\x03R\n" +
+	"totalCount\x12'\n" +
+	"\x0fcompleted_count\x18\x02 \x01(\x03R\x0ecompletedCount\x12!\n" +
+	"\ffailed_count\x18\x03 \x01(\x03R\vfailedCount\x12#\n" +
+	"\rpending_count\x18\x04 \x01(\x03R\fpendingCount\x12#\n" +
+	"\rdeposit_count\x18\x05 \x01(\x03R\fdepositCount\x12)\n" +
+	"\x10withdrawal_count\x18\x06 \x01(\x03R\x0fwithdrawalCount\x12!\n" +
+	"\ftotal_amount\x18\a \x01(\x01R\vtotalAmount\x12%\n" +
+	"\x0etotal_deposits\x18\b \x01(\x01R\rtotalDeposits\x12+\n" +
+	"\x11total_withdrawals\x18\t \x01(\x01R\x10totalWithdrawals\x12\x1d\n" +
+	"\n" +
+	"avg_amount\x18\n" +
+	" \x01(\x01R\tavgAmount\x12\x1d\n" +
+	"\n" +
+	"min_amount\x18\v \x01(\x01R\tminAmount\x12\x1d\n" +
+	"\n" +
+	"max_amount\x18\f \x01(\x01R\tmaxAmount\"\xa6\x01\n" +
 	"\x1aUpdateWebhookConfigRequest\x12\x1d\n" +
 	"\n" +
 	"partner_id\x18\x01 \x01(\tR\tpartnerId\x12\x1f\n" +
@@ -2748,16 +3570,20 @@ const file_proto_partner_svc_proto_rawDesc = "" +
 	"\rerror_message\x18\a \x01(\tR\ferrorMessage\x129\n" +
 	"\n" +
 	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12B\n" +
-	"\x0flast_attempt_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\rlastAttemptAt\"\xe3\x01\n" +
+	"\x0flast_attempt_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\rlastAttemptAt\"\xc7\x02\n" +
 	"\x14CreatePartnerRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
 	"\acountry\x18\x02 \x01(\tR\acountry\x12#\n" +
 	"\rcontact_email\x18\x03 \x01(\tR\fcontactEmail\x12#\n" +
 	"\rcontact_phone\x18\x04 \x01(\tR\fcontactPhone\x12\x18\n" +
 	"\aservice\x18\x05 \x01(\tR\aservice\x12\x1a\n" +
-	"\bcurrency\x18\x06 \x01(\tR\bcurrency\x12\x1d\n" +
+	"\bcurrency\x18\x06 \x01(\tR\bcurrency\x12%\n" +
+	"\x0elocal_currency\x18\a \x01(\tR\rlocalCurrency\x12\x12\n" +
+	"\x04rate\x18\b \x01(\x01R\x04rate\x12'\n" +
+	"\x0fcommission_rate\x18\t \x01(\x01R\x0ecommissionRate\x12\x1d\n" +
 	"\n" +
-	"enable_api\x18\a \x01(\bR\tenableApi\"\xec\x01\n" +
+	"enable_api\x18\n" +
+	" \x01(\bR\tenableApi\"\xd0\x02\n" +
 	"\x14UpdatePartnerRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
@@ -2766,7 +3592,11 @@ const file_proto_partner_svc_proto_rawDesc = "" +
 	"\rcontact_phone\x18\x05 \x01(\tR\fcontactPhone\x12\x16\n" +
 	"\x06status\x18\x06 \x01(\tR\x06status\x12\x18\n" +
 	"\aservice\x18\a \x01(\tR\aservice\x12\x1a\n" +
-	"\bcurrency\x18\b \x01(\tR\bcurrency\"&\n" +
+	"\bcurrency\x18\b \x01(\tR\bcurrency\x12%\n" +
+	"\x0elocal_currency\x18\t \x01(\tR\rlocalCurrency\x12\x12\n" +
+	"\x04rate\x18\n" +
+	" \x01(\x01R\x04rate\x12'\n" +
+	"\x0fcommission_rate\x18\v \x01(\x01R\x0ecommissionRate\"&\n" +
 	"\x14DeletePartnerRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"A\n" +
 	"\x0fPartnerResponse\x12.\n" +
@@ -2831,7 +3661,7 @@ const file_proto_partner_svc_proto_rawDesc = "" +
 	"\x17GetPartnerUsersResponse\x12.\n" +
 	"\x05users\x18\x01 \x03(\v2\x18.partner.svc.PartnerUserR\x05users\"7\n" +
 	"\x1bGetPartnersByServiceRequest\x12\x18\n" +
-	"\aservice\x18\x01 \x01(\tR\aservice2\xe3\x0e\n" +
+	"\aservice\x18\x01 \x01(\tR\aservice2\xe7\x12\n" +
 	"\x0ePartnerService\x12P\n" +
 	"\rCreatePartner\x12!.partner.svc.CreatePartnerRequest\x1a\x1c.partner.svc.PartnerResponse\x12P\n" +
 	"\rUpdatePartner\x12!.partner.svc.UpdatePartnerRequest\x1a\x1c.partner.svc.PartnerResponse\x12V\n" +
@@ -2840,9 +3670,14 @@ const file_proto_partner_svc_proto_rawDesc = "" +
 	"\x14RevokeAPICredentials\x12(.partner.svc.RevokeAPICredentialsRequest\x1a).partner.svc.RevokeAPICredentialsResponse\x12[\n" +
 	"\x0fRotateAPISecret\x12#.partner.svc.RotateAPISecretRequest\x1a#.partner.svc.APICredentialsResponse\x12X\n" +
 	"\x11UpdateAPISettings\x12%.partner.svc.UpdateAPISettingsRequest\x1a\x1c.partner.svc.PartnerResponse\x12\\\n" +
-	"\x0fInitiateDeposit\x12#.partner.svc.InitiateDepositRequest\x1a$.partner.svc.InitiateDepositResponse\x12h\n" +
-	"\x14GetTransactionStatus\x12(.partner.svc.GetTransactionStatusRequest\x1a&.partner.svc.TransactionStatusResponse\x12_\n" +
-	"\x10ListTransactions\x12$.partner.svc.ListTransactionsRequest\x1a%.partner.svc.ListTransactionsResponse\x12b\n" +
+	"\x0fInitiateDeposit\x12#.partner.svc.InitiateDepositRequest\x1a$.partner.svc.InitiateDepositResponse\x12e\n" +
+	"\x12InitiateWithdrawal\x12&.partner.svc.InitiateWithdrawalRequest\x1a'.partner.svc.InitiateWithdrawalResponse\x12h\n" +
+	"\x14GetTransactionStatus\x12(.partner.svc.GetTransactionStatusRequest\x1a&.partner.svc.TransactionStatusResponse\x12`\n" +
+	"\x13GetTransactionByRef\x12'.partner.svc.GetTransactionByRefRequest\x1a .partner.svc.TransactionResponse\x12_\n" +
+	"\x10ListTransactions\x12$.partner.svc.ListTransactionsRequest\x1a%.partner.svc.ListTransactionsResponse\x12k\n" +
+	"\x16ListTransactionsByType\x12*.partner.svc.ListTransactionsByTypeRequest\x1a%.partner.svc.ListTransactionsResponse\x12b\n" +
+	"\x11CancelTransaction\x12%.partner.svc.CancelTransactionRequest\x1a&.partner.svc.CancelTransactionResponse\x12h\n" +
+	"\x13GetTransactionStats\x12'.partner.svc.GetTransactionStatsRequest\x1a(.partner.svc.GetTransactionStatsResponse\x12b\n" +
 	"\x13UpdateWebhookConfig\x12'.partner.svc.UpdateWebhookConfigRequest\x1a\".partner.svc.WebhookConfigResponse\x12P\n" +
 	"\vTestWebhook\x12\x1f.partner.svc.TestWebhookRequest\x1a .partner.svc.TestWebhookResponse\x12\\\n" +
 	"\x0fListWebhookLogs\x12#.partner.svc.ListWebhookLogsRequest\x1a$.partner.svc.ListWebhookLogsResponse\x12\\\n" +
@@ -2866,7 +3701,7 @@ func file_proto_partner_svc_proto_rawDescGZIP() []byte {
 	return file_proto_partner_svc_proto_rawDescData
 }
 
-var file_proto_partner_svc_proto_msgTypes = make([]protoimpl.MessageInfo, 40)
+var file_proto_partner_svc_proto_msgTypes = make([]protoimpl.MessageInfo, 51)
 var file_proto_partner_svc_proto_goTypes = []any{
 	(*StreamAllPartnersRequest)(nil),      // 0: partner.svc.StreamAllPartnersRequest
 	(*Partner)(nil),                       // 1: partner.svc.Partner
@@ -2879,104 +3714,133 @@ var file_proto_partner_svc_proto_goTypes = []any{
 	(*UpdateAPISettingsRequest)(nil),      // 8: partner.svc.UpdateAPISettingsRequest
 	(*InitiateDepositRequest)(nil),        // 9: partner.svc.InitiateDepositRequest
 	(*InitiateDepositResponse)(nil),       // 10: partner.svc.InitiateDepositResponse
-	(*GetTransactionStatusRequest)(nil),   // 11: partner.svc.GetTransactionStatusRequest
-	(*TransactionStatusResponse)(nil),     // 12: partner.svc.TransactionStatusResponse
-	(*ListTransactionsRequest)(nil),       // 13: partner.svc.ListTransactionsRequest
-	(*ListTransactionsResponse)(nil),      // 14: partner.svc.ListTransactionsResponse
-	(*UpdateWebhookConfigRequest)(nil),    // 15: partner.svc.UpdateWebhookConfigRequest
-	(*WebhookConfigResponse)(nil),         // 16: partner.svc.WebhookConfigResponse
-	(*TestWebhookRequest)(nil),            // 17: partner.svc.TestWebhookRequest
-	(*TestWebhookResponse)(nil),           // 18: partner.svc.TestWebhookResponse
-	(*ListWebhookLogsRequest)(nil),        // 19: partner.svc.ListWebhookLogsRequest
-	(*ListWebhookLogsResponse)(nil),       // 20: partner.svc.ListWebhookLogsResponse
-	(*WebhookLog)(nil),                    // 21: partner.svc.WebhookLog
-	(*CreatePartnerRequest)(nil),          // 22: partner.svc.CreatePartnerRequest
-	(*UpdatePartnerRequest)(nil),          // 23: partner.svc.UpdatePartnerRequest
-	(*DeletePartnerRequest)(nil),          // 24: partner.svc.DeletePartnerRequest
-	(*PartnerResponse)(nil),               // 25: partner.svc.PartnerResponse
-	(*DeletePartnerResponse)(nil),         // 26: partner.svc.DeletePartnerResponse
-	(*PartnerUser)(nil),                   // 27: partner.svc.PartnerUser
-	(*CreatePartnerUserRequest)(nil),      // 28: partner.svc.CreatePartnerUserRequest
-	(*UpdatePartnerUserRequest)(nil),      // 29: partner.svc.UpdatePartnerUserRequest
-	(*PartnerUserResponse)(nil),           // 30: partner.svc.PartnerUserResponse
-	(*DeletePartnerUsersRequest)(nil),     // 31: partner.svc.DeletePartnerUsersRequest
-	(*DeletePartnerUsersResponse)(nil),    // 32: partner.svc.DeletePartnerUsersResponse
-	(*FailedUserDeletion)(nil),            // 33: partner.svc.FailedUserDeletion
-	(*GetPartnersRequest)(nil),            // 34: partner.svc.GetPartnersRequest
-	(*GetPartnersResponse)(nil),           // 35: partner.svc.GetPartnersResponse
-	(*GetPartnerUsersRequest)(nil),        // 36: partner.svc.GetPartnerUsersRequest
-	(*GetPartnerUsersResponse)(nil),       // 37: partner.svc.GetPartnerUsersResponse
-	(*GetPartnersByServiceRequest)(nil),   // 38: partner.svc.GetPartnersByServiceRequest
-	nil,                                   // 39: partner.svc.InitiateDepositRequest.MetadataEntry
-	(*timestamppb.Timestamp)(nil),         // 40: google.protobuf.Timestamp
+	(*InitiateWithdrawalRequest)(nil),     // 11: partner.svc.InitiateWithdrawalRequest
+	(*InitiateWithdrawalResponse)(nil),    // 12: partner.svc.InitiateWithdrawalResponse
+	(*GetTransactionByRefRequest)(nil),    // 13: partner.svc.GetTransactionByRefRequest
+	(*TransactionResponse)(nil),           // 14: partner.svc.TransactionResponse
+	(*GetTransactionStatusRequest)(nil),   // 15: partner.svc.GetTransactionStatusRequest
+	(*TransactionStatusResponse)(nil),     // 16: partner.svc.TransactionStatusResponse
+	(*ListTransactionsRequest)(nil),       // 17: partner.svc.ListTransactionsRequest
+	(*ListTransactionsByTypeRequest)(nil), // 18: partner.svc.ListTransactionsByTypeRequest
+	(*ListTransactionsResponse)(nil),      // 19: partner.svc.ListTransactionsResponse
+	(*CancelTransactionRequest)(nil),      // 20: partner.svc.CancelTransactionRequest
+	(*CancelTransactionResponse)(nil),     // 21: partner.svc.CancelTransactionResponse
+	(*GetTransactionStatsRequest)(nil),    // 22: partner.svc.GetTransactionStatsRequest
+	(*GetTransactionStatsResponse)(nil),   // 23: partner.svc.GetTransactionStatsResponse
+	(*UpdateWebhookConfigRequest)(nil),    // 24: partner.svc.UpdateWebhookConfigRequest
+	(*WebhookConfigResponse)(nil),         // 25: partner.svc.WebhookConfigResponse
+	(*TestWebhookRequest)(nil),            // 26: partner.svc.TestWebhookRequest
+	(*TestWebhookResponse)(nil),           // 27: partner.svc.TestWebhookResponse
+	(*ListWebhookLogsRequest)(nil),        // 28: partner.svc.ListWebhookLogsRequest
+	(*ListWebhookLogsResponse)(nil),       // 29: partner.svc.ListWebhookLogsResponse
+	(*WebhookLog)(nil),                    // 30: partner.svc.WebhookLog
+	(*CreatePartnerRequest)(nil),          // 31: partner.svc.CreatePartnerRequest
+	(*UpdatePartnerRequest)(nil),          // 32: partner.svc.UpdatePartnerRequest
+	(*DeletePartnerRequest)(nil),          // 33: partner.svc.DeletePartnerRequest
+	(*PartnerResponse)(nil),               // 34: partner.svc.PartnerResponse
+	(*DeletePartnerResponse)(nil),         // 35: partner.svc.DeletePartnerResponse
+	(*PartnerUser)(nil),                   // 36: partner.svc.PartnerUser
+	(*CreatePartnerUserRequest)(nil),      // 37: partner.svc.CreatePartnerUserRequest
+	(*UpdatePartnerUserRequest)(nil),      // 38: partner.svc.UpdatePartnerUserRequest
+	(*PartnerUserResponse)(nil),           // 39: partner.svc.PartnerUserResponse
+	(*DeletePartnerUsersRequest)(nil),     // 40: partner.svc.DeletePartnerUsersRequest
+	(*DeletePartnerUsersResponse)(nil),    // 41: partner.svc.DeletePartnerUsersResponse
+	(*FailedUserDeletion)(nil),            // 42: partner.svc.FailedUserDeletion
+	(*GetPartnersRequest)(nil),            // 43: partner.svc.GetPartnersRequest
+	(*GetPartnersResponse)(nil),           // 44: partner.svc.GetPartnersResponse
+	(*GetPartnerUsersRequest)(nil),        // 45: partner.svc.GetPartnerUsersRequest
+	(*GetPartnerUsersResponse)(nil),       // 46: partner.svc.GetPartnerUsersResponse
+	(*GetPartnersByServiceRequest)(nil),   // 47: partner.svc.GetPartnersByServiceRequest
+	nil,                                   // 48: partner.svc.PartnerTransaction.MetadataEntry
+	nil,                                   // 49: partner.svc.InitiateDepositRequest.MetadataEntry
+	nil,                                   // 50: partner.svc.InitiateWithdrawalRequest.MetadataEntry
+	(*timestamppb.Timestamp)(nil),         // 51: google.protobuf.Timestamp
 }
 var file_proto_partner_svc_proto_depIdxs = []int32{
-	40, // 0: partner.svc.Partner.created_at:type_name -> google.protobuf.Timestamp
-	40, // 1: partner.svc.Partner.updated_at:type_name -> google.protobuf.Timestamp
-	40, // 2: partner.svc.PartnerTransaction.processed_at:type_name -> google.protobuf.Timestamp
-	40, // 3: partner.svc.PartnerTransaction.created_at:type_name -> google.protobuf.Timestamp
-	40, // 4: partner.svc.PartnerTransaction.updated_at:type_name -> google.protobuf.Timestamp
-	40, // 5: partner.svc.APICredentialsResponse.expires_at:type_name -> google.protobuf.Timestamp
-	39, // 6: partner.svc.InitiateDepositRequest.metadata:type_name -> partner.svc.InitiateDepositRequest.MetadataEntry
-	2,  // 7: partner.svc.TransactionStatusResponse.transaction:type_name -> partner.svc.PartnerTransaction
-	40, // 8: partner.svc.ListTransactionsRequest.from:type_name -> google.protobuf.Timestamp
-	40, // 9: partner.svc.ListTransactionsRequest.to:type_name -> google.protobuf.Timestamp
-	2,  // 10: partner.svc.ListTransactionsResponse.transactions:type_name -> partner.svc.PartnerTransaction
-	21, // 11: partner.svc.ListWebhookLogsResponse.logs:type_name -> partner.svc.WebhookLog
-	40, // 12: partner.svc.WebhookLog.created_at:type_name -> google.protobuf.Timestamp
-	40, // 13: partner.svc.WebhookLog.last_attempt_at:type_name -> google.protobuf.Timestamp
-	1,  // 14: partner.svc.PartnerResponse.partner:type_name -> partner.svc.Partner
-	40, // 15: partner.svc.PartnerUser.created_at:type_name -> google.protobuf.Timestamp
-	40, // 16: partner.svc.PartnerUser.updated_at:type_name -> google.protobuf.Timestamp
-	27, // 17: partner.svc.PartnerUserResponse.user:type_name -> partner.svc.PartnerUser
-	33, // 18: partner.svc.DeletePartnerUsersResponse.failed_users:type_name -> partner.svc.FailedUserDeletion
-	1,  // 19: partner.svc.GetPartnersResponse.partners:type_name -> partner.svc.Partner
-	27, // 20: partner.svc.GetPartnerUsersResponse.users:type_name -> partner.svc.PartnerUser
-	22, // 21: partner.svc.PartnerService.CreatePartner:input_type -> partner.svc.CreatePartnerRequest
-	23, // 22: partner.svc.PartnerService.UpdatePartner:input_type -> partner.svc.UpdatePartnerRequest
-	24, // 23: partner.svc.PartnerService.DeletePartner:input_type -> partner.svc.DeletePartnerRequest
-	3,  // 24: partner.svc.PartnerService.GenerateAPICredentials:input_type -> partner.svc.GenerateAPICredentialsRequest
-	5,  // 25: partner.svc.PartnerService.RevokeAPICredentials:input_type -> partner.svc.RevokeAPICredentialsRequest
-	7,  // 26: partner.svc.PartnerService.RotateAPISecret:input_type -> partner.svc.RotateAPISecretRequest
-	8,  // 27: partner.svc.PartnerService.UpdateAPISettings:input_type -> partner.svc.UpdateAPISettingsRequest
-	9,  // 28: partner.svc.PartnerService.InitiateDeposit:input_type -> partner.svc.InitiateDepositRequest
-	11, // 29: partner.svc.PartnerService.GetTransactionStatus:input_type -> partner.svc.GetTransactionStatusRequest
-	13, // 30: partner.svc.PartnerService.ListTransactions:input_type -> partner.svc.ListTransactionsRequest
-	15, // 31: partner.svc.PartnerService.UpdateWebhookConfig:input_type -> partner.svc.UpdateWebhookConfigRequest
-	17, // 32: partner.svc.PartnerService.TestWebhook:input_type -> partner.svc.TestWebhookRequest
-	19, // 33: partner.svc.PartnerService.ListWebhookLogs:input_type -> partner.svc.ListWebhookLogsRequest
-	28, // 34: partner.svc.PartnerService.CreatePartnerUser:input_type -> partner.svc.CreatePartnerUserRequest
-	29, // 35: partner.svc.PartnerService.UpdatePartnerUser:input_type -> partner.svc.UpdatePartnerUserRequest
-	31, // 36: partner.svc.PartnerService.DeletePartnerUsers:input_type -> partner.svc.DeletePartnerUsersRequest
-	34, // 37: partner.svc.PartnerService.GetPartners:input_type -> partner.svc.GetPartnersRequest
-	36, // 38: partner.svc.PartnerService.GetPartnerUsers:input_type -> partner.svc.GetPartnerUsersRequest
-	38, // 39: partner.svc.PartnerService.GetPartnersByService:input_type -> partner.svc.GetPartnersByServiceRequest
-	0,  // 40: partner.svc.PartnerService.StreamAllPartners:input_type -> partner.svc.StreamAllPartnersRequest
-	25, // 41: partner.svc.PartnerService.CreatePartner:output_type -> partner.svc.PartnerResponse
-	25, // 42: partner.svc.PartnerService.UpdatePartner:output_type -> partner.svc.PartnerResponse
-	26, // 43: partner.svc.PartnerService.DeletePartner:output_type -> partner.svc.DeletePartnerResponse
-	4,  // 44: partner.svc.PartnerService.GenerateAPICredentials:output_type -> partner.svc.APICredentialsResponse
-	6,  // 45: partner.svc.PartnerService.RevokeAPICredentials:output_type -> partner.svc.RevokeAPICredentialsResponse
-	4,  // 46: partner.svc.PartnerService.RotateAPISecret:output_type -> partner.svc.APICredentialsResponse
-	25, // 47: partner.svc.PartnerService.UpdateAPISettings:output_type -> partner.svc.PartnerResponse
-	10, // 48: partner.svc.PartnerService.InitiateDeposit:output_type -> partner.svc.InitiateDepositResponse
-	12, // 49: partner.svc.PartnerService.GetTransactionStatus:output_type -> partner.svc.TransactionStatusResponse
-	14, // 50: partner.svc.PartnerService.ListTransactions:output_type -> partner.svc.ListTransactionsResponse
-	16, // 51: partner.svc.PartnerService.UpdateWebhookConfig:output_type -> partner.svc.WebhookConfigResponse
-	18, // 52: partner.svc.PartnerService.TestWebhook:output_type -> partner.svc.TestWebhookResponse
-	20, // 53: partner.svc.PartnerService.ListWebhookLogs:output_type -> partner.svc.ListWebhookLogsResponse
-	30, // 54: partner.svc.PartnerService.CreatePartnerUser:output_type -> partner.svc.PartnerUserResponse
-	30, // 55: partner.svc.PartnerService.UpdatePartnerUser:output_type -> partner.svc.PartnerUserResponse
-	32, // 56: partner.svc.PartnerService.DeletePartnerUsers:output_type -> partner.svc.DeletePartnerUsersResponse
-	35, // 57: partner.svc.PartnerService.GetPartners:output_type -> partner.svc.GetPartnersResponse
-	37, // 58: partner.svc.PartnerService.GetPartnerUsers:output_type -> partner.svc.GetPartnerUsersResponse
-	35, // 59: partner.svc.PartnerService.GetPartnersByService:output_type -> partner.svc.GetPartnersResponse
-	1,  // 60: partner.svc.PartnerService.StreamAllPartners:output_type -> partner.svc.Partner
-	41, // [41:61] is the sub-list for method output_type
-	21, // [21:41] is the sub-list for method input_type
-	21, // [21:21] is the sub-list for extension type_name
-	21, // [21:21] is the sub-list for extension extendee
-	0,  // [0:21] is the sub-list for field type_name
+	51, // 0: partner.svc.Partner.created_at:type_name -> google.protobuf.Timestamp
+	51, // 1: partner.svc.Partner.updated_at:type_name -> google.protobuf.Timestamp
+	48, // 2: partner.svc.PartnerTransaction.metadata:type_name -> partner.svc.PartnerTransaction.MetadataEntry
+	51, // 3: partner.svc.PartnerTransaction.processed_at:type_name -> google.protobuf.Timestamp
+	51, // 4: partner.svc.PartnerTransaction.created_at:type_name -> google.protobuf.Timestamp
+	51, // 5: partner.svc.PartnerTransaction.updated_at:type_name -> google.protobuf.Timestamp
+	51, // 6: partner.svc.APICredentialsResponse.expires_at:type_name -> google.protobuf.Timestamp
+	49, // 7: partner.svc.InitiateDepositRequest.metadata:type_name -> partner.svc.InitiateDepositRequest.MetadataEntry
+	51, // 8: partner.svc.InitiateDepositResponse.created_at:type_name -> google.protobuf.Timestamp
+	50, // 9: partner.svc.InitiateWithdrawalRequest.metadata:type_name -> partner.svc.InitiateWithdrawalRequest.MetadataEntry
+	51, // 10: partner.svc.InitiateWithdrawalResponse.created_at:type_name -> google.protobuf.Timestamp
+	2,  // 11: partner.svc.TransactionResponse.transaction:type_name -> partner.svc.PartnerTransaction
+	2,  // 12: partner.svc.TransactionStatusResponse.transaction:type_name -> partner.svc.PartnerTransaction
+	51, // 13: partner.svc.ListTransactionsRequest.from:type_name -> google.protobuf.Timestamp
+	51, // 14: partner.svc.ListTransactionsRequest.to:type_name -> google.protobuf.Timestamp
+	2,  // 15: partner.svc.ListTransactionsResponse.transactions:type_name -> partner.svc.PartnerTransaction
+	2,  // 16: partner.svc.CancelTransactionResponse.transaction:type_name -> partner.svc.PartnerTransaction
+	51, // 17: partner.svc.GetTransactionStatsRequest.from:type_name -> google.protobuf.Timestamp
+	51, // 18: partner.svc.GetTransactionStatsRequest.to:type_name -> google.protobuf.Timestamp
+	30, // 19: partner.svc.ListWebhookLogsResponse.logs:type_name -> partner.svc.WebhookLog
+	51, // 20: partner.svc.WebhookLog.created_at:type_name -> google.protobuf.Timestamp
+	51, // 21: partner.svc.WebhookLog.last_attempt_at:type_name -> google.protobuf.Timestamp
+	1,  // 22: partner.svc.PartnerResponse.partner:type_name -> partner.svc.Partner
+	51, // 23: partner.svc.PartnerUser.created_at:type_name -> google.protobuf.Timestamp
+	51, // 24: partner.svc.PartnerUser.updated_at:type_name -> google.protobuf.Timestamp
+	36, // 25: partner.svc.PartnerUserResponse.user:type_name -> partner.svc.PartnerUser
+	42, // 26: partner.svc.DeletePartnerUsersResponse.failed_users:type_name -> partner.svc.FailedUserDeletion
+	1,  // 27: partner.svc.GetPartnersResponse.partners:type_name -> partner.svc.Partner
+	36, // 28: partner.svc.GetPartnerUsersResponse.users:type_name -> partner.svc.PartnerUser
+	31, // 29: partner.svc.PartnerService.CreatePartner:input_type -> partner.svc.CreatePartnerRequest
+	32, // 30: partner.svc.PartnerService.UpdatePartner:input_type -> partner.svc.UpdatePartnerRequest
+	33, // 31: partner.svc.PartnerService.DeletePartner:input_type -> partner.svc.DeletePartnerRequest
+	3,  // 32: partner.svc.PartnerService.GenerateAPICredentials:input_type -> partner.svc.GenerateAPICredentialsRequest
+	5,  // 33: partner.svc.PartnerService.RevokeAPICredentials:input_type -> partner.svc.RevokeAPICredentialsRequest
+	7,  // 34: partner.svc.PartnerService.RotateAPISecret:input_type -> partner.svc.RotateAPISecretRequest
+	8,  // 35: partner.svc.PartnerService.UpdateAPISettings:input_type -> partner.svc.UpdateAPISettingsRequest
+	9,  // 36: partner.svc.PartnerService.InitiateDeposit:input_type -> partner.svc.InitiateDepositRequest
+	11, // 37: partner.svc.PartnerService.InitiateWithdrawal:input_type -> partner.svc.InitiateWithdrawalRequest
+	15, // 38: partner.svc.PartnerService.GetTransactionStatus:input_type -> partner.svc.GetTransactionStatusRequest
+	13, // 39: partner.svc.PartnerService.GetTransactionByRef:input_type -> partner.svc.GetTransactionByRefRequest
+	17, // 40: partner.svc.PartnerService.ListTransactions:input_type -> partner.svc.ListTransactionsRequest
+	18, // 41: partner.svc.PartnerService.ListTransactionsByType:input_type -> partner.svc.ListTransactionsByTypeRequest
+	20, // 42: partner.svc.PartnerService.CancelTransaction:input_type -> partner.svc.CancelTransactionRequest
+	22, // 43: partner.svc.PartnerService.GetTransactionStats:input_type -> partner.svc.GetTransactionStatsRequest
+	24, // 44: partner.svc.PartnerService.UpdateWebhookConfig:input_type -> partner.svc.UpdateWebhookConfigRequest
+	26, // 45: partner.svc.PartnerService.TestWebhook:input_type -> partner.svc.TestWebhookRequest
+	28, // 46: partner.svc.PartnerService.ListWebhookLogs:input_type -> partner.svc.ListWebhookLogsRequest
+	37, // 47: partner.svc.PartnerService.CreatePartnerUser:input_type -> partner.svc.CreatePartnerUserRequest
+	38, // 48: partner.svc.PartnerService.UpdatePartnerUser:input_type -> partner.svc.UpdatePartnerUserRequest
+	40, // 49: partner.svc.PartnerService.DeletePartnerUsers:input_type -> partner.svc.DeletePartnerUsersRequest
+	43, // 50: partner.svc.PartnerService.GetPartners:input_type -> partner.svc.GetPartnersRequest
+	45, // 51: partner.svc.PartnerService.GetPartnerUsers:input_type -> partner.svc.GetPartnerUsersRequest
+	47, // 52: partner.svc.PartnerService.GetPartnersByService:input_type -> partner.svc.GetPartnersByServiceRequest
+	0,  // 53: partner.svc.PartnerService.StreamAllPartners:input_type -> partner.svc.StreamAllPartnersRequest
+	34, // 54: partner.svc.PartnerService.CreatePartner:output_type -> partner.svc.PartnerResponse
+	34, // 55: partner.svc.PartnerService.UpdatePartner:output_type -> partner.svc.PartnerResponse
+	35, // 56: partner.svc.PartnerService.DeletePartner:output_type -> partner.svc.DeletePartnerResponse
+	4,  // 57: partner.svc.PartnerService.GenerateAPICredentials:output_type -> partner.svc.APICredentialsResponse
+	6,  // 58: partner.svc.PartnerService.RevokeAPICredentials:output_type -> partner.svc.RevokeAPICredentialsResponse
+	4,  // 59: partner.svc.PartnerService.RotateAPISecret:output_type -> partner.svc.APICredentialsResponse
+	34, // 60: partner.svc.PartnerService.UpdateAPISettings:output_type -> partner.svc.PartnerResponse
+	10, // 61: partner.svc.PartnerService.InitiateDeposit:output_type -> partner.svc.InitiateDepositResponse
+	12, // 62: partner.svc.PartnerService.InitiateWithdrawal:output_type -> partner.svc.InitiateWithdrawalResponse
+	16, // 63: partner.svc.PartnerService.GetTransactionStatus:output_type -> partner.svc.TransactionStatusResponse
+	14, // 64: partner.svc.PartnerService.GetTransactionByRef:output_type -> partner.svc.TransactionResponse
+	19, // 65: partner.svc.PartnerService.ListTransactions:output_type -> partner.svc.ListTransactionsResponse
+	19, // 66: partner.svc.PartnerService.ListTransactionsByType:output_type -> partner.svc.ListTransactionsResponse
+	21, // 67: partner.svc.PartnerService.CancelTransaction:output_type -> partner.svc.CancelTransactionResponse
+	23, // 68: partner.svc.PartnerService.GetTransactionStats:output_type -> partner.svc.GetTransactionStatsResponse
+	25, // 69: partner.svc.PartnerService.UpdateWebhookConfig:output_type -> partner.svc.WebhookConfigResponse
+	27, // 70: partner.svc.PartnerService.TestWebhook:output_type -> partner.svc.TestWebhookResponse
+	29, // 71: partner.svc.PartnerService.ListWebhookLogs:output_type -> partner.svc.ListWebhookLogsResponse
+	39, // 72: partner.svc.PartnerService.CreatePartnerUser:output_type -> partner.svc.PartnerUserResponse
+	39, // 73: partner.svc.PartnerService.UpdatePartnerUser:output_type -> partner.svc.PartnerUserResponse
+	41, // 74: partner.svc.PartnerService.DeletePartnerUsers:output_type -> partner.svc.DeletePartnerUsersResponse
+	44, // 75: partner.svc.PartnerService.GetPartners:output_type -> partner.svc.GetPartnersResponse
+	46, // 76: partner.svc.PartnerService.GetPartnerUsers:output_type -> partner.svc.GetPartnerUsersResponse
+	44, // 77: partner.svc.PartnerService.GetPartnersByService:output_type -> partner.svc.GetPartnersResponse
+	1,  // 78: partner.svc.PartnerService.StreamAllPartners:output_type -> partner.svc.Partner
+	54, // [54:79] is the sub-list for method output_type
+	29, // [29:54] is the sub-list for method input_type
+	29, // [29:29] is the sub-list for extension type_name
+	29, // [29:29] is the sub-list for extension extendee
+	0,  // [0:29] is the sub-list for field type_name
 }
 
 func init() { file_proto_partner_svc_proto_init() }
@@ -2990,7 +3854,7 @@ func file_proto_partner_svc_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_partner_svc_proto_rawDesc), len(file_proto_partner_svc_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   40,
+			NumMessages:   51,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

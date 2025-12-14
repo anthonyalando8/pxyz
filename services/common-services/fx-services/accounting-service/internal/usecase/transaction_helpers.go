@@ -19,15 +19,31 @@ func (uc *TransactionUsecase) fetchSystemAndUserAccounts(
 	currency string,
 	purpose domain.AccountPurpose,
 	userAccountNumber string,
-) (*domain.Account, *domain.Account, error) {
-	systemAccount, err := uc.accountUC. GetSystemAccount(ctx, currency, purpose)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get system account: %w", err)
-	}
-
+) (*domain.Account, *domain. Account, error) {
+	// ✅ Step 1: Fetch user account first
 	userAccount, err := uc.accountUC.GetByAccountNumber(ctx, userAccountNumber)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get user account: %w", err)
+	}
+
+	// ✅ Step 2: Infer currency from user account if not provided
+	if currency == "" {
+		if userAccount.Currency == "" {
+			return nil, nil, fmt. Errorf("currency not provided and user account has no currency")
+		}
+		currency = userAccount.Currency
+	}
+
+	// ✅ Step 3: Fetch system account with currency
+	systemAccount, err := uc.accountUC.GetSystemAccount(ctx, currency, purpose)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get system account for currency %s: %w", currency, err)
+	}
+
+	// ✅ Step 4: Validate currency match
+	if userAccount.Currency != systemAccount.Currency {
+		return nil, nil, fmt.Errorf("currency mismatch: user account (%s) vs system account (%s)", 
+			userAccount.Currency, systemAccount.Currency)
 	}
 
 	return systemAccount, userAccount, nil

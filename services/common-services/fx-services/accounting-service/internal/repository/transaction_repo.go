@@ -1240,11 +1240,59 @@ func (r *transactionRepo) tryCreateAgentCommission(
 		return 0, 0
 	}
 
-	if agent.CommissionRate == nil || agent.CommissionRate.IsZero() {
-		r.logger.Warn("no commission rate, skipping commission",
-			zap.String("agent_id", *req.AgentExternalID))
+	// ✅ Select commission rate based on transaction type
+	var commissionRate *decimal.Decimal
+	var rateType string
+
+	switch req. TransactionType {
+	case domain.TransactionTypeDeposit:
+		// Use deposit commission rate
+		if agent.CommissionRateForDeposit != nil && ! agent.CommissionRateForDeposit.IsZero() {
+			commissionRate = agent. CommissionRateForDeposit
+			rateType = "deposit"
+		} else if agent. CommissionRate != nil && ! agent.CommissionRate.IsZero() {
+			// Fallback to regular commission rate if deposit rate not set
+			commissionRate = agent. CommissionRate
+			rateType = "default"
+			r.logger.Info("deposit rate not set, using default rate",
+				zap.String("agent_id", *req.AgentExternalID))
+		}
+
+	case domain.TransactionTypeWithdrawal:
+		// Use withdrawal commission rate (regular commission rate)
+		if agent.CommissionRate != nil && !agent.CommissionRate.IsZero() {
+			commissionRate = agent.CommissionRate
+			rateType = "withdrawal"
+		}
+
+	case domain.TransactionTypeTransfer:
+		// Use regular commission rate for transfers
+		if agent.CommissionRate != nil && !agent.CommissionRate.IsZero() {
+			commissionRate = agent.CommissionRate
+			rateType = "transfer"
+		}
+
+	default:
+		// For other transaction types, use regular commission rate
+		if agent.CommissionRate != nil && !agent. CommissionRate.IsZero() {
+			commissionRate = agent.CommissionRate
+			rateType = "default"
+		}
+	}
+
+	// Check if we have a valid commission rate
+	if commissionRate == nil || commissionRate.IsZero() {
+		r.logger.Warn("no commission rate available, skipping commission",
+			zap.String("agent_id", *req.AgentExternalID),
+			zap.String("transaction_type", string(req.TransactionType)))
 		return 0, 0
 	}
+
+	r.logger.Info("using commission rate",
+		zap.String("agent_id", *req.AgentExternalID),
+		zap.String("transaction_type", string(req.TransactionType)),
+		zap.String("rate_type", rateType),
+		zap.Float64("rate", commissionRate.InexactFloat64()))
 
 	// Calculate commission
 	transactionAmount := r.getTransactionAmount(req)
@@ -1252,22 +1300,22 @@ func (r *transactionRepo) tryCreateAgentCommission(
 		return 0, 0
 	}
 
-	commissionAmount := r. calculateAgentCommission(transactionAmount, agent.CommissionRate. InexactFloat64())
+	commissionAmount := r. calculateAgentCommission(transactionAmount, commissionRate. InexactFloat64())
 	if commissionAmount <= 0 {
 		return 0, 0
 	}
 
 	// Get user ID
-	userExternalID := r. getUserExternalIDFromTransaction(ctx, req)
+	userExternalID := r.getUserExternalIDFromTransaction(ctx, req)
 	if userExternalID == "" {
 		r.logger.Warn("could not determine user, skipping commission",
-			zap.String("agent_id", *req.AgentExternalID))
+			zap.String("agent_id", *req. AgentExternalID))
 		return 0, 0
 	}
 
 	if userExternalID == *req.AgentExternalID {
-		r.logger.Info("agent self-transaction, skipping commission",
-			zap.String("agent_id", *req.AgentExternalID))
+		r.logger. Info("agent self-transaction, skipping commission",
+			zap. String("agent_id", *req.AgentExternalID))
 		return 0, 0
 	}
 
@@ -1284,23 +1332,30 @@ func (r *transactionRepo) tryCreateAgentCommission(
 	if err != nil {
 		r.logger.Warn("failed to get user account, skipping commission",
 			zap.Error(err),
-			zap. String("agent_id", *req.AgentExternalID))
+			zap.String("agent_id", *req.AgentExternalID))
 		return 0, 0
 	}
 
-	// Create commission
+	// ✅ Create commission with rate type tracking
 	commission := &domain.AgentCommission{
-		AgentExternalID:   *req.AgentExternalID,
+		AgentExternalID:   *req. AgentExternalID,
 		UserExternalID:    userExternalID,
 		AgentAccountID:    agentAccount.ID,
 		UserAccountID:     userAccount.ID,
 		ReceiptCode:       receiptCode,
-		TransactionAmount: decimal. NewFromFloat(transactionAmount),
-		CommissionRate:    *agent.CommissionRate,
+		TransactionAmount: decimal.NewFromFloat(transactionAmount),
+		CommissionRate:    *commissionRate, // ✅ Store the actual rate used
 		CommissionAmount:  decimal.NewFromFloat(commissionAmount),
-		Currency:          req.GetCurrency(),
+		Currency:          req. GetCurrency(),
 		PaidOut:           false,
 	}
+
+	// ✅ Store rate type in metadata if available
+	if req.Metadata == nil {
+		req.Metadata = make(map[string]interface{})
+	}
+	req.Metadata["commission_rate_type"] = rateType
+	req.Metadata["commission_rate"] = commissionRate.InexactFloat64()
 
 	commissionID, err := r. agent.CreateCommission(ctx, tx, commission)
 	if err != nil {
@@ -1309,6 +1364,14 @@ func (r *transactionRepo) tryCreateAgentCommission(
 			zap.String("agent_id", *req.AgentExternalID))
 		return 0, 0
 	}
+
+	r.logger.Info("agent commission created",
+		zap. String("agent_id", *req.AgentExternalID),
+		zap.Int64("commission_id", commissionID),
+		zap.String("transaction_type", string(req.TransactionType)),
+		zap.String("rate_type", rateType),
+		zap.Float64("rate", commissionRate.InexactFloat64()),
+		zap.Float64("amount", commissionAmount))
 
 	return commissionAmount, commissionID
 }

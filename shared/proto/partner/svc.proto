@@ -19,8 +19,13 @@ service PartnerService {
   
   // Transaction Management
   rpc InitiateDeposit(InitiateDepositRequest) returns (InitiateDepositResponse);
+  rpc InitiateWithdrawal(InitiateWithdrawalRequest) returns (InitiateWithdrawalResponse);
   rpc GetTransactionStatus(GetTransactionStatusRequest) returns (TransactionStatusResponse);
+  rpc GetTransactionByRef(GetTransactionByRefRequest) returns (TransactionResponse);
   rpc ListTransactions(ListTransactionsRequest) returns (ListTransactionsResponse);
+  rpc ListTransactionsByType(ListTransactionsByTypeRequest) returns (ListTransactionsResponse);
+  rpc CancelTransaction(CancelTransactionRequest) returns (CancelTransactionResponse);
+  rpc GetTransactionStats(GetTransactionStatsRequest) returns (GetTransactionStatsResponse);
   
   // Webhook Management
   rpc UpdateWebhookConfig(UpdateWebhookConfigRequest) returns (WebhookConfigResponse);
@@ -34,9 +39,7 @@ service PartnerService {
   rpc GetPartners(GetPartnersRequest) returns (GetPartnersResponse);
   rpc GetPartnerUsers(GetPartnerUsersRequest) returns (GetPartnerUsersResponse);
   rpc GetPartnersByService(GetPartnersByServiceRequest) returns (GetPartnersResponse);
-
-  rpc StreamAllPartners(StreamAllPartnersRequest)
-        returns (stream Partner);
+  rpc StreamAllPartners(StreamAllPartnersRequest) returns (stream Partner);
 }
 
 message StreamAllPartnersRequest {
@@ -53,15 +56,15 @@ message Partner {
     string service = 7;
     string currency = 8;
     string local_currency = 9;
-    string rate = 10;
-    string inverse_rate = 11;
+    double rate = 10;                    // ✅ Changed from string to double
+    double inverse_rate = 11;            // ✅ Changed from string to double
     double commission_rate = 12;
     string api_key = 13;
     bool is_api_enabled = 14;
     int32 api_rate_limit = 15;
     string webhook_url = 16;
     string callback_url = 17;
-    google.protobuf.Timestamp created_at = 18;
+    google. protobuf.Timestamp created_at = 18;
     google.protobuf.Timestamp updated_at = 19;
     repeated string allowed_ips = 20;
 }
@@ -77,10 +80,13 @@ message PartnerTransaction {
   string currency = 6;
   string status = 7;
   string payment_method = 8;
-  string external_ref = 9;
-  google.protobuf.Timestamp processed_at = 10;
-  google.protobuf.Timestamp created_at = 11;
-  google.protobuf.Timestamp updated_at = 12;
+  string transaction_type = 9;
+  string external_ref = 10;
+  string error_message = 11;
+  map<string, string> metadata = 12;
+  google.protobuf. Timestamp processed_at = 13;
+  google.protobuf.Timestamp created_at = 14;
+  google.protobuf.Timestamp updated_at = 15;
 }
 
 // -------------------- API Credentials --------------------
@@ -91,7 +97,7 @@ message GenerateAPICredentialsRequest {
 
 message APICredentialsResponse {
   string api_key = 1;
-  string api_secret = 2; // Only returned once during generation
+  string api_secret = 2;
   string partner_id = 3;
   google.protobuf.Timestamp expires_at = 4;
 }
@@ -120,7 +126,7 @@ message UpdateAPISettingsRequest {
 
 message InitiateDepositRequest {
   string partner_id = 1;
-  string transaction_ref = 2; // Partner's unique reference
+  string transaction_ref = 2;
   string user_id = 3;
   double amount = 4;
   string currency = 5;
@@ -131,9 +137,40 @@ message InitiateDepositRequest {
 
 message InitiateDepositResponse {
   bool success = 1;
-  string transaction_id = 2;
-  string status = 3;
-  string message = 4;
+  int64 transaction_id = 2;
+  string transaction_ref = 3;
+  string status = 4;
+  string message = 5;
+  google. protobuf.Timestamp created_at = 6;
+}
+
+message InitiateWithdrawalRequest {
+  string partner_id = 1;
+  string transaction_ref = 2;
+  string user_id = 3;
+  double amount = 4;
+  string currency = 5;
+  string payment_method = 6;
+  string external_ref = 7;
+  map<string, string> metadata = 8;
+}
+
+message InitiateWithdrawalResponse {
+  bool success = 1;
+  int64 transaction_id = 2;
+  string transaction_ref = 3;
+  string status = 4;
+  string message = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+message GetTransactionByRefRequest {
+  string partner_id = 1;
+  string transaction_ref = 2;
+}
+
+message TransactionResponse {
+  PartnerTransaction transaction = 1;
 }
 
 message GetTransactionStatusRequest {
@@ -149,14 +186,54 @@ message ListTransactionsRequest {
   string partner_id = 1;
   int32 limit = 2;
   int32 offset = 3;
-  string status = 4; // optional filter
-  google.protobuf.Timestamp from = 5;
-  google.protobuf.Timestamp to = 6;
+  string status = 4;
+  google.protobuf. Timestamp from = 5;
+  google.protobuf. Timestamp to = 6;
+}
+
+message ListTransactionsByTypeRequest {
+  string partner_id = 1;
+  string transaction_type = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+  string status = 5;
 }
 
 message ListTransactionsResponse {
   repeated PartnerTransaction transactions = 1;
   int64 total_count = 2;
+}
+
+message CancelTransactionRequest {
+  string partner_id = 1;
+  string transaction_ref = 2;
+}
+
+message CancelTransactionResponse {
+  bool success = 1;
+  string message = 2;
+  PartnerTransaction transaction = 3;
+}
+
+message GetTransactionStatsRequest {
+  string partner_id = 1;
+  google.protobuf.Timestamp from = 2;
+  google.protobuf.Timestamp to = 3;
+}
+
+message GetTransactionStatsResponse {
+  int64 total_count = 1;
+  int64 completed_count = 2;
+  int64 failed_count = 3;
+  int64 pending_count = 4;
+  int64 deposit_count = 5;
+  int64 withdrawal_count = 6;
+  double total_amount = 7;
+  double total_deposits = 8;
+  double total_withdrawals = 9;
+  double avg_amount = 10;
+  double min_amount = 11;
+  double max_amount = 12;
 }
 
 // -------------------- Webhooks --------------------
@@ -206,7 +283,7 @@ message WebhookLog {
   google.protobuf.Timestamp last_attempt_at = 9;
 }
 
-// -------------------- Existing Messages --------------------
+// -------------------- Partner Management --------------------
 
 message CreatePartnerRequest {
   string name = 1;
@@ -215,7 +292,10 @@ message CreatePartnerRequest {
   string contact_phone = 4;
   string service = 5;
   string currency = 6;
-  bool enable_api = 7;
+  string local_currency = 7;      // ✅ REQUIRED:  e.g., "KES"
+  double rate = 8;                 // ✅ REQUIRED: e.g., 129.50 (1 USD = 129.50 KES)
+  double commission_rate = 9;      // ✅ OPTIONAL:  e.g., 0.005 (0.5%)
+  bool enable_api = 10;
 }
 
 message UpdatePartnerRequest {
@@ -227,6 +307,9 @@ message UpdatePartnerRequest {
   string status = 6;
   string service = 7;
   string currency = 8;
+  string local_currency = 9;      // ✅ OPTIONAL: Can update rate
+  double rate = 10;                // ✅ OPTIONAL:  Can update rate
+  double commission_rate = 11;     // ✅ OPTIONAL: Can update commission
 }
 
 message DeletePartnerRequest {
@@ -241,6 +324,8 @@ message DeletePartnerResponse {
   bool success = 1;
 }
 
+// -------------------- Partner Users --------------------
+
 message PartnerUser {
   string id = 1;
   string partner_id = 2;
@@ -250,7 +335,7 @@ message PartnerUser {
   string last_name = 6;
   string role = 7;
   string account_status = 8;
-  google.protobuf.Timestamp created_at = 9;
+  google. protobuf.Timestamp created_at = 9;
   google.protobuf.Timestamp updated_at = 10;
 }
 
@@ -291,6 +376,8 @@ message FailedUserDeletion {
   string user_id = 1;
   string reason = 2;
 }
+
+// -------------------- Query Messages --------------------
 
 message GetPartnersRequest {
   repeated string partner_ids = 1;

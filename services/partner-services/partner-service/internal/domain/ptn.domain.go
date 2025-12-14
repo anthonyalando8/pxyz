@@ -25,8 +25,8 @@ type Partner struct {
     Service        string
     Currency       string
     LocalCurrency  string
-    Rate           string
-    InverseRate    string
+    Rate           float64
+    InverseRate    float64
     CommissionRate float64
     
     IsAPIEnabled   bool
@@ -86,6 +86,7 @@ type PartnerTransaction struct {
 	Currency       string
 	Status         string
 	PaymentMethod  *string
+	TransactionType  string
 	ExternalRef    *string
 	Metadata       map[string]interface{}
 	ErrorMessage   string                 `json:"error_message,omitempty"`

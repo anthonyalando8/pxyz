@@ -64,6 +64,8 @@ const (
 	AccountingService_GetAgentByID_FullMethodName              = "/accounting.v1.AccountingService/GetAgentByID"
 	AccountingService_GetAgentByUserID_FullMethodName          = "/accounting.v1.AccountingService/GetAgentByUserID"
 	AccountingService_ListAgents_FullMethodName                = "/accounting.v1.AccountingService/ListAgents"
+	AccountingService_GetAgentsByCountries_FullMethodName      = "/accounting.v1.AccountingService/GetAgentsByCountries"
+	AccountingService_GetAgentStats_FullMethodName             = "/accounting.v1.AccountingService/GetAgentStats"
 	AccountingService_ListCommissionsForAgent_FullMethodName   = "/accounting.v1.AccountingService/ListCommissionsForAgent"
 )
 
@@ -159,8 +161,12 @@ type AccountingServiceClient interface {
 	GetAgentByID(ctx context.Context, in *GetAgentByIDRequest, opts ...grpc.CallOption) (*GetAgentByIDResponse, error)
 	// Get agent by user external ID
 	GetAgentByUserID(ctx context.Context, in *GetAgentByUserIDRequest, opts ...grpc.CallOption) (*GetAgentByUserIDResponse, error)
-	// List all agents with pagination
+	// List all agents with pagination and filters
 	ListAgents(ctx context.Context, in *ListAgentsRequest, opts ...grpc.CallOption) (*ListAgentsResponse, error)
+	// ✅ NEW: Get agents by multiple countries
+	GetAgentsByCountries(ctx context.Context, in *GetAgentsByCountriesRequest, opts ...grpc.CallOption) (*GetAgentsByCountriesResponse, error)
+	// ✅ NEW: Get agent statistics
+	GetAgentStats(ctx context.Context, in *GetAgentStatsRequest, opts ...grpc.CallOption) (*GetAgentStatsResponse, error)
 	// List commissions for a specific agent
 	ListCommissionsForAgent(ctx context.Context, in *ListCommissionsForAgentRequest, opts ...grpc.CallOption) (*ListCommissionsForAgentResponse, error)
 }
@@ -632,6 +638,26 @@ func (c *accountingServiceClient) ListAgents(ctx context.Context, in *ListAgents
 	return out, nil
 }
 
+func (c *accountingServiceClient) GetAgentsByCountries(ctx context.Context, in *GetAgentsByCountriesRequest, opts ...grpc.CallOption) (*GetAgentsByCountriesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAgentsByCountriesResponse)
+	err := c.cc.Invoke(ctx, AccountingService_GetAgentsByCountries_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *accountingServiceClient) GetAgentStats(ctx context.Context, in *GetAgentStatsRequest, opts ...grpc.CallOption) (*GetAgentStatsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAgentStatsResponse)
+	err := c.cc.Invoke(ctx, AccountingService_GetAgentStats_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *accountingServiceClient) ListCommissionsForAgent(ctx context.Context, in *ListCommissionsForAgentRequest, opts ...grpc.CallOption) (*ListCommissionsForAgentResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListCommissionsForAgentResponse)
@@ -734,8 +760,12 @@ type AccountingServiceServer interface {
 	GetAgentByID(context.Context, *GetAgentByIDRequest) (*GetAgentByIDResponse, error)
 	// Get agent by user external ID
 	GetAgentByUserID(context.Context, *GetAgentByUserIDRequest) (*GetAgentByUserIDResponse, error)
-	// List all agents with pagination
+	// List all agents with pagination and filters
 	ListAgents(context.Context, *ListAgentsRequest) (*ListAgentsResponse, error)
+	// ✅ NEW: Get agents by multiple countries
+	GetAgentsByCountries(context.Context, *GetAgentsByCountriesRequest) (*GetAgentsByCountriesResponse, error)
+	// ✅ NEW: Get agent statistics
+	GetAgentStats(context.Context, *GetAgentStatsRequest) (*GetAgentStatsResponse, error)
 	// List commissions for a specific agent
 	ListCommissionsForAgent(context.Context, *ListCommissionsForAgentRequest) (*ListCommissionsForAgentResponse, error)
 	mustEmbedUnimplementedAccountingServiceServer()
@@ -882,6 +912,12 @@ func (UnimplementedAccountingServiceServer) GetAgentByUserID(context.Context, *G
 }
 func (UnimplementedAccountingServiceServer) ListAgents(context.Context, *ListAgentsRequest) (*ListAgentsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListAgents not implemented")
+}
+func (UnimplementedAccountingServiceServer) GetAgentsByCountries(context.Context, *GetAgentsByCountriesRequest) (*GetAgentsByCountriesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAgentsByCountries not implemented")
+}
+func (UnimplementedAccountingServiceServer) GetAgentStats(context.Context, *GetAgentStatsRequest) (*GetAgentStatsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAgentStats not implemented")
 }
 func (UnimplementedAccountingServiceServer) ListCommissionsForAgent(context.Context, *ListCommissionsForAgentRequest) (*ListCommissionsForAgentResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListCommissionsForAgent not implemented")
@@ -1710,6 +1746,42 @@ func _AccountingService_ListAgents_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AccountingService_GetAgentsByCountries_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAgentsByCountriesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountingServiceServer).GetAgentsByCountries(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountingService_GetAgentsByCountries_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountingServiceServer).GetAgentsByCountries(ctx, req.(*GetAgentsByCountriesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AccountingService_GetAgentStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAgentStatsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AccountingServiceServer).GetAgentStats(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AccountingService_GetAgentStats_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AccountingServiceServer).GetAgentStats(ctx, req.(*GetAgentStatsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _AccountingService_ListCommissionsForAgent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListCommissionsForAgentRequest)
 	if err := dec(in); err != nil {
@@ -1910,6 +1982,14 @@ var AccountingService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListAgents",
 			Handler:    _AccountingService_ListAgents_Handler,
+		},
+		{
+			MethodName: "GetAgentsByCountries",
+			Handler:    _AccountingService_GetAgentsByCountries_Handler,
+		},
+		{
+			MethodName: "GetAgentStats",
+			Handler:    _AccountingService_GetAgentStats_Handler,
 		},
 		{
 			MethodName: "ListCommissionsForAgent",

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -18,14 +19,14 @@ import (
 	notificationclient "x/shared/notification"
 	partnerclient "x/shared/partner"
 
+	"accounting-service/internal/pkg"
 	publisher "accounting-service/internal/pub"
 	receiptpb "x/shared/genproto/shared/accounting/receipt/v3"
 	notificationpb "x/shared/genproto/shared/notificationpb"
-	"accounting-service/internal/pkg"
-
 
 	"github.com/redis/go-redis/v9"
 	"github.com/segmentio/kafka-go"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 const (
@@ -546,13 +547,25 @@ func (uc *TransactionUsecase) queueNotifications(receiptCode string, aggregate *
 	ctx := context.Background()
 	accountOwners := make(map[string]bool)
 
-	for _, ledger := range aggregate.Ledgers {
-		account, err := uc.accountRepo.GetByID(ctx, ledger.AccountID)
-		if err != nil || account.OwnerType == domain.OwnerTypeSystem {
+	for _, ledger := range aggregate. Ledgers {
+		account, err := uc.accountRepo. GetByID(ctx, ledger.AccountID)
+		if err != nil {
+			continue
+		}
+
+		// ✅ Skip system accounts - no notifications for system
+		if account. OwnerType == domain. OwnerTypeSystem {
+			continue
+		}
+
+		// ✅ Skip if owner ID is "system" (case-insensitive check)
+		if strings.ToLower(account.OwnerID) == "system" {
 			continue
 		}
 
 		ownerKey := fmt.Sprintf("%s:%s", account.OwnerType, account.OwnerID)
+		
+		// ✅ Skip duplicate owners (already processed)
 		if accountOwners[ownerKey] {
 			continue
 		}
@@ -566,30 +579,55 @@ func (uc *TransactionUsecase) queueNotifications(receiptCode string, aggregate *
 		}
 
 		// Determine notification details
-		eventType := "transaction.credit"
+		eventType := "ACCOUNT_CREDITED"
 		title := "Credit Transaction"
-		body := fmt. Sprintf("Your account was credited with %.2f %s", ledger. Amount, ledger.Currency)
+		headerTitle := "Account Credited"
+		body := fmt.Sprintf("Your account was credited with %.2f %s", ledger.Amount, ledger.Currency)
 
 		if ledger.DrCr == domain.DrCrDebit {
-			eventType = "transaction.debit"
+			eventType = "ACCOUNT_DEBITED"
 			title = "Debit Transaction"
-			body = fmt.Sprintf("Your account was debited %.2f %s", ledger.Amount, ledger. Currency)
+			headerTitle = "Account Debited"
+			body = fmt. Sprintf("Your account was debited %.2f %s", ledger.Amount, ledger.Currency)
 		}
 
-		notif := &notificationpb.Notification{
-			RequestId:      fmt.Sprintf("txn-%d-%s", aggregate.Journal.ID, account.OwnerID),
-			OwnerType:      string(account.OwnerType),
-			OwnerId:        account.OwnerID,
-			EventType:      eventType,
-			ChannelHint:    []string{"email", "ws", "sms"},
-			Title:          title,
-			Body:           body,
-			Priority:       "high",
-			Status:         "pending",
-			VisibleInApp:   true,
-			RecipientEmail: profile.Email,
-			RecipientPhone: profile.Phone,
-			RecipientName:  fmt.Sprintf("%s %s", profile.FirstName, profile.LastName),
+		// ✅ Build payload for email template
+		payloadData := map[string]interface{}{
+			"HeaderTitle":       headerTitle,
+			"Amount":           fmt.Sprintf("%.2f", ledger.Amount),
+			"Currency":         ledger.Currency,
+			"Date":             aggregate.Journal.CreatedAt.Format("January 2, 2006"),
+			"Time":             aggregate.Journal.CreatedAt.Format("15:04:05"),
+			"ReferenceNumber":  receiptCode,
+		}
+
+		// ✅ Add ExternalRef if present
+		if aggregate.Journal.ExternalRef != nil && *aggregate.Journal.ExternalRef != "" {
+			payloadData["ExternalRef"] = *aggregate. Journal.ExternalRef
+		}
+
+		// ✅ Convert payload to protobuf Struct
+		payload, err := structpb.NewStruct(payloadData)
+		if err != nil {
+			fmt.Printf("[NOTIFICATION] Failed to create payload struct: %v\n", err)
+			payload = nil // Continue without payload if conversion fails
+		}
+
+		notif := &notificationpb. Notification{
+			RequestId:       fmt.Sprintf("txn-%d-%s", aggregate.Journal. ID, account.OwnerID),
+			OwnerType:       string(account.OwnerType),
+			OwnerId:         account.OwnerID,
+			EventType:       eventType,
+			ChannelHint:      []string{"email", "ws", "sms"},
+			Title:           title,
+			Body:             body,
+			Payload:         payload, // ✅ Template data
+			Priority:        "high",
+			Status:          "pending",
+			VisibleInApp:     true,
+			RecipientEmail:  profile.Email,
+			RecipientPhone:  profile.Phone,
+			RecipientName:   fmt.Sprintf("%s %s", profile.FirstName, profile.LastName),
 		}
 
 		uc.notificationBatcher.Add(notif)
@@ -920,6 +958,8 @@ func (uc *TransactionUsecase) Credit(
 	// Build transaction request
 	txReq := buildCreditDoubleEntry(req, systemAccount, userAccount)
 
+	req.Currency = systemAccount.Currency
+
 	// Execute with common pattern
 	return uc.executeWithReceipt(
 		ctx,
@@ -989,6 +1029,8 @@ func (uc *TransactionUsecase) Debit(
 
 	// Build transaction request
 	txReq := buildDebitDoubleEntry(req, systemAccount, userAccount)
+	
+	req.Currency = systemAccount.Currency
 
 	// Execute with common pattern
 	return uc.executeWithReceipt(
@@ -1294,6 +1336,7 @@ func (uc *TransactionUsecase) ProcessTradeWin(
 		return nil, xerrors.ErrCurrencyMismatch
 	}
 
+	req.Currency = systemAccount.Currency
 
 	// Build transaction request
 	txReq := buildTradeDoubleEntry(req, systemAccount, userAccount, "win")
@@ -1338,6 +1381,8 @@ func (uc *TransactionUsecase) ProcessTradeLoss(
 	if systemAccount.Currency != userAccount.Currency {
 		return nil, xerrors.ErrCurrencyMismatch
 	}
+
+	req.Currency = systemAccount.Currency
 
 	// Build transaction request
 	txReq := buildTradeDoubleEntry(req, systemAccount, userAccount, "loss")

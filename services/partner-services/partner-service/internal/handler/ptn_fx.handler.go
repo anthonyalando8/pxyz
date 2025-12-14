@@ -583,10 +583,10 @@ func (h *PartnerHandler) sendCreditResponse(
 		"transaction_id":   partnerTx.ID,
 		"receipt_code":     transferResp. ReceiptCode,
 		"journal_id":       transferResp.JournalId,
-		"fee_amount":       transferResp.FeeAmount,
-		"agent_commission": transferResp.AgentCommission,
-		"partner_balance":  balances. PartnerBalance,
-		"user_balance":     balances.UserBalance,
+		// "fee_amount":       transferResp.FeeAmount,
+		// "agent_commission": transferResp.AgentCommission,
+		// "partner_balance":  balances. PartnerBalance,
+		// "user_balance":     balances.UserBalance,
 		"created_at":       transferResp.CreatedAt. AsTime(),
 	})
 }
