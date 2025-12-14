@@ -17,7 +17,7 @@ type APIResponse struct {
 // ✅ Global proto marshaler with enum strings
 var protoMarshaler = protojson.MarshalOptions{
 	UseEnumNumbers:  false, // Use string names instead of numbers
-	EmitUnpopulated: false, // Don't emit zero values
+	EmitUnpopulated: true, // Don't emit zero values
 	UseProtoNames:   false, // Use JSON names (camelCase)
 }
 
