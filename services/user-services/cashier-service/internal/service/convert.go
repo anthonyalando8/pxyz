@@ -28,9 +28,9 @@ func (s *CurrencyService) ConvertToUSD(
     amountInLocal float64,
 ) (amountInUSD float64, rate float64) {
     
-    // Partner rate: 1 USD = X LocalCurrency
-    // To convert: LocalCurrency / Rate = USD
-    rate = partner. Rate
+    // Partner rate:  1 USD = X LocalCurrency
+    // To convert:  LocalCurrency / Rate = USD
+    rate = partner.Rate
     amountInUSD = amountInLocal / rate
     
     // ✅ Round to 2 decimal places
@@ -47,7 +47,7 @@ func (s *CurrencyService) ConvertFromUSD(
     amountInUSD float64,
 ) (amountInLocal float64, rate float64) {
     
-    // Partner rate:  1 USD = X LocalCurrency
+    // Partner rate:   1 USD = X LocalCurrency
     // To convert: USD * Rate = LocalCurrency
     rate = partner.Rate
     amountInLocal = amountInUSD * rate
@@ -59,7 +59,7 @@ func (s *CurrencyService) ConvertFromUSD(
 }
 
 // ValidateAmount checks if amount is within valid range for NUMERIC(20,2)
-// Max value: 999,999,999,999,999,999.99 (18 digits + 2 decimals)
+// Max value: 99,999,999,999,999,999.99 (18 digits before decimal + 2 after)
 func (s *CurrencyService) ValidateAmount(amount float64) error {
     // ✅ Check for negative
     if amount < 0 {
@@ -67,14 +67,16 @@ func (s *CurrencyService) ValidateAmount(amount float64) error {
     }
     
     // ✅ Check for zero
-    if amount == 0 {
+    if amount <= 0 {
         return fmt.Errorf("amount must be greater than 0")
     }
     
     // ✅ Check maximum value for NUMERIC(20,2)
-    maxAmount := 999999999999999999.99
+    // 20 total digits:  18 before decimal, 2 after
+    // Maximum: 99,999,999,999,999,999.99
+    const maxAmount = 99999999999999999.99
     if amount > maxAmount {
-        return fmt.Errorf("amount exceeds maximum allowed value:  %.2f", maxAmount)
+        return fmt.Errorf("amount %.2f exceeds maximum allowed value %.2f", amount, maxAmount)
     }
     
     // ✅ Check minimum value (1 cent)
@@ -85,7 +87,7 @@ func (s *CurrencyService) ValidateAmount(amount float64) error {
     return nil
 }
 
-// ConvertWithValidation converts and validates the result
+// ConvertToUSDWithValidation converts and validates the result
 func (s *CurrencyService) ConvertToUSDWithValidation(
     ctx context.Context,
     partner *partnersvcpb.Partner,
@@ -97,11 +99,16 @@ func (s *CurrencyService) ConvertToUSDWithValidation(
         return 0, 0, fmt.Errorf("invalid input amount: %w", err)
     }
     
+    // ✅ Validate partner rate
+    if partner.Rate <= 0 {
+        return 0, 0, fmt.Errorf("invalid exchange rate: %f", partner.Rate)
+    }
+    
     // Convert
     amountInUSD, rate = s.ConvertToUSD(ctx, partner, amountInLocal)
     
     // ✅ Validate output amount
-    if err := s. ValidateAmount(amountInUSD); err != nil {
+    if err := s.ValidateAmount(amountInUSD); err != nil {
         return 0, 0, fmt.Errorf("conversion resulted in invalid amount: %w", err)
     }
     
@@ -117,7 +124,12 @@ func (s *CurrencyService) ConvertFromUSDWithValidation(
     
     // ✅ Validate input amount
     if err := s.ValidateAmount(amountInUSD); err != nil {
-        return 0, 0, fmt.Errorf("invalid input amount: %w", err)
+        return 0, 0, fmt.Errorf("invalid input amount:   %w", err)
+    }
+    
+    // ✅ Validate partner rate
+    if partner.Rate <= 0 {
+        return 0, 0, fmt.Errorf("invalid exchange rate: %f", partner.Rate)
     }
     
     // Convert
@@ -125,7 +137,7 @@ func (s *CurrencyService) ConvertFromUSDWithValidation(
     
     // ✅ Validate output amount
     if err := s.ValidateAmount(amountInLocal); err != nil {
-        return 0, 0, fmt. Errorf("conversion resulted in invalid amount: %w", err)
+        return 0, 0, fmt.Errorf("conversion resulted in invalid amount: %w", err)
     }
     
     return amountInLocal, rate, nil
