@@ -89,7 +89,7 @@ type PartnerTransaction struct {
 	TransactionType string
 	ExternalRef     *string
 	Metadata        map[string]interface{}
-	ErrorMessage    string `json:"error_message,omitempty"`
+	ErrorMessage    *string `json:"error_message,omitempty"`
 	ProcessedAt     *time.Time
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
@@ -190,7 +190,7 @@ func (t *PartnerTransaction) ToProto() *partnersvcpb.PartnerTransaction {
 		Currency:        t. Currency,
 		Status:          t.Status,
 		TransactionType: t.TransactionType,
-		ErrorMessage:    t.ErrorMessage,
+		ErrorMessage:    *t.ErrorMessage,
 		CreatedAt:       timestamppb.New(t.CreatedAt),
 		UpdatedAt:       timestamppb.New(t.UpdatedAt),
 	}
@@ -234,7 +234,7 @@ func PartnerTransactionFromProto(proto *partnersvcpb.PartnerTransaction) *Partne
 		Currency:        proto.Currency,
 		Status:          proto.Status,
 		TransactionType: proto.TransactionType,
-		ErrorMessage:    proto.ErrorMessage,
+		ErrorMessage:    &proto.ErrorMessage,
 	}
 
 	// Handle optional fields

@@ -36,7 +36,14 @@ CREATE TABLE partners (
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
 CREATE INDEX idx_partners_name ON partners (name);
+
+ALTER TABLE partners 
+ADD CONSTRAINT unique_partner_service UNIQUE (service);
+
+-- Optional: Add index for better query performance (if not already covered by unique constraint)
+CREATE INDEX IF NOT EXISTS idx_partners_service ON partners (service);
 
 -- CREATE INDEX IF NOT EXISTS idx_partners_active ON partners (is_active) WHERE is_active = true;
 

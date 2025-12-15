@@ -364,7 +364,7 @@ func txnToProto(txn *domain.PartnerTransaction) *partnersvcpb.PartnerTransaction
 		Currency:        txn.Currency,
 		Status:          txn.Status,
 		TransactionType: txn.TransactionType,
-		ErrorMessage:    txn.ErrorMessage,
+		ErrorMessage:    StringValue(txn.ErrorMessage),
 		Metadata:        convertMetadataToProto(txn. Metadata),
 		CreatedAt:       timestamppb.New(txn.CreatedAt),
 		UpdatedAt:       timestamppb.New(txn.UpdatedAt),
