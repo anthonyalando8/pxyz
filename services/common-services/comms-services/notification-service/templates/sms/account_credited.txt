@@ -1,8 +1,8 @@
 {{define "body"}}
 Hello,
 
-Your account has been credited with {{.Amount}} {{.Currency}} on {{.Date}} at {{.Time}}.
-Ref: {{.ReferenceNumber}}, External Ref: {{.ExternalRef}}.
+Your have been credited with {{.Amount}} {{.Currency}} on {{.Date}} at {{.Time}}.
+Ref: {{.ReferenceNumber}}.
 
-If you did not authorize this, please contact support immediately.
+For any queries please contact us.
 {{end}}

@@ -4,5 +4,5 @@ Hello,
 Your account has been debited by {{.Amount}} {{.Currency}} on {{.Date}} at {{.Time}}.
 Ref: {{.ReferenceNumber}}, External Ref: {{.ExternalRef}}.
 
-If you did not authorize this, please contact support immediately.
+For any queries please contact us.
 {{end}}

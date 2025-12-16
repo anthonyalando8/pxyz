@@ -603,7 +603,7 @@ func (uc *TransactionUsecase) queueNotifications(receiptCode string, aggregate *
 
 		// ✅ Add ExternalRef if present
 		if aggregate.Journal.ExternalRef != nil && *aggregate.Journal.ExternalRef != "" {
-			payloadData["ExternalRef"] = *aggregate. Journal.ExternalRef
+			payloadData["ExternalRef"] = *aggregate.Journal.ExternalRef
 		}
 
 		// ✅ Convert payload to protobuf Struct
