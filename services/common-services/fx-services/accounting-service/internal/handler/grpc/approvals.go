@@ -223,9 +223,9 @@ func validateApprovalRequest(req *accountingpb.CreateTransactionApprovalRequest)
         return status.Error(codes.InvalidArgument, "amount must be positive")
     }
 
-    if req.Currency == "" {
-        return status.Error(codes. InvalidArgument, "currency is required")
-    }
+    // if req.Currency == "" {
+    //     return status.Error(codes. InvalidArgument, "currency is required")
+    // }
 
     // Validate transfer/conversion specific fields
     if req.TransactionType == accountingpb.TransactionType_TRANSACTION_TYPE_TRANSFER ||
