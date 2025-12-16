@@ -80,9 +80,9 @@ func (a *TransactionApproval) Validate() error {
     if a.Amount <= 0 {
         return xerrors.ErrInvalidAmount
     }
-    if a.Currency == "" {
-        return xerrors.ErrInvalidCurrency
-    }
+    // if a.Currency == "" {
+    //     return xerrors.ErrInvalidCurrency
+    // }
     if a.TransactionType == TransactionTypeTransfer || a.TransactionType == TransactionTypeConversion {
         if a.ToAccountNumber == nil || *a.ToAccountNumber == "" {
             return xerrors.ErrRequiredFieldMissing

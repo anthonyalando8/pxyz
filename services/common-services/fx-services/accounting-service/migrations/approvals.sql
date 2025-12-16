@@ -17,7 +17,7 @@ CREATE TABLE transaction_approvals (
     transaction_type transaction_type_enum NOT NULL,  -- credit, debit, transfer, conversion
     account_number TEXT NOT NULL,
     amount NUMERIC(20,2) NOT NULL,
-    currency TEXT NOT NULL,
+    currency TEXT,
     description TEXT,
     to_account_number TEXT,  -- For transfers/conversions
     
