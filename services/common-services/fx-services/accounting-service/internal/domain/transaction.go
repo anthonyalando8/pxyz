@@ -192,9 +192,9 @@ func (r *CreditRequest) Validate() error {
 	if r.Amount <= 0 {
 		return xerrors.ErrInvalidAmount
 	}
-	if r.Currency == "" {
-		return xerrors.ErrInvalidCurrency
-	}
+	// if r.Currency == "" {
+	// 	return xerrors.ErrInvalidCurrency
+	// }
 	if r.CreatedByExternalID == "" {
 		return xerrors.ErrRequiredFieldMissing
 	}
@@ -208,9 +208,9 @@ func (r *DebitRequest) Validate() error {
 	if r.Amount <= 0 {
 		return xerrors.ErrInvalidAmount
 	}
-	if r.Currency == "" {
-		return xerrors.ErrInvalidCurrency
-	}
+	// if r.Currency == "" {
+	// 	return xerrors.ErrInvalidCurrency
+	// }
 	if r.CreatedByExternalID == "" {
 		return xerrors.ErrRequiredFieldMissing
 	}
@@ -256,9 +256,9 @@ func (r *TradeRequest) Validate() error {
 	if r.Amount <= 0 {
 		return xerrors.ErrInvalidAmount
 	}
-	if r.Currency == "" {
-		return xerrors.ErrInvalidCurrency
-	}
+	// if r.Currency == "" {
+	// 	return xerrors.ErrInvalidCurrency
+	// }
 	if r.TradeID == "" {
 		return xerrors.ErrRequiredFieldMissing
 	}
