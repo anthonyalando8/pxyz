@@ -954,11 +954,11 @@ func (uc *TransactionUsecase) Credit(
 	if systemAccount.Currency != userAccount.Currency {
 		return nil, xerrors.ErrCurrencyMismatch
 	}
+	req.Currency = systemAccount.Currency
 
 	// Build transaction request
 	txReq := buildCreditDoubleEntry(req, systemAccount, userAccount)
 
-	req.Currency = systemAccount.Currency
 
 	// Execute with common pattern
 
@@ -1031,11 +1031,10 @@ func (uc *TransactionUsecase) Debit(
 		return nil, xerrors.ErrCurrencyMismatch
 	}
 
+	req.Currency = systemAccount.Currency
 	// Build transaction request
 	txReq := buildDebitDoubleEntry(req, systemAccount, userAccount)
 	
-	req.Currency = systemAccount.Currency
-
 	// Execute with common pattern
 	return uc.executeWithReceipt(
 		ctx,
