@@ -186,14 +186,20 @@ func (r *transactionApprovalRepo) List(ctx context.Context, filter *domain.Appro
     return approvals, total, nil
 }
 
+// repository/transaction_approval_repository. go
+
 func (r *transactionApprovalRepo) UpdateStatus(ctx context.Context, id int64, status domain.ApprovalStatus, approvedBy *int64, reason *string) error {
     query := `
         UPDATE transaction_approvals
         SET 
-            status = $1,
+            status = $1:: approval_status_enum,  -- ✅ Cast to enum type
             approved_by = $2,
             rejection_reason = $3,
-            approved_at = CASE WHEN $1 IN ('approved', 'rejected') THEN NOW() ELSE approved_at END,
+            approved_at = CASE 
+                WHEN $1:: approval_status_enum IN ('approved'::approval_status_enum, 'rejected'::approval_status_enum) 
+                THEN NOW() 
+                ELSE approved_at 
+            END,
             updated_at = NOW()
         WHERE id = $4
     `
