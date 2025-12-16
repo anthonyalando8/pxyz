@@ -961,6 +961,7 @@ func (uc *TransactionUsecase) Credit(
 	req.Currency = systemAccount.Currency
 
 	// Execute with common pattern
+
 	return uc.executeWithReceipt(
 		ctx,
 		txReq,
@@ -971,6 +972,9 @@ func (uc *TransactionUsecase) Credit(
 		},
 		func(agg *domain.LedgerAggregate) {
 			uc.publishCreditEvent(agg, req)
+			if agg != nil && txReq.ReceiptCode != nil {
+				uc.queueNotifications(*txReq. ReceiptCode, agg)
+			}
 		},
 	)
 }
@@ -1043,6 +1047,9 @@ func (uc *TransactionUsecase) Debit(
 			return uc.transactionRepo.Debit(ctx, req)
 		},
 		func(agg *domain.LedgerAggregate) {
+			if agg != nil && txReq.ReceiptCode != nil {
+				uc.queueNotifications(*txReq. ReceiptCode, agg)
+			}
 			uc.publishDebitEvent(agg, req)
 		},
 	)
@@ -1142,6 +1149,9 @@ func (uc *TransactionUsecase) Transfer(
 		},
 		func(agg *domain.LedgerAggregate) {
 			uc.publishTransferEvent(agg, req)
+			if agg != nil && txReq.ReceiptCode != nil {
+				uc.queueNotifications(*txReq. ReceiptCode, agg)
+			}
 		},
 	)
 }
@@ -1260,6 +1270,9 @@ func (uc *TransactionUsecase) ConvertAndTransfer(
 		},
 		func(agg *domain.LedgerAggregate) {
 			uc. publishConversionEvent(agg, req)
+			if agg != nil && txReq.ReceiptCode != nil {
+				uc.queueNotifications(*txReq. ReceiptCode, agg)
+			}
 		},
 	)
 }
@@ -1351,6 +1364,9 @@ func (uc *TransactionUsecase) ProcessTradeWin(
 		},
 		func(agg *domain.LedgerAggregate) {
 			uc.publishTradeEvent(agg, req, "win")
+			if agg != nil && txReq.ReceiptCode != nil {
+				uc.queueNotifications(*txReq. ReceiptCode, agg)
+			}
 		},
 	)
 

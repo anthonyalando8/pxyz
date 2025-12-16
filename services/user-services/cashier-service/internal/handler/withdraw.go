@@ -60,12 +60,25 @@ func (h *PaymentHandler) handleWithdrawRequest(ctx context.Context, client *Clie
         client.SendError("verification token does not belong to you")
         return
     }
-
+    req.Amount = roundTo2Decimals(req.Amount)
     // ✅ Step 2: Validate request
     if req.Amount <= 0 {
         client.SendError("amount must be greater than zero")
         return
     }
+    if req.Amount < 0.01 {
+        client.SendError("amount must be at least 0.01")
+        return
+    }
+    if req.Amount > 999999999999999999.99 {
+        client. SendError("amount exceeds maximum allowed value")
+        return
+    }
+    if req.LocalCurrency == "" {
+        client.SendError("local_currency is required")
+        return
+    }
+
     if req.LocalCurrency == "" {
         client.SendError("local_currency is required")
         return
@@ -103,7 +116,18 @@ func (h *PaymentHandler) handleWithdrawRequest(ctx context.Context, client *Clie
 
     // ✅ Convert local amount to USD
     currencyService := convsvc.NewCurrencyService(h.partnerClient)
-    amountInUSD, exchangeRate = currencyService.ConvertToUSD(ctx, selectedPartner, req.Amount)
+    var convErr error
+    amountInUSD, exchangeRate, convErr = currencyService.ConvertToUSDWithValidation(ctx, selectedPartner, req.Amount)
+    if convErr != nil {
+        h.logger.Error("currency conversion failed",
+            zap.String("user_id", client.UserID),
+            zap.Float64("amount", req.Amount),
+            zap.String("currency", req.LocalCurrency),
+            zap.Error(convErr))
+        client.SendError("currency conversion failed:  " + convErr.Error())
+        return
+    }
+    //amountInUSD, exchangeRate = currencyService.ConvertToUSD(ctx, selectedPartner, req.Amount)
 
     if req.AgentID != nil && *req.AgentID != "" {
         // ===== AGENT FLOW =====
@@ -471,6 +495,7 @@ func (h *PaymentHandler) processWithdrawalViaPartner(
         ExternalRef:    withdrawal.Destination,
         Metadata: map[string]string{
             "request_ref":       withdrawal.RequestRef,
+            "destination":     withdrawal.Destination, 
             "amount_usd":        fmt.Sprintf("%.2f", withdrawal.Amount),
             "exchange_rate":     getExchangeRate(withdrawal.Metadata),
             "receipt_code":      resp.ReceiptCode,

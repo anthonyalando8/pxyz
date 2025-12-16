@@ -277,12 +277,14 @@ func (h *PaymentHandler) sendDepositWebhookToPartner(
         PartnerId:       partner.Id,
         TransactionRef: deposit.RequestRef,
         UserId:         fmt.Sprintf("%d", deposit. UserID),
-        Amount:         originalAmount,      // ✅ Send original local amount
-        Currency:       originalCurrency,    // ✅ Send local currency
+        Amount:         deposit.Amount, //originalAmount,      // ✅ Send original local amount
+        Currency:       deposit.Currency,//originalCurrency,    // ✅ Send local currency
         PaymentMethod:  ptrToStr(deposit.PaymentMethod),
         Metadata:  map[string]string{
             "request_ref":       deposit.RequestRef,
+            "original_amount":  fmt.Sprintf("%.2f", originalAmount),
             "converted_amount":  fmt.Sprintf("%.2f", deposit.Amount),
+            "original_currency": originalCurrency,
             "target_currency":   deposit.Currency,
             "exchange_rate":     fmt.Sprintf("%.4f", deposit. Metadata["exchange_rate"].(float64)),
         },
