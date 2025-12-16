@@ -165,10 +165,24 @@ func handleUsecaseError(err error) error {
 	case errors.Is(err, context. DeadlineExceeded):
 		logger.WithField("grpc_code", codes.DeadlineExceeded).Error("request deadline exceeded")
 		return status.Error(codes.DeadlineExceeded, "request timeout")
-
+	
+	
+	// Approval errors	
 	case errors.Is(err, context.Canceled):
 		logger.WithField("grpc_code", codes.Canceled).Info("request canceled by client")
 		return status.Error(codes.Canceled, "request canceled")
+
+		case errors.Is(err, xerrors.ErrSelfApprovalNotAllowed):
+        logger.WithField("grpc_code", codes. PermissionDenied).Warn("self-approval attempted")
+        return status.Error(codes.PermissionDenied, "you cannot approve your own request")
+
+    case errors.Is(err, xerrors.ErrApprovalAlreadyProcessed):
+        logger.WithField("grpc_code", codes. FailedPrecondition).Warn("approval already processed")
+        return status.Error(codes.FailedPrecondition, "approval request has already been processed")
+
+    case errors.Is(err, xerrors. ErrApprovalNotFound):
+        logger.WithField("grpc_code", codes.NotFound).Warn("approval not found")
+        return status.Error(codes.NotFound, "approval request not found")
 
 	// ===============================
 	// DEFAULT:  INTERNAL SERVER ERROR
@@ -196,4 +210,39 @@ func ptrAccountType(t domain.AccountType) *domain.AccountType {
 	return &t
 }
 
-//additional helper functions
+
+// func nullableStr(s string) *string {
+// 	if s == "" {
+// 		return nil
+// 	}
+// 	return &s
+// }
+// func strOrDefault(s *string, def string) string {
+// 	if s == nil {
+// 		return def
+// 	}
+// 	return *s
+// }
+// func ptrStrToStr(s *string) string {
+// 	if s == nil {
+// 		return ""
+// 	}
+// 	return *s
+// }
+
+// func ptrIntToInt(i *int64) int64 {
+// 	if i == nil {
+// 		return 0
+// 	}
+// 	return *i
+// }
+
+// // ===============================
+// // HELPER FUNCTIONS
+// // ===============================
+
+// func ptrString(s string) *string {
+// 	return &s
+// }
+
+// //additional helper functions

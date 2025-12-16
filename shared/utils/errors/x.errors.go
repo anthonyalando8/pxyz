@@ -269,3 +269,11 @@ var (
 var (
 	ErrInsufficientFunds = errors.New("insufficient available balance")
 )
+
+// Approval errors
+var (
+    ErrSelfApprovalNotAllowed = errors.New("cannot approve your own request")
+    ErrApprovalAlreadyProcessed = errors.New("approval already processed")
+    ErrApprovalNotFound = errors.New("approval request not found")
+    ErrInvalidApprovalStatus = errors.New("invalid approval status")
+)

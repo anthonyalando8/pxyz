@@ -18,49 +18,51 @@ import (
 	//"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+// handler/grpc_accounting. go
+
 type AccountingHandler struct {
-	accountingpb.UnimplementedAccountingServiceServer
+    accountingpb.UnimplementedAccountingServiceServer
 
-	// Usecases
-	accountUC   *usecase.AccountUsecase
-	txUC        *usecase.TransactionUsecase
-	statementUC *usecase.StatementUsecase
-	journalUC   *usecase.JournalUsecase
-	ledgerUC    *usecase.LedgerUsecase
-	feeUC       *usecase.TransactionFeeUsecase
-	feeRuleUC   *usecase.TransactionFeeRuleUsecase
-	agentUC usecase.AgentUsecase
+    // Usecases
+    accountUC   *usecase.AccountUsecase
+    txUC        *usecase.TransactionUsecase
+    statementUC *usecase.StatementUsecase
+    journalUC   *usecase. JournalUsecase
+    ledgerUC    *usecase. LedgerUsecase
+    feeUC       *usecase. TransactionFeeUsecase
+    feeRuleUC   *usecase.TransactionFeeRuleUsecase
+    agentUC     usecase. AgentUsecase
+    approvalUC  *usecase. TransactionApprovalUsecase  // ✅ NEW
 
-
-	// Infrastructure
-	redisClient *redis.Client
+    // Infrastructure
+    redisClient *redis.Client
 }
 
 func NewAccountingHandler(
-	accountUC *usecase.AccountUsecase,
-	txUC *usecase.TransactionUsecase,
-	statementUC *usecase.StatementUsecase,
-	journalUC *usecase.JournalUsecase,
-	ledgerUC *usecase.LedgerUsecase,
-	feeUC *usecase.TransactionFeeUsecase,
-	feeRuleUC *usecase.TransactionFeeRuleUsecase,
-	agentUC usecase.AgentUsecase,
-	redisClient *redis.Client,
-
+    accountUC *usecase. AccountUsecase,
+    txUC *usecase.TransactionUsecase,
+    statementUC *usecase.StatementUsecase,
+    journalUC *usecase.JournalUsecase,
+    ledgerUC *usecase.LedgerUsecase,
+    feeUC *usecase. TransactionFeeUsecase,
+    feeRuleUC *usecase.TransactionFeeRuleUsecase,
+    agentUC usecase. AgentUsecase,
+    approvalUC *usecase. TransactionApprovalUsecase,  // ✅ NEW
+    redisClient *redis.Client,
 ) *AccountingHandler {
-	return &AccountingHandler{
-		accountUC:   accountUC,
-		txUC:        txUC,
-		statementUC: statementUC,
-		journalUC:   journalUC,
-		ledgerUC:    ledgerUC,
-		feeUC:       feeUC,
-		feeRuleUC:   feeRuleUC,
-		redisClient: redisClient,
-		agentUC:    agentUC,
-	}
+    return &AccountingHandler{
+        accountUC:   accountUC,
+        txUC:        txUC,
+        statementUC: statementUC,
+        journalUC:   journalUC,
+        ledgerUC:    ledgerUC,
+        feeUC:       feeUC,
+        feeRuleUC:   feeRuleUC,
+        agentUC:     agentUC,
+        approvalUC:  approvalUC,  // ✅ NEW
+        redisClient: redisClient,
+    }
 }
-
 // ===============================
 // ACCOUNT MANAGEMENT
 // ===============================

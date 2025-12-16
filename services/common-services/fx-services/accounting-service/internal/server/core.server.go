@@ -132,6 +132,8 @@ func NewAccountingGRPCServer(cfg config.AppConfig) {
 	statementRepo := repository.NewStatementRepo(dbpool, ledgerRepo)
 	agentRepo := repository.NewAgentRepository(dbpool)
 	_ = currencyRepo  // Currently unused, but initialized for completeness
+	// Initialize repositories
+    approvalRepo := repository.NewTransactionApprovalRepository(dbpool)
 
 	transactionRepo := repository.NewTransactionRepo(dbpool, accountRepo, journalRepo, ledgerRepo, balanceRepo, currencyRepo, feeRepo, agentRepo, logger)
 
@@ -230,8 +232,10 @@ func NewAccountingGRPCServer(cfg config.AppConfig) {
 		//sf,                 // Snowflake for ID generation
 	)
 	log.Println("✅ Transaction usecase initialized")
+	// Initialize usecases
+    approvalUC := usecase.NewTransactionApprovalUsecase(approvalRepo, transactionUC)
 
-	log.Println("✅ All 7 usecases initialized successfully")
+	log.Println("✅ All usecases initialized successfully")
 
 	// ===============================
 	// SYSTEM SEEDER (Optional)
@@ -298,6 +302,7 @@ func NewAccountingGRPCServer(cfg config.AppConfig) {
 		feeUC,            // Fee management (3 RPCs)
 		feeRuleUC,        // Fee rule management (covered in fee RPCs)
 		agentUc,
+		approvalUC,
 		rdb,              // Redis for health checks
 	)
 

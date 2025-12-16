@@ -747,7 +747,7 @@ message CreateTransactionApprovalRequest {
     double amount = 4;
     string currency = 5;
     string description = 6;
-    optional string to_account_number = 7; // For transfers
+    optional string to_account_number = 7; // For transfers and conversion
 }
 
 message CreateTransactionApprovalResponse {
