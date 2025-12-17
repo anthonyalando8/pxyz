@@ -127,7 +127,7 @@ func (r *providerTransactionRepo) UpdateStatus(ctx context.Context, id int64, st
             status = $1,
             result_code = $2,
             result_description = $3,
-            completed_at = CASE WHEN $1 IN ('completed', 'failed') THEN NOW() ELSE completed_at END,
+            completed_at = CASE WHEN $1::text IN ('completed', 'failed') THEN NOW() ELSE completed_at END,
             updated_at = NOW()
         WHERE id = $4
     `
