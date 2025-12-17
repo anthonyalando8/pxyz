@@ -662,7 +662,7 @@ services:
       - "traefik.http.routers.partner-svc.entrypoints=web"  # ✅ Explicit entrypoint
       
       # Service configuration
-      - "traefik.http.services. partner-svc.loadbalancer.server.port=7510"
+      - "traefik.http.services.partner-svc.loadbalancer.server.port=7510"
       
       # Middleware configuration
       - "traefik.http.middlewares.partner-svc-stripprefix.stripprefix.prefixes=/api/v1"
@@ -931,7 +931,7 @@ services:
       - "212.95.35.81:host-gateway"  
   payment-service:
     build:
-      context: . 
+      context: .
       dockerfile: services/common-services/fx-services/payment-service/Dockerfile
     container_name: payment-service
     
@@ -939,7 +939,7 @@ services:
       - "traefik.enable=true"
       
       # HTTP routes for webhooks and callbacks
-      - "traefik. http.routers.payment.rule=PathPrefix(`/api/v1/payments`) || PathPrefix(`/api/v1/webhooks`) || PathPrefix(`/api/v1/callbacks`)"
+      - "traefik.http.routers.payment.rule=PathPrefix(`/api/v1/payments`) || PathPrefix(`/api/v1/webhooks`) || PathPrefix(`/api/v1/callbacks`)"
       - "traefik.http.routers.payment.entrypoints=web"
       - "traefik.http.services.payment.loadbalancer.server.port=8027"
       
@@ -948,7 +948,7 @@ services:
       # - "traefik.http.routers.payment.middlewares=payment-stripprefix"
     
     env_file:
-      - ./services/common-services/fx-services/payment-service/. env
+      - ./services/common-services/fx-services/payment-service/.env
     
     ports:
       - "8027:8027"  # HTTP port (for webhooks/callbacks)
