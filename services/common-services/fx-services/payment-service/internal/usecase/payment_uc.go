@@ -2,16 +2,17 @@
 package usecase
 
 import (
-    "context"
-    "encoding/json"
-    "fmt"
+	"context"
+	"encoding/json"
+	"fmt"
+	"strconv"
 
-    "payment-service/config"
-    "payment-service/internal/domain"
-    "payment-service/internal/provider/mpesa"
-    "payment-service/internal/repository"
+	"payment-service/config"
+	"payment-service/internal/domain"
+	"payment-service/internal/provider/mpesa"
+	"payment-service/internal/repository"
 
-    "go.uber.org/zap"
+	"go.uber.org/zap"
 )
 
 type PaymentUsecase struct {
@@ -132,19 +133,41 @@ func (uc *PaymentUsecase) processMpesaDeposit(payment *domain.Payment) {
         zap.String("phone_number", *payment.PhoneNumber))
 
     // Parse metadata to get original amount
-    var metadata domain.DepositWebhookMetadata
-    if payment.Metadata != nil {
-        metadataBytes, _ := json.Marshal(payment. Metadata)
-        _ = json.Unmarshal(metadataBytes, &metadata)
+    // Parse metadata
+var metadata domain.DepositWebhookMetadata
+if payment.Metadata != nil {
+    metadataBytes, err := json.Marshal(payment.Metadata)
+    if err != nil {
+        uc.logger.Error("failed to marshal payment metadata", zap.Error(err))
+    } else if err := json.Unmarshal(metadataBytes, &metadata); err != nil {
+        uc.logger.Error("failed to unmarshal payment metadata", zap.Error(err))
     }
+}
 
-    // ✅ Use original amount (local currency) for STK Push
-    stkAmount := metadata.OriginalAmount
-    if stkAmount == 0 {
-        uc.logger.Error("original amount not found in metadata, using payment amount",
-            zap.String("payment_ref", payment.PaymentRef))
-        stkAmount = payment. Amount
-    }
+// Parse original amount (KES) from metadata
+	var stkAmount float64
+	if metadata.OriginalAmount != "" {
+		parsedAmount, err := strconv.ParseFloat(metadata.OriginalAmount, 64)
+		if err != nil || parsedAmount <= 0 {
+			uc.logger.Error("invalid original_amount in metadata",
+				zap.String("payment_ref", payment.PaymentRef),
+				zap.String("original_amount", metadata.OriginalAmount),
+				zap.Error(err),
+			)
+		} else {
+			stkAmount = parsedAmount
+		}
+	}
+
+	// Fallback (last resort)
+	if stkAmount <= 0 {
+		uc.logger.Warn("falling back to payment amount for STK push",
+			zap.String("payment_ref", payment.PaymentRef),
+			zap.Float64("fallback_amount", payment.Amount),
+		)
+		stkAmount = payment.Amount
+	}
+
 
     uc.logger.Info("initiating STK push with original amount",
         zap.String("payment_ref", payment.PaymentRef),

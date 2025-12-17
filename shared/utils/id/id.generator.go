@@ -11,7 +11,6 @@ import (
 	"encoding/hex"
 	"math/big"
 
-
 	"strings"
 	"sync/atomic"	
 )
@@ -147,7 +146,21 @@ func randomBase36(n int) string {
 	return string(out)
 }
 
-
+func GenerateTransactionID(prefix string) string {
+	const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	
+	// Use milliseconds mod 10000 (last 4 digits)
+	timestamp := time.Now().UnixMilli() % 10000
+	
+	// Generate 4 random chars
+	b := make([]byte, 4)
+	for i := range b {
+		num, _ := rand.Int(rand.Reader, big.NewInt(int64(len(chars))))
+		b[i] = chars[num.Int64()]
+	}
+	
+	return fmt.Sprintf("%s-%04d%s", prefix, timestamp, string(b))
+}
 // password usage example
 
 // // For partner admin accounts (default)

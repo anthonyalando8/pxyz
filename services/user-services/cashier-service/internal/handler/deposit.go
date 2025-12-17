@@ -15,6 +15,7 @@ import (
 	usecase "cashier-service/internal/usecase/transaction"
 	partnersvcpb "x/shared/genproto/partner/svcpb"
 	accountingpb "x/shared/genproto/shared/accounting/v1"
+    "x/shared/utils/id"
 
 	"go.uber.org/zap"
 )
@@ -237,7 +238,7 @@ func (h *PaymentHandler) handleDepositRequest(ctx context.Context, client *Clien
 	depositReq := &domain.DepositRequest{
 		UserID:          userIDInt,
 		PartnerID:       selectedPartner.Id,
-		RequestRef:      fmt.Sprintf("DEP-%d-%s", userIDInt, generateID()),
+		RequestRef:      id.GenerateTransactionID("DEP"), //fmt.Sprintf("DEP-%d-%s", userIDInt, generateID()),
 		Amount:          convertedAmount,     // ✅ Already validated and rounded to 2 decimals
 		Currency:        targetCurrency,
 		Service:         req.Service,
@@ -512,7 +513,3 @@ func (h *PaymentHandler) handleCancelDeposit(ctx context.Context, client *Client
 }
 
 // Helper function
-func generateID() string {
-	// Use your snowflake ID generator
-	return fmt.Sprintf("%d", time. Now().UnixNano())
-}

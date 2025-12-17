@@ -109,14 +109,16 @@ type ProviderTransaction struct {
 
 // Add webhook metadata structure
 type DepositWebhookMetadata struct {
-    RequestRef        string  `json:"request_ref"`
-    OriginalAmount    float64 `json:"original_amount"`
-    ConvertedAmount   float64 `json:"converted_amount"`
-    OriginalCurrency  string  `json:"original_currency"`
-    TargetCurrency    string  `json:"target_currency"`
-    ExchangeRate      float64 `json:"exchange_rate"`
-    AccountNumber     string  `json:"account_number,omitempty"`
+    RequestRef       string `json:"request_ref"`
+    OriginalAmount   string `json:"original_amount"`
+    ConvertedAmount  string `json:"converted_amount"`
+    ExchangeRate     string `json:"exchange_rate"`
+    OriginalCurrency string `json:"original_currency"`
+    TargetCurrency   string `json:"target_currency"`
+    PhoneNumber      string `json:"phone_number,omitempty"`
+    AccountNumber    string `json:"account_number,omitempty"`
 }
+
 
 // DepositRequest updated to include parsed metadata
 type DepositRequest struct {
@@ -163,7 +165,6 @@ func (r *DepositRequest) Validate() error {
     
     return nil
 }
-
 func (r *DepositRequest) parseMetadata() error {
     if r.Metadata == nil {
         return errors.New("metadata is required")
@@ -171,54 +172,138 @@ func (r *DepositRequest) parseMetadata() error {
 
     r.ParsedMetadata = &DepositWebhookMetadata{}
 
-    // Extract required fields
-    if val, ok := r.Metadata["original_amount"].(string); ok {
-        if amt, err := strconv.ParseFloat(val, 64); err == nil {
-            r.ParsedMetadata.OriginalAmount = amt
+    // helper: read string value
+    getString := func(key string, required bool) (string, error) {
+        val, ok := r.Metadata[key]
+        if !ok {
+            if required {
+                return "", fmt.Errorf("%s is required in metadata", key)
+            }
+            return "", nil
         }
-    } else if val, ok := r.Metadata["original_amount"].(float64); ok {
-        r.ParsedMetadata. OriginalAmount = val
-    }
 
-    if val, ok := r.Metadata["converted_amount"].(string); ok {
-        if amt, err := strconv. ParseFloat(val, 64); err == nil {
-            r. ParsedMetadata.ConvertedAmount = amt
+        str, ok := val.(string)
+        if !ok || str == "" {
+            if required {
+                return "", fmt.Errorf("%s must be a non-empty string", key)
+            }
+            return "", nil
         }
-    } else if val, ok := r.Metadata["converted_amount"].(float64); ok {
-        r.ParsedMetadata.ConvertedAmount = val
+
+        return str, nil
     }
 
-    if val, ok := r.Metadata["original_currency"].(string); ok {
-        r.ParsedMetadata.OriginalCurrency = val
+    var err error
+
+    // Required fields
+    if r.ParsedMetadata.OriginalAmount, err = getString("original_amount", true); err != nil {
+        return err
     }
 
-    if val, ok := r.Metadata["target_currency"].(string); ok {
-        r.ParsedMetadata.TargetCurrency = val
+    if r.ParsedMetadata.OriginalCurrency, err = getString("original_currency", true); err != nil {
+        return err
     }
 
-    if val, ok := r.Metadata["exchange_rate"].(string); ok {
-        if rate, err := strconv.ParseFloat(val, 64); err == nil {
-            r.ParsedMetadata.ExchangeRate = rate
+    // Optional fields
+    r.ParsedMetadata.ConvertedAmount, err = getString("converted_amount", false)
+    if err != nil {
+        return err
+    }
+
+    r.ParsedMetadata.ExchangeRate, err = getString("exchange_rate", false)
+    if err != nil {
+        return err
+    }
+
+    r.ParsedMetadata.TargetCurrency, err = getString("target_currency", false)
+    if err != nil {
+        return err
+    }
+
+    r.ParsedMetadata.RequestRef, err = getString("request_ref", false)
+    if err != nil {
+        return err
+    }
+
+    r.ParsedMetadata.AccountNumber, err = getString("account_number", false)
+    if err != nil {
+        return err
+    }
+
+    r.ParsedMetadata.PhoneNumber, err = getString("phone_number", false)
+    if err != nil {
+        return err
+    }
+
+    // 🔐 Validate numeric correctness (parse but DO NOT store float here)
+    if amt, err := strconv.ParseFloat(r.ParsedMetadata.OriginalAmount, 64); err != nil || amt <= 0 {
+        return fmt.Errorf("invalid original_amount: %s", r.ParsedMetadata.OriginalAmount)
+    }
+
+    if r.ParsedMetadata.ExchangeRate != "" {
+        if rate, err := strconv.ParseFloat(r.ParsedMetadata.ExchangeRate, 64); err != nil || rate <= 0 {
+            return fmt.Errorf("invalid exchange_rate: %s", r.ParsedMetadata.ExchangeRate)
         }
-    } else if val, ok := r. Metadata["exchange_rate"].(float64); ok {
-        r.ParsedMetadata.ExchangeRate = val
-    }
-
-    if val, ok := r. Metadata["request_ref"].(string); ok {
-        r.ParsedMetadata.RequestRef = val
-    }
-
-    if val, ok := r.Metadata["account_number"].(string); ok {
-        r.ParsedMetadata.AccountNumber = val
-    }
-
-    // Validate parsed metadata
-    if r.ParsedMetadata.OriginalAmount <= 0 {
-        return errors.New("original_amount is required in metadata")
-    }
-    if r.ParsedMetadata. OriginalCurrency == "" {
-        return errors.New("original_currency is required in metadata")
     }
 
     return nil
 }
+
+// func (r *DepositRequest) parseMetadata() error {
+//     if r.Metadata == nil {
+//         return errors.New("metadata is required")
+//     }
+
+//     r.ParsedMetadata = &DepositWebhookMetadata{}
+
+//     // Extract required fields
+//     if val, ok := r.Metadata["original_amount"].(string); ok {
+//         if amt, err := strconv.ParseFloat(val, 64); err == nil {
+//             r.ParsedMetadata.OriginalAmount = amt
+//         }
+//     } else if val, ok := r.Metadata["original_amount"].(float64); ok {
+//         r.ParsedMetadata. OriginalAmount = val
+//     }
+
+//     if val, ok := r.Metadata["converted_amount"].(string); ok {
+//         if amt, err := strconv. ParseFloat(val, 64); err == nil {
+//             r. ParsedMetadata.ConvertedAmount = amt
+//         }
+//     } else if val, ok := r.Metadata["converted_amount"].(float64); ok {
+//         r.ParsedMetadata.ConvertedAmount = val
+//     }
+
+//     if val, ok := r.Metadata["original_currency"].(string); ok {
+//         r.ParsedMetadata.OriginalCurrency = val
+//     }
+
+//     if val, ok := r.Metadata["target_currency"].(string); ok {
+//         r.ParsedMetadata.TargetCurrency = val
+//     }
+
+//     if val, ok := r.Metadata["exchange_rate"].(string); ok {
+//         if rate, err := strconv.ParseFloat(val, 64); err == nil {
+//             r.ParsedMetadata.ExchangeRate = rate
+//         }
+//     } else if val, ok := r. Metadata["exchange_rate"].(float64); ok {
+//         r.ParsedMetadata.ExchangeRate = val
+//     }
+
+//     if val, ok := r. Metadata["request_ref"].(string); ok {
+//         r.ParsedMetadata.RequestRef = val
+//     }
+
+//     if val, ok := r.Metadata["account_number"].(string); ok {
+//         r.ParsedMetadata.AccountNumber = val
+//     }
+
+//     // Validate parsed metadata
+//     if r.ParsedMetadata.OriginalAmount <= 0 {
+//         return errors.New("original_amount is required in metadata")
+//     }
+//     if r.ParsedMetadata. OriginalCurrency == "" {
+//         return errors.New("original_currency is required in metadata")
+//     }
+
+//     return nil
+// }

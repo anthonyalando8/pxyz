@@ -2,8 +2,10 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"io"
+	"time"
 	"net/http"
 
 	"payment-service/internal/usecase"
@@ -24,13 +26,12 @@ func NewCallbackHandler(callbackUC *usecase.CallbackUsecase, logger *zap.Logger)
     }
 }
 
-// HandleMpesaSTKCallback handles M-Pesa STK Push callback
+// HandleMpesaSTKCallback handles M-Pesa STK callback
 func (h *CallbackHandler) HandleMpesaSTKCallback(w http.ResponseWriter, r *http.Request) {
-    ctx := r.Context()
     paymentRef := chi.URLParam(r, "payment_ref")
 
     h.logger.Info("received M-Pesa STK callback",
-        zap.String("payment_ref", paymentRef),
+        zap. String("payment_ref", paymentRef),
         zap.String("remote_addr", r.RemoteAddr))
 
     // Read payload
@@ -47,24 +48,26 @@ func (h *CallbackHandler) HandleMpesaSTKCallback(w http.ResponseWriter, r *http.
         zap.String("payment_ref", paymentRef),
         zap.Int("payload_size", len(payload)))
 
-    // Process callback asynchronously
+    // Process callback asynchronously with timeout context
     go func() {
+        ctx, cancel := context. WithTimeout(context.Background(), 30*time.Second)
+        defer cancel()
+        
         if err := h.callbackUC.ProcessMpesaSTKCallback(ctx, paymentRef, payload); err != nil {
             h.logger.Error("failed to process M-Pesa STK callback",
                 zap.String("payment_ref", paymentRef),
-                zap.Error(err))
+                zap. Error(err))
         }
     }()
 
     // Return success immediately (M-Pesa requires quick response)
     h.logger.Info("M-Pesa STK callback acknowledged",
-        zap.String("payment_ref", paymentRef))
+        zap. String("payment_ref", paymentRef))
     h.sendCallbackResponse(w, "0", "Success")
 }
 
 // HandleMpesaB2CCallback handles M-Pesa B2C callback
 func (h *CallbackHandler) HandleMpesaB2CCallback(w http.ResponseWriter, r *http.Request) {
-    ctx := r.Context()
     paymentRef := chi.URLParam(r, "payment_ref")
 
     h.logger.Info("received M-Pesa B2C callback",
@@ -74,23 +77,26 @@ func (h *CallbackHandler) HandleMpesaB2CCallback(w http.ResponseWriter, r *http.
     // Read payload
     payload, err := io.ReadAll(r.Body)
     if err != nil {
-        h.logger.Error("failed to read B2C callback payload",
-            zap.String("payment_ref", paymentRef),
+        h.logger. Error("failed to read B2C callback payload",
+            zap. String("payment_ref", paymentRef),
             zap.Error(err))
         h.sendCallbackResponse(w, "1", "Failed to read payload")
         return
     }
 
     h.logger.Debug("M-Pesa B2C callback payload received",
-        zap. String("payment_ref", paymentRef),
+        zap.String("payment_ref", paymentRef),
         zap.Int("payload_size", len(payload)))
 
-    // Process callback asynchronously
+    // Process callback asynchronously with timeout context
     go func() {
+        ctx, cancel := context. WithTimeout(context.Background(), 30*time.Second)
+        defer cancel()
+        
         if err := h.callbackUC.ProcessMpesaB2CCallback(ctx, paymentRef, payload); err != nil {
             h.logger.Error("failed to process M-Pesa B2C callback",
                 zap.String("payment_ref", paymentRef),
-                zap.Error(err))
+                zap. Error(err))
         }
     }()
 
@@ -112,6 +118,6 @@ func (h *CallbackHandler) sendCallbackResponse(w http.ResponseWriter, resultCode
     }
     
     if err := json.NewEncoder(w).Encode(response); err != nil {
-        h.logger. Error("failed to encode callback response", zap.Error(err))
+        h.logger.Error("failed to encode callback response", zap.Error(err))
     }
 }

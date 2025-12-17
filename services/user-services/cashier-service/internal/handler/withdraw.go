@@ -13,6 +13,7 @@ import (
 	convsvc"cashier-service/internal/service"
 	partnersvcpb "x/shared/genproto/partner/svcpb"
 	accountingpb "x/shared/genproto/shared/accounting/v1"
+    "x/shared/utils/id"
 
 	"go.uber.org/zap"
 )
@@ -209,7 +210,7 @@ func (h *PaymentHandler) handleWithdrawRequest(ctx context.Context, client *Clie
     // ✅ Step 6: Create withdrawal request
     withdrawalReq := &domain.WithdrawalRequest{
         UserID:          userIDInt,
-        RequestRef:      fmt.Sprintf("WD-%d-%s", userIDInt, generateID()),
+        RequestRef:      id.GenerateTransactionID("WD"),
         Amount:          amountInUSD,         // Store USD amount
         Currency:        "USD",               // Store USD currency
         Destination:     req.Destination,
