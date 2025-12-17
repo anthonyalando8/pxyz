@@ -38,7 +38,7 @@ func SetupRoutes(
     }))
 
     // Health check
-    r.Get("/api/v1/health", func(w http.ResponseWriter, r *http.Request) {
+    r.Get("/api/v1/payment/health", func(w http.ResponseWriter, r *http.Request) {
         w.WriteHeader(http.StatusOK)
         w.Write([]byte("OK"))
     })
