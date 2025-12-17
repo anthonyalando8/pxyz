@@ -956,7 +956,7 @@ services:
     environment:
       # Server
       SERVER_PORT: 8027
-      ENVIRONMENT: development
+      ENVIRONMENT: production
       
       # Database
       DB_HOST: 212.95.35.81
@@ -967,7 +967,7 @@ services:
       DB_SSL_MODE: disable
       
       # M-Pesa Configuration
-      MPESA_ENVIRONMENT: sandbox
+      MPESA_ENVIRONMENT: production
       MPESA_CONSUMER_KEY: ${MPESA_CONSUMER_KEY:-8hVLHTK4ZIOGOk2WCesqKfot6IwwGwMeQOiurZmGZorIKzO1}
       MPESA_CONSUMER_SECRET: ${MPESA_CONSUMER_SECRET:-6jmB5kaQ5A5wDvZAy29CiqJ9K6YyMfM78WQ1nZ2bP0Z3b3iYrthF49s6zREnIv5d}
       MPESA_PASSKEY: ${MPESA_PASSKEY:-fa92cff56e8910af8746b01335cc7e4b300b88e277934116f2de01a72aaee821}
