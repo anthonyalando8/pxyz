@@ -124,7 +124,7 @@ func (r *providerTransactionRepo) UpdateStatus(ctx context.Context, id int64, st
     query := `
         UPDATE provider_transactions
         SET 
-            status = $1,
+            status = $1::transaction_status_enum,
             result_code = $2,
             result_description = $3,
             completed_at = CASE WHEN $1::text IN ('completed', 'failed') THEN NOW() ELSE completed_at END,

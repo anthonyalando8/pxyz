@@ -166,8 +166,8 @@ func (r *paymentRepo) UpdateStatus(ctx context. Context, id int64, status domain
     query := `
         UPDATE payments
         SET 
-            status = $1,
-            completed_at = CASE WHEN $1:: text IN ('completed', 'failed', 'cancelled') THEN NOW() ELSE completed_at END,
+            status = $1::payment_status_enum,
+            completed_at = CASE WHEN $1::text IN ('completed', 'failed', 'cancelled') THEN NOW() ELSE completed_at END,
             updated_at = NOW()
         WHERE id = $2
     `
