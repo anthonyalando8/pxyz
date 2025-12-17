@@ -100,32 +100,92 @@ func (uc *PartnerUsecase) InitiateDeposit(ctx context.Context, req *domain.Partn
 }
 
 // sendDepositInitiatedWebhook sends deposit. initiated webhook
-func (uc *PartnerUsecase) sendDepositInitiatedWebhook(txn *domain.PartnerTransaction) {
+func (uc *PartnerUsecase) sendDepositInitiatedWebhook(txn *domain. PartnerTransaction) {
 	ctx := context.Background()
 
+	// ✅ Extract metadata fields
+	phoneNumber := extractStringFromMetadata(txn. Metadata, "phone_number")
+	accountNumber := extractStringFromMetadata(txn.Metadata, "account_number")
+	bankAccount := extractStringFromMetadata(txn.Metadata, "bank_account")
+
+	// ✅ Log extracted values
+	uc.logger.Info("preparing deposit webhook",
+		zap.String("transaction_ref", txn.TransactionRef),
+		zap.String("partner_id", txn.PartnerID),
+		zap.String("phone_number", stringPtrToString(phoneNumber)),
+		zap.String("account_number", stringPtrToString(accountNumber)),
+		zap.String("bank_account", stringPtrToString(bankAccount)))
+
+	// ✅ Build base payload
 	payload := map[string]interface{}{
 		"event":            "deposit.initiated",
-		"transaction_ref":  txn. TransactionRef,
-		"transaction_type": txn.TransactionType,
-		"partner_id":       txn.PartnerID,
+		"transaction_ref":  txn.TransactionRef,
+		"transaction_type": txn. TransactionType,
+		"partner_id":       txn. PartnerID,
 		"user_id":          txn.UserID,
 		"amount":           txn.Amount,
-		"currency":          txn.Currency,
+		"currency":         txn.Currency,
 		"status":           txn.Status,
-		"payment_method":    txn.PaymentMethod,
-		"provider": txn.PaymentMethod,
+		"payment_method":   txn.PaymentMethod,
+		"provider":         txn.PaymentMethod,
 		"external_ref":     txn.ExternalRef,
 		"metadata":         txn. Metadata,
 		"created_at":       txn.CreatedAt.Unix(),
 		"timestamp":        time.Now().Unix(),
 	}
 
-	if err := uc.SendWebhook(ctx, txn.PartnerID, "deposit.initiated", payload); err != nil {
+	// ✅ Add optional fields if available
+	if phoneNumber != nil {
+		payload["phone_number"] = *phoneNumber
+	}
+
+	if accountNumber != nil {
+		payload["account_number"] = *accountNumber
+	} else if bankAccount != nil {
+		// Use bank_account as account_number fallback
+		payload["account_number"] = *bankAccount
+	}
+
+	if bankAccount != nil && accountNumber != nil && *bankAccount != *accountNumber {
+		// Include bank_account separately if different from account_number
+		payload["bank_account"] = *bankAccount
+	}
+
+	uc.logger.Info("sending deposit initiated webhook",
+		zap. String("partner_id", txn.PartnerID),
+		zap.String("transaction_ref", txn.TransactionRef))
+
+	if err := uc. SendWebhook(ctx, txn.PartnerID, "deposit.initiated", payload); err != nil {
 		uc.logger.Error("failed to send deposit webhook",
-			zap.String("partner_id", txn.PartnerID),
+			zap.String("partner_id", txn. PartnerID),
 			zap.String("transaction_ref", txn.TransactionRef),
 			zap.Error(err))
+	} else {
+		uc.logger.Info("deposit webhook sent successfully",
+			zap.String("partner_id", txn. PartnerID),
+			zap.String("transaction_ref", txn.TransactionRef))
 	}
+}
+
+// ✅ Helper function to extract string from metadata
+func extractStringFromMetadata(metadata map[string]interface{}, key string) *string {
+	if metadata == nil {
+		return nil
+	}
+
+	if value, ok := metadata[key].(string); ok && value != "" {
+		return &value
+	}
+
+	return nil
+}
+
+// ✅ Helper to convert string pointer to string for logging
+func stringPtrToString(s *string) string {
+	if s == nil {
+		return "<nil>"
+	}
+	return *s
 }
 
 // ============================================================================

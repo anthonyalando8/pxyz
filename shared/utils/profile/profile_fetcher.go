@@ -22,6 +22,7 @@ type ProfileFetcher struct {
 type Profile struct {
 	Email     string
 	Phone     string
+	BankAccount string
 	FirstName string
 	LastName  string
 	OwnerType string // "user", "partner", or "admin"

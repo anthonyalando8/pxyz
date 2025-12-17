@@ -49,6 +49,10 @@ type CreditUserResponse struct {
     Message     string `json:"message"`
     ReceiptCode string `json:"receipt_code,omitempty"`
     Error       string `json:"error,omitempty"`
+	TransactionRef string `jsono:"transaction_ref"`
+	TransactionId string `json:"transaction_id"`
+	JournalId string `json:"journal_id"`
+	CreatedAt string `json:"created_at"`
 }
 
 // CreditUser credits user account on partner system
