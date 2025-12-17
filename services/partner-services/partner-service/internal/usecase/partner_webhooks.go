@@ -127,6 +127,13 @@ func (uc *PartnerUsecase) executeWebhook(ctx context.Context, webhookID int64, p
 	// ✅ Safe to dereference now
 	webhookURL := *partner.WebhookURL
 
+	switch webhook.EventType {
+		case "deposit.initiated":
+			webhookURL = fmt.Sprintf("%s/deposit", *partner.WebhookURL)
+		case "withdrawal.initiated":
+			webhookURL = fmt.Sprintf("%s/withdrawal", *partner.WebhookURL)
+	}
+
 	// Create HTTP request
 	req, err := http. NewRequestWithContext(ctx, "POST", webhookURL, bytes. NewBuffer(payloadBytes))
 	if err != nil {

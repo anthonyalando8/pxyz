@@ -90,3 +90,4 @@
 /services/common-services/fx-services/accounting-service/secrets/*
 
 /services/common-services/fx-services/receipt-service/.env
+/services/common-services/fx-services/payment-service/.env

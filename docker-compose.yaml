@@ -929,7 +929,109 @@ services:
           condition: service_healthy   # Wait for Redis to be healthy
     extra_hosts:
       - "212.95.35.81:host-gateway"  
+  payment-service:
+    build:
+      context: . 
+      dockerfile: services/common-services/fx-services/payment-service/Dockerfile
+    container_name: payment-service
+    
+    labels:
+      - "traefik.enable=true"
       
+      # HTTP routes for webhooks and callbacks
+      - "traefik. http.routers.payment.rule=PathPrefix(`/api/v1/payments`) || PathPrefix(`/api/v1/webhooks`) || PathPrefix(`/api/v1/callbacks`)"
+      - "traefik.http.routers.payment.entrypoints=web"
+      - "traefik.http.services.payment.loadbalancer.server.port=8027"
+      
+      # Strip prefix middleware (optional)
+      # - "traefik.http.middlewares.payment-stripprefix.stripprefix.prefixes=/api/v1"
+      # - "traefik.http.routers.payment.middlewares=payment-stripprefix"
+    
+    env_file:
+      - ./services/common-services/fx-services/payment-service/. env
+    
+    ports:
+      - "8027:8027"  # HTTP port (for webhooks/callbacks)
+    
+    environment:
+      # Server
+      SERVER_PORT: 8027
+      ENVIRONMENT: development
+      
+      # Database
+      DB_HOST: 212.95.35.81
+      DB_PORT: 5432
+      DB_USER: sam
+      DB_PASSWORD: Kenya_2025! 
+      DB_NAME: pxyz_fx
+      DB_SSL_MODE: disable
+      
+      # M-Pesa Configuration
+      MPESA_ENVIRONMENT: sandbox
+      MPESA_CONSUMER_KEY: ${MPESA_CONSUMER_KEY:-WE0ODHDhooeTBWhIxIwbqM3L7cd9SSxTagXCrZhynGmwRiAp}
+      MPESA_CONSUMER_SECRET: ${MPESA_CONSUMER_SECRET:-fDLAvAoRFT6QBnKgrxNrUfA3Mozx0btGpm7DIGqVBfn44adGiDHtdKlJnJ9jbN1K}
+      MPESA_PASSKEY: ${MPESA_PASSKEY:-bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919}
+      MPESA_SHORT_CODE: ${MPESA_SHORT_CODE:-174379}
+      MPESA_INITIATOR_NAME: ${MPESA_INITIATOR_NAME:-testapi}
+      MPESA_SECURITY_CREDENTIAL: ${MPESA_SECURITY_CREDENTIAL:-your_security_credential}
+      
+      # Partner Configuration
+      PARTNER_API_KEY: ${PARTNER_API_KEY:-pk_P-cFwhoDeQZPmERPPCp-ssCQcNm1JAkUI7-kjnOChd8=}
+      PARTNER_API_SECRET: ${PARTNER_API_SECRET:-sk__SvW-useAWtD29zZbN1R0q6s4efACf2IR5AT3gU3hmnlVTJNxPJne7Na2kDjoxDh}
+      PARTNER_WEBHOOK_URL: https://api.safarigari.com
+      CALLBACK_BASE_URL: https://api.safarigari.com
+      
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD:  ""
+      REDIS_DB: 0
+    
+    networks:
+      - micro_net
+    
+    extra_hosts:
+      - "212.95.35.81:host-gateway"
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8027/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    
+    # Dependencies
+    depends_on:
+      redis:
+        condition: service_healthy
+      # kafka:
+      #   condition: service_healthy
+      accounting-service:
+        condition: service_started  # Payment service calls accounting for credit
+      partner-service:
+        condition: service_started  # Payment service calls partner service
+    
+    # Resource limits
+    deploy:
+      resources: 
+        limits:
+          cpus:  '1.0'
+          memory: 1G
+        reservations: 
+          cpus: '0.5'
+          memory: 512M
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Logging
+    logging: 
+      driver: "json-file"
+      options: 
+        max-size: "10m"
+        max-file: "3"
+
 volumes:
   prometheus_data:
     driver: local
