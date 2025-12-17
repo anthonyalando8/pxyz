@@ -176,6 +176,8 @@ func (r *PartnerRepo) UpdateAPISettings(ctx context.Context, partnerID string, i
 	return err
 }
 
+// repository/partner_repo.go
+
 func (r *PartnerRepo) CreateWebhook(ctx context.Context, webhook *domain.PartnerWebhook) error {
 	query := `
 		INSERT INTO partner_webhooks
@@ -184,38 +186,79 @@ func (r *PartnerRepo) CreateWebhook(ctx context.Context, webhook *domain.Partner
 		RETURNING id, created_at, updated_at
 	`
 	return r.db.QueryRow(ctx, query,
-		webhook.PartnerID, webhook.EventType, webhook.Payload,
-		webhook.Status, webhook.Attempts, webhook.MaxAttempts,
+		webhook.PartnerID, 
+		webhook.EventType, 
+		webhook.Payload,
+		webhook.Status, 
+		webhook.Attempts, 
+		webhook.MaxAttempts,
 	).Scan(&webhook.ID, &webhook.CreatedAt, &webhook.UpdatedAt)
 }
 
 func (r *PartnerRepo) GetWebhookByID(ctx context.Context, webhookID int64) (*domain.PartnerWebhook, error) {
 	query := `
-		SELECT id, partner_id, event_type, payload, status, attempts, max_attempts,
-		       last_attempt_at, next_retry_at, response_status, response_body, error_message,
-		       created_at, updated_at
+		SELECT 
+			id, partner_id, event_type, payload, status, attempts, max_attempts,
+			last_attempt_at, next_retry_at, response_status, response_body, error_message,
+			created_at, updated_at
 		FROM partner_webhooks
 		WHERE id = $1
 	`
-	_ = query
-	// Implement scanning
-	return nil, nil // placeholder
+	
+	webhook := &domain.PartnerWebhook{}
+	
+	err := r.db.QueryRow(ctx, query, webhookID).Scan(
+		&webhook.ID,
+		&webhook.PartnerID,
+		&webhook. EventType,
+		&webhook. Payload,
+		&webhook. Status,
+		&webhook. Attempts,
+		&webhook.MaxAttempts,
+		&webhook.LastAttemptAt,
+		&webhook.NextRetryAt,
+		&webhook.ResponseStatus,
+		&webhook.ResponseBody,
+		&webhook.ErrorMessage,
+		&webhook.CreatedAt,
+		&webhook.UpdatedAt,
+	)
+	
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("webhook not found: %d", webhookID)
+		}
+		return nil, fmt.Errorf("failed to scan webhook: %w", err)
+	}
+	
+	return webhook, nil
 }
 
 func (r *PartnerRepo) UpdateWebhookStatus(ctx context.Context, webhookID int64, status string, statusCode int, responseBody, errorMsg string) error {
 	query := `
 		UPDATE partner_webhooks
-		SET status = $1,
-		    attempts = attempts + 1,
-		    last_attempt_at = NOW(),
-		    response_status = $2,
-		    response_body = $3,
-		    error_message = $4,
-		    updated_at = NOW()
+		SET 
+			status = $1,
+			attempts = attempts + 1,
+			last_attempt_at = NOW(),
+			response_status = $2,
+			response_body = $3,
+			error_message = $4,
+			updated_at = NOW()
 		WHERE id = $5
 	`
-	_, err := r.db.Exec(ctx, query, status, statusCode, responseBody, errorMsg, webhookID)
-	return err
+	
+	result, err := r.db. Exec(ctx, query, status, statusCode, responseBody, errorMsg, webhookID)
+	if err != nil {
+		return fmt.Errorf("failed to update webhook status: %w", err)
+	}
+	
+	rowsAffected := result.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("webhook not found: %d", webhookID)
+	}
+	
+	return nil
 }
 
 func (r *PartnerRepo) ListWebhookLogs(ctx context.Context, partnerID string, limit, offset int) ([]domain.PartnerWebhook, int64, error) {
