@@ -44,28 +44,28 @@ func SetupRoutes(
     })
 
     // API routes
-    r.Route("/api/v1", func(r chi. Router) {
-        // Webhooks (receive from partner)
-        r.Route("/webhooks", func(r chi.Router) {
-            r.Post("/deposit", webhookHandler. HandleDepositWebhook)
-            r.Post("/withdrawal", webhookHandler.HandleAllWebhooks) // ✅ Log withdrawal webhooks
-        
+    r. Route("/api/v1", func(r chi.Router) {
+		// Webhooks (receive from partner)
+		r.Route("/webhooks", func(r chi.Router) {
+			r.Post("/deposit", webhookHandler.HandleDepositWebhook)
+			r.Post("/withdrawal", webhookHandler.HandleWithdrawalWebhook) // ✅ NEW
+			r.Post("/withdrawal", webhookHandler.HandleWithdrawalWebhook) // ✅ NEW
+
 			// ✅ Catch-all for any other webhook types
 			r.Post("/*", webhookHandler.HandleAllWebhooks)
 			r.Get("/*", webhookHandler.HandleAllWebhooks)
 			r.Put("/*", webhookHandler.HandleAllWebhooks)
-        })
+		})
 
-        // Callbacks (receive from payment providers)
-        r.Route("/callbacks", func(r chi.Router) {
-            r.Route("/mpesa", func(r chi.Router) {
-                r.Post("/stk/{payment_ref}", callbackHandler. HandleMpesaSTKCallback)
-                r.Post("/b2c/{payment_ref}", callbackHandler.HandleMpesaB2CCallback)
-            })
-            
-            // Future: r.Route("/bank", func(r chi.Router) { ... })
-        })
-    })
+		// Callbacks (receive from payment providers)
+		r.Route("/callbacks", func(r chi.Router) {
+			r.Route("/mpesa", func(r chi. Router) {
+				r.Post("/stk/{payment_ref}", callbackHandler.HandleMpesaSTKCallback)
+				r.Post("/b2c/{payment_ref}", callbackHandler.HandleMpesaB2CCallback) // Already exists
+				r.Post("/b2c/timeout/{payment_ref}", callbackHandler.HandleMpesaB2CTimeout) // ✅ NEW
+			})
+		})
+	})
 
     return r
 }

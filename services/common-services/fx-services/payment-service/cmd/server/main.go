@@ -93,7 +93,7 @@ func main() {
 
     // Initialize handlers
     webhookHandler := handler.NewWebhookHandler(paymentUC, logger)
-    callbackHandler := handler.NewCallbackHandler(callbackUC, logger)
+    callbackHandler := handler.NewCallbackHandler(callbackUC,paymentUC, logger)
 
     // Setup routes
     r := router.SetupRoutes(webhookHandler, callbackHandler, logger)

@@ -5,9 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"time"
 	"net/http"
+	"time"
 
+	"payment-service/internal/domain"
 	"payment-service/internal/usecase"
 
 	"github.com/go-chi/chi/v5"
@@ -16,12 +17,14 @@ import (
 
 type CallbackHandler struct {
     callbackUC *usecase.CallbackUsecase
+	paymentUC *usecase.PaymentUsecase
     logger     *zap.Logger
 }
 
-func NewCallbackHandler(callbackUC *usecase.CallbackUsecase, logger *zap.Logger) *CallbackHandler {
+func NewCallbackHandler(callbackUC *usecase.CallbackUsecase, 	paymentUC *usecase.PaymentUsecase, logger *zap.Logger) *CallbackHandler {
     return &CallbackHandler{
         callbackUC: callbackUC,
+		paymentUC: paymentUC,
         logger:      logger,
     }
 }
@@ -103,6 +106,48 @@ func (h *CallbackHandler) HandleMpesaB2CCallback(w http.ResponseWriter, r *http.
     // Return success immediately
     h.logger.Info("M-Pesa B2C callback acknowledged",
         zap.String("payment_ref", paymentRef))
+    h.sendCallbackResponse(w, "0", "Success")
+}
+
+// HandleMpesaB2CTimeout handles M-Pesa B2C timeout
+func (h *CallbackHandler) HandleMpesaB2CTimeout(w http.ResponseWriter, r *http.Request) {
+    ctx := r.Context()
+    paymentRef := chi.URLParam(r, "payment_ref")
+
+    h.logger. Warn("received M-Pesa B2C timeout",
+        zap.String("payment_ref", paymentRef),
+        zap.String("remote_addr", r.RemoteAddr))
+
+    // Read payload
+    payload, err := io.ReadAll(r.Body)
+    if err != nil {
+        h.logger.Error("failed to read timeout payload",
+            zap.String("payment_ref", paymentRef),
+            zap.Error(err))
+        h.sendCallbackResponse(w, "1", "Failed to read payload")
+        return
+    }
+
+    h.logger.Info("M-Pesa B2C timeout payload",
+        zap.String("payment_ref", paymentRef),
+        zap.String("payload", string(payload)))
+
+    // Mark payment as failed due to timeout
+    payment, err := h.paymentUC.GetByPaymentRef(ctx, paymentRef)
+    if err != nil {
+        h.logger.Error("payment not found for timeout",
+            zap.String("payment_ref", paymentRef),
+            zap.Error(err))
+        h.sendCallbackResponse(w, "0", "Success")
+        return
+    }
+
+    _ = h.paymentUC.UpdateStatus(ctx, payment.ID, domain.PaymentStatusFailed)
+    _ = h.paymentUC.SetError(ctx, payment.ID, "B2C request timed out")
+
+    h.logger.Info("payment marked as timed out",
+        zap. String("payment_ref", paymentRef))
+
     h.sendCallbackResponse(w, "0", "Success")
 }
 

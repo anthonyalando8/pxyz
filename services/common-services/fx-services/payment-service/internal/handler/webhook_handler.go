@@ -72,6 +72,54 @@ func (h *WebhookHandler) HandleDepositWebhook(w http.ResponseWriter, r *http.Req
     })
 }
 
+// HandleWithdrawalWebhook handles incoming withdrawal requests from partner
+func (h *WebhookHandler) HandleWithdrawalWebhook(w http.ResponseWriter, r *http.Request) {
+    ctx := r.Context()
+
+    h.logger.Info("received withdrawal webhook",
+        zap. String("remote_addr", r.RemoteAddr),
+        zap.String("user_agent", r.UserAgent()))
+
+    // Parse request
+    var req domain.WithdrawalRequest
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        h.logger. Error("failed to decode withdrawal request",
+            zap.Error(err))
+        h.sendError(w, http.StatusBadRequest, "invalid request body", err)
+        return
+    }
+
+    h.logger.Info("withdrawal request parsed",
+        zap.String("transaction_ref", req.TransactionRef),
+        zap.String("partner_id", req.PartnerID),
+        zap.String("provider", string(req. Provider)),
+        zap.Float64("amount", req.Amount))
+
+    // Initiate withdrawal
+    payment, err := h.paymentUC.InitiateWithdrawal(ctx, &req)
+    if err != nil {
+        h.logger.Error("failed to initiate withdrawal",
+            zap. String("transaction_ref", req.TransactionRef),
+            zap.Error(err))
+        h.sendError(w, http.StatusInternalServerError, "failed to process withdrawal", err)
+        return
+    }
+
+    h.logger. Info("withdrawal initiated successfully",
+        zap.String("payment_ref", payment.PaymentRef),
+        zap.String("status", string(payment.Status)))
+
+    // Send response
+    h.sendSuccess(w, http.StatusOK, "withdrawal initiated successfully", map[string]interface{}{
+        "payment_ref":      payment.PaymentRef,
+        "partner_tx_ref":  payment.PartnerTxRef,
+        "status":         payment.Status,
+        "amount":           payment.Amount,
+        "currency":       payment.Currency,
+        "provider":       payment.Provider,
+    })
+}
+
 // HandleAllWebhooks handles all incoming webhooks for logging purposes
 func (h *WebhookHandler) HandleAllWebhooks(w http.ResponseWriter, r *http.Request) {
     h.logger.Info("received generic webhook",
