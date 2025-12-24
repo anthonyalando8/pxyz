@@ -68,17 +68,17 @@ func (m *MpesaProvider) InitiateSTKPush(ctx context.Context, phoneNumber, accoun
     // Prepare request
     timestamp := time.Now().Format("20060102150405")
     password := base64.StdEncoding. EncodeToString([]byte(
-        m.config.ShortCode + m.config. Passkey + timestamp,
+        m.config.B2CShortCode + m.config. B2CPasskey + timestamp,
     ))
 
     request := STKPushRequest{
-        BusinessShortCode: m. config.ShortCode,
+        BusinessShortCode: m. config.B2CShortCode,
         Password:          password,
         Timestamp:         timestamp,
         TransactionType:   "CustomerPayBillOnline",
         Amount:             int(amount),
         PartyA:            phoneNumber,
-        PartyB:             m.config.ShortCode,
+        PartyB:             m.config.B2CShortCode,
         PhoneNumber:       phoneNumber,
         CallBackURL:       callbackURL,
         AccountReference:  accountRef,
@@ -193,11 +193,11 @@ func (m *MpesaProvider) InitiateB2C(ctx context.Context, phoneNumber, accountRef
     }
 
     request := B2CRequest{
-        InitiatorName:      m. config.InitiatorName,
-        SecurityCredential: m.config.SecurityCredential,
+        InitiatorName:      m. config.B2CInitiatorName,
+        SecurityCredential: m.config.B2CSecurityCredential,
         CommandID:           "BusinessPayment",
         Amount:             int(amount),
-        PartyA:             m.config.ShortCode,
+        PartyA:             m.config.B2CShortCode,
         PartyB:             phoneNumber,
         Remarks:            fmt.Sprintf("Withdrawal for %s", accountRef),
         QueueTimeOutURL:    timeoutURL,

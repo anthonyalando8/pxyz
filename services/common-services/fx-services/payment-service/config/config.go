@@ -35,6 +35,14 @@ type MpesaConfig struct {
     ShortCode      string
     InitiatorName  string
     SecurityCredential string
+
+    B2CShortCode      string
+    B2CInitiatorName  string
+    B2CPassword       string
+    B2CSecurityCredential string
+    B2CPasskey        string
+    B2CConsumerKey    string
+    B2CConsumerSecret string
 }
 
 type PartnerConfig struct {
@@ -73,6 +81,13 @@ func Load() (*Config, error) {
             ShortCode:      getEnv("MPESA_SHORT_CODE", ""),
             InitiatorName:  getEnv("MPESA_INITIATOR_NAME", ""),
             SecurityCredential: getEnv("MPESA_SECURITY_CREDENTIAL", ""),
+            B2CShortCode:      getEnv("B2C_SHORT_CODE", ""),
+            B2CInitiatorName:  getEnv("B2C_INITIATOR_NAME", ""),
+            B2CPassword:       getEnv("B2C_PASSWORD", ""),
+            B2CSecurityCredential: getEnv("B2C_SECURITY_CREDENTIAL", ""),
+            B2CPasskey:        getEnv("B2C_PASSKEY", ""),
+            B2CConsumerKey:    getEnv("B2C_CONSUMER_KEY", ""),
+            B2CConsumerSecret: getEnv("B2C_CONSUMER_SECRET", ""),
         },
         Partner: PartnerConfig{
             APIKey:      getEnv("PARTNER_API_KEY", ""),
