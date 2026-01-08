@@ -28,11 +28,11 @@ type WithdrawalRequest struct {
 // WithdrawalWebhookMetadata represents parsed metadata from webhook
 type WithdrawalWebhookMetadata struct {
     RequestRef        string  `json:"request_ref"`
-    OriginalAmount    float64 `json:"original_amount"`
-    ConvertedAmount   float64 `json:"converted_amount"`
+    OriginalAmount    string `json:"original_amount"`
+    ConvertedAmount   string `json:"converted_amount"`
     OriginalCurrency  string  `json:"original_currency"`
     TargetCurrency    string  `json:"target_currency"`
-    ExchangeRate      float64 `json:"exchange_rate"`
+    ExchangeRate      string `json:"exchange_rate"`
     AccountNumber     string  `json:"account_number,omitempty"`
 }
 
@@ -71,52 +71,64 @@ func (r *WithdrawalRequest) parseMetadata() error {
 
     r.ParsedMetadata = &WithdrawalWebhookMetadata{}
 
-    // Extract required fields (same logic as deposit)
+    // ✅ Extract original_amount (as string)
     if val, ok := r.Metadata["original_amount"].(string); ok {
-        if amt, err := strconv.ParseFloat(val, 64); err == nil {
-            r.ParsedMetadata.OriginalAmount = amt
-        }
+        r.ParsedMetadata.OriginalAmount = val
     } else if val, ok := r. Metadata["original_amount"].(float64); ok {
-        r.ParsedMetadata. OriginalAmount = val
+        // Handle if sent as number
+        r.ParsedMetadata. OriginalAmount = fmt. Sprintf("%.2f", val)
     }
 
+    // ✅ Extract converted_amount (as string)
     if val, ok := r.Metadata["converted_amount"].(string); ok {
-        if amt, err := strconv. ParseFloat(val, 64); err == nil {
-            r. ParsedMetadata.ConvertedAmount = amt
-        }
+        r.ParsedMetadata. ConvertedAmount = val
     } else if val, ok := r.Metadata["converted_amount"].(float64); ok {
-        r.ParsedMetadata.ConvertedAmount = val
+        r.ParsedMetadata.ConvertedAmount = fmt.Sprintf("%.2f", val)
     }
 
+    // ✅ Extract original_currency (as string)
     if val, ok := r.Metadata["original_currency"].(string); ok {
         r.ParsedMetadata.OriginalCurrency = val
     }
 
-    if val, ok := r.Metadata["target_currency"].(string); ok {
+    // ✅ Extract target_currency (as string)
+    if val, ok := r. Metadata["target_currency"].(string); ok {
         r.ParsedMetadata.TargetCurrency = val
     }
 
-    if val, ok := r.Metadata["exchange_rate"].(string); ok {
-        if rate, err := strconv.ParseFloat(val, 64); err == nil {
-            r.ParsedMetadata.ExchangeRate = rate
-        }
-    } else if val, ok := r. Metadata["exchange_rate"].(float64); ok {
+    // ✅ Extract exchange_rate (as string)
+    if val, ok := r. Metadata["exchange_rate"].(string); ok {
         r.ParsedMetadata.ExchangeRate = val
+    } else if val, ok := r. Metadata["exchange_rate"].(float64); ok {
+        r.ParsedMetadata.ExchangeRate = fmt.Sprintf("%.4f", val)
     }
 
+    // ✅ Extract request_ref (as string)
     if val, ok := r. Metadata["request_ref"].(string); ok {
         r.ParsedMetadata.RequestRef = val
     }
 
+    // ✅ Extract account_number (as string, optional)
     if val, ok := r.Metadata["account_number"].(string); ok {
         r.ParsedMetadata.AccountNumber = val
     }
 
-    // Validate parsed metadata
-    if r.ParsedMetadata.OriginalAmount <= 0 {
+    // ✅ Extract phone_number (as string, optional) - ADD THIS
+    if val, ok := r.Metadata["phone_number"].(string); ok {
+        r.PhoneNumber = val // Set it on the main request
+    }
+
+    // ✅ Validate parsed metadata (parse to float for validation)
+    if r.ParsedMetadata.OriginalAmount == "" {
         return errors.New("original_amount is required in metadata")
     }
-    if r.ParsedMetadata. OriginalCurrency == "" {
+
+    // Validate it's a valid number
+    if amount, err := strconv.ParseFloat(r.ParsedMetadata. OriginalAmount, 64); err != nil || amount <= 0 {
+        return fmt.Errorf("invalid original_amount in metadata: %s", r.ParsedMetadata. OriginalAmount)
+    }
+
+    if r.ParsedMetadata.OriginalCurrency == "" {
         return errors.New("original_currency is required in metadata")
     }
 

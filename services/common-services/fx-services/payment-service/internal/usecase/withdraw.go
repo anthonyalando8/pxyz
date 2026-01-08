@@ -1,10 +1,13 @@
 // internal/usecase/payment_usecase.go
 
 package usecase
+
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
+
 	"go.uber.org/zap"
 
 	"payment-service/internal/domain"
@@ -95,49 +98,68 @@ func (uc *PaymentUsecase) InitiateWithdrawal(ctx context. Context, req *domain.W
 }
 
 // processMpesaWithdrawal processes M-Pesa withdrawal via B2C
+// processMpesaWithdrawal processes M-Pesa withdrawal via B2C
 func (uc *PaymentUsecase) processMpesaWithdrawal(payment *domain.Payment) {
-    ctx := context.Background()
+    ctx := context. Background()
 
     uc.logger.Info("processing M-Pesa withdrawal",
-        zap.Int64("payment_id", payment. ID),
+        zap. Int64("payment_id", payment. ID),
         zap.String("payment_ref", payment.PaymentRef),
         zap.String("phone_number", *payment.PhoneNumber),
         zap.Float64("amount", payment.Amount))
 
-    // Parse metadata to get original amount
-    var metadata domain.WithdrawalWebhookMetadata
+    // ✅ Parse metadata - same way as deposit
+    var metadata domain. WithdrawalWebhookMetadata
     if payment.Metadata != nil {
-        metadataBytes, _ := json.Marshal(payment.Metadata)
-        _ = json.Unmarshal(metadataBytes, &metadata)
+        metadataBytes, err := json.Marshal(payment. Metadata)
+        if err != nil {
+            uc.logger. Error("failed to marshal payment metadata", zap.Error(err))
+        } else if err := json.Unmarshal(metadataBytes, &metadata); err != nil {
+            uc. logger.Error("failed to unmarshal payment metadata", zap.Error(err))
+        }
     }
 
-    // ✅ Use original amount (local currency) for B2C
-    b2cAmount := metadata.OriginalAmount
-    if b2cAmount == 0 {
-        uc.logger.Error("original amount not found in metadata, using payment amount",
-            zap.String("payment_ref", payment.PaymentRef))
+    // ✅ Parse original amount (KES) from metadata - SAME AS DEPOSIT
+    var b2cAmount float64
+    if metadata.OriginalAmount != "" {
+        parsedAmount, err := strconv.ParseFloat(metadata.OriginalAmount, 64)
+        if err != nil || parsedAmount <= 0 {
+            uc.logger.Error("invalid original_amount in metadata",
+                zap.String("payment_ref", payment.PaymentRef),
+                zap.String("original_amount", metadata.OriginalAmount),
+                zap.Error(err))
+        } else {
+            b2cAmount = parsedAmount
+        }
+    }
+
+    // Fallback (last resort)
+    if b2cAmount <= 0 {
+        uc.logger. Warn("falling back to payment amount for B2C",
+            zap.String("payment_ref", payment.PaymentRef),
+            zap.Float64("fallback_amount", payment.Amount))
         b2cAmount = payment.Amount
     }
 
     uc.logger.Info("initiating B2C with original amount",
         zap.String("payment_ref", payment.PaymentRef),
         zap.Float64("b2c_amount", b2cAmount),
-        zap.String("original_currency", metadata.OriginalCurrency),
+        zap.String("original_currency", metadata. OriginalCurrency),
         zap.Float64("converted_amount", payment.Amount),
         zap.String("target_currency", payment.Currency))
 
     // Update status to processing
-    if err := uc.paymentRepo.UpdateStatus(ctx, payment.ID, domain.PaymentStatusProcessing); err != nil {
-        uc. logger.Error("failed to update payment status to processing",
-            zap.Int64("payment_id", payment. ID),
+    if err := uc.paymentRepo. UpdateStatus(ctx, payment.ID, domain.PaymentStatusProcessing); err != nil {
+        uc.logger.Error("failed to update payment status to processing",
+            zap.Int64("payment_id", payment.ID),
             zap.String("payment_ref", payment.PaymentRef),
             zap.Error(err))
         return
     }
 
     // Build callback URLs
-    resultURL := fmt.Sprintf("%s/api/v1/callbacks/mpesa/b2c/%s", uc. config.CallbackURL, payment.PaymentRef)
-    timeoutURL := fmt.Sprintf("%s/api/v1/callbacks/mpesa/b2c/timeout/%s", uc.config.CallbackURL, payment.PaymentRef)
+    resultURL := fmt.Sprintf("%s/api/v1/callbacks/mpesa/b2c/%s", uc. config.CallbackURL, payment. PaymentRef)
+    timeoutURL := fmt.Sprintf("%s/api/v1/callbacks/mpesa/b2c/timeout/%s", uc.config. CallbackURL, payment.PaymentRef)
 
     uc.logger.Debug("initiating M-Pesa B2C",
         zap.String("payment_ref", payment.PaymentRef),
@@ -145,9 +167,9 @@ func (uc *PaymentUsecase) processMpesaWithdrawal(payment *domain.Payment) {
         zap.String("result_url", resultURL))
 
     // ✅ Initiate B2C with original local currency amount
-    response, err := uc.mpesaProvider.InitiateB2C(
+    response, err := uc.mpesaProvider. InitiateB2C(
         ctx,
-        *payment.PhoneNumber,
+        *payment. PhoneNumber,
         payment. PartnerTxRef,
         b2cAmount, // ✅ Use original amount (KES, not USD)
         resultURL,
@@ -156,66 +178,66 @@ func (uc *PaymentUsecase) processMpesaWithdrawal(payment *domain.Payment) {
 
     if err != nil {
         uc.logger.Error("M-Pesa B2C initiation failed",
-            zap. Int64("payment_id", payment. ID),
+            zap.Int64("payment_id", payment.ID),
             zap.String("payment_ref", payment.PaymentRef),
             zap.Error(err))
-        _ = uc.paymentRepo. SetError(ctx, payment.ID, err. Error())
+        _ = uc.paymentRepo. SetError(ctx, payment.ID, err.Error())
         return
     }
 
-    uc.logger.Info("M-Pesa B2C initiated",
+    uc. logger.Info("M-Pesa B2C initiated",
         zap.String("payment_ref", payment.PaymentRef),
         zap.String("conversation_id", response.ConversationID),
         zap.String("response_code", response.ResponseCode))
 
     // Create provider transaction record
     requestPayload, _ := json.Marshal(map[string]interface{}{
-        "phone_number":        *payment.PhoneNumber,
+        "phone_number":      *payment.PhoneNumber,
         "amount":            b2cAmount, // Original amount
         "converted_amount":  payment.Amount, // USD amount
-        "original_currency":  metadata.OriginalCurrency,
+        "original_currency": metadata.OriginalCurrency,
         "target_currency":   payment.Currency,
         "result_url":        resultURL,
         "timeout_url":       timeoutURL,
-        "account_reference": payment. PartnerTxRef,
+        "account_reference": payment.PartnerTxRef,
     })
 
-    responsePayload, _ := json.Marshal(response)
+    responsePayload, _ := json. Marshal(response)
 
     providerTx := &domain.ProviderTransaction{
         PaymentID:       payment.ID,
         Provider:        domain.ProviderMpesa,
         TransactionType: "b2c",
         RequestPayload:  requestPayload,
-        ResponsePayload: responsePayload,
-        Status:          domain.TxStatusSent,
+        ResponsePayload:  responsePayload,
+        Status:           domain.TxStatusSent,
     }
 
     if response.ResponseCode == "0" {
-        conversationID := response.ConversationID
-        providerTx. ProviderTxID = &conversationID
+        conversationID := response. ConversationID
+        providerTx.ProviderTxID = &conversationID
 
         if err := uc.providerTxRepo.Create(ctx, providerTx); err != nil {
-            uc.logger.Error("failed to create provider transaction",
+            uc.logger. Error("failed to create provider transaction",
                 zap.Int64("payment_id", payment.ID),
                 zap.String("payment_ref", payment.PaymentRef),
                 zap.Error(err))
         } else {
             uc.logger.Info("provider transaction created successfully",
-                zap.Int64("provider_tx_id", providerTx.ID),
+                zap.Int64("provider_tx_id", providerTx. ID),
                 zap.String("payment_ref", payment.PaymentRef))
         }
     } else {
-        uc.logger. Warn("M-Pesa B2C rejected",
+        uc. logger.Warn("M-Pesa B2C rejected",
             zap.String("payment_ref", payment.PaymentRef),
-            zap.String("response_code", response. ResponseCode),
+            zap.String("response_code", response.ResponseCode),
             zap.String("response_description", response.ResponseDescription))
 
-        providerTx.Status = domain. TxStatusFailed
+        providerTx.Status = domain.TxStatusFailed
         providerTx.ResultCode = &response.ResponseCode
         providerTx.ResultDescription = &response.ResponseDescription
         _ = uc.providerTxRepo.Create(ctx, providerTx)
-        _ = uc.paymentRepo. SetError(ctx, payment.ID, response.ResponseDescription)
+        _ = uc.paymentRepo.SetError(ctx, payment.ID, response.ResponseDescription)
     }
 }
 
