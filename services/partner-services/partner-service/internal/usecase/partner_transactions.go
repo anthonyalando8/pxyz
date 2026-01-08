@@ -266,31 +266,71 @@ func (uc *PartnerUsecase) validateWithdrawalRequest(req *domain. PartnerTransact
 }
 
 // sendWithdrawalInitiatedWebhook sends withdrawal.initiated webhook
+// sendWithdrawalInitiatedWebhook sends withdrawal.initiated webhook
 func (uc *PartnerUsecase) sendWithdrawalInitiatedWebhook(txn *domain.PartnerTransaction) {
 	ctx := context.Background()
 
+	// ✅ Extract metadata fields (same as deposit)
+	phoneNumber := extractStringFromMetadata(txn.Metadata, "phone_number")
+	accountNumber := extractStringFromMetadata(txn.Metadata, "account_number")
+	bankAccount := extractStringFromMetadata(txn.Metadata, "bank_account")
+
+	// ✅ Log extracted values
+	uc.logger.Info("preparing withdrawal webhook",
+		zap.String("transaction_ref", txn.TransactionRef),
+		zap.String("partner_id", txn.PartnerID),
+		zap.String("phone_number", stringPtrToString(phoneNumber)),
+		zap.String("account_number", stringPtrToString(accountNumber)),
+		zap.String("bank_account", stringPtrToString(bankAccount)))
+
+	// ✅ Build base payload
 	payload := map[string]interface{}{
-		"event":            "withdrawal.initiated",
-		"transaction_ref":   txn.TransactionRef,
+		"event":             "withdrawal.initiated",
+		"transaction_ref":  txn.TransactionRef,
 		"transaction_type": txn.TransactionType,
-		"partner_id":       txn.PartnerID,
-		"user_id":          txn.UserID,
-		"amount":           txn.Amount,
-		"currency":         txn. Currency,
+		"partner_id":       txn. PartnerID,
+		"user_id":          txn. UserID,
+		"amount":            txn.Amount,
+		"currency":         txn.Currency,
 		"status":           txn.Status,
-		"payment_method":   txn. PaymentMethod,
-		"provider":         txn.PaymentMethod,
+		"payment_method":   txn.PaymentMethod,
+		"provider":          txn.PaymentMethod,
 		"external_ref":     txn.ExternalRef,
-		"metadata":          txn.Metadata,
+		"metadata":         txn. Metadata,
 		"created_at":       txn.CreatedAt.Unix(),
-		"timestamp":        time. Now().Unix(),
+		"timestamp":        time.Now().Unix(),
 	}
 
-	if err := uc.SendWebhook(ctx, txn.PartnerID, "withdrawal.initiated", payload); err != nil {
-		uc.logger. Error("failed to send withdrawal webhook",
+	// ✅ Add optional fields if available
+	if phoneNumber != nil {
+		payload["phone_number"] = *phoneNumber
+	}
+
+	if accountNumber != nil {
+		payload["account_number"] = *accountNumber
+	} else if bankAccount != nil {
+		// Use bank_account as account_number fallback
+		payload["account_number"] = *bankAccount
+	}
+
+	if bankAccount != nil && accountNumber != nil && *bankAccount != *accountNumber {
+		// Include bank_account separately if different from account_number
+		payload["bank_account"] = *bankAccount
+	}
+
+	uc.logger.Info("sending withdrawal initiated webhook",
+		zap.String("partner_id", txn. PartnerID),
+		zap.String("transaction_ref", txn.TransactionRef))
+
+	if err := uc.SendWebhook(ctx, txn. PartnerID, "withdrawal.initiated", payload); err != nil {
+		uc.logger.Error("failed to send withdrawal webhook",
 			zap.String("partner_id", txn.PartnerID),
 			zap.String("transaction_ref", txn.TransactionRef),
 			zap.Error(err))
+	} else {
+		uc.logger.Info("withdrawal webhook sent successfully",
+			zap. String("partner_id", txn.PartnerID),
+			zap.String("transaction_ref", txn.TransactionRef))
 	}
 }
 
