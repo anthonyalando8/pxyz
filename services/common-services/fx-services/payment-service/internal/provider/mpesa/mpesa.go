@@ -67,18 +67,18 @@ func (m *MpesaProvider) InitiateSTKPush(ctx context.Context, phoneNumber, accoun
 
     // Prepare request
     timestamp := time.Now().Format("20060102150405")
-    password := base64.StdEncoding. EncodeToString([]byte(
-        m.config.B2CShortCode + m.config. B2CPasskey + timestamp,
+    password := base64.StdEncoding.EncodeToString([]byte(
+        m.config.ShortCode + m.config.Passkey + timestamp,
     ))
 
     request := STKPushRequest{
-        BusinessShortCode: m. config.B2CShortCode,
+        BusinessShortCode: m.config.ShortCode,
         Password:          password,
         Timestamp:         timestamp,
         TransactionType:   "CustomerPayBillOnline",
         Amount:             int(amount),
         PartyA:            phoneNumber,
-        PartyB:             m.config.B2CShortCode,
+        PartyB:             m.config.ShortCode,
         PhoneNumber:       phoneNumber,
         CallBackURL:       callbackURL,
         AccountReference:  accountRef,
