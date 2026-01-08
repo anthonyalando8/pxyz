@@ -279,6 +279,7 @@ func (uc *PartnerUsecase) sendWithdrawalInitiatedWebhook(txn *domain.PartnerTran
 		"currency":         txn. Currency,
 		"status":           txn.Status,
 		"payment_method":   txn. PaymentMethod,
+		"provider":         txn.PaymentMethod,
 		"external_ref":     txn.ExternalRef,
 		"metadata":          txn.Metadata,
 		"created_at":       txn.CreatedAt.Unix(),
