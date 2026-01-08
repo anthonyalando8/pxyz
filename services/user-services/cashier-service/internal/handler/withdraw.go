@@ -426,6 +426,7 @@ func (h *PaymentHandler) processWithdrawal(
 
 // processWithdrawalViaPartner - Debit user and send to partner
 // CORRECTED: processWithdrawalViaPartner - Transfer from user to partner account
+// processWithdrawalViaPartner - Transfer from user to partner account
 func (h *PaymentHandler) processWithdrawalViaPartner(
     withdrawal *domain.WithdrawalRequest,
     userAccount string,
@@ -444,7 +445,7 @@ func (h *PaymentHandler) processWithdrawalViaPartner(
     partnerAccount, err := h.GetAccountByCurrency(ctx, partner.Id, "partner", "USD")
     if err != nil {
         errMsg := fmt.Sprintf("partner account not found:  %v", err)
-        h.userUc.FailWithdrawal(ctx, withdrawal.RequestRef, errMsg)
+        h.userUc.FailWithdrawal(ctx, withdrawal. RequestRef, errMsg)
         
         h.hub.SendToUser(fmt.Sprintf("%d", withdrawal.UserID), []byte(fmt.Sprintf(`{
             "type": "withdrawal_failed",
@@ -457,17 +458,17 @@ func (h *PaymentHandler) processWithdrawalViaPartner(
     }
 
     // ✅ Step 2: Transfer from user account to partner account (in USD)
-    transferReq := &accountingpb.TransferRequest{
+    transferReq := &accountingpb. TransferRequest{
         FromAccountNumber:    userAccount,
         ToAccountNumber:     partnerAccount,
-        Amount:              withdrawal.Amount, // USD amount
-        AccountType:         accountingpb.AccountType_ACCOUNT_TYPE_REAL,
+        Amount:              withdrawal. Amount, // USD amount
+        AccountType:         accountingpb. AccountType_ACCOUNT_TYPE_REAL,
         Description:         fmt.Sprintf("Withdrawal %.2f %s to %s via partner %s", 
-            originalAmount, originalCurrency, withdrawal.Destination, partner.Name),
+            originalAmount, originalCurrency, withdrawal. Destination, partner.Name),
         ExternalRef:         &withdrawal.RequestRef,
-        CreatedByExternalId: fmt.Sprintf("%d", withdrawal.UserID),
+        CreatedByExternalId: fmt. Sprintf("%d", withdrawal.UserID),
         CreatedByType:        accountingpb.OwnerType_OWNER_TYPE_USER,
-		TransactionType: accountingpb.TransactionType_TRANSACTION_TYPE_WITHDRAWAL,
+        TransactionType:      accountingpb.TransactionType_TRANSACTION_TYPE_WITHDRAWAL,
     }
 
     resp, err := h.accountingClient.Client.Transfer(ctx, transferReq)
@@ -475,7 +476,7 @@ func (h *PaymentHandler) processWithdrawalViaPartner(
         errMsg := err.Error()
         h.userUc.FailWithdrawal(ctx, withdrawal.RequestRef, errMsg)
 
-        h.hub.SendToUser(fmt.Sprintf("%d", withdrawal.UserID), []byte(fmt.Sprintf(`{
+        h.hub.SendToUser(fmt. Sprintf("%d", withdrawal.UserID), []byte(fmt.Sprintf(`{
             "type": "withdrawal_failed",
             "data": {
                 "request_ref": "%s",
@@ -485,22 +486,32 @@ func (h *PaymentHandler) processWithdrawalViaPartner(
         return
     }
 
+    // ✅ Get exchange rate from withdrawal metadata
+    var exchangeRate float64
+    if rate, ok := withdrawal.Metadata["exchange_rate"].(float64); ok {
+        exchangeRate = rate
+    }
+
     // ✅ Step 3: Send withdrawal request to partner (for actual payout to user)
     partnerResp, err := h.partnerClient.Client.InitiateWithdrawal(ctx, &partnersvcpb.InitiateWithdrawalRequest{
-        PartnerId:      partner.Id,
-        TransactionRef: withdrawal.RequestRef,
+        PartnerId:      partner. Id,
+        TransactionRef:  withdrawal.RequestRef,
         UserId:         fmt.Sprintf("%d", withdrawal.UserID),
-        Amount:         originalAmount,      // Send local currency amount
-        Currency:       originalCurrency,    // Send local currency
+        Amount:         withdrawal.Amount,        // ✅ Send USD amount (will be converted by partner)
+        Currency:       "USD",                    // ✅ Send USD currency
         PaymentMethod:  getPaymentMethod(withdrawal.Service),
         ExternalRef:    withdrawal.Destination,
         Metadata: map[string]string{
-            "request_ref":       withdrawal.RequestRef,
-            "destination":     withdrawal.Destination, 
-            "amount_usd":        fmt.Sprintf("%.2f", withdrawal.Amount),
-            "exchange_rate":     getExchangeRate(withdrawal.Metadata),
-            "receipt_code":      resp.ReceiptCode,
-            "journal_id":        fmt.Sprintf("%d", resp.JournalId),
+            "request_ref":        withdrawal.RequestRef,
+            "destination":        withdrawal.Destination,
+            "original_amount":    fmt.Sprintf("%.2f", originalAmount),       // ✅ REQUIRED
+            "converted_amount":   fmt.Sprintf("%.2f", withdrawal.Amount),    // ✅ REQUIRED
+            "original_currency":  originalCurrency,                          // ✅ REQUIRED
+            "target_currency":    "USD",                                     // ✅ REQUIRED
+            "exchange_rate":      fmt.Sprintf("%.4f", exchangeRate),         // ✅ REQUIRED
+            "receipt_code":       resp.ReceiptCode,
+            "journal_id":         fmt.Sprintf("%d", resp. JournalId),
+            "phone_number":       withdrawal.Destination, // ✅ Add phone number
         },
     })
 
@@ -508,19 +519,18 @@ func (h *PaymentHandler) processWithdrawalViaPartner(
         log.Printf("[Withdrawal] Failed to send to partner %s: %v", partner.Id, err)
         
         // ⚠️ Money already transferred to partner, so we mark as "sent_to_partner"
-        // Partner should still process it or handle refund via their system
-        h.userUc.UpdateWithdrawalStatus(ctx, withdrawal.RequestRef, "sent_to_partner", nil)
+        h.userUc.UpdateWithdrawalStatus(ctx, withdrawal. RequestRef, "sent_to_partner", nil)
         
-        // Store the receipt in case partner processes it later
+        // Store the receipt
         if withdrawal.Metadata == nil {
             withdrawal.Metadata = make(map[string]interface{})
         }
-        withdrawal.Metadata["receipt_code"] = resp.ReceiptCode
+        withdrawal. Metadata["receipt_code"] = resp.ReceiptCode
         withdrawal.Metadata["journal_id"] = resp.JournalId
         withdrawal.Metadata["partner_notification_failed"] = true
         withdrawal.Metadata["partner_notification_error"] = err.Error()
         
-        h.hub.SendToUser(fmt.Sprintf("%d", withdrawal.UserID), []byte(fmt.Sprintf(`{
+        h.hub.SendToUser(fmt. Sprintf("%d", withdrawal.UserID), []byte(fmt.Sprintf(`{
             "type": "withdrawal_processing",
             "data": {
                 "request_ref": "%s",
@@ -535,19 +545,19 @@ func (h *PaymentHandler) processWithdrawalViaPartner(
     h.userUc.UpdateWithdrawalStatus(ctx, withdrawal.RequestRef, "sent_to_partner", nil)
 
     // Store partner transaction reference
-    if withdrawal.Metadata == nil {
-        withdrawal.Metadata = make(map[string]interface{})
+    if withdrawal. Metadata == nil {
+        withdrawal. Metadata = make(map[string]interface{})
     }
     withdrawal.Metadata["partner_id"] = partner.Id
     withdrawal.Metadata["partner_name"] = partner.Name
-    withdrawal.Metadata["partner_transaction_id"] = partnerResp.TransactionId
-    withdrawal.Metadata["partner_transaction_ref"] = partnerResp.TransactionRef
-    withdrawal.Metadata["receipt_code"] = resp.ReceiptCode
-    withdrawal.Metadata["journal_id"] = resp.JournalId
+    withdrawal.Metadata["partner_transaction_id"] = partnerResp. TransactionId
+    withdrawal. Metadata["partner_transaction_ref"] = partnerResp.TransactionRef
+    withdrawal.Metadata["receipt_code"] = resp. ReceiptCode
+    withdrawal. Metadata["journal_id"] = resp.JournalId
     withdrawal.Metadata["sent_to_partner_at"] = time.Now()
 
     // ✅ Notify user
-    h.hub.SendToUser(fmt.Sprintf("%d", withdrawal.UserID), []byte(fmt.Sprintf(`{
+    h.hub.SendToUser(fmt. Sprintf("%d", withdrawal.UserID), []byte(fmt.Sprintf(`{
         "type": "withdrawal_sent_to_partner",
         "data": {
             "request_ref": "%s",
@@ -556,15 +566,15 @@ func (h *PaymentHandler) processWithdrawalViaPartner(
             "partner_name": "%s",
             "partner_transaction_id": %d,
             "partner_transaction_ref": "%s",
-            "amount_usd":  %.2f,
-            "amount_local": %.2f,
-            "local_currency":  "%s",
+            "amount_usd": %.2f,
+            "amount_local":  %.2f,
+            "local_currency": "%s",
             "fee_amount": %.2f,
             "status": "sent_to_partner"
         }
     }`, withdrawal.RequestRef, resp.ReceiptCode, partner.Id, partner.Name,
-        partnerResp.TransactionId, partnerResp.TransactionRef,
-        withdrawal.Amount, originalAmount, originalCurrency, resp.FeeAmount)))
+        partnerResp.TransactionId, partnerResp. TransactionRef,
+        withdrawal. Amount, originalAmount, originalCurrency, resp.FeeAmount)))
 }
 
 // ✅ Helper functions
