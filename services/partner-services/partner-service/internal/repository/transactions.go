@@ -113,6 +113,30 @@ func (r *PartnerRepo) UpdateTransactionWithReceipt(ctx context. Context, txID in
 	return nil
 }
 
+// UpdateTransactionCompletion updates transaction with external reference and completion
+func (r *PartnerRepo) UpdateTransactionCompletion(ctx context.Context, txnID int64, externalRef, status string) error {
+	query := `
+		UPDATE partner_transactions
+		SET 
+			external_ref = $1,
+			status = $2,
+			processed_at = NOW(),
+			updated_at = NOW()
+		WHERE id = $3
+	`
+
+	result, err := r.db. Exec(ctx, query, externalRef, status, txnID)
+	if err != nil {
+		return fmt.Errorf("failed to update transaction completion:  %w", err)
+	}
+
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("transaction not found:  %d", txnID)
+	}
+
+	return nil
+}
+
 // GetTransactionByID retrieves a transaction by its ID
 func (r *PartnerRepo) GetTransactionByID(ctx context.Context, txID int64) (*domain.PartnerTransaction, error) {
 	query := `

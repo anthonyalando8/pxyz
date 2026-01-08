@@ -19,7 +19,7 @@ FROM debian:bookworm-slim
 
 WORKDIR /app
 
-# ✅ Install curl for healthcheck
+#  Install curl for healthcheck
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
@@ -27,10 +27,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=builder /app/payment-service /app/payment-service
 
+# Copy M-Pesa certificate
+COPY services/common-services/fx-services/payment-service/certs /app/certs
+
 RUN mkdir -p /app/uploads
 
 RUN adduser --system --uid 10001 --group --no-create-home nonroot \
- && chown -R nonroot:nonroot /app
+ && chown -R nonroot: nonroot /app
 
 USER nonroot
 

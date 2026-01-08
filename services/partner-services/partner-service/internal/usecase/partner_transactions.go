@@ -347,6 +347,34 @@ func (uc *PartnerUsecase) UpdateTransactionWithReceipt(ctx context.Context, txID
 	return uc.partnerRepo.UpdateTransactionWithReceipt(ctx, txID, receiptCode, journalID, status)
 }
 
+// CompleteWithdrawal marks withdrawal as completed with external reference
+func (uc *PartnerUsecase) CompleteWithdrawal(ctx context.Context, txnID int64, externalRef, status string) error {
+	if txnID <= 0 {
+		return errors.New("invalid transaction_id")
+	}
+	if externalRef == "" {
+		return errors.New("external_ref is required")
+	}
+	if status == "" {
+		status = TransactionStatusCompleted
+	}
+
+	uc.logger.Info("completing withdrawal transaction",
+		zap.Int64("transaction_id", txnID),
+		zap.String("external_ref", externalRef),
+		zap.String("status", status))
+
+	// Update transaction with external reference and status
+	if err := uc.partnerRepo.UpdateTransactionCompletion(ctx, txnID, externalRef, status); err != nil {
+		uc.logger.Error("failed to complete withdrawal",
+			zap.Int64("transaction_id", txnID),
+			zap.Error(err))
+		return fmt.Errorf("failed to complete withdrawal: %w", err)
+	}
+
+	return nil
+}
+
 // GetTransactionStatus retrieves transaction by reference
 func (uc *PartnerUsecase) GetTransactionStatus(ctx context.Context, partnerID, transactionRef string) (*domain.PartnerTransaction, error) {
 	if partnerID == "" || transactionRef == "" {

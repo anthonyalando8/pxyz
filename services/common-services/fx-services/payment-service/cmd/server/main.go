@@ -33,14 +33,17 @@ func main() {
     logger.Info("starting payment service")
 
     // Load configuration
-    cfg, err := config.Load()
+    cfg, err := config.Load(logger)
     if err != nil {
         logger.Fatal("failed to load configuration", zap.Error(err))
     }
 
-    logger.Info("configuration loaded",
-        zap.String("environment", cfg.Server. Env),
-        zap.String("port", cfg.Server.Port))
+    logger.Info("configuration loaded successfully",
+        zap. String("environment", cfg.Server. Env),
+        zap.String("port", cfg.Server. Port),
+        zap.String("mpesa_environment", cfg.Mpesa.Environment),
+        zap.Bool("stk_credential_generated", cfg.Mpesa.SecurityCredential != ""),
+        zap.Bool("b2c_credential_generated", cfg.Mpesa.B2CSecurityCredential != ""))
 
     // Connect to database
     dbConnStr := fmt.Sprintf(

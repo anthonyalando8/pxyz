@@ -934,6 +934,9 @@ services:
       context: .
       dockerfile: services/common-services/fx-services/payment-service/Dockerfile
     container_name: payment-service
+
+    volumes:
+      - ./services/common-services/fx-services/payment-service/certs:/app/certs:ro
     
     labels:
       - "traefik.enable=true"
@@ -968,6 +971,7 @@ services:
       
       # M-Pesa Configuration
       MPESA_ENVIRONMENT: production
+      MPESA_CERT_PATH: /app/certs/cert.cer
       MPESA_CONSUMER_KEY: ${MPESA_CONSUMER_KEY:-wEA6YGhwryMXXTKtd1D56GB4JAs3x8crdrO2Od1oBjd1lrrJ}
       MPESA_CONSUMER_SECRET: ${MPESA_CONSUMER_SECRET:-DWravQBWqsX1H4BADy5aIS4tVx2cQSsfCRPsVjA3q5od5IKKKptjkk1WGpdGDZ5B}
       MPESA_PASSKEY: ${MPESA_PASSKEY:-88d5db37f317ec4187458429c2ad4082ceb0691becbfd19589da695d2866058a}

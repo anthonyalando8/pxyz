@@ -49,6 +49,8 @@ func SetupRoutes(
 		// Credit user wallet (external API call)
 		api.Post("/transactions/credit", h.CreditUser)
 		
+		api.Post("/transactions/debit", h.DebitUser)
+		
 		// Query transaction status by partner reference
 		api.Get("/transactions/{ref}", h.GetTransactionByRef)
 		

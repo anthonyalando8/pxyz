@@ -91,3 +91,5 @@
 
 /services/common-services/fx-services/receipt-service/.env
 /services/common-services/fx-services/payment-service/.env
+/services/common-services/fx-services/payment-service/certs/
+/services/common-services/fx-services/payment-service/certs/*

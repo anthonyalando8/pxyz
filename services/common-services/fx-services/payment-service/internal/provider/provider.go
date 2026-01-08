@@ -16,7 +16,7 @@ type PaymentProvider interface {
     InitiateDeposit(ctx context.Context, req *domain.DepositRequest) (*ProviderResponse, error)
     
     // InitiateWithdrawal initiates a withdrawal transaction
-    //InitiateWithdrawal(ctx context. Context, req *domain.WithdrawalRequest) (*ProviderResponse, error)
+    InitiateWithdrawal(ctx context. Context, req *domain.WithdrawalRequest) (*ProviderResponse, error)
     
     // ProcessCallback processes provider callback
     ProcessCallback(ctx context.Context, payload []byte) (*CallbackResult, error)
