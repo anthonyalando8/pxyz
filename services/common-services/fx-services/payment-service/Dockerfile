@@ -32,8 +32,13 @@ COPY services/common-services/fx-services/payment-service/certs /app/certs
 
 RUN mkdir -p /app/uploads
 
-RUN adduser --system --uid 10001 --group --no-create-home nonroot \
- && chown -R nonroot: nonroot /app
+# Non-root user for security
+RUN set -eux; \
+    if ! id -u nonroot >/dev/null 2>&1; then \
+        adduser --system --uid 10001 --group --no-create-home nonroot; \
+    fi; \
+    chown -R nonroot:nonroot /app
+
 
 USER nonroot
 
