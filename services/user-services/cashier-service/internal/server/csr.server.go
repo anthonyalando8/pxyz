@@ -104,12 +104,7 @@ func NewServer(cfg config.AppConfig) *http. Server {
 	go hub.Run() // Start hub in background goroutine
 	log. Println("[WebSocket] Hub started")
 
-	// ✅ --- Init Deposit Event Handler ---
-	depositEventHandler := transaction.NewDepositEventHandler(
-		userRepo,
-		hub,
-		logger,
-	)
+	combinedHandler := transaction.NewCombinedEventHandler(userRepo, hub, logger)
 
 	// ✅ --- Start Transaction Event Subscriber (your existing one) ---
 	transactionSub := subscriber.NewTransactionEventSubscriber(rdb, hub)
@@ -121,7 +116,7 @@ func NewServer(cfg config.AppConfig) *http. Server {
 	log.Println("[TransactionSubscriber] ✅ Started")
 
 	// ✅ --- Start Deposit Event Subscriber (new one for partner events) ---
-	depositSub := subscriber.NewEventSubscriber(rdb, logger, depositEventHandler)
+	depositSub := subscriber.NewEventSubscriber(rdb, logger, combinedHandler)
 	go func() {
 		if err := depositSub.Start(ctx); err != nil {
 			log.Fatalf("deposit subscriber failed: %v", err)

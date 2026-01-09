@@ -103,6 +103,7 @@ const (
 
     // Withdrawal statuses
     WithdrawalStatusPending    = "pending"
+    WithdrawalStatusSentToPartner = "sent_to_partner"
     WithdrawalStatusProcessing = "processing"
     WithdrawalStatusCompleted  = "completed"
     WithdrawalStatusFailed     = "failed"
