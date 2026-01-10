@@ -167,7 +167,7 @@ func (uc *TransactionFeeCalculator) calculateFeeFromRule(rule *domain.Transactio
 		feeRate := basisPoints / 10000.0
 		feeAmount = amount * feeRate
 
-		calc.AppliedRate = &rule.FeeValue
+		calc.AppliedRate = ptrStr(fmt.Sprintf("%.4f%%", feeRate)) //&rule.FeeValue
 		calc.CalculatedFrom = fmt.Sprintf("percentage: %.4f%% (%s bps)", feeRate*100, rule.FeeValue)
 
 	case domain.FeeCalculationFixed:
@@ -403,4 +403,8 @@ func ptrStrToStr(s *string) string {
 		return ""
 	}
 	return *s
+}
+
+func ptrStr(s string) *string {
+	return &s
 }

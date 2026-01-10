@@ -52,5 +52,6 @@ func (h *PaymentHandler) handleCalculateFee(ctx context.Context, client *Client,
 		"amount":       resp.Calculation.Amount,
 		"currency":     resp.Calculation.Currency,
 		"applied_rate": resp.Calculation.AppliedRate,
+		"calculated_from": resp.Calculation.CalculatedFrom,
 	})
 }
