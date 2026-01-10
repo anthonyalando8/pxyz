@@ -645,7 +645,6 @@ services:
       - micro_net
     depends_on:
       - redis
-
   # 🔹 Partner Service
   partner-service:
     build:
@@ -698,6 +697,117 @@ services:
     
     restart: unless-stopped  # ✅ Auto-restart on failure
     
+   ptn-auth-service:
+    container_name: ptn-auth-service
+
+    user: nonroot
+    working_dir: /app
+
+    entrypoint:
+      - /app/ptn-auth-service
+
+    environment:
+      DB_NAME: pxyz_partner
+      DB_HOST: 212.95.35.81
+      DB_PORT: 5432
+      DB_USER: sam
+      DB_PASSWORD: Kenya_2025!
+
+      REDIS_ADDR: redis:6379
+      REDIS_PASS: ""
+
+      HTTP_ADDR: ":7500"
+      GRPC_ADDR: ":7501"
+
+      JWT_ISSUER: ptn-auth-service
+      JWT_AUDIENCE: pxyz-ptn-clients
+      JWT_ACCESS_TTL: 5h
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+      JWT_PRIVATE_KEY_PATH: /app/secrets/jwt_private.pem
+
+    volumes:
+      - ./services/partner-services/ptn-auth-service/secrets:/app/secrets:ro
+      - ./uploads:/app/uploads:rw
+
+    expose:
+      - "7500"
+      - "7501"
+
+    networks:
+      - micro_net
+
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.partner-auth.rule: "PathPrefix(`/api/v1/partner/auth`)"
+      traefik.http.routers.partner-auth.middlewares: "ptnaccess-stripprefix"
+      traefik.http.middlewares.partner-auth-stripprefix.stripprefix.prefixes: "/api/v1"
+      traefik.http.services.partner-auth.loadbalancer.server.port: "7500"
+
+    depends_on:
+      otp-service:
+        condition: service_started
+      redis:
+        condition: service_started
+      core-service:
+        condition: service_started
+      ptn-session-service:
+        condition: service_started
+      email-service:
+        condition: service_started
+
+  ptn-auth-service:
+    build:
+      context: .
+      dockerfile: services/partner-services/ptn-auth-service/Dockerfile
+    container_name: ptn-auth-service
+    env_file:
+      - ./services/partner-services/ptn-auth-service/.env
+
+    environment:
+      DB_NAME: pxyz_partner
+      DB_HOST: 212.95.35.81
+      DB_PORT: 5432
+      DB_USER: sam
+      DB_PASSWORD: Kenya_2025!
+
+      REDIS_ADDR: redis:6379
+      REDIS_PASS: ""
+
+      HTTP_ADDR: ":7500"
+      GRPC_ADDR: ":7501"
+
+      JWT_ISSUER: ptn-auth-service
+      JWT_AUDIENCE: pxyz-ptn-clients
+      JWT_ACCESS_TTL: 5h
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+      JWT_PRIVATE_KEY_PATH: /app/secrets/jwt_private.pem
+
+    volumes:
+      - ./services/partner-services/ptn-auth-service/secrets:/app/secrets:ro
+      - ./uploads:/app/uploads:rw
+
+    networks:
+      - micro_net
+
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.partner-auth.rule: "PathPrefix(`/api/v1/partner/auth`)"
+      traefik.http.routers.partner-auth.middlewares: "ptnaccess-stripprefix"
+      traefik.http.middlewares.partner-auth-stripprefix.stripprefix.prefixes: "/api/v1"
+      traefik.http.services.partner-auth.loadbalancer.server.port: "7500"
+
+    depends_on:
+      otp-service:
+        condition: service_started
+      redis:
+        condition: service_started
+      core-service:
+        condition: service_started
+      ptn-session-service:
+        condition: service_started
+      email-service:
+        condition: service_started
+
 
   # 🔹 Ptn Session Service
   ptn-session-service:
@@ -769,6 +879,66 @@ services:
       - micro_net
     depends_on:
       - redis
+  
+   ptn-auth-service:
+    container_name: ptn-auth-service
+
+    user: nonroot
+    working_dir: /app
+
+    entrypoint:
+      - /app/ptn-auth-service
+
+    environment:
+      DB_NAME: pxyz_partner
+      DB_HOST: 212.95.35.81
+      DB_PORT: 5432
+      DB_USER: sam
+      DB_PASSWORD: Kenya_2025!
+
+      REDIS_ADDR: redis:6379
+      REDIS_PASS: ""
+
+      HTTP_ADDR: ":7500"
+      GRPC_ADDR: ":7501"
+
+      JWT_ISSUER: ptn-auth-service
+      JWT_AUDIENCE: pxyz-ptn-clients
+      JWT_ACCESS_TTL: 5h
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+      JWT_PRIVATE_KEY_PATH: /app/secrets/jwt_private.pem
+
+    volumes:
+      - ./services/partner-services/ptn-auth-service/secrets:/app/secrets:ro
+      - ./uploads:/app/uploads:rw
+
+    expose:
+      - "7500"
+      - "7501"
+
+    networks:
+      - micro_net
+
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.partner-auth.rule: "PathPrefix(`/api/v1/partner/auth`)"
+      traefik.http.routers.partner-auth.middlewares: "ptnaccess-stripprefix"
+      traefik.http.middlewares.partner-auth-stripprefix.stripprefix.prefixes: "/api/v1"
+      traefik.http.services.partner-auth.loadbalancer.server.port: "7500"
+
+    depends_on:
+      otp-service:
+        condition: service_started
+      redis:
+        condition: service_started
+      core-service:
+        condition: service_started
+      ptn-session-service:
+        condition: service_started
+      email-service:
+        condition: service_started
+
+  # 🔹 Receipt Service
   receipt-service:
     build:
       context: .
@@ -929,6 +1099,7 @@ services:
           condition: service_healthy   # Wait for Redis to be healthy
     extra_hosts:
       - "212.95.35.81:host-gateway"  
+  
   payment-service:
     build:
       context: .
