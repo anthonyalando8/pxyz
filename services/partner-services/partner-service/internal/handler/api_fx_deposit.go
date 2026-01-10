@@ -114,7 +114,7 @@ func (h *PartnerHandler) CreditUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 8. Complete transaction
-	if err := h. completeTransaction(ctx, partnerTx. ID, transferResp); err != nil {
+	if err := h. completeTransaction(ctx, partnerTx. ID, transferResp, req.ExternalRef); err != nil {
 		h.logger.Error("failed to complete transaction",
 			zap.Int64("transaction_id", partnerTx.ID),
 			zap. Error(err))
@@ -308,8 +308,9 @@ func (h *PartnerHandler) executeTransfer(
 }
 
 // completeTransaction updates transaction with receipt
-func (h *PartnerHandler) completeTransaction(ctx context.Context, txnID int64, transferResp *accountingpb.TransferResponse) error {
-	return h.uc.UpdateTransactionWithReceipt(ctx, txnID, transferResp.ReceiptCode, transferResp.JournalId, "completed")
+func (h *PartnerHandler) completeTransaction(ctx context.Context, txnID int64, transferResp *accountingpb.TransferResponse, extRef string) error {
+	h.uc.UpdateTransactionWithReceipt(ctx, txnID, transferResp.ReceiptCode, transferResp.JournalId, "completed")
+	return h.uc.UpdateTransactionCompletion(ctx, txnID, extRef, "completed")
 }
 
 // AccountBalances holds final account balances

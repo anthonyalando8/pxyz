@@ -416,6 +416,10 @@ func (uc *PartnerUsecase) CompleteWithdrawal(ctx context.Context, txnID int64, e
 	return nil
 }
 
+func (uc *PartnerUsecase) UpdateTransactionCompletion(ctx context.Context, txnID int64, externalRef, status string) error{
+	return uc.partnerRepo.UpdateTransactionCompletion(ctx, txnID, externalRef, status)
+}
+
 // GetTransactionStatus retrieves transaction by reference
 func (uc *PartnerUsecase) GetTransactionStatus(ctx context.Context, partnerID, transactionRef string) (*domain.PartnerTransaction, error) {
 	if partnerID == "" || transactionRef == "" {
