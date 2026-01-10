@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Deposit & Withdrawal Tester</title>
+    <title>WebSocket Tester - Complete</title>
     <style>
         * {
             margin: 0;
@@ -13,7 +13,7 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background:  linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background:   linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 20px;
         }
@@ -95,7 +95,7 @@
         }
 
         .form-group input, .form-group select, .form-group textarea {
-            width:  100%;
+            width: 100%;
             padding: 10px;
             border: 2px solid #e9ecef;
             border-radius: 8px;
@@ -166,6 +166,12 @@
             margin:  5px 0;
         }
 
+        .btn-info {
+            background: #17a2b8;
+            color:  white;
+            margin: 5px 0;
+        }
+
         .btn:disabled {
             opacity: 0.5;
             cursor: not-allowed;
@@ -230,7 +236,7 @@
             border-radius: 10px;
             height: 600px;
             overflow-y:  auto;
-            font-family: 'Courier New', monospace;
+            font-family:  'Courier New', monospace;
         }
 
         .response-item {
@@ -288,9 +294,9 @@
             padding: 5px 15px;
             background: #dc3545;
             color: white;
-            border:  none;
-            border-radius:  5px;
-            cursor:  pointer;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
         }
 
         .quick-actions {
@@ -329,13 +335,35 @@
             background: #f8d7da;
             color: #721c24;
         }
+
+        .template-selector {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .template-btn {
+            padding: 8px;
+            background: #e9ecef;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s;
+        }
+
+        .template-btn:hover {
+            background: #667eea;
+            color: white;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>💰 Deposit & Withdrawal Tester</h1>
-            <p>Test deposit and withdrawal flows with verification</p>
+            <h1>🔌 WebSocket Tester</h1>
+            <p>Test deposit, withdrawal, and custom messages</p>
         </div>
 
         <div class="main-content">
@@ -361,11 +389,12 @@
                     <button class="btn btn-primary" id="connectBtn" onclick="toggleConnection()">Connect</button>
                 </div>
 
-                <!-- Workflow Selection -->
+                <!-- Mode Selection -->
                 <div class="workflow">
-                    <div class="section-title">📋 Select Workflow</div>
+                    <div class="section-title">📋 Select Mode</div>
                     <button class="btn btn-secondary" onclick="startDepositFlow()">💰 Deposit Flow</button>
                     <button class="btn btn-secondary" onclick="startWithdrawalFlow()">💸 Withdrawal Flow</button>
+                    <button class="btn btn-info" onclick="startCustomMode()">⚡ Custom Message</button>
                 </div>
 
                 <!-- Current Workflow Steps -->
@@ -373,10 +402,22 @@
                     <div class="section-title">Current Flow</div>
                     <div id="stepsContainer"></div>
                     
-                    <!-- ✅ Manual Navigation Buttons -->
                     <div class="navigation-buttons">
                         <button class="btn btn-warning" id="prevBtn" onclick="previousStep()" disabled>◀ Previous</button>
                         <button class="btn btn-warning" id="nextBtn" onclick="nextStep()" disabled>Next ▶</button>
+                    </div>
+                </div>
+
+                <!-- Custom Mode Templates -->
+                <div class="workflow" id="customTemplates" style="display: none;">
+                    <div class="section-title">📦 Quick Templates</div>
+                    <div class="template-selector">
+                        <button class="template-btn" onclick="loadTemplate('get_balance')">Get Balance</button>
+                        <button class="template-btn" onclick="loadTemplate('list_deposits')">List Deposits</button>
+                        <button class="template-btn" onclick="loadTemplate('list_withdrawals')">List Withdrawals</button>
+                        <button class="template-btn" onclick="loadTemplate('get_profile')">Get Profile</button>
+                        <button class="template-btn" onclick="loadTemplate('ping')">Ping</button>
+                        <button class="template-btn" onclick="loadTemplate('custom')">Empty</button>
                     </div>
                 </div>
 
@@ -386,12 +427,12 @@
                     
                     <div class="form-group">
                         <label>Message Type</label>
-                        <input type="text" id="messageType" readonly>
+                        <input type="text" id="messageType" placeholder="e.g., deposit_request, get_balance">
                     </div>
 
                     <div class="form-group">
                         <label>Message Data (JSON)</label>
-                        <textarea id="messageData"></textarea>
+                        <textarea id="messageData" placeholder='{"key": "value"}'></textarea>
                     </div>
 
                     <button class="btn btn-success" id="sendBtn" onclick="sendMessage()" disabled>Send Message</button>
@@ -418,7 +459,7 @@
                             <span class="response-type">Info</span>
                             <span class="response-time">Ready</span>
                         </div>
-                        <div class="response-content">WebSocket tester ready. Connect and select a workflow to begin.</div>
+                        <div class="response-content">WebSocket tester ready. Connect and select a mode to begin.</div>
                     </div>
                 </div>
             </div>
@@ -432,6 +473,7 @@
         let currentStep = 0;
         let verificationToken = null;
         let lastDepositRef = null;
+        let isCustomMode = false;
 
         // Workflow definitions
         const workflows = {
@@ -446,7 +488,7 @@
                 name: 'Withdrawal Flow (with Verification)',
                 steps: [
                     { name: 'Request Verification (OTP Email)', type: 'verification_request', template: 'verification' },
-                    { name: 'Verify OTP Code', type: 'verify_otp', template: 'verify_otp' },
+                    { name:  'Verify OTP Code', type: 'verify_otp', template: 'verify_otp' },
                     { name: 'Initiate Withdrawal', type: 'withdraw_request', template: 'withdraw' }
                 ]
             }
@@ -477,18 +519,78 @@
                 service: 'mpesa',
                 verification_token: 'your_token_here',
                 consent: true
-            }
+            },
+            // Custom templates
+            get_balance: {
+                currency: 'USD'
+            },
+            list_deposits: {
+                limit: 10,
+                offset: 0
+            },
+            list_withdrawals:  {
+                limit: 10,
+                offset: 0
+            },
+            get_profile: {},
+            ping: {
+                timestamp: Date.now()
+            },
+            custom: {}
         };
 
-        // Start deposit flow
-        function startDepositFlow() {
+        // Start custom mode
+        function startCustomMode() {
             if (! isConnected) {
                 alert('Please connect to WebSocket first');
                 return;
             }
+            
+            isCustomMode = true;
+            currentFlow = null;
+            
+            // Hide workflow steps
+            document.getElementById('workflowSteps').style.display = 'none';
+            
+            // Show custom templates
+            document.getElementById('customTemplates').style.display = 'block';
+            
+            // Enable message type input
+            document.getElementById('messageType').removeAttribute('readonly');
+            document.getElementById('messageType').value = '';
+            document.getElementById('messageData').value = '';
+            
+            showVerificationStatus('pending', '⚡ Custom Mode Active - Use templates or type your own message');
+        }
+
+        // Load template
+        function loadTemplate(templateName) {
+            const messageTypeInput = document.getElementById('messageType');
+            const messageDataInput = document.getElementById('messageData');
+            
+            messageTypeInput.value = templateName;
+            
+            if (templates[templateName]) {
+                messageDataInput.value = JSON.stringify(templates[templateName], null, 2);
+            }
+            
+            showVerificationStatus('verified', `✅ Template loaded: ${templateName}`);
+        }
+
+        // Start deposit flow
+        function startDepositFlow() {
+            if (!isConnected) {
+                alert('Please connect to WebSocket first');
+                return;
+            }
+            isCustomMode = false;
             currentFlow = 'deposit';
             currentStep = 0;
             lastDepositRef = null;
+            
+            document.getElementById('customTemplates').style.display = 'none';
+            document.getElementById('messageType').setAttribute('readonly', true);
+            
             renderWorkflow();
             loadStepTemplate();
             updateNavigationButtons();
@@ -500,9 +602,14 @@
                 alert('Please connect to WebSocket first');
                 return;
             }
+            isCustomMode = false;
             currentFlow = 'withdrawal';
             currentStep = 0;
             verificationToken = null;
+            
+            document.getElementById('customTemplates').style.display = 'none';
+            document.getElementById('messageType').setAttribute('readonly', true);
+            
             renderWorkflow();
             loadStepTemplate();
             updateNavigationButtons();
@@ -543,7 +650,7 @@
             if (!step) return;
 
             document.getElementById('messageType').value = step.type;
-            const templateData = JSON.parse(JSON.stringify(templates[step.template])); // Deep copy
+            const templateData = JSON.parse(JSON.stringify(templates[step.template]));
             
             // Auto-fill values from previous steps
             if (step.type === 'get_deposit_status' && lastDepositRef) {
@@ -557,7 +664,7 @@
             document.getElementById('sendBtn').disabled = false;
         }
 
-        // ✅ Go to specific step (manual navigation)
+        // Go to specific step
         function goToStep(stepIndex) {
             const workflow = workflows[currentFlow];
             if (!workflow || stepIndex < 0 || stepIndex >= workflow.steps.length) return;
@@ -568,13 +675,13 @@
             updateNavigationButtons();
         }
 
-        // ✅ Move to next step
+        // Move to next step
         function nextStep() {
             const workflow = workflows[currentFlow];
             if (!workflow) return;
 
             if (currentStep >= workflow.steps.length - 1) {
-                showVerificationStatus('verified', `✅ ${workflow.name} completed! `);
+                showVerificationStatus('verified', `✅ ${workflow.name} completed!`);
                 setTimeout(() => {
                     currentFlow = null;
                     currentStep = 0;
@@ -589,7 +696,7 @@
             updateNavigationButtons();
         }
 
-        // ✅ Move to previous step
+        // Move to previous step
         function previousStep() {
             if (currentStep <= 0) return;
 
@@ -599,7 +706,7 @@
             updateNavigationButtons();
         }
 
-        // ✅ Update navigation button states
+        // Update navigation button states
         function updateNavigationButtons() {
             const workflow = workflows[currentFlow];
             if (!workflow) return;
@@ -651,7 +758,9 @@
                     try {
                         const data = JSON.parse(event.data);
                         addResponse('received', 'Message received', data);
-                        handleServerResponse(data);
+                        if (! isCustomMode) {
+                            handleServerResponse(data);
+                        }
                     } catch (e) {
                         addResponse('received', 'Message received (non-JSON)', { raw: event.data });
                     }
@@ -692,14 +801,14 @@
             const dataStr = document.getElementById('messageData').value;
 
             if (!type) {
-                addResponse('error', 'Please select a message type', {});
+                addResponse('error', 'Please enter a message type', {});
                 return;
             }
 
             try {
                 const data = dataStr ? JSON.parse(dataStr) : {};
                 const message = {
-                    type:  type,
+                    type: type,
                     data: data
                 };
 
@@ -710,7 +819,7 @@
             }
         }
 
-        // ✅ Handle server response with auto-navigation
+        // Handle server response with auto-navigation
         function handleServerResponse(response) {
             if (!currentFlow) return;
 
@@ -720,30 +829,24 @@
             // Handle verification request
             if (step.type === 'verification_request' && response.type === 'success') {
                 showVerificationStatus('pending', '📧 OTP sent!  Check your email and enter the code.');
-                setTimeout(() => {
-                    nextStep();
-                }, 1500);
+                setTimeout(() => nextStep(), 1500);
             }
 
             // Handle OTP verification
             if (step.type === 'verify_otp' && response.type === 'success') {
                 if (response.data && response.data.verification_token) {
                     verificationToken = response.data.verification_token;
-                    showVerificationStatus('verified', '✅ Verification successful! Token received.');
-                    setTimeout(() => {
-                        nextStep();
-                    }, 1500);
+                    showVerificationStatus('verified', '✅ Verification successful!  Token received.');
+                    setTimeout(() => nextStep(), 1500);
                 }
             }
 
-            // ✅ Handle deposit initiation
+            // Handle deposit initiation
             if (step.type === 'deposit_request' && response.type === 'success') {
                 if (response.data && response.data.request_ref) {
                     lastDepositRef = response.data.request_ref;
                     showVerificationStatus('verified', `✅ Deposit initiated:  ${response.data.request_ref}`);
-                    setTimeout(() => {
-                        nextStep();
-                    }, 1500);
+                    setTimeout(() => nextStep(), 1500);
                 }
             }
 
@@ -752,7 +855,7 @@
                 showVerificationStatus('verified', '✅ Deposit status retrieved successfully! ');
             }
 
-            // ✅ Handle withdrawal initiation
+            // Handle withdrawal initiation
             if (step.type === 'withdraw_request' && response.type === 'success') {
                 showVerificationStatus('verified', '✅ Withdrawal initiated successfully!');
                 setTimeout(() => {
