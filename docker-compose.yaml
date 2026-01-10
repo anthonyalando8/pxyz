@@ -716,8 +716,8 @@ services:
       REDIS_ADDR: redis:6379
       REDIS_PASS: ""
 
-      HTTP_ADDR: ":7500"
-      GRPC_ADDR: ":7501"
+      HTTP_ADDR: :7500
+      GRPC_ADDR: :7501
 
       JWT_ISSUER: ptn-auth-service
       JWT_AUDIENCE: pxyz-ptn-clients
