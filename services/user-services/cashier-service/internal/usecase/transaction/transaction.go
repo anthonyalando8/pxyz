@@ -146,6 +146,13 @@ func (uc *UserUsecase) MarkDepositSentToPartner(ctx context.Context, requestRef 
     return uc.repo.UpdateDepositWithPartnerRef(ctx, deposit. ID, partnerRef, domain. DepositStatusSentToPartner)
 }
 
+func (uc *UserUsecase) UpdateDepositWithPartnerRef (ctx context.Context, requestRef string, partnerRef string) error{
+    deposit, err := uc.repo.GetDepositByRef(ctx, requestRef)
+    if err != nil || deposit == nil {
+        return ErrDepositNotFound
+    }
+    return uc.repo.UpdateDepositWithPartnerRef(ctx, deposit. ID, partnerRef, domain. DepositStatusSentToPartner)
+}
 // ✅ NEW: MarkDepositSentToAgent - Called when deposit request is sent to agent
 func (uc *UserUsecase) MarkDepositSentToAgent(ctx context. Context, requestRef string, agentID string) error {
     deposit, err := uc.repo. GetDepositByRef(ctx, requestRef)
@@ -234,6 +241,10 @@ func (uc *UserUsecase) UpdateDepositStatus(ctx context.Context, requestRef strin
     }
     
     return uc.repo.UpdateDepositStatus(ctx, deposit.ID, status, errorMsg)
+}
+
+func (uc *UserUsecase) UpdateDepositWithReceipt(ctx context.Context, id int64, receiptCode string, journalID int64) error {
+    return uc.repo.UpdateDepositWithReceipt(ctx,id, receiptCode, journalID)
 }
 
 // ============================================================================
@@ -350,13 +361,13 @@ func (uc *UserUsecase) MarkWithdrawalProcessing(ctx context.Context, requestRef 
 }
 
 // CompleteWithdrawal - Called by accounting service after successful debit
-func (uc *UserUsecase) CompleteWithdrawal(ctx context.Context, requestRef string, receiptCode string, journalID int64) error {
+func (uc *UserUsecase) CompleteWithdrawal(ctx context.Context, requestRef string, partnerRef string) error {
     withdrawal, err := uc.repo.GetWithdrawalByRef(ctx, requestRef)
     if err != nil || withdrawal == nil {
         return ErrWithdrawalNotFound
     }
     
-    return uc.repo.MarkWithdrawalCompleted(ctx, requestRef, receiptCode, journalID)
+    return uc.repo.MarkWithdrawalCompleted(ctx, requestRef, partnerRef)
 }
 
 // FailWithdrawal - Called when withdrawal fails (from accounting service)
@@ -398,6 +409,10 @@ func (uc *UserUsecase) UpdateWithdrawalStatus(ctx context.Context, requestRef st
     }
     
     return uc.repo. UpdateWithdrawalStatus(ctx, withdrawal.ID, status, errorMsg)
+}
+
+func (uc *UserUsecase) UpdateWithdrawalWithReceipt(ctx context.Context, id int64, receiptCode string, journalID int64, completed bool) error {
+    return uc.repo.UpdateWithdrawalWithReceipt(ctx,id, receiptCode, journalID, completed)
 }
 
 // ============================================================================

@@ -395,7 +395,7 @@ func (h *PaymentHandler) processWithdrawalToAgent(
 		return
 	}
 
-	if err := h.userUc.CompleteWithdrawal(ctx, withdrawal.RequestRef, resp.ReceiptCode, resp.JournalId); err != nil {
+	if err := h.userUc.UpdateWithdrawalWithReceipt(ctx, withdrawal.ID, resp.ReceiptCode, resp.JournalId, true); err != nil {
 		log.Printf("[Withdrawal] Failed to mark as completed: %v", err)
 		return
 	}
@@ -463,10 +463,10 @@ func (h *PaymentHandler) processWithdrawal(
         return
     }
 
-    if err := h.userUc.CompleteWithdrawal(ctx, withdrawal.RequestRef, resp.ReceiptCode, resp.JournalId); err != nil {
-        log.Printf("[Withdrawal] Failed to mark as completed: %v", err)
-        return
-    }
+    if err := h.userUc.UpdateWithdrawalWithReceipt(ctx, withdrawal.ID, resp.ReceiptCode, resp.JournalId, true); err != nil {
+		log.Printf("[Withdrawal] Failed to mark as completed: %v", err)
+		return
+	}
 
     h.hub.SendToUser(fmt.Sprintf("%d", withdrawal.UserID), []byte(fmt.Sprintf(`{
         "type": "withdrawal_completed",
@@ -588,7 +588,7 @@ func (h *PaymentHandler) processWithdrawalViaPartner(
 		Amount:         withdrawal.Amount, // ✅ Send USD amount
 		Currency:       "USD",             // ✅ Send USD currency
 		PaymentMethod:  getPaymentMethod(withdrawal.Service),
-		ExternalRef:    withdrawal.Destination,
+		ExternalRef:    resp.ReceiptCode,
 		Metadata:       metadata,
 	})
 
@@ -616,6 +616,8 @@ func (h *PaymentHandler) processWithdrawalViaPartner(
         }`, withdrawal.RequestRef, resp.ReceiptCode)))
 		return
 	}
+
+    h.userUc.UpdateWithdrawalWithReceipt(ctx, withdrawal.ID, resp.ReceiptCode, resp.JournalId, false)
 
 	// ✅ Step 4: Mark as sent to partner
 	h.userUc.UpdateWithdrawalStatus(ctx, withdrawal.RequestRef, "sent_to_partner", nil)

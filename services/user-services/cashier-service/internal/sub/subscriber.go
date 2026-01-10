@@ -36,13 +36,13 @@ type TransactionEvent struct {
 	TransactionID   int64                  `json:"transaction_id"`
 	TransactionType string                 `json:"transaction_type"`
 	Status          string                 `json:"status"`
-	Amount          int64                  `json:"amount"`
+	Amount          float64                  `json:"amount"`
 	Currency        string                 `json:"currency"`
 	AccountNumber   string                 `json:"account_number,omitempty"`
 	FromAccount     string                 `json:"from_account,omitempty"`
 	ToAccount       string                 `json:"to_account,omitempty"`
-	BalanceAfter    int64                  `json:"balance_after,omitempty"`
-	Fee             int64                  `json:"fee,omitempty"`
+	BalanceAfter    float64                  `json:"balance_after,omitempty"`
+	Fee             float64                  `json:"fee,omitempty"`
 	ErrorMessage    string                 `json:"error_message,omitempty"`
 	Metadata        map[string]interface{} `json:"metadata,omitempty"`
 	Timestamp       time.Time              `json:"timestamp"`

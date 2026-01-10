@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"partner-service/internal/domain"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 // GenerateAPICredentials creates new API credentials for a partner
@@ -128,6 +130,28 @@ func (uc *PartnerUsecase) ValidateAPICredentials(ctx context.Context, apiKey, ap
 	}
 
 	return partner, nil
+}
+
+// usecase/partner_usecase.go
+
+// LogAPIActivity logs API request/response for audit trail
+func (uc *PartnerUsecase) LogAPIActivity(ctx context.Context, log *domain.PartnerAPILog) error {
+	if err := uc.partnerRepo.LogAPIRequest(ctx, log); err != nil {
+		uc.logger.Error("failed to log API activity",
+			zap.String("partner_id", log.PartnerID),
+			zap.String("endpoint", log.Endpoint),
+			zap.Error(err))
+		// Don't return error - logging failure shouldn't break the main flow
+		return nil
+	}
+
+	uc.logger.Debug("API activity logged",
+		zap.String("partner_id", log.PartnerID),
+		zap.String("endpoint", log.Endpoint),
+		zap.String("method", log.Method),
+		zap.Int("status_code", log.StatusCode))
+
+	return nil
 }
 
 // usecase/partner_api.go - ADD THESE METHODS

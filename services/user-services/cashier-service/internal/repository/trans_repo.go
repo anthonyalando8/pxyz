@@ -101,7 +101,7 @@ func (r *UserRepo) UpdateDepositWithReceipt(ctx context.Context, id int64, recei
             receipt_code = $1,
             journal_id = $2,
             status = $3,
-            completed_at = NOW(),
+            -- completed_at = NOW(),
             updated_at = NOW()
         WHERE id = $4
     `
@@ -284,20 +284,38 @@ func (r *UserRepo) UpdateWithdrawalStatus(ctx context.Context, id int64, status 
     return err
 }
 
-func (r *UserRepo) UpdateWithdrawalWithReceipt(ctx context.Context, id int64, receiptCode string, journalID int64) error {
+func (r *UserRepo) UpdateWithdrawalWithReceipt(
+    ctx context.Context,
+    id int64,
+    receiptCode string,
+    journalID int64,
+    completed bool,
+) error {
     query := `
         UPDATE withdrawal_requests 
         SET 
             receipt_code = $1,
             journal_id = $2,
             status = $3,
-            completed_at = NOW(),
+            completed_at = CASE 
+                WHEN $4 THEN COALESCE(completed_at, NOW())
+                ELSE completed_at
+            END,
             updated_at = NOW()
-        WHERE id = $4
+        WHERE id = $5
     `
-    _, err := r.db.Exec(ctx, query, receiptCode, journalID, domain.WithdrawalStatusCompleted, id)
+    _, err := r.db.Exec(
+        ctx,
+        query,
+        receiptCode,
+        journalID,
+        domain.WithdrawalStatusCompleted,
+        completed,
+        id,
+    )
     return err
 }
+
 
 // Mark withdrawal as failed (called from accounting service)
 func (r *UserRepo) MarkWithdrawalFailed(ctx context.Context, requestRef string, errorMsg string) error {
@@ -314,18 +332,17 @@ func (r *UserRepo) MarkWithdrawalFailed(ctx context.Context, requestRef string, 
 }
 
 // Mark withdrawal as completed (called from accounting service after successful debit)
-func (r *UserRepo) MarkWithdrawalCompleted(ctx context.Context, requestRef string, receiptCode string, journalID int64) error {
+func (r *UserRepo) MarkWithdrawalCompleted(ctx context.Context, requestRef string, partnerTransRef string) error {
     query := `
         UPDATE withdrawal_requests 
         SET 
-            receipt_code = $1,
-            journal_id = $2,
-            status = $3,
+            status = $1,
+            partner_transaction_ref = $2,
             completed_at = NOW(),
             updated_at = NOW()
-        WHERE request_ref = $4
+        WHERE request_ref = $3
     `
-    _, err := r.db. Exec(ctx, query, receiptCode, journalID, domain. WithdrawalStatusCompleted, requestRef)
+    _, err := r.db. Exec(ctx, query, domain. WithdrawalStatusCompleted, partnerTransRef, requestRef)
     return err
 }
 

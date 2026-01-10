@@ -67,6 +67,9 @@ func (h *DepositEventHandler) HandleDepositCompleted(ctx context.Context, event 
 		return fmt. Errorf("failed to update deposit: %w", err)
 	}
 
+	if event.ExternalRef != ""{
+		h.userRepo.UpdateDepositWithPartnerRef(ctx,deposit.ID, event.ExternalRef, "completed")
+	}
 	// 4.  Send WebSocket notification to user
 	h.sendDepositCompletedWebSocket(deposit. UserID, event)
 

@@ -58,12 +58,12 @@ func (h *WithdrawalEventHandler) HandleWithdrawalCompleted(ctx context.Context, 
 	}
 
 	// 3. Update withdrawal record with completion details
-	// if err := h.userRepo.MarkWithdrawalCompleted(ctx, event.TransactionRef, event. ReceiptCode, event.JournalID); err != nil {
-	// 	h.logger.Error("failed to mark withdrawal completed",
-	// 		zap.String("transaction_ref", event.TransactionRef),
-	// 		zap.Error(err))
-	// 	return fmt.Errorf("failed to update withdrawal: %w", err)
-	// }
+	if err := h.userRepo.MarkWithdrawalCompleted(ctx, event.TransactionRef, event. ExternalRef); err != nil {
+		h.logger.Error("failed to mark withdrawal completed",
+			zap.String("transaction_ref", event.TransactionRef),
+			zap.Error(err))
+		return fmt.Errorf("failed to update withdrawal: %w", err)
+	}
 
 	// 4. Send WebSocket notification to user
 	h.sendWithdrawalCompletedWebSocket(withdrawal.UserID, event)

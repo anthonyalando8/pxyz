@@ -53,10 +53,10 @@ type PartnerAPILog struct {
 	RequestBody   map[string]interface{}
 	ResponseBody  map[string]interface{}
 	StatusCode    int
-	IPAddress     string
-	UserAgent     string
-	LatencyMs     int
-	ErrorMessage  *string
+	IPAddress    *string
+    UserAgent    *string
+    LatencyMs    *int64
+    ErrorMessage *string
 	CreatedAt     time.Time
 }
 
