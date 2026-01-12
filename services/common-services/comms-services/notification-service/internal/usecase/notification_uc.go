@@ -135,7 +135,7 @@ func (uc *NotificationUsecase) dispatchNotification(msg *domain.Message, notific
 		uc.notifier.Notify(m)
 
 		duration := time.Since(dispatchStart)
-		log.Printf("[DISPATCH COMPLETE] Notification ID %s dispatched (took %v)", id, duration)
+		log.Printf("[DISPATCH COMPLETE] Notification ID %v dispatched (took %v)", id, duration)
 	}(msg, notificationID)
 }
 

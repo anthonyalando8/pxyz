@@ -2,13 +2,14 @@ package repository
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"notification-service/internal/domain"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/google/uuid"
 
 	"x/shared/utils/errors"
 )
@@ -180,6 +181,8 @@ func (p *pgRepo) CreateDelivery(ctx context.Context, d *domain.NotificationDeliv
 }
 
 // CreateNotification implements Repository.
+// internal/repository/notification_repo.go
+
 func (p *pgRepo) CreateNotification(ctx context.Context, n *domain.Notification) (*domain.Notification, error) {
 	// Ensure RequestID is set
 	if n.RequestID == "" {
@@ -204,19 +207,19 @@ func (p *pgRepo) CreateNotification(ctx context.Context, n *domain.Notification)
 
 	row := p.db.QueryRow(ctx, query,
 		n.RequestID,
-		n.OwnerType,
+		n. OwnerType,
 		n.OwnerID,
 		n.EventType,
 		n.ChannelHint,
 		n.Title,
 		n.Body,
-		n.Payload,
+		n. Payload,
 		n.Priority,
 		n.Status,
 		n.VisibleInApp,
 		n.ReadAt,
 		n.DeliveredAt,
-		n.Metadata,
+		n. Metadata,
 	)
 
 	var created domain.Notification
@@ -226,11 +229,11 @@ func (p *pgRepo) CreateNotification(ctx context.Context, n *domain.Notification)
 		&created.OwnerType,
 		&created.OwnerID,
 		&created.EventType,
-		&created.ChannelHint,
+		&created. ChannelHint,
 		&created.Title,
 		&created.Body,
-		&created.Payload,
-		&created.Priority,
+		&created. Payload,
+		&created. Priority,
 		&created.Status,
 		&created.VisibleInApp,
 		&created.ReadAt,
@@ -242,7 +245,29 @@ func (p *pgRepo) CreateNotification(ctx context.Context, n *domain.Notification)
 		return nil, err
 	}
 
+	// ✅ Preserve recipient data from input (not stored in DB yet)
+	created.RecipientEmail = n.RecipientEmail
+	created.RecipientPhone = n.RecipientPhone
+	created.RecipientName = n.RecipientName
+
+	// ✅ Log for debugging
+	if created.RecipientPhone != "" {
+		log.Printf("[DB CREATE] Notification ID %d created with phone: %s", 
+			created.ID, maskPhone(created.RecipientPhone))
+	}
+
 	return &created, nil
+}
+
+// Helper for logging (add this if not present)
+func maskPhone(phone string) string {
+	if phone == "" {
+		return "[empty]"
+	}
+	if len(phone) < 4 {
+		return "***"
+	}
+	return "***" + phone[len(phone)-4:]
 }
 
 

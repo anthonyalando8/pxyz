@@ -2,7 +2,7 @@ package grpchandler
 
 import (
 	"context"
-	"fmt"
+	//"fmt"
 	"log"
 	"time"
 
@@ -33,7 +33,6 @@ func (h *NotificationHandler) CreateNotification(
 	var createdNotifications []*notificationpb.Notification
 
 	for _, nPB := range req.GetNotifications() {
-		fmt.Println(nPB)
 		if nPB.Payload != nil {
 			log.Printf(
 				"[NotificationHandler] Received Payload | EventType=%s | OwnerID=%s | Payload=%+v",
@@ -59,6 +58,53 @@ func (h *NotificationHandler) CreateNotification(
 
 	return &notificationpb.NotificationsResponse{Notifications: createdNotifications}, nil
 }
+
+
+func pbToDomain(pb *notificationpb.Notification) *domain.Notification {
+	if pb == nil {
+		return nil
+	}
+
+	var readAt *time.Time
+	if pb.ReadAt != nil {
+		t := pb.ReadAt.AsTime()
+		readAt = &t
+	}
+
+	var deliveredAt *time.Time
+	if pb.DeliveredAt != nil {
+		t := pb.DeliveredAt.AsTime()
+		deliveredAt = &t
+	}
+
+	createdAt := time.Now()
+	if pb.CreatedAt != nil {
+		createdAt = pb.CreatedAt.AsTime()
+	}
+
+	return &domain.Notification{
+		ID:             pb.Id,
+		RequestID:      pb.RequestId,
+		OwnerType:      pb.OwnerType,
+		OwnerID:        pb.OwnerId,
+		EventType:      pb.EventType,
+		ChannelHint:    pb.ChannelHint,
+		Title:          pb.Title,
+		Body:           pb.Body,
+		Payload:        pb.Payload.AsMap(),
+		Priority:       pb.Priority,
+		Status:         pb.Status,
+		VisibleInApp:   pb.VisibleInApp,
+		ReadAt:         readAt,
+		CreatedAt:      createdAt,
+		DeliveredAt:    deliveredAt,
+		Metadata:       pb.Metadata.AsMap(),
+		RecipientEmail: pb.RecipientEmail,
+		RecipientPhone: pb.RecipientPhone,
+		RecipientName:  pb.RecipientName,
+	}
+}
+
 
 // DeleteNotificationsByOwner clears all notifications for a user/owner
 func (h *NotificationHandler) DeleteNotificationsByOwner(ctx context.Context, req *notificationpb.DeleteNotificationsByOwnerRequest) (*notificationpb.DeleteNotificationsByOwnerResponse, error) {
@@ -139,51 +185,6 @@ func (h *NotificationHandler) CountUnread(ctx context.Context, req *notification
 }
 
 // ===== Helpers: PB ↔ Domain =====
-
-func pbToDomain(pb *notificationpb.Notification) *domain.Notification {
-	if pb == nil {
-		return nil
-	}
-
-	var readAt *time.Time
-	if pb.ReadAt != nil {
-		t := pb.ReadAt.AsTime()
-		readAt = &t
-	}
-
-	var deliveredAt *time.Time
-	if pb.DeliveredAt != nil {
-		t := pb.DeliveredAt.AsTime()
-		deliveredAt = &t
-	}
-
-	createdAt := time.Now()
-	if pb.CreatedAt != nil {
-		createdAt = pb.CreatedAt.AsTime()
-	}
-
-	return &domain.Notification{
-		ID:             pb.Id,
-		RequestID:      pb.RequestId,
-		OwnerType:      pb.OwnerType,
-		OwnerID:        pb.OwnerId,
-		EventType:      pb.EventType,
-		ChannelHint:    pb.ChannelHint,
-		Title:          pb.Title,
-		Body:           pb.Body,
-		Payload:        pb.Payload.AsMap(),
-		Priority:       pb.Priority,
-		Status:         pb.Status,
-		VisibleInApp:   pb.VisibleInApp,
-		ReadAt:         readAt,
-		CreatedAt:      createdAt,
-		DeliveredAt:    deliveredAt,
-		Metadata:       pb.Metadata.AsMap(),
-		RecipientEmail: pb.RecipientEmail,
-		RecipientPhone: pb.RecipientPhone,
-		RecipientName:  pb.RecipientName,
-	}
-}
 
 func domainToPB(n *domain.Notification) *notificationpb.Notification {
 	if n == nil {
