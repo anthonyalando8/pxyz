@@ -19,18 +19,19 @@ import (
 )
 
 type PartnerClient struct {
-    config     config.PartnerConfig
+    config     *config.Config  //  Changed to full config
     httpClient *http.Client
-    logger     *zap. Logger
+    logger     *zap.Logger
 }
 
-func NewPartnerClient(cfg config.PartnerConfig, logger *zap.Logger) *PartnerClient {
+//  Updated constructor
+func NewPartnerClient(cfg *config.Config, logger *zap.Logger) *PartnerClient {
     return &PartnerClient{
         config:  cfg,
         httpClient: &http.Client{
             Timeout: 30 * time.Second,
         },
-        logger: logger,
+        logger:  logger,
     }
 }
 
@@ -47,45 +48,56 @@ type PartnerNotification struct {
     Timestamp         int64   `json:"timestamp"`
 }
 
-// SendNotification sends payment status notification to partner
+//  Updated SendNotification to accept partnerID
 func (c *PartnerClient) SendNotification(ctx context.Context, partnerID string, notification *PartnerNotification) error {
+    // Get partner config
+    partner, err := c. config.GetPartner(partnerID)
+    if err != nil {
+        c.logger.Error("failed to get partner config",
+            zap. String("partner_id", partnerID),
+            zap.Error(err))
+        return fmt. Errorf("partner not found: %w", err)
+    }
+
     // Add timestamp
-    notification.Timestamp = time.Now().Unix()
+    notification.Timestamp = time. Now().Unix()
 
     c.logger.Info("sending notification to partner",
-        zap. String("partner_id", partnerID),
+        zap.String("partner_id", partnerID),
+        zap.String("partner_name", partner.Name),
         zap.String("payment_ref", notification.PaymentRef),
         zap.String("status", notification.Status))
 
     // Marshal payload
-    payload, err := json. Marshal(notification)
+    payload, err := json.Marshal(notification)
     if err != nil {
         c.logger.Error("failed to marshal notification",
             zap.String("partner_id", partnerID),
             zap.Error(err))
-        return fmt.Errorf("failed to marshal notification: %w", err)
+        return fmt. Errorf("failed to marshal notification:  %w", err)
     }
 
     // Create request
-    req, err := http.NewRequestWithContext(ctx, "POST", c.config.WebhookURL, bytes.NewBuffer(payload))
+    req, err := http.NewRequestWithContext(ctx, "POST", partner.WebhookURL, bytes. NewBuffer(payload))
     if err != nil {
-        c.logger. Error("failed to create request",
+        c. logger.Error("failed to create request",
             zap.String("partner_id", partnerID),
             zap.Error(err))
         return fmt.Errorf("failed to create request: %w", err)
     }
 
     // Set headers
-    req.Header. Set("Content-Type", "application/json")
-    req.Header.Set("X-API-Key", c.config.APIKey)
+    req.Header.Set("Content-Type", "application/json")
+    req.Header.Set("X-API-Key", partner.APIKey)
     req.Header.Set("X-Timestamp", fmt.Sprintf("%d", notification.Timestamp))
 
-    // Generate signature
-    signature := c.generateSignature(payload, notification. Timestamp)
+    // Generate signature using partner's secret
+    signature := generateSignature(payload, notification. Timestamp, partner.APISecret)
     req.Header.Set("X-Signature", signature)
 
     c.logger.Debug("partner notification request prepared",
-        zap.String("url", c.config.WebhookURL),
+        zap.String("partner_id", partnerID),
+        zap.String("url", partner.WebhookURL),
         zap.String("payment_ref", notification.PaymentRef))
 
     // Send request
@@ -95,7 +107,7 @@ func (c *PartnerClient) SendNotification(ctx context.Context, partnerID string, 
             zap.String("partner_id", partnerID),
             zap.String("payment_ref", notification.PaymentRef),
             zap.Error(err))
-        return fmt.Errorf("failed to send notification: %w", err)
+        return fmt. Errorf("failed to send notification:  %w", err)
     }
     defer resp.Body.Close()
 
@@ -113,16 +125,17 @@ func (c *PartnerClient) SendNotification(ctx context.Context, partnerID string, 
 
     c.logger.Info("partner notified successfully",
         zap. String("partner_id", partnerID),
+        zap.String("partner_name", partner.Name),
         zap.String("payment_ref", notification.PaymentRef),
         zap.Int("status_code", resp.StatusCode))
 
     return nil
 }
 
-// generateSignature generates HMAC-SHA256 signature for the payload
-func (c *PartnerClient) generateSignature(payload []byte, timestamp int64) string {
+//  Exported helper function
+func generateSignature(payload []byte, timestamp int64, secret string) string {
     message := fmt.Sprintf("%s. %d", string(payload), timestamp)
-    h := hmac.New(sha256.New, []byte(c. config.APISecret))
+    h := hmac.New(sha256.New, []byte(secret))
     h.Write([]byte(message))
-    return hex.EncodeToString(h.Sum(nil))
+    return hex.EncodeToString(h. Sum(nil))
 }

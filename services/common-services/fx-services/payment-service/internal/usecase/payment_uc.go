@@ -19,7 +19,7 @@ type PaymentUsecase struct {
     paymentRepo    repository.PaymentRepository
     providerTxRepo repository.ProviderTransactionRepository
     mpesaProvider  *mpesa.MpesaProvider
-    config         config.PartnerConfig
+    config         *config.Config
     logger         *zap.Logger
 }
 
@@ -27,7 +27,7 @@ func NewPaymentUsecase(
     paymentRepo repository.PaymentRepository,
     providerTxRepo repository.ProviderTransactionRepository,
     mpesaProvider *mpesa.MpesaProvider,
-    cfg config. PartnerConfig,
+    cfg *config. Config,
     logger *zap.Logger,
 ) *PaymentUsecase {
     return &PaymentUsecase{
@@ -186,7 +186,7 @@ if payment.Metadata != nil {
     }
 
     // Build callback URL
-    callbackURL := fmt.Sprintf("%s/api/v1/callbacks/mpesa/stk/%s", uc.config.CallbackURL, payment.PaymentRef)
+    callbackURL := fmt.Sprintf("%s/api/v1/callbacks/mpesa/stk/%s", uc.config.BaseCallbackURL, payment.PaymentRef)
 
     uc.logger.Debug("initiating M-Pesa STK push",
         zap.String("payment_ref", payment.PaymentRef),

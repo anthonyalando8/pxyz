@@ -1,12 +1,12 @@
-// pkg/client/partner_debit_client.go
+// pkg/client/partner_debit_client. go
 package client
 
 import (
 	"bytes"
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
+	// "crypto/hmac"
+	// "crypto/sha256"
+	// "encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -18,12 +18,13 @@ import (
 )
 
 type PartnerDebitClient struct {
-	config     config. PartnerConfig
+	config     *config.Config  // ✅ Changed to full config
 	httpClient *http.Client
-	logger     *zap. Logger
+	logger     *zap.Logger
 }
 
-func NewPartnerDebitClient(cfg config. PartnerConfig, logger *zap.Logger) *PartnerDebitClient {
+// ✅ Updated constructor
+func NewPartnerDebitClient(cfg *config.Config, logger *zap.Logger) *PartnerDebitClient {
 	return &PartnerDebitClient{
 		config:  cfg,
 		httpClient: &http.Client{
@@ -56,9 +57,20 @@ type DebitUserResponse struct {
 	Error          string `json:"error,omitempty"`
 }
 
-// DebitUser debits user account on partner system (for withdrawal completion)
-func (c *PartnerDebitClient) DebitUser(ctx context.Context, req *DebitUserRequest) (*DebitUserResponse, error) {
+// ✅ Updated DebitUser to accept partnerID
+func (c *PartnerDebitClient) DebitUser(ctx context.Context, partnerID string, req *DebitUserRequest) (*DebitUserResponse, error) {
+	// Get partner config
+	partner, err := c.config.GetPartner(partnerID)
+	if err != nil {
+		c. logger.Error("failed to get partner config",
+			zap.String("partner_id", partnerID),
+			zap.Error(err))
+		return nil, fmt.Errorf("partner not found: %w", err)
+	}
+
 	c.logger.Info("debiting user on partner system",
+		zap.String("partner_id", partnerID),
+		zap.String("partner_name", partner.Name),
 		zap.String("user_id", req.UserID),
 		zap.String("transaction_ref", req.TransactionRef),
 		zap.Float64("amount", req.Amount),
@@ -66,47 +78,51 @@ func (c *PartnerDebitClient) DebitUser(ctx context.Context, req *DebitUserReques
 		zap.String("external_ref", req.ExternalRef),
 		zap.String("payment_method", req.PaymentMethod))
 
-	// Build URL
-	url := fmt.Sprintf("%s/api/v1/partner/api/transactions/debit", c.config.WebhookURL)
+	// Build URL - use partner's webhook URL
+	url := fmt.Sprintf("%s/transactions/debit", partner.WebhookURL)
 
 	// Marshal payload
-	payload, err := json.Marshal(req)
+	payload, err := json. Marshal(req)
 	if err != nil {
 		c.logger. Error("failed to marshal debit request",
+			zap.String("partner_id", partnerID),
 			zap.String("user_id", req.UserID),
 			zap.Error(err))
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
 	// Create request
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(payload))
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes. NewBuffer(payload))
 	if err != nil {
-		c.logger.Error("failed to create debit request",
+		c. logger.Error("failed to create debit request",
+			zap. String("partner_id", partnerID),
 			zap.String("user_id", req.UserID),
 			zap.Error(err))
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	// Set headers
+	// Set headers with partner-specific credentials
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("X-API-Key", c.config.APIKey)
-	httpReq.Header.Set("X-API-Secret", c.config.APISecret)
+	httpReq.Header.Set("X-API-Key", partner.APIKey)
+	httpReq.Header.Set("X-API-Secret", partner.APISecret)
 
-	// Generate signature
+	// Generate signature using partner's secret
 	timestamp := time.Now().Unix()
-	signature := c.generateSignature(payload, timestamp)
+	signature := generateSignature(payload, timestamp, partner.APISecret)
 	httpReq.Header.Set("X-Signature", signature)
 	httpReq.Header.Set("X-Timestamp", fmt.Sprintf("%d", timestamp))
 
 	c.logger.Debug("sending debit request to partner",
+		zap.String("partner_id", partnerID),
 		zap.String("url", url),
-		zap.String("user_id", req.UserID))
+		zap.String("user_id", req. UserID))
 
 	// Send request
-	resp, err := c.httpClient.Do(httpReq)
+	resp, err := c. httpClient.Do(httpReq)
 	if err != nil {
 		c. logger.Error("failed to send debit request",
-			zap. String("user_id", req. UserID),
+			zap. String("partner_id", partnerID),
+			zap.String("user_id", req.UserID),
 			zap.Error(err))
 		return nil, fmt.Errorf("failed to send request:  %w", err)
 	}
@@ -116,6 +132,7 @@ func (c *PartnerDebitClient) DebitUser(ctx context.Context, req *DebitUserReques
 	var response DebitUserResponse
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 		c.logger.Error("failed to decode debit response",
+			zap.String("partner_id", partnerID),
 			zap.String("user_id", req.UserID),
 			zap.Error(err))
 		return nil, fmt.Errorf("failed to decode response: %w", err)
@@ -123,24 +140,20 @@ func (c *PartnerDebitClient) DebitUser(ctx context.Context, req *DebitUserReques
 
 	if resp.StatusCode != http.StatusOK || ! response.Success {
 		c. logger.Error("partner debit request failed",
+			zap.String("partner_id", partnerID),
+			zap.String("partner_name", partner.Name),
 			zap.String("user_id", req.UserID),
 			zap.Int("status_code", resp.StatusCode),
-			zap.String("error", response. Error))
+			zap.String("error", response.Error))
 		return &response, fmt.Errorf("debit failed: %s", response.Error)
 	}
 
 	c.logger.Info("user debited successfully on partner system",
+		zap.String("partner_id", partnerID),
+		zap.String("partner_name", partner.Name),
 		zap.String("user_id", req.UserID),
 		zap.String("transaction_ref", response.TransactionRef),
 		zap.String("external_ref", response.ExternalRef))
 
 	return &response, nil
-}
-
-// generateSignature generates HMAC-SHA256 signature
-func (c *PartnerDebitClient) generateSignature(payload []byte, timestamp int64) string {
-	message := fmt. Sprintf("%s. %d", string(payload), timestamp)
-	h := hmac.New(sha256.New, []byte(c.config.APISecret))
-	h.Write([]byte(message))
-	return hex.EncodeToString(h.Sum(nil))
 }

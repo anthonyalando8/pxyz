@@ -26,238 +26,299 @@ var servicesRequiringPhone = map[string]bool{
 	"airtel_money": true,
 	"mtn_money":    true,
 	"orange_money": true,
-	// Add more mobile money services as needed
 }
 
 // ✅ Service types that require bank account
 var servicesRequiringBank = map[string]bool{
-	"bank":          true,
+	"bank":           true,
 	"bank_transfer": true,
-	// Add more bank services as needed
 }
 
-// Handle deposit request
-func (h *PaymentHandler) handleDepositRequest(ctx context.Context, client *Client, data json. RawMessage) {
-	var req struct {
-		Amount         float64 `json:"amount"`          // Amount in local currency (e.g., 1000 KES)
-		LocalCurrency  string  `json:"local_currency"`  // Currency of amount (e.g., "KES")
-		TargetCurrency *string `json:"target_currency"` // Optional: defaults to USD
-		Service        string  `json:"service"`
-		PartnerID      *string `json:"partner_id,omitempty"`
-		AgentID        *string `json:"agent_id,omitempty"`
-		//PaymentMethod  *string `json:"payment_method,omitempty"`
+// DepositRequest represents the deposit request structure
+type DepositRequest struct {
+	Amount         float64 `json:"amount"`
+	LocalCurrency  string  `json:"local_currency"`
+	TargetCurrency *string `json:"target_currency"`
+	Service        string  `json:"service"`
+	PartnerID      *string `json:"partner_id,omitempty"`
+	AgentID        *string `json:"agent_id,omitempty"`
+}
+
+// Main handler - orchestrates the deposit flow
+func (h *PaymentHandler) handleDepositRequest(ctx context.Context, client *Client, data json.RawMessage) {
+	// Step 1: Parse and validate request
+	req, err := h.parseDepositRequest(data)
+	if err != nil {
+		client.SendError(err.Error())
+		return
 	}
 
-	if err := json. Unmarshal(data, &req); err != nil {
-		client.SendError("invalid request format")
-		return
-	}
-
-	// ✅ Round input amount to 2 decimal places immediately
-	req.Amount = roundTo2Decimals(req. Amount)
-
-	// ✅ Validate input amount
-	if req.Amount <= 0 {
-		client.SendError("amount must be greater than zero")
-		return
-	}
-	if req.Amount < 0.01 {
-		client. SendError("amount must be at least 0.01")
-		return
-	}
-	if req.Amount > 999999999999999999.99 {
-		client. SendError("amount exceeds maximum allowed value")
-		return
-	}
-	if req.LocalCurrency == "" {
-		client.SendError("local_currency is required")
-		return
-	}
-	if req.Service == "" {
-		client.SendError("service is required")
+	// Step 2: Validate amount
+	if err := h.validateDepositAmount(req); err != nil {
+		client.SendError(err.Error())
 		return
 	}
 
 	userIDInt, _ := strconv. ParseInt(client.UserID, 10, 64)
 
-	// ✅ NEW: Validate user profile based on service requirements
-	profile, err := h.profileFetcher.FetchProfile(ctx, "user", client.UserID)
+	// Step 3: Fetch and validate user profile
+	phoneNumber, bankAccount, err := h.validateUserProfileForDeposit(ctx, client. UserID, req. Service)
 	if err != nil {
-		h.logger.Error("failed to fetch user profile",
-			zap.String("user_id", client.UserID),
-			zap.String("service", req.Service),
-			zap.Error(err))
-		client.SendError("failed to fetch user profile")
+		client.SendError(err.Error())
 		return
 	}
 
-	// ✅ Check if service requires phone number
-	var phoneNumber string
-	var bankAccount string
+	// Step 4: Determine target currency
+	targetCurrency := h.determineTargetCurrency(req)
 
-	if servicesRequiringPhone[req. Service] {
+	// Step 5: Handle agent or partner flow
+	selectedPartner, selectedAgent, convertedAmount, exchangeRate, isAgentFlow, err := h.handleDepositFlow(ctx, client, req)
+	if err != nil {
+		client.SendError(err. Error())
+		return
+	}
+
+	// Step 6: Create deposit request
+	depositReq, err := h.createDepositRequest(userIDInt, req, selectedPartner, convertedAmount, exchangeRate, targetCurrency, phoneNumber, bankAccount)
+	if err != nil {
+		client. SendError(err.Error())
+		return
+	}
+
+	// Step 7: Process based on flow
+	h.processDepositFlow(client, depositReq, selectedPartner, selectedAgent, req, isAgentFlow, convertedAmount, exchangeRate, targetCurrency, phoneNumber, bankAccount)
+}
+
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+
+// parseDepositRequest parses and returns the deposit request
+func (h *PaymentHandler) parseDepositRequest(data json.RawMessage) (*DepositRequest, error) {
+	var req DepositRequest
+	if err := json. Unmarshal(data, &req); err != nil {
+		return nil, fmt.Errorf("invalid request format")
+	}
+
+	// Round amount to 2 decimal places
+	req.Amount = roundTo2Decimals(req. Amount)
+
+	return &req, nil
+}
+
+// validateDepositAmount validates the deposit amount
+func (h *PaymentHandler) validateDepositAmount(req *DepositRequest) error {
+	if req.Amount <= 0 {
+		return fmt.Errorf("amount must be greater than zero")
+	}
+	if req.Amount < 10 {
+		return fmt. Errorf("amount must be at least 10")
+	}
+	if req.Amount > 999999999999999999.99 {
+		return fmt. Errorf("amount exceeds maximum allowed value")
+	}
+	if req.Service == "" {
+		return fmt. Errorf("service is required")
+	}
+	return nil
+}
+
+// ✅ SHARED:  Can be used by both deposit and withdrawal
+// validateUserProfile validates user profile and returns phone and bank account
+func (h *PaymentHandler) validateUserProfile(ctx context.Context, userID, service string) (string, string, error) {
+	// Fetch user profile
+	profile, err := h.profileFetcher.FetchProfile(ctx, "user", userID)
+	if err != nil {
+		h.logger.Error("failed to fetch user profile",
+			zap. String("user_id", userID),
+			zap.String("service", service),
+			zap.Error(err))
+		return "", "", fmt.Errorf("failed to fetch user profile")
+	}
+
+	var phoneNumber, bankAccount string
+
+	// Check phone number requirement
+	if servicesRequiringPhone[service] {
 		if profile.Phone == "" {
 			h.logger. Warn("phone number required but not set",
-				zap.String("user_id", client.UserID),
-				zap.String("service", req.Service))
-			client.SendError("phone number is required for this payment method.  Please add your phone number in profile settings.")
-			return
+				zap.String("user_id", userID),
+				zap.String("service", service))
+			return "", "", fmt. Errorf("phone number is required for this payment method.  Please add your phone number in profile settings")
 		}
 		phoneNumber = profile.Phone
-		h.logger.Info("phone number validated for service",
-			zap.String("user_id", client.UserID),
-			zap.String("service", req.Service),
+		h.logger.Info("phone number validated",
+			zap.String("user_id", userID),
+			zap.String("service", service),
 			zap.String("phone", phoneNumber))
 	}
 
-	// ✅ Check if service requires bank account
-	if servicesRequiringBank[req.Service] {
+	// Check bank account requirement
+	if servicesRequiringBank[service] {
 		if profile.BankAccount == "" {
-			h.logger.Warn("bank account required but not set",
-				zap.String("user_id", client.UserID),
-				zap.String("service", req. Service))
-			client.SendError("bank account is required for this payment method. Please add your bank account in profile settings.")
-			return
+			h. logger.Warn("bank account required but not set",
+				zap.String("user_id", userID),
+				zap.String("service", service))
+			return "", "", fmt.Errorf("bank account is required for this payment method. Please add your bank account in profile settings")
 		}
 		bankAccount = profile.BankAccount
-		h. logger.Info("bank account validated for service",
-			zap.String("user_id", client.UserID),
-			zap.String("service", req.Service),
+		h.logger.Info("bank account validated",
+			zap. String("user_id", userID),
+			zap.String("service", service),
 			zap.String("bank_account", bankAccount))
 	}
 
-	// Set target currency (default USD)
+	return phoneNumber, bankAccount, nil
+}
+
+// validateUserProfileForDeposit is a wrapper for deposit-specific profile validation
+func (h *PaymentHandler) validateUserProfileForDeposit(ctx context.Context, userID, service string) (string, string, error) {
+	return h.validateUserProfile(ctx, userID, service)
+}
+
+// determineTargetCurrency determines the target currency (defaults to USD)
+func (h *PaymentHandler) determineTargetCurrency(req *DepositRequest) string {
 	targetCurrency := "USD"
-	if req.TargetCurrency != nil && *req.TargetCurrency != "" {
+	if req. TargetCurrency != nil && *req.TargetCurrency != "" {
 		targetCurrency = *req.TargetCurrency
 	}
+	return targetCurrency
+}
 
-	// Determine flow:  Agent or Partner
-	var selectedPartner *partnersvcpb. Partner
-	var selectedAgent *accountingpb.Agent
-	var convertedAmount float64
-	var exchangeRate float64
-	var isAgentFlow bool
-
-	// Initialize currency service
+// handleDepositFlow handles both agent and partner flows
+func (h *PaymentHandler) handleDepositFlow(ctx context.Context, client *Client, req *DepositRequest) (*partnersvcpb.Partner, *accountingpb.Agent, float64, float64, bool, error) {
 	currencyService := service.NewCurrencyService(h.partnerClient)
 
-	if req.AgentID != nil && *req.AgentID != "" {
-		// ===== AGENT FLOW =====
-		isAgentFlow = true
-
-		// Fetch agent
-		agentResp, err := h.accountingClient.Client.GetAgentByID(ctx, &accountingpb.GetAgentByIDRequest{
-			AgentExternalId: *req.AgentID,
-			IncludeAccounts:  false,
-		})
-		if err != nil || agentResp. Agent == nil {
-			client.SendError("agent not found")
-			return
-		}
-		selectedAgent = agentResp.Agent
-
-		if ! selectedAgent.IsActive {
-			client.SendError("agent is not active")
-			return
-		}
-
-		// For agent flow, we still need a partner for currency conversion
-		partners, err := h.GetPartnersByService(ctx, req.Service)
-		if err != nil || len(partners) == 0 {
-			client.SendError("no partners available for currency conversion")
-			return
-		}
-		selectedPartner = SelectRandomPartner(partners)
-
-		// ✅ Convert currency with validation
-		var convErr error
-		convertedAmount, exchangeRate, convErr = currencyService.ConvertToUSDWithValidation(ctx, selectedPartner, req.Amount)
-		if convErr != nil {
-			h.logger. Error("currency conversion failed",
-				zap.String("user_id", client.UserID),
-				zap.Float64("amount", req.Amount),
-				zap.String("currency", req.LocalCurrency),
-				zap.Error(convErr))
-			client.SendError("currency conversion failed:  " + convErr.Error())
-			return
-		}
-
-	} else {
-		// ===== PARTNER FLOW =====
-		isAgentFlow = false
-
-		// Select partner
-		if req.PartnerID != nil && *req.PartnerID != "" {
-			if err := h.ValidatePartnerService(ctx, *req.PartnerID, req.Service); err != nil {
-				client.SendError(err.Error())
-				return
-			}
-			var err error
-			selectedPartner, err = h.GetPartnerByID(ctx, *req.PartnerID)
-			if err != nil {
-				client.SendError("partner not found")
-				return
-			}
-		} else {
-			partners, err := h.GetPartnersByService(ctx, req.Service)
-			if err != nil || len(partners) == 0 {
-				client.SendError("no partners available for this service")
-				return
-			}
-			selectedPartner = SelectRandomPartner(partners)
-		}
-
-		// ✅ Convert currency with validation
-		var convErr error
-		convertedAmount, exchangeRate, convErr = currencyService. ConvertToUSDWithValidation(ctx, selectedPartner, req.Amount)
-		if convErr != nil {
-			h.logger.Error("currency conversion failed",
-				zap.String("user_id", client.UserID),
-				zap.Float64("amount", req.Amount),
-				zap.String("currency", req. LocalCurrency),
-				zap.Error(convErr))
-			client.SendError("currency conversion failed: " + convErr.Error())
-			return
-		}
+	if req.AgentID != nil && *req. AgentID != "" {
+		// AGENT FLOW
+		return h.handleAgentDepositFlow(ctx, client, req, currencyService)
 	}
 
-	// ✅ Log conversion details
-	h.logger. Info("currency conversion completed",
-		zap.String("user_id", client.UserID),
+	// PARTNER FLOW
+	return h.handlePartnerDepositFlow(ctx, client, req, currencyService)
+}
+
+// handleAgentDepositFlow handles the agent deposit flow
+func (h *PaymentHandler) handleAgentDepositFlow(ctx context.Context, client *Client, req *DepositRequest, currencyService *service.CurrencyService) (*partnersvcpb.Partner, *accountingpb.Agent, float64, float64, bool, error) {
+	// Fetch agent
+	agentResp, err := h.accountingClient.Client.GetAgentByID(ctx, &accountingpb.GetAgentByIDRequest{
+		AgentExternalId: *req.AgentID,
+		IncludeAccounts:  false,
+	})
+	if err != nil || agentResp.Agent == nil {
+		return nil, nil, 0, 0, false, fmt.Errorf("agent not found")
+	}
+
+	selectedAgent := agentResp.Agent
+	if ! selectedAgent.IsActive {
+		return nil, nil, 0, 0, false, fmt.Errorf("agent is not active")
+	}
+
+	// Get partner for currency conversion
+	partners, err := h.GetPartnersByService(ctx, req.Service)
+	if err != nil || len(partners) == 0 {
+		return nil, nil, 0, 0, false, fmt.Errorf("no partners available for currency conversion")
+	}
+
+	selectedPartner := SelectRandomPartner(partners)
+	req.LocalCurrency = selectedPartner.LocalCurrency
+
+	// Convert currency
+	convertedAmount, exchangeRate, err := currencyService. ConvertToUSDWithValidation(ctx, selectedPartner, req.Amount)
+	if err != nil {
+		h.logger.Error("currency conversion failed",
+			zap.String("user_id", client.UserID),
+			zap.Float64("amount", req.Amount),
+			zap.String("currency", req.LocalCurrency),
+			zap.Error(err))
+		return nil, nil, 0, 0, false, fmt.Errorf("currency conversion failed: %v", err)
+	}
+
+	return selectedPartner, selectedAgent, convertedAmount, exchangeRate, true, nil
+}
+
+// handlePartnerDepositFlow handles the partner deposit flow
+func (h *PaymentHandler) handlePartnerDepositFlow(ctx context.Context, client *Client, req *DepositRequest, currencyService *service.CurrencyService) (*partnersvcpb.Partner, *accountingpb.Agent, float64, float64, bool, error) {
+	var selectedPartner *partnersvcpb.Partner
+	var err error
+
+	// Select partner
+	if req.PartnerID != nil && *req.PartnerID != "" {
+		if err := h.ValidatePartnerService(ctx, *req.PartnerID, req.Service); err != nil {
+			return nil, nil, 0, 0, false, err
+		}
+		selectedPartner, err = h.GetPartnerByID(ctx, *req. PartnerID)
+		if err != nil {
+			return nil, nil, 0, 0, false, fmt.Errorf("partner not found")
+		}
+	} else {
+		partners, err := h.GetPartnersByService(ctx, req.Service)
+		if err != nil || len(partners) == 0 {
+			return nil, nil, 0, 0, false, fmt.Errorf("no partners available for this service")
+		}
+		selectedPartner = SelectRandomPartner(partners)
+	}
+
+	req.LocalCurrency = selectedPartner.LocalCurrency
+
+	// Convert currency
+	convertedAmount, exchangeRate, err := currencyService.ConvertToUSDWithValidation(ctx, selectedPartner, req.Amount)
+	if err != nil {
+		h.logger.Error("currency conversion failed",
+			zap.String("user_id", client.UserID),
+			zap.Float64("amount", req.Amount),
+			zap.String("currency", req. LocalCurrency),
+			zap.Error(err))
+		return nil, nil, 0, 0, false, fmt.Errorf("currency conversion failed: %v", err)
+	}
+
+	return selectedPartner, nil, convertedAmount, exchangeRate, false, nil
+}
+
+// createDepositRequest creates and saves the deposit request
+func (h *PaymentHandler) createDepositRequest(
+	userIDInt int64,
+	req *DepositRequest,
+	partner *partnersvcpb.Partner,
+	convertedAmount, exchangeRate float64,
+	targetCurrency, phoneNumber, bankAccount string,
+) (*domain.DepositRequest, error) {
+	ctx := context.Background()
+
+	h.logger.Info("currency conversion completed",
+		zap.Int64("user_id", userIDInt),
 		zap.Float64("original_amount", req.Amount),
 		zap.String("original_currency", req.LocalCurrency),
 		zap.Float64("converted_amount", convertedAmount),
 		zap.String("target_currency", targetCurrency),
 		zap.Float64("exchange_rate", exchangeRate),
-		zap.String("partner_id", selectedPartner.Id),
+		zap.String("partner_id", partner.Id),
 		zap.String("service", req.Service),
 		zap.String("phone_number", phoneNumber))
 
-	// ✅ Create deposit request with validated amounts
 	depositReq := &domain.DepositRequest{
 		UserID:          userIDInt,
-		PartnerID:       selectedPartner.Id,
-		RequestRef:      id.GenerateTransactionID("DEP"), //fmt.Sprintf("DEP-%d-%s", userIDInt, generateID()),
-		Amount:          convertedAmount,     // ✅ Already validated and rounded to 2 decimals
+		PartnerID:       partner.Id,
+		RequestRef:      id.GenerateTransactionID("DEP"),
+		Amount:          convertedAmount,
 		Currency:        targetCurrency,
 		Service:         req.Service,
 		AgentExternalID: req.AgentID,
 		PaymentMethod:   strToPtr(req.Service),
 		Status:          domain.DepositStatusPending,
 		ExpiresAt:       time.Now().Add(30 * time.Minute),
-		CreatedAt:       time. Now(),
+		CreatedAt:       time.Now(),
 		UpdatedAt:       time.Now(),
 	}
 
-	// ✅ Store original amount and rate in metadata (also rounded)
+	// Store original amount and rate
 	depositReq.SetOriginalAmount(
-		roundTo2Decimals(req.Amount),       // ✅ Ensure original amount is also rounded
+		roundTo2Decimals(req.Amount),
 		req.LocalCurrency,
-		roundTo2Decimals(exchangeRate),     // ✅ Round exchange rate too
+		roundTo2Decimals(exchangeRate),
 	)
 
-	// ✅ Add phone number and bank account to metadata if available
+	// Add phone and bank to metadata
 	if depositReq. Metadata == nil {
 		depositReq.Metadata = make(map[string]interface{})
 	}
@@ -269,49 +330,61 @@ func (h *PaymentHandler) handleDepositRequest(ctx context.Context, client *Clien
 	}
 
 	// Save to database
-	if err := h.userUc.CreateDepositRequest(ctx, depositReq); err != nil {
+	if err := h. userUc.CreateDepositRequest(ctx, depositReq); err != nil {
 		h.logger.Error("failed to create deposit request",
-			zap. String("user_id", client. UserID),
+			zap.Int64("user_id", userIDInt),
 			zap.String("request_ref", depositReq.RequestRef),
 			zap.Float64("amount", convertedAmount),
 			zap.Error(err))
-		client.SendError("failed to create deposit request: " + err.Error())
-		return
+		return nil, fmt.Errorf("failed to create deposit request: %v", err)
 	}
 
-	// Process based on flow
-	if isAgentFlow {
-		// Agent deposit:  Placeholder for agent to fulfill
-		go h.sendDepositRequestToAgent(depositReq, selectedAgent, selectedPartner, phoneNumber, bankAccount)
+	return depositReq, nil
+}
+
+// processDepositFlow processes the deposit based on the flow type
+func (h *PaymentHandler) processDepositFlow(
+	client *Client,
+	depositReq *domain.DepositRequest,
+	partner *partnersvcpb.Partner,
+	agent *accountingpb.Agent,
+	req *DepositRequest,
+	isAgentFlow bool,
+	convertedAmount, exchangeRate float64,
+	targetCurrency, phoneNumber, bankAccount string,
+) {
+	if isAgentFlow && agent != nil {
+		// Agent flow
+		go h.sendDepositRequestToAgent(depositReq, agent, partner, phoneNumber, bankAccount)
 
 		client.SendSuccess("deposit request sent to agent", map[string]interface{}{
-			"request_ref":         depositReq.RequestRef,
-			"agent_id":           selectedAgent.AgentExternalId,
-			"agent_name":         selectedAgent.Name,
-			"original_amount":    roundTo2Decimals(req. Amount),      // ✅ Rounded
-			"original_currency":  req.LocalCurrency,
-			"converted_amount":   convertedAmount,                   // ✅ Already rounded
-			"target_currency":     targetCurrency,
-			"exchange_rate":      roundTo2Decimals(exchangeRate),    // ✅ Rounded
-			"status":             "sent_to_agent",
-			"expires_at":         depositReq.ExpiresAt,
-			"phone_number":       phoneNumber,
-			"service":            req.Service,
+			"request_ref":        depositReq.RequestRef,
+			"agent_id":          agent.AgentExternalId,
+			"agent_name":        agent.Name,
+			"original_amount":   roundTo2Decimals(req. Amount),
+			"original_currency": req.LocalCurrency,
+			"converted_amount":  convertedAmount,
+			"target_currency":   targetCurrency,
+			"exchange_rate":     roundTo2Decimals(exchangeRate),
+			"status":            "sent_to_agent",
+			"expires_at":        depositReq.ExpiresAt,
+			"phone_number":      phoneNumber,
+			"service":           req.Service,
 		})
 	} else {
-		// Partner deposit: Send webhook
-		go h.sendDepositWebhookToPartner(depositReq, selectedPartner, req.Amount, req.LocalCurrency, phoneNumber, bankAccount)
-		h.userUc. MarkDepositSentToPartner(ctx, depositReq.RequestRef, "")
+		// Partner flow
+		go h.sendDepositWebhookToPartner(depositReq, partner, req.Amount, req.LocalCurrency, phoneNumber, bankAccount)
+		h.userUc. MarkDepositSentToPartner(context.Background(), depositReq.RequestRef, "")
 
 		client.SendSuccess("deposit request created", map[string]interface{}{
 			"request_ref":        depositReq.RequestRef,
-			"partner_id":         selectedPartner.Id,
-			"partner_name":       selectedPartner.Name,
-			"original_amount":    roundTo2Decimals(req.Amount),      // ✅ Rounded
-			"original_currency":  req. LocalCurrency,
-			"converted_amount":   convertedAmount,                   // ✅ Already rounded
-			"target_currency":     targetCurrency,
-			"exchange_rate":      roundTo2Decimals(exchangeRate),    // ✅ Rounded
+			"partner_id":         partner.Id,
+			"partner_name":       partner.Name,
+			"original_amount":    roundTo2Decimals(req.Amount),
+			"original_currency":  req.LocalCurrency,
+			"converted_amount":    convertedAmount,
+			"target_currency":    targetCurrency,
+			"exchange_rate":       roundTo2Decimals(exchangeRate),
 			"status":             "sent_to_partner",
 			"expires_at":         depositReq.ExpiresAt,
 			"phone_number":       phoneNumber,
@@ -320,10 +393,15 @@ func (h *PaymentHandler) handleDepositRequest(ctx context.Context, client *Clien
 	}
 }
 
-// ✅ Add helper function to the handler file
+// ============================================
+// SHARED UTILITY FUNCTIONS
+// ============================================
+
+// ✅ SHARED: Round to 2 decimal places
 func roundTo2Decimals(value float64) float64 {
 	return math.Round(value*100) / 100
 }
+
 
 // ✅ UPDATED:  Placeholder for agent deposit with phone number
 func (h *PaymentHandler) sendDepositRequestToAgent(

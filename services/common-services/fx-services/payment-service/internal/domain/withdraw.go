@@ -34,6 +34,11 @@ type WithdrawalWebhookMetadata struct {
     TargetCurrency    string  `json:"target_currency"`
     ExchangeRate      string `json:"exchange_rate"`
     AccountNumber     string  `json:"account_number,omitempty"`
+
+    BankAccount      string    `json:"bank_account,omitempty"`      // Format: "bank_name,account_number"
+	BankName         string    `json:"bank_name,omitempty"`         // Extracted bank name
+	BankAccountNum   string    `json:"bank_account_num,omitempty"`  // Extracted account number
+	BankInfo         *BankInfo `json:"bank_info,omitempty"`         // Full bank info
 }
 
 func (r *WithdrawalRequest) Validate() error {
@@ -64,73 +69,116 @@ func (r *WithdrawalRequest) Validate() error {
     return nil
 }
 
+// Update parseMetadata to extract bank info
 func (r *WithdrawalRequest) parseMetadata() error {
-    if r.Metadata == nil {
-        return errors.New("metadata is required")
-    }
+	if r.Metadata == nil {
+		return errors.New("metadata is required")
+	}
 
-    r.ParsedMetadata = &WithdrawalWebhookMetadata{}
+	r.ParsedMetadata = &WithdrawalWebhookMetadata{}
 
-    // ✅ Extract original_amount (as string)
-    if val, ok := r.Metadata["original_amount"].(string); ok {
-        r.ParsedMetadata.OriginalAmount = val
-    } else if val, ok := r. Metadata["original_amount"].(float64); ok {
-        // Handle if sent as number
-        r.ParsedMetadata. OriginalAmount = fmt. Sprintf("%.2f", val)
-    }
+	// Extract original_amount
+	if val, ok := r.Metadata["original_amount"].(string); ok {
+		r.ParsedMetadata.OriginalAmount = val
+	} else if val, ok := r.Metadata["original_amount"].(float64); ok {
+		r.ParsedMetadata. OriginalAmount = fmt. Sprintf("%.2f", val)
+	}
 
-    // ✅ Extract converted_amount (as string)
-    if val, ok := r.Metadata["converted_amount"].(string); ok {
-        r.ParsedMetadata. ConvertedAmount = val
-    } else if val, ok := r.Metadata["converted_amount"].(float64); ok {
-        r.ParsedMetadata.ConvertedAmount = fmt.Sprintf("%.2f", val)
-    }
+	// Extract converted_amount
+	if val, ok := r.Metadata["converted_amount"].(string); ok {
+		r.ParsedMetadata. ConvertedAmount = val
+	} else if val, ok := r.Metadata["converted_amount"].(float64); ok {
+		r.ParsedMetadata.ConvertedAmount = fmt.Sprintf("%.2f", val)
+	}
 
-    // ✅ Extract original_currency (as string)
-    if val, ok := r.Metadata["original_currency"].(string); ok {
-        r.ParsedMetadata.OriginalCurrency = val
-    }
+	// Extract original_currency
+	if val, ok := r.Metadata["original_currency"].(string); ok {
+		r.ParsedMetadata. OriginalCurrency = val
+	}
 
-    // ✅ Extract target_currency (as string)
-    if val, ok := r. Metadata["target_currency"].(string); ok {
-        r.ParsedMetadata.TargetCurrency = val
-    }
+	// Extract target_currency
+	if val, ok := r.Metadata["target_currency"].(string); ok {
+		r.ParsedMetadata.TargetCurrency = val
+	}
 
-    // ✅ Extract exchange_rate (as string)
-    if val, ok := r. Metadata["exchange_rate"].(string); ok {
-        r.ParsedMetadata.ExchangeRate = val
-    } else if val, ok := r. Metadata["exchange_rate"].(float64); ok {
-        r.ParsedMetadata.ExchangeRate = fmt.Sprintf("%.4f", val)
-    }
+	// Extract exchange_rate
+	if val, ok := r. Metadata["exchange_rate"].(string); ok {
+		r.ParsedMetadata.ExchangeRate = val
+	} else if val, ok := r.Metadata["exchange_rate"].(float64); ok {
+		r.ParsedMetadata.ExchangeRate = fmt.Sprintf("%.4f", val)
+	}
 
-    // ✅ Extract request_ref (as string)
-    if val, ok := r. Metadata["request_ref"].(string); ok {
-        r.ParsedMetadata.RequestRef = val
-    }
+	// Extract request_ref
+	if val, ok := r. Metadata["request_ref"].(string); ok {
+		r.ParsedMetadata.RequestRef = val
+	}
 
-    // ✅ Extract account_number (as string, optional)
-    if val, ok := r.Metadata["account_number"].(string); ok {
-        r.ParsedMetadata.AccountNumber = val
-    }
+	// Extract account_number (legacy)
+	if val, ok := r.Metadata["account_number"].(string); ok {
+		r.ParsedMetadata.AccountNumber = val
+	}
 
-    // ✅ Extract phone_number (as string, optional) - ADD THIS
-    if val, ok := r.Metadata["phone_number"].(string); ok {
-        r.PhoneNumber = val // Set it on the main request
-    }
+	// ✅ Extract bank_account (NEW)
+	if val, ok := r.Metadata["bank_account"].(string); ok {
+		r.ParsedMetadata.BankAccount = val
+		
+		// Parse bank_account format:  "bank_name,account_number"
+		bankName, accountNum, err := ValidateBankAccount(val)
+		if err != nil {
+			return fmt. Errorf("invalid bank_account:  %w", err)
+		}
+		
+		r.ParsedMetadata. BankName = bankName
+		r.ParsedMetadata.BankAccountNum = accountNum
+		
+		// Get full bank info
+		bankInfo, err := GetBankByName(bankName)
+		if err != nil {
+			return fmt.Errorf("bank not found: %w", err)
+		}
+		
+		r.ParsedMetadata.BankInfo = bankInfo
+	}
 
-    // ✅ Validate parsed metadata (parse to float for validation)
-    if r.ParsedMetadata.OriginalAmount == "" {
-        return errors.New("original_amount is required in metadata")
-    }
+	// Extract phone_number
+	if val, ok := r. Metadata["phone_number"].(string); ok {
+		r.PhoneNumber = val
+	}
 
-    // Validate it's a valid number
-    if amount, err := strconv.ParseFloat(r.ParsedMetadata. OriginalAmount, 64); err != nil || amount <= 0 {
-        return fmt.Errorf("invalid original_amount in metadata: %s", r.ParsedMetadata. OriginalAmount)
-    }
+	// Validate parsed metadata
+	if r.ParsedMetadata.OriginalAmount == "" {
+		return errors.New("original_amount is required in metadata")
+	}
 
-    if r.ParsedMetadata.OriginalCurrency == "" {
-        return errors.New("original_currency is required in metadata")
-    }
+	// Validate it's a valid number
+	if amount, err := strconv.ParseFloat(r.ParsedMetadata. OriginalAmount, 64); err != nil || amount <= 0 {
+		return fmt. Errorf("invalid original_amount in metadata: %s", r.ParsedMetadata.OriginalAmount)
+	}
 
-    return nil
+	if r.ParsedMetadata.OriginalCurrency == "" {
+		return errors.New("original_currency is required in metadata")
+	}
+
+	return nil
+}
+
+// ✅ Helper to check if withdrawal is bank transfer
+func (r *WithdrawalRequest) IsBankTransfer() bool {
+	return r.ParsedMetadata != nil && r.ParsedMetadata.BankInfo != nil
+}
+
+// ✅ Helper to get bank paybill
+func (r *WithdrawalRequest) GetBankPaybill() string {
+	if r.ParsedMetadata != nil && r.ParsedMetadata.BankInfo != nil {
+		return r.ParsedMetadata.BankInfo.PaybillNumber
+	}
+	return ""
+}
+
+// ✅ Helper to get bank account number
+func (r *WithdrawalRequest) GetBankAccountNumber() string {
+	if r.ParsedMetadata != nil {
+		return r.ParsedMetadata.BankAccountNum
+	}
+	return ""
 }

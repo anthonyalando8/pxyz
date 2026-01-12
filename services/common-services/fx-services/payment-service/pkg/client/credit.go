@@ -4,9 +4,6 @@ package client
 import (
 	"bytes"
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -18,126 +15,142 @@ import (
 )
 
 type PartnerCreditClient struct {
-    config     config.PartnerConfig
-    httpClient *http.Client
-    logger     *zap. Logger
+	config     *config.Config  // ✅ Changed to full config
+	httpClient *http.Client
+	logger     *zap. Logger
 }
 
-func NewPartnerCreditClient(cfg config.PartnerConfig, logger *zap.Logger) *PartnerCreditClient {
-    return &PartnerCreditClient{
-        config:  cfg,
-        httpClient: &http.Client{
-            Timeout: 30 * time.Second,
-        },
-        logger:  logger,
-    }
+// ✅ Updated constructor
+func NewPartnerCreditClient(cfg *config.Config, logger *zap.Logger) *PartnerCreditClient {
+	return &PartnerCreditClient{
+		config:  cfg,
+		httpClient: &http.Client{
+			Timeout: 30 * time.Second,
+		},
+		logger:  logger,
+	}
 }
 
 // CreditUserRequest represents the credit request sent to partner
 type CreditUserRequest struct {
-    UserID         string  `json:"user_id"`
-    Amount         float64 `json:"amount"`
-    Currency       string  `json:"currency"`
-    TransactionRef string  `json:"transaction_ref"`
-    Description    string  `json:"description"`
-    ExternalRef    string  `json:"external_ref"`
+	UserID         string  `json:"user_id"`
+	Amount         float64 `json:"amount"`
+	Currency       string  `json:"currency"`
+	TransactionRef string  `json:"transaction_ref"`
+	Description    string  `json:"description"`
+	ExternalRef    string  `json:"external_ref"`
 }
 
 // CreditUserResponse represents partner credit response
 type CreditUserResponse struct {
-    Success     bool   `json:"success"`
-    Message     string `json:"message"`
-    ReceiptCode string `json:"receipt_code,omitempty"`
-    Error       string `json:"error,omitempty"`
-	TransactionRef string `jsono:"transaction_ref"`
-	TransactionId string `json:"transaction_id"`
-	JournalId string `json:"journal_id"`
-	CreatedAt string `json:"created_at"`
+	Success        bool   `json:"success"`
+	Message        string `json:"message"`
+	ReceiptCode    string `json:"receipt_code,omitempty"`
+	Error          string `json:"error,omitempty"`
+	TransactionRef string `json:"transaction_ref"`  // ✅ Fixed typo
+	TransactionID  string `json:"transaction_id"`
+	JournalID      string `json:"journal_id"`
+	CreatedAt      string `json:"created_at"`
 }
 
-// CreditUser credits user account on partner system
-func (c *PartnerCreditClient) CreditUser(ctx context.Context, req *CreditUserRequest) (*CreditUserResponse, error) {
-    c.logger.Info("crediting user on partner system",
-        zap. String("user_id", req. UserID),
-        zap.String("transaction_ref", req.TransactionRef),
-        zap.Float64("amount", req.Amount),
-        zap.String("currency", req.Currency),
-        zap.String("external_ref", req.ExternalRef))
+// ✅ Updated CreditUser to accept partnerID
+func (c *PartnerCreditClient) CreditUser(ctx context.Context, partnerID string, req *CreditUserRequest) (*CreditUserResponse, error) {
+	// Get partner config
+	partner, err := c.config.GetPartner(partnerID)
+	if err != nil {
+		c. logger.Error("failed to get partner config",
+			zap.String("partner_id", partnerID),
+			zap.Error(err))
+		return nil, fmt.Errorf("partner not found: %w", err)
+	}
 
-    // Build URL
-    url := fmt.Sprintf("%s/api/v1/partner/api/transactions/credit", c.config.WebhookURL)
+	c.logger.Info("crediting user on partner system",
+		zap.String("partner_id", partnerID),
+		zap.String("partner_name", partner.Name),
+		zap.String("user_id", req.UserID),
+		zap.String("transaction_ref", req.TransactionRef),
+		zap.Float64("amount", req.Amount),
+		zap.String("currency", req.Currency),
+		zap.String("external_ref", req.ExternalRef))
 
-    // Marshal payload
-    payload, err := json. Marshal(req)
-    if err != nil {
-        c.logger. Error("failed to marshal credit request",
-            zap.String("user_id", req.UserID),
-            zap.Error(err))
-        return nil, fmt.Errorf("failed to marshal request: %w", err)
-    }
+	// Build URL - use partner's webhook URL
+	url := fmt.Sprintf("%s/transactions/credit", partner.WebhookURL)
 
-    // Create request
-    httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(payload))
-    if err != nil {
-        c.logger. Error("failed to create credit request",
-            zap.String("user_id", req.UserID),
-            zap.Error(err))
-        return nil, fmt.Errorf("failed to create request: %w", err)
-    }
+	// Marshal payload
+	payload, err := json.Marshal(req)
+	if err != nil {
+		c.logger. Error("failed to marshal credit request",
+			zap.String("partner_id", partnerID),
+			zap.String("user_id", req.UserID),
+			zap.Error(err))
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
 
-    // Set headers
-    httpReq.Header.Set("Content-Type", "application/json")
-    httpReq.Header.Set("X-API-Key", c.config.APIKey)
-    httpReq.Header.Set("X-API-Secret", c.config.APISecret)
-    
-    // Generate signature
-    timestamp := time.Now().Unix()
-    signature := c.generateSignature(payload, timestamp)
-    httpReq.Header.Set("X-Signature", signature)
-    httpReq.Header.Set("X-Timestamp", fmt.Sprintf("%d", timestamp))
+	// Create request
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes. NewBuffer(payload))
+	if err != nil {
+		c. logger.Error("failed to create credit request",
+			zap.String("partner_id", partnerID),
+			zap.String("user_id", req.UserID),
+			zap.Error(err))
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
 
-    c.logger.Debug("sending credit request to partner",
-        zap.String("url", url),
-        zap.String("user_id", req.UserID))
+	// Set headers with partner-specific credentials
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("X-API-Key", partner.APIKey)
+	httpReq.Header.Set("X-API-Secret", partner.APISecret)
 
-    // Send request
-    resp, err := c.httpClient.Do(httpReq)
-    if err != nil {
-        c.logger.Error("failed to send credit request",
-            zap.String("user_id", req.UserID),
-            zap.Error(err))
-        return nil, fmt. Errorf("failed to send request:  %w", err)
-    }
-    defer resp.Body.Close()
+	// Generate signature using partner's secret
+	timestamp := time.Now().Unix()
+	signature := generateSignature(payload, timestamp, partner.APISecret)
+	httpReq.Header.Set("X-Signature", signature)
+	httpReq.Header.Set("X-Timestamp", fmt.Sprintf("%d", timestamp))
 
-    // Parse response
-    var response CreditUserResponse
-    if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-        c.logger.Error("failed to decode credit response",
-            zap. String("user_id", req. UserID),
-            zap.Error(err))
-        return nil, fmt.Errorf("failed to decode response: %w", err)
-    }
+	c.logger.Debug("sending credit request to partner",
+		zap.String("partner_id", partnerID),
+		zap.String("url", url),
+		zap.String("user_id", req. UserID))
 
-    if resp.StatusCode != http.StatusOK || ! response.Success {
-        c. logger.Error("partner credit request failed",
-            zap.String("user_id", req.UserID),
-            zap.Int("status_code", resp.StatusCode),
-            zap.String("error", response.Error))
-        return &response, fmt.Errorf("credit failed: %s", response.Error)
-    }
+	// Send request
+	resp, err := c. httpClient.Do(httpReq)
+	if err != nil {
+		c.logger.Error("failed to send credit request",
+			zap.String("partner_id", partnerID),
+			zap.String("user_id", req.UserID),
+			zap.Error(err))
+		return nil, fmt.Errorf("failed to send request:  %w", err)
+	}
+	defer resp.Body.Close()
 
-    c.logger.Info("user credited successfully on partner system",
-        zap. String("user_id", req. UserID),
-        zap.String("receipt_code", response.ReceiptCode))
+	// Parse response
+	var response CreditUserResponse
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		c.logger.Error("failed to decode credit response",
+			zap. String("partner_id", partnerID),
+			zap.String("user_id", req.UserID),
+			zap.Error(err))
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
 
-    return &response, nil
-}
+	if resp. StatusCode != http.StatusOK || !response.Success {
+		c.logger.Error("partner credit request failed",
+			zap. String("partner_id", partnerID),
+			zap.String("partner_name", partner.Name),
+			zap.String("user_id", req.UserID),
+			zap.Int("status_code", resp.StatusCode),
+			zap.String("error", response.Error),
+			zap.String("message", response.Message))
+		return &response, fmt.Errorf("credit failed: %s", response.Error)
+	}
 
-// generateSignature generates HMAC-SHA256 signature
-func (c *PartnerCreditClient) generateSignature(payload []byte, timestamp int64) string {
-    message := fmt.Sprintf("%s. %d", string(payload), timestamp)
-    h := hmac.New(sha256.New, []byte(c. config.APISecret))
-    h.Write([]byte(message))
-    return hex.EncodeToString(h.Sum(nil))
+	c.logger.Info("user credited successfully on partner system",
+		zap.String("partner_id", partnerID),
+		zap.String("partner_name", partner.Name),
+		zap.String("user_id", req.UserID),
+		zap.String("receipt_code", response.ReceiptCode),
+		zap.String("transaction_ref", response.TransactionRef),
+		zap.String("transaction_id", response.TransactionID))
+
+	return &response, nil
 }

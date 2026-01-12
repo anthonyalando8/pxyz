@@ -18,289 +18,405 @@ import (
 	"go.uber.org/zap"
 )
 
-// Handle withdrawal request
+// WithdrawalRequest represents the withdrawal request structure
+type WithdrawalRequest struct {
+	Amount            float64 `json:"amount"`
+	LocalCurrency     string  `json:"local_currency"`
+	Service           *string `json:"service,omitempty"`
+	AgentID           *string `json:"agent_id,omitempty"`
+	Destination       string  `json:"destination"`
+	VerificationToken string  `json:"verification_token"`
+	Consent           bool    `json:"consent"`
+}
+
+// WithdrawalContext holds all the data needed for withdrawal processing
+type WithdrawalContext struct {
+	Request         *WithdrawalRequest
+	UserIDInt       int64
+	Service         string
+	PhoneNumber     string
+	BankAccount     string
+	SelectedPartner *partnersvcpb.Partner
+	AmountInUSD     float64
+	ExchangeRate    float64
+	Agent           *accountingpb.Agent
+	AgentAccount    *accountingpb.Account
+	IsAgentFlow     bool
+	UserAccount     string
+}
+
+// Main handler - orchestrates the withdrawal flow
 func (h *PaymentHandler) handleWithdrawRequest(ctx context.Context, client *Client, data json.RawMessage) {
-	var req struct {
-		Amount            float64 `json:"amount"`             // Amount user wants to receive locally
-		LocalCurrency     string  `json:"local_currency"`     // ✅ Currency user will receive (KES, etc.)
-		Service           *string `json:"service,omitempty"`
-		AgentID           *string `json:"agent_id,omitempty"` // ✅ If provided, use agent
-		Destination       string  `json:"destination"`
-		VerificationToken string  `json:"verification_token"`
-		Consent           bool    `json:"consent"`
-	}
-
-	if err := json.Unmarshal(data, &req); err != nil {
-		client.SendError("invalid request format")
-		return
-	}
-
-	// ✅ Step 1: Validate verification token
-	if req.VerificationToken == "" {
-		client.SendError("verification_token is required. Please complete verification first.")
-		return
-	}
-	if ! req.Consent {
-		client.SendError("You have to consent before processing a withdraw.")
-		return
-	}
-
-	tokenUserID, err := h.validateVerificationToken(ctx, req.VerificationToken, VerificationPurposeWithdrawal)
+	// Step 1: Parse request
+	req, err := h.parseWithdrawalRequest(data)
 	if err != nil {
-		h.logger.Warn("invalid verification token",
+		client.SendError(err.Error())
+		return
+	}
+
+	// Step 2: Validate verification token
+	if err := h.validateWithdrawalVerification(ctx, client, req); err != nil {
+		client.SendError(err. Error())
+		return
+	}
+
+	// Step 3: Validate request data
+	if err := h.validateWithdrawalRequest(req); err != nil {
+		client.SendError(err.Error())
+		return
+	}
+
+	userIDInt, _ := strconv. ParseInt(client.UserID, 10, 64)
+
+	// Step 4: Fetch and validate user profile
+	phoneNumber, bankAccount, err := h.validateUserProfileForWithdrawal(ctx, client. UserID, req)
+	if err != nil {
+		client. SendError(err.Error())
+		return
+	}
+
+	// Step 5: Select partner and convert currency
+	selectedPartner, amountInUSD, exchangeRate, err := h.selectPartnerAndConvert(ctx, client. UserID, req)
+	if err != nil {
+		client.SendError(err. Error())
+		return
+	}
+
+	// Step 6: Handle agent flow (if applicable)
+	agent, agentAccount, isAgentFlow, err := h. handleAgentFlow(ctx, client, req, userIDInt)
+	if err != nil {
+		client.SendError(err. Error())
+		return
+	}
+
+	// Step 7: Get user account and check balance
+	userAccount, err := h.validateUserBalance(ctx, client.UserID, amountInUSD, req.Amount, req.LocalCurrency)
+	if err != nil {
+		client.SendError(err.Error())
+		return
+	}
+
+	// Step 8: Create withdrawal request
+	withdrawalReq, err := h.createWithdrawalRequest(userIDInt, req, selectedPartner, amountInUSD, exchangeRate, phoneNumber, bankAccount)
+	if err != nil {
+		client.SendError(err. Error())
+		return
+	}
+
+	// Step 9: Process withdrawal based on flow
+	h.processWithdrawalFlow(client, withdrawalReq, userAccount, req, selectedPartner, agent, agentAccount, isAgentFlow, amountInUSD, exchangeRate, phoneNumber, bankAccount)
+}
+
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+
+// parseWithdrawalRequest parses and returns the withdrawal request
+func (h *PaymentHandler) parseWithdrawalRequest(data json.RawMessage) (*WithdrawalRequest, error) {
+	var req WithdrawalRequest
+	if err := json.Unmarshal(data, &req); err != nil {
+		return nil, fmt.Errorf("invalid request format")
+	}
+	
+	// Round amount to 2 decimal places
+	req.Amount = roundTo2Decimals(req.Amount)
+	
+	return &req, nil
+}
+
+// validateWithdrawalVerification validates the verification token
+func (h *PaymentHandler) validateWithdrawalVerification(ctx context.Context, client *Client, req *WithdrawalRequest) error {
+	if req.VerificationToken == "" {
+		return fmt.Errorf("verification_token is required.  Please complete verification first")
+	}
+
+	if ! req. Consent {
+		return fmt. Errorf("you have to consent before processing a withdrawal")
+	}
+
+	tokenUserID, err := h.validateVerificationToken(ctx, req. VerificationToken, VerificationPurposeWithdrawal)
+	if err != nil {
+		h.logger. Warn("invalid verification token",
 			zap.String("user_id", client.UserID),
 			zap.Error(err))
-		client.SendError("invalid or expired verification token. Please verify again.")
-		return
+		return fmt.Errorf("invalid or expired verification token.  Please verify again")
 	}
 
 	if tokenUserID != client.UserID {
 		h.logger.Warn("token user mismatch",
-			zap.String("client_user_id", client.UserID),
+			zap. String("client_user_id", client.UserID),
 			zap.String("token_user_id", tokenUserID))
-		client.SendError("verification token does not belong to you")
-		return
+		return fmt.Errorf("verification token does not belong to you")
 	}
 
-	req.Amount = roundTo2Decimals(req.Amount)
+	return nil
+}
 
-	// ✅ Step 2: Validate request
+// validateWithdrawalRequest validates the withdrawal request data
+func (h *PaymentHandler) validateWithdrawalRequest(req *WithdrawalRequest) error {
 	if req.Amount <= 0 {
-		client.SendError("amount must be greater than zero")
-		return
+		return fmt.Errorf("amount must be greater than zero")
 	}
-	if req.Amount < 0.01 {
-		client.SendError("amount must be at least 0.01")
-		return
+	if req.Amount < 10 {
+		return fmt. Errorf("amount must be at least 10")
 	}
 	if req.Amount > 999999999999999999.99 {
-		client.SendError("amount exceeds maximum allowed value")
-		return
+		return fmt. Errorf("amount exceeds maximum allowed value")
 	}
-	if req.LocalCurrency == "" {
-		client.SendError("local_currency is required")
-		return
+	if req. Destination == "" {
+		return fmt.Errorf("destination is required")
 	}
-	if req.Destination == "" {
-		client.SendError("destination is required")
-		return
-	}
+	return nil
+}
 
-	userIDInt, _ := strconv.ParseInt(client.UserID, 10, 64)
-
-	// ✅ NEW:  Fetch user profile to get phone number and bank account
-	profile, err := h.profileFetcher.FetchProfile(ctx, "user", client.UserID)
+// validateUserProfileForWithdrawal fetches profile and validates payment method requirements
+// If destination is provided, it takes priority over profile phone/bank account
+func (h *PaymentHandler) validateUserProfileForWithdrawal(ctx context.Context, userID string, req *WithdrawalRequest) (string, string, error) {
+	// Fetch user profile
+	profile, err := h. profileFetcher.FetchProfile(ctx, "user", userID)
 	if err != nil {
 		h.logger.Error("failed to fetch user profile",
-			zap.String("user_id", client.UserID),
+			zap.String("user_id", userID),
 			zap.Error(err))
-		client.SendError("failed to fetch user profile")
-		return
+		return "", "", fmt.Errorf("failed to fetch user profile")
 	}
 
-	// ✅ Determine service type
-	var service string
+	// Determine service
+	service := "mpesa" // default
 	if req.Service != nil {
 		service = *req.Service
-	} else {
-		// Default service based on currency/destination
-		service = "mpesa" // or determine from destination
 	}
 
-	// ✅ Check if service requires phone number
-	var phoneNumber string
-	var bankAccount string
+	var phoneNumber, bankAccount string
 
+	// Check phone number requirement
 	if servicesRequiringPhone[service] {
-		if profile.Phone == "" {
-			h.logger.Warn("phone number required but not set",
-				zap.String("user_id", client.UserID),
+		// ✅ Priority: Use provided destination, then fall back to profile phone
+		if req.Destination != "" {
+			phoneNumber = req.Destination
+			h.logger.Info("using provided destination for withdrawal",
+				zap.String("user_id", userID),
+				zap.String("service", service),
+				zap.String("destination", phoneNumber))
+		} else if profile.Phone != "" {
+			phoneNumber = profile.Phone
+			h.logger.Info("using profile phone number for withdrawal",
+				zap.String("user_id", userID),
+				zap.String("service", service),
+				zap.String("phone", phoneNumber))
+		} else {
+			h.logger.Warn("phone number required but not provided",
+				zap.String("user_id", userID),
 				zap.String("service", service))
-			client.SendError("phone number is required for this payment method. Please add your phone number in profile settings.")
-			return
+			return "", "", fmt. Errorf("phone number is required for this payment method. Please provide a destination or add your phone number in profile settings")
 		}
-		phoneNumber = profile.Phone
-		h.logger.Info("phone number validated for withdrawal",
-			zap.String("user_id", client.UserID),
-			zap.String("service", service),
-			zap.String("phone", phoneNumber))
 	}
 
-	// ✅ Check if service requires bank account
+	// Check bank account requirement
 	if servicesRequiringBank[service] {
-		if profile.BankAccount == "" {
-			h.logger.Warn("bank account required but not set",
-				zap.String("user_id", client.UserID),
+		// ✅ Priority: Use provided destination, then fall back to profile bank account
+		if req.Destination != "" {
+			bankAccount = req.Destination
+			h.logger.Info("using provided destination for withdrawal",
+				zap.String("user_id", userID),
+				zap.String("service", service),
+				zap.String("destination", bankAccount))
+		} else if profile.BankAccount != "" {
+			bankAccount = profile.BankAccount
+			h.logger.Info("using profile bank account for withdrawal",
+				zap.String("user_id", userID),
+				zap.String("service", service),
+				zap.String("bank_account", bankAccount))
+		} else {
+			h.logger.Warn("bank account required but not provided",
+				zap.String("user_id", userID),
 				zap.String("service", service))
-			client.SendError("bank account is required for this payment method. Please add your bank account in profile settings.")
-			return
+			return "", "", fmt. Errorf("bank account is required for this payment method. Please provide a destination or add your bank account in profile settings")
 		}
-		bankAccount = profile.BankAccount
-		h.logger.Info("bank account validated for withdrawal",
-			zap.String("user_id", client.UserID),
-			zap.String("service", service),
-			zap.String("bank_account", bankAccount))
 	}
 
-	// ✅ Step 3: Determine flow and calculate USD amount
-	var selectedPartner *partnersvcpb.Partner
-	var agent *accountingpb.Agent
-	var agentAccount *accountingpb.Account
-	var amountInUSD float64
-	var exchangeRate float64
-	var isAgentFlow bool
+	return phoneNumber, bankAccount, nil
+}
 
-	partners, err := h.GetPartnersByService(ctx, service)
+// selectPartnerAndConvert selects a partner and converts currency
+func (h *PaymentHandler) selectPartnerAndConvert(ctx context.Context, userID string, req *WithdrawalRequest) (*partnersvcpb.Partner, float64, float64, error) {
+	// Determine service
+	service := "mpesa" // default
+	if req.Service != nil {
+		service = *req.Service
+	}
+
+	// Get partners for service
+	partners, err := h. GetPartnersByService(ctx, service)
 	if err != nil || len(partners) == 0 {
-		client.SendError("no partners available for currency conversion")
-		return
+		return nil, 0, 0, fmt.Errorf("no partners available for currency conversion")
 	}
-	selectedPartner = SelectRandomPartner(partners)
 
-	// ✅ Convert local amount to USD
+	selectedPartner := SelectRandomPartner(partners)
+	req.LocalCurrency = selectedPartner.LocalCurrency
+
+	// Convert to USD
 	currencyService := convsvc.NewCurrencyService(h.partnerClient)
-	var convErr error
-	amountInUSD, exchangeRate, convErr = currencyService.ConvertToUSDWithValidation(ctx, selectedPartner, req.Amount)
-	if convErr != nil {
+	amountInUSD, exchangeRate, err := currencyService.ConvertToUSDWithValidation(ctx, selectedPartner, req.Amount)
+	if err != nil {
 		h.logger.Error("currency conversion failed",
-			zap.String("user_id", client.UserID),
+			zap. String("user_id", userID),
 			zap.Float64("amount", req.Amount),
 			zap.String("currency", req.LocalCurrency),
-			zap.Error(convErr))
-		client.SendError("currency conversion failed:  " + convErr.Error())
-		return
+			zap.Error(err))
+		return nil, 0, 0, fmt.Errorf("currency conversion failed: %v", err)
 	}
 
-	if req.AgentID != nil && *req.AgentID != "" {
-		// ===== AGENT FLOW =====
-		isAgentFlow = true
+	return selectedPartner, amountInUSD, exchangeRate, nil
+}
 
-		// Fetch agent with accounts
-		agentResp, err := h.accountingClient.Client.GetAgentByID(ctx, &accountingpb.GetAgentByIDRequest{
-			AgentExternalId: *req.AgentID,
-			IncludeAccounts: true,
-		})
-
-		if err != nil {
-			h.logger.Error("failed to get agent",
-				zap.String("agent_id", *req.AgentID),
-				zap.Error(err))
-			client.SendError("invalid agent:  " + err.Error())
-			return
-		}
-
-		if agentResp.Agent == nil || ! agentResp.Agent.IsActive {
-			client.SendError("agent not found or inactive")
-			return
-		}
-
-		agent = agentResp.Agent
-
-		// Find agent's USD account
-		for _, acc := range agent.Accounts {
-			if acc.Currency == "USD" &&
-				(acc.Purpose == accountingpb.AccountPurpose_ACCOUNT_PURPOSE_WALLET ||
-					acc.Purpose == accountingpb.AccountPurpose_ACCOUNT_PURPOSE_COMMISSION) &&
-				acc.IsActive && ! acc.IsLocked {
-				agentAccount = acc
-				break
-			}
-		}
-
-		if agentAccount == nil {
-			client.SendError("agent does not have an active USD account")
-			return
-		}
-
-		h.logger.Info("withdrawal to agent",
-			zap.Int64("user_id", userIDInt),
-			zap.String("agent_id", agent.AgentExternalId),
-			zap.String("agent_account", agentAccount.AccountNumber))
-	} else {
-		// ===== PARTNER FLOW =====
-		isAgentFlow = false
+// handleAgentFlow handles agent-specific logic if agent ID is provided
+func (h *PaymentHandler) handleAgentFlow(ctx context.Context, client *Client, req *WithdrawalRequest, userIDInt int64) (*accountingpb.Agent, *accountingpb.Account, bool, error) {
+	if req.AgentID == nil || *req.AgentID == "" {
+		return nil, nil, false, nil // Not agent flow
 	}
 
-	// ✅ Step 4: Get user USD account
-	userAccount, err := h.GetAccountByCurrency(ctx, client.UserID, "user", "USD")
+	// Fetch agent with accounts
+	agentResp, err := h.accountingClient.Client.GetAgentByID(ctx, &accountingpb.GetAgentByIDRequest{
+		AgentExternalId: *req.AgentID,
+		IncludeAccounts:  true,
+	})
+	if err != nil {
+		h. logger.Error("failed to get agent",
+			zap.String("agent_id", *req. AgentID),
+			zap.Error(err))
+		return nil, nil, false, fmt. Errorf("invalid agent:  %v", err)
+	}
+
+	if agentResp.Agent == nil || ! agentResp.Agent.IsActive {
+		return nil, nil, false, fmt.Errorf("agent not found or inactive")
+	}
+
+	agent := agentResp.Agent
+
+	// Find agent's USD account
+	var agentAccount *accountingpb.Account
+	for _, acc := range agent.Accounts {
+		if acc.Currency == "USD" &&
+			(acc.Purpose == accountingpb.AccountPurpose_ACCOUNT_PURPOSE_WALLET ||
+				acc.Purpose == accountingpb.AccountPurpose_ACCOUNT_PURPOSE_COMMISSION) &&
+			acc.IsActive && ! acc.IsLocked {
+			agentAccount = acc
+			break
+		}
+	}
+
+	if agentAccount == nil {
+		return nil, nil, false, fmt.Errorf("agent does not have an active USD account")
+	}
+
+	h.logger.Info("withdrawal to agent",
+		zap. Int64("user_id", userIDInt),
+		zap.String("agent_id", agent.AgentExternalId),
+		zap.String("agent_account", agentAccount.AccountNumber))
+
+	return agent, agentAccount, true, nil
+}
+
+// validateUserBalance gets user account and checks if they have sufficient balance
+func (h *PaymentHandler) validateUserBalance(ctx context.Context, userID string, amountInUSD, amountLocal float64, localCurrency string) (string, error) {
+	// Get user USD account
+	userAccount, err := h.GetAccountByCurrency(ctx, userID, "user", "USD")
 	if err != nil {
 		h.logger.Error("failed to get user account",
-			zap.String("user_id", client.UserID),
+			zap. String("user_id", userID),
 			zap.Error(err))
-		client.SendError("failed to get user account: " + err.Error())
-		return
+		return "", fmt.Errorf("failed to get user account: %v", err)
 	}
 
-	// ✅ Step 5: Check user balance (in USD)
-	balanceResp, err := h.accountingClient.Client.GetBalance(ctx, &accountingpb.GetBalanceRequest{
+	// Check balance
+	balanceResp, err := h. accountingClient.Client.GetBalance(ctx, &accountingpb.GetBalanceRequest{
 		Identifier: &accountingpb.GetBalanceRequest_AccountNumber{
 			AccountNumber: userAccount,
 		},
 	})
 	if err != nil {
-		client.SendError("failed to check balance: " + err.Error())
-		return
+		return "", fmt.Errorf("failed to check balance: %v", err)
 	}
 
-	if balanceResp.Balance.AvailableBalance < amountInUSD {
-		client.SendError(fmt.Sprintf("insufficient balance: need %.2f USD (%.2f %s), have %.2f USD",
-			amountInUSD, req.Amount, req.LocalCurrency, balanceResp.Balance.AvailableBalance))
-		return
+	if balanceResp.Balance. AvailableBalance < amountInUSD {
+		return "", fmt.Errorf("insufficient balance: need %.2f USD (%.2f %s), have %.2f USD",
+			amountInUSD, amountLocal, localCurrency, balanceResp.Balance.AvailableBalance)
 	}
 
-	// ✅ Step 6: Create withdrawal request
+	return userAccount, nil
+}
+
+// createWithdrawalRequest creates and saves the withdrawal request
+func (h *PaymentHandler) createWithdrawalRequest(userIDInt int64, req *WithdrawalRequest, partner *partnersvcpb.Partner, amountInUSD, exchangeRate float64, phoneNumber, bankAccount string) (*domain.WithdrawalRequest, error) {
+	ctx := context.Background()
+
 	withdrawalReq := &domain.WithdrawalRequest{
 		UserID:          userIDInt,
 		RequestRef:      id.GenerateTransactionID("WD"),
-		Amount:          amountInUSD, // Store USD amount
-		Currency:        "USD",       // Store USD currency
+		Amount:          amountInUSD,
+		Currency:        "USD",
 		Destination:     req.Destination,
 		Service:         req.Service,
 		AgentExternalID: req.AgentID,
-		PartnerID:       &selectedPartner.Id,
+		PartnerID:       &partner.Id,
 		Status:          domain.WithdrawalStatusPending,
 		CreatedAt:       time.Now(),
 		UpdatedAt:       time.Now(),
 	}
 
-	// Store original amount and rate in metadata
+	// Store original amount and rate
 	withdrawalReq.SetOriginalAmount(req.Amount, req.LocalCurrency, exchangeRate)
 
-	// ✅ Add phone number and bank account to metadata if available
+	// Add phone and bank to metadata
 	if withdrawalReq.Metadata == nil {
-		withdrawalReq.Metadata = make(map[string]interface{})
+		withdrawalReq. Metadata = make(map[string]interface{})
 	}
 	if phoneNumber != "" {
 		withdrawalReq.Metadata["phone_number"] = phoneNumber
 	}
 	if bankAccount != "" {
-		withdrawalReq.Metadata["bank_account"] = bankAccount
+		withdrawalReq. Metadata["bank_account"] = bankAccount
 	}
 
 	// Save to database
-	if err := h.userUc.CreateWithdrawalRequest(ctx, withdrawalReq); err != nil {
+	if err := h. userUc.CreateWithdrawalRequest(ctx, withdrawalReq); err != nil {
 		h.logger.Error("failed to create withdrawal request",
 			zap.Int64("user_id", userIDInt),
 			zap.Error(err))
-		client.SendError("failed to create withdrawal request:  " + err.Error())
-		return
+		return nil, fmt.Errorf("failed to create withdrawal request: %v", err)
 	}
 
 	h.logger.Info("withdrawal request created",
 		zap.String("request_ref", withdrawalReq.RequestRef),
 		zap.Int64("user_id", userIDInt),
 		zap.Float64("amount_usd", amountInUSD),
-		zap.Float64("amount_local", req.Amount),
+		zap.Float64("amount_local", req. Amount),
 		zap.String("currency_local", req.LocalCurrency),
 		zap.String("phone_number", phoneNumber))
 
-	// Step 7: Process based on flow
+	return withdrawalReq, nil
+}
+
+// processWithdrawalFlow processes the withdrawal based on the flow type
+func (h *PaymentHandler) processWithdrawalFlow(
+	client *Client,
+	withdrawalReq *domain.WithdrawalRequest,
+	userAccount string,
+	req *WithdrawalRequest,
+	partner *partnersvcpb.Partner,
+	agent *accountingpb.Agent,
+	agentAccount *accountingpb.Account,
+	isAgentFlow bool,
+	amountInUSD, exchangeRate float64,
+	phoneNumber, bankAccount string,
+) {
 	if isAgentFlow && agent != nil {
-		// Transfer to agent account
-		go h.processWithdrawalToAgent(withdrawalReq, userAccount, agentAccount.AccountNumber, agent, req.Amount, req.LocalCurrency, phoneNumber, bankAccount)
+		// Agent flow
+		go h.processWithdrawalToAgent(withdrawalReq, userAccount, agentAccount. AccountNumber, agent, req. Amount, req.LocalCurrency, phoneNumber, bankAccount)
 
 		client.SendSuccess("withdrawal request created and being processed", map[string]interface{}{
-			"request_ref":       withdrawalReq.RequestRef,
+			"request_ref":      withdrawalReq.RequestRef,
 			"amount_usd":       amountInUSD,
 			"amount_local":     req.Amount,
 			"local_currency":   req.LocalCurrency,
@@ -310,11 +426,11 @@ func (h *PaymentHandler) handleWithdrawRequest(ctx context.Context, client *Clie
 			"agent_id":         agent.AgentExternalId,
 			"agent_name":       agent.Name,
 			"status":           "processing",
-			"phone_number":      phoneNumber,
+			"phone_number":     phoneNumber,
 		})
 	} else if req.Service != nil && *req.Service != "" {
-		// NEW: Partner withdrawal (send to partner for payout)
-		go h.processWithdrawalViaPartner(withdrawalReq, userAccount, selectedPartner, req.Amount, req.LocalCurrency, phoneNumber, bankAccount)
+		// Partner flow
+		go h.processWithdrawalViaPartner(withdrawalReq, userAccount, partner, req.Amount, req.LocalCurrency, phoneNumber, bankAccount)
 
 		client.SendSuccess("withdrawal request created and being processed", map[string]interface{}{
 			"request_ref":      withdrawalReq.RequestRef,
@@ -324,14 +440,14 @@ func (h *PaymentHandler) handleWithdrawRequest(ctx context.Context, client *Clie
 			"exchange_rate":    exchangeRate,
 			"destination":      req.Destination,
 			"withdrawal_type":  "partner",
-			"partner_id":       selectedPartner.Id,
-			"partner_name":     selectedPartner.Name,
+			"partner_id":       partner.Id,
+			"partner_name":     partner.Name,
 			"status":           "processing",
-			"phone_number":     phoneNumber,
+			"phone_number":      phoneNumber,
 		})
 	} else {
-		// Normal withdrawal (debit only)
-		go h.processWithdrawal(withdrawalReq, userAccount, req.Amount, req.LocalCurrency)
+		// Direct flow
+		go h.processWithdrawal(withdrawalReq, userAccount, req. Amount, req.LocalCurrency)
 
 		client.SendSuccess("withdrawal request created and being processed", map[string]interface{}{
 			"request_ref":      withdrawalReq.RequestRef,

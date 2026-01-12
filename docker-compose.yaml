@@ -988,7 +988,7 @@ services:
       - "212.95.35.81:host-gateway"  
   
   payment-service:
-    build:
+    build: 
       context: .
       dockerfile: services/common-services/fx-services/payment-service/Dockerfile
     container_name: payment-service
@@ -1003,23 +1003,23 @@ services:
       - "traefik.http.routers.payment.rule=PathPrefix(`/api/v1/payments`) || PathPrefix(`/api/v1/webhooks`) || PathPrefix(`/api/v1/callbacks`)"
       - "traefik.http.routers.payment.entrypoints=web"
       - "traefik.http.services.payment.loadbalancer.server.port=8027"
-      
-      # Strip prefix middleware (optional)
-      # - "traefik.http.middlewares.payment-stripprefix.stripprefix.prefixes=/api/v1"
-      # - "traefik.http.routers.payment.middlewares=payment-stripprefix"
     
     env_file:
-      - ./services/common-services/fx-services/payment-service/.env
+      - ./services/common-services/fx-services/payment-service/. env
     
-    ports:
-      - "8027:8027"  # HTTP port (for webhooks/callbacks)
+    ports: 
+      - "8027:8027"
     
     environment:
-      # Server
+      # ============================================
+      # SERVER CONFIGURATION
+      # ============================================
       SERVER_PORT: 8027
       ENVIRONMENT: production
       
-      # Database
+      # ============================================
+      # DATABASE CONFIGURATION
+      # ============================================
       DB_HOST: 212.95.35.81
       DB_PORT: 5432
       DB_USER: sam
@@ -1027,37 +1027,102 @@ services:
       DB_NAME: pxyz_fx
       DB_SSL_MODE: disable
       
-      # M-Pesa Configuration
+      # ============================================
+      # M-PESA STK PUSH CONFIGURATION
+      # ============================================
       MPESA_ENVIRONMENT: production
-      MPESA_CERT_PATH: /app/certs/cert.cer
+      MPESA_CERT_PATH:  /app/certs/cert. cer
       MPESA_CONSUMER_KEY: ${MPESA_CONSUMER_KEY:-wEA6YGhwryMXXTKtd1D56GB4JAs3x8crdrO2Od1oBjd1lrrJ}
       MPESA_CONSUMER_SECRET: ${MPESA_CONSUMER_SECRET:-DWravQBWqsX1H4BADy5aIS4tVx2cQSsfCRPsVjA3q5od5IKKKptjkk1WGpdGDZ5B}
-      MPESA_PASSKEY: ${MPESA_PASSKEY:-88d5db37f317ec4187458429c2ad4082ceb0691becbfd19589da695d2866058a}
+      MPESA_PASSKEY:  ${MPESA_PASSKEY:-88d5db37f317ec4187458429c2ad4082ceb0691becbfd19589da695d2866058a}
       MPESA_SHORT_CODE: ${MPESA_SHORT_CODE:-4001513}
-      MPESA_INITIATOR_NAME: ${MPESA_INITIATOR_NAME:-testapi}
+      MPESA_INITIATOR_NAME: ${MPESA_INITIATOR_NAME:-SAMWEB}
+      MPESA_INITIATOR_PASSWORD: ${MPESA_INITIATOR_PASSWORD:-Samson@200010!}
       MPESA_SECURITY_CREDENTIAL: ${MPESA_SECURITY_CREDENTIAL:-your_security_credential}
-
+      
+      # ============================================
+      # M-PESA B2C CONFIGURATION
+      # ============================================
       B2C_SHORT_CODE: ${B2C_SHORT_CODE:-4001513}
-      B2C_INITIATOR_NAME: ${B2C_INITIATOR_NAME:-SAMWEB}
-      B2C_PASSWORD: ${B2C_PASSWORD:-Samson@200010!}
+      B2C_INITIATOR_NAME:  ${B2C_INITIATOR_NAME:-SAMWEB}
+      B2C_PASSWORD:  ${B2C_PASSWORD:-Samson@200010!}
       B2C_SECURITY_CREDENTIAL: ${B2C_SECURITY_CREDENTIAL:-your_b2c_security_credential}
-      B2C_PASSKEY:  ${B2C_PASSKEY:-88d5db37f317ec4187458429c2ad4082ceb0691becbfd19589da695d2866058a}
-      B2C_CONSUMER_KEY: ${B2C_CONSUMER_KEY:-wEA6YGhwryMXXTKtd1D56GB4JAs3x8crdrO2Od1oBjd1lrrJ}
+      B2C_PASSKEY: ${B2C_PASSKEY:-88d5db37f317ec4187458429c2ad4082ceb0691becbfd19589da695d2866058a}
+      B2C_CONSUMER_KEY:  ${B2C_CONSUMER_KEY:-wEA6YGhwryMXXTKtd1D56GB4JAs3x8crdrO2Od1oBjd1lrrJ}
       B2C_CONSUMER_SECRET: ${B2C_CONSUMER_SECRET:-DWravQBWqsX1H4BADy5aIS4tVx2cQSsfCRPsVjA3q5od5IKKKptjkk1WGpdGDZ5B}
       
-      # Partner Configuration
+      # ============================================
+      # M-PESA B2B CONFIGURATION
+      # ============================================
+      B2B_CONSUMER_KEY: ${B2B_CONSUMER_KEY:-wEA6YGhwryMXXTKtd1D56GB4JAs3x8crdrO2Od1oBjd1lrrJ}
+      B2B_CONSUMER_SECRET: ${B2B_CONSUMER_SECRET:-DWravQBWqsX1H4BADy5aIS4tVx2cQSsfCRPsVjA3q5od5IKKKptjkk1WGpdGDZ5B}
+      B2B_SHORTCODE: ${B2B_SHORTCODE:-4001513}
+      B2B_INITIATOR_NAME: ${B2B_INITIATOR_NAME:-SAFARIB2B}
+      B2B_INITIATOR_PASSWORD: ${B2B_INITIATOR_PASSWORD:-Samson@200010! }
+      B2B_SECURITY_CREDENTIAL: ${B2B_SECURITY_CREDENTIAL:-your_b2b_security_credential}
+      
+      # ============================================
+      # LEGACY PARTNER CONFIGURATION (Backward Compatibility)
+      # ============================================
       PARTNER_API_KEY: ${PARTNER_API_KEY:-pk_P-cFwhoDeQZPmERPPCp-ssCQcNm1JAkUI7-kjnOChd8=}
       PARTNER_API_SECRET: ${PARTNER_API_SECRET:-sk__SvW-useAWtD29zZbN1R0q6s4efACf2IR5AT3gU3hmnlVTJNxPJne7Na2kDjoxDh}
       PARTNER_WEBHOOK_URL: https://api.safarigari.com
       CALLBACK_BASE_URL: https://api.safarigari.com
       
-      # Redis
+      # ============================================
+      # MULTI-PARTNER CONFIGURATION
+      # ============================================
+      PARTNER_IDS: ${PARTNER_IDS:-MPESA,airtel,bank-ke,orangemoney}
+      
+      # ============================================
+      # PARTNER 1: MPESA
+      # ============================================
+      PARTNER_MPESA_NAME: ${PARTNER_MPESA_NAME:-MPESA M-Pesa}
+      PARTNER_MPESA_API_KEY: ${PARTNER_MPESA_API_KEY:-pk_P-cFwhoDeQZPmERPPCp-ssCQcNm1JAkUI7-kjnOChd8=}
+      PARTNER_MPESA_API_SECRET: ${PARTNER_MPESA_API_SECRET:-sk__SvW-useAWtD29zZbN1R0q6s4efACf2IR5AT3gU3hmnlVTJNxPJne7Na2kDjoxDh}
+      PARTNER_MPESA_WEBHOOK_URL: ${PARTNER_MPESA_WEBHOOK_URL:-https://api.safarigari.com/api/v1/webhooks/payment}
+      PARTNER_MPESA_CALLBACK_URL: ${PARTNER_MPESA_CALLBACK_URL:-https://payment-service.com/callbacks/mpesa}
+      PARTNER_MPESA_ENABLED: ${PARTNER_MPESA_ENABLED:-true}
+      
+      # ============================================
+      # PARTNER 2: AIRTEL
+      # ============================================
+      PARTNER_AIRTEL_NAME: ${PARTNER_AIRTEL_NAME:-Airtel Money Uganda}
+      PARTNER_AIRTEL_API_KEY: ${PARTNER_AIRTEL_API_KEY:-pk_airtel_test_key_12345}
+      PARTNER_AIRTEL_API_SECRET: ${PARTNER_AIRTEL_API_SECRET:-sk_airtel_test_secret_67890}
+      PARTNER_AIRTEL_WEBHOOK_URL:  ${PARTNER_AIRTEL_WEBHOOK_URL:-https://api.safarigari.com/api/v1/webhooks/payment}
+      PARTNER_AIRTEL_CALLBACK_URL: ${PARTNER_AIRTEL_CALLBACK_URL:-https://payment-service.com/callbacks/airtel}
+      PARTNER_AIRTEL_ENABLED: ${PARTNER_AIRTEL_ENABLED:-true}
+      
+      # ============================================
+      # PARTNER 3: BANK-KE
+      # ============================================
+      PARTNER_BANK-KE_NAME: ${PARTNER_BANK-KE_NAME:-Bank Transfer Kenya}
+      PARTNER_BANK-KE_API_KEY: ${PARTNER_BANK-KE_API_KEY:-pk_rwSdQi7tP0Z30jD37NaUEHAaz2NXVq7T9gJZXVQuvD0=}
+      PARTNER_BANK-KE_API_SECRET: ${PARTNER_BANK-KE_API_SECRET:-sk_9gYiC8dvGEJsjfL7k4NPuhunLJsPqxdNmP4UO5DsDgdlvtcKD_drofFKusoUxE05}
+      PARTNER_BANK-KE_WEBHOOK_URL: ${PARTNER_BANK-KE_WEBHOOK_URL:-https://api.safarigari.com/api/v1/webhooks/payment}
+      PARTNER_BANK-KE_CALLBACK_URL: ${PARTNER_BANK-KE_CALLBACK_URL:-https://payment-service.com/callbacks/bank-ke}
+      PARTNER_BANK-KE_ENABLED: ${PARTNER_BANK-KE_ENABLED:-true}
+      
+      # ============================================
+      # PARTNER 4: ORANGE MONEY
+      # ============================================
+      PARTNER_ORANGEMONEY_NAME: ${PARTNER_ORANGEMONEY_NAME:-Orange Money}
+      PARTNER_ORANGEMONEY_API_KEY:  ${PARTNER_ORANGEMONEY_API_KEY:-pk_orange_prod_key}
+      PARTNER_ORANGEMONEY_API_SECRET: ${PARTNER_ORANGEMONEY_API_SECRET:-sk_orange_prod_secret}
+      PARTNER_ORANGEMONEY_WEBHOOK_URL: ${PARTNER_ORANGEMONEY_WEBHOOK_URL:-https://api.safarigari.com/api/v1/webhooks/payment}
+      PARTNER_ORANGEMONEY_CALLBACK_URL: ${PARTNER_ORANGEMONEY_CALLBACK_URL:-https://payment-service.com/callbacks/orangemoney}
+      PARTNER_ORANGEMONEY_ENABLED:  ${PARTNER_ORANGEMONEY_ENABLED:-false}
+      
+      # ============================================
+      # REDIS CONFIGURATION
+      # ============================================
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD:  ""
-      REDIS_DB: 0
+      REDIS_DB:  0
     
-    networks:
+    networks: 
       - micro_net
     
     extra_hosts:
@@ -1070,23 +1135,20 @@ services:
       timeout: 10s
       retries: 3
       start_period: 15s
-
     
     # Dependencies
-    depends_on:
+    depends_on: 
       redis:
         condition: service_healthy
-      # kafka:
-      #   condition: service_healthy
-      accounting-service:
-        condition: service_started  # Payment service calls accounting for credit
+      accounting-service: 
+        condition: service_started
       partner-service:
-        condition: service_started  # Payment service calls partner service
+        condition:  service_started
     
     # Resource limits
     deploy:
       resources: 
-        limits:
+        limits: 
           cpus:  '1.0'
           memory: 1G
         reservations: 

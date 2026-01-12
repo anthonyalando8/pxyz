@@ -73,16 +73,16 @@ func main() {
     mpesaProvider := mpesa.NewMpesaProvider(cfg.Mpesa)
 
     // Initialize clients
-    partnerClient := client.NewPartnerClient(cfg.Partner, logger)
-	partnerCreditClient := client.NewPartnerCreditClient(cfg. Partner, logger)
-    partnerDebitClient := client.NewPartnerDebitClient(cfg.Partner, logger)
+    partnerClient := client.NewPartnerClient(cfg, logger)
+	partnerCreditClient := client.NewPartnerCreditClient(cfg, logger)
+    partnerDebitClient := client.NewPartnerDebitClient(cfg, logger)
 
     // Initialize usecases
     paymentUC := usecase.NewPaymentUsecase(
         paymentRepo,
         providerTxRepo,
         mpesaProvider,
-        cfg.Partner,
+        cfg,
         logger,
     )
 

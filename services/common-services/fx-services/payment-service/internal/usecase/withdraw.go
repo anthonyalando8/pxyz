@@ -14,28 +14,28 @@ import (
 )
 
 // InitiateWithdrawal initiates a withdrawal (called from partner webhook)
-func (uc *PaymentUsecase) InitiateWithdrawal(ctx context. Context, req *domain.WithdrawalRequest) (*domain.Payment, error) {
+func (uc *PaymentUsecase) InitiateWithdrawal(ctx context.Context, req *domain.WithdrawalRequest) (*domain.Payment, error) {
     // Validate request
     if err := req. Validate(); err != nil {
         uc.logger.Error("withdrawal validation failed",
             zap.String("transaction_ref", req.TransactionRef),
-            zap.String("partner_id", req. PartnerID),
+            zap.String("partner_id", req.PartnerID),
             zap.Error(err))
-        return nil, fmt.Errorf("validation failed: %w", err)
+        return nil, fmt. Errorf("validation failed: %w", err)
     }
 
     uc.logger.Info("initiating withdrawal",
-        zap.String("transaction_ref", req.TransactionRef),
-        zap.String("partner_id", req. PartnerID),
+        zap. String("transaction_ref", req. TransactionRef),
+        zap.String("partner_id", req.PartnerID),
         zap.String("provider", string(req.Provider)),
         zap.Float64("amount", req.Amount),
         zap.String("currency", req.Currency),
         zap.String("user_id", req.UserID))
 
     // Check for duplicate (idempotency)
-    existing, err := uc.paymentRepo.GetByPartnerTxRef(ctx, req. PartnerID, req.TransactionRef)
+    existing, err := uc.paymentRepo.GetByPartnerTxRef(ctx, req.PartnerID, req.TransactionRef)
     if err == nil && existing != nil {
-        uc.logger.Info("duplicate withdrawal request detected, returning existing payment",
+        uc. logger.Info("duplicate withdrawal request detected, returning existing payment",
             zap.String("transaction_ref", req.TransactionRef),
             zap.String("payment_ref", existing.PaymentRef),
             zap.String("status", string(existing.Status)))
@@ -43,32 +43,32 @@ func (uc *PaymentUsecase) InitiateWithdrawal(ctx context. Context, req *domain.W
     }
 
     // Use transaction ref as payment ref
-    paymentRef := req.TransactionRef
+    paymentRef := req. TransactionRef
 
     // Create payment record
-    payment := &domain.Payment{
-        PaymentRef:    paymentRef,
-        PartnerID:     req.PartnerID,
+    payment := &domain. Payment{
+        PaymentRef:     paymentRef,
+        PartnerID:     req. PartnerID,
         PartnerTxRef:  req. TransactionRef,
-        Provider:      req.Provider,
+        Provider:       req.Provider,
         PaymentType:   domain.PaymentTypeWithdrawal,
-        Amount:         req.Amount,
+        Amount:        req.Amount,
         Currency:      req.Currency,
         UserID:        req.UserID,
-        AccountNumber: &req.AccountNumber,
+        AccountNumber: &req. AccountNumber,
         PhoneNumber:   &req.PhoneNumber,
-        Status:        domain.PaymentStatusPending,
+        Status:        domain. PaymentStatusPending,
         Description:   &req.Description,
     }
 
     // Add metadata
     if req.Metadata != nil {
-        metadataJSON, _ := json.Marshal(req. Metadata)
+        metadataJSON, _ := json.Marshal(req.Metadata)
         payment.Metadata = metadataJSON
     }
 
     // Save to database
-    if err := uc.paymentRepo.Create(ctx, payment); err != nil {
+    if err := uc. paymentRepo.Create(ctx, payment); err != nil {
         uc.logger.Error("failed to create withdrawal payment",
             zap.String("transaction_ref", req.TransactionRef),
             zap.String("partner_id", req.PartnerID),
@@ -79,7 +79,7 @@ func (uc *PaymentUsecase) InitiateWithdrawal(ctx context. Context, req *domain.W
     uc.logger.Info("withdrawal payment record created successfully",
         zap.Int64("payment_id", payment. ID),
         zap.String("payment_ref", payment.PaymentRef),
-        zap.String("provider", string(payment.Provider)))
+        zap.String("provider", string(payment. Provider)))
 
     // Process based on provider
     switch req.Provider {
@@ -89,40 +89,39 @@ func (uc *PaymentUsecase) InitiateWithdrawal(ctx context. Context, req *domain.W
         go uc.processBankWithdrawal(payment)
     default:
         uc.logger.Error("unsupported payment provider",
-            zap.String("provider", string(req.Provider)),
+            zap. String("provider", string(req. Provider)),
             zap.String("payment_ref", paymentRef))
-        return nil, fmt.Errorf("unsupported provider: %s", req.Provider)
+        return nil, fmt. Errorf("unsupported provider: %s", req.Provider)
     }
 
     return payment, nil
 }
 
 // processMpesaWithdrawal processes M-Pesa withdrawal via B2C
-// processMpesaWithdrawal processes M-Pesa withdrawal via B2C
 func (uc *PaymentUsecase) processMpesaWithdrawal(payment *domain.Payment) {
-    ctx := context. Background()
+    ctx := context.Background()
 
     uc.logger.Info("processing M-Pesa withdrawal",
-        zap. Int64("payment_id", payment. ID),
+        zap.Int64("payment_id", payment.ID),
         zap.String("payment_ref", payment.PaymentRef),
         zap.String("phone_number", *payment.PhoneNumber),
         zap.Float64("amount", payment.Amount))
 
-    // ✅ Parse metadata - same way as deposit
-    var metadata domain. WithdrawalWebhookMetadata
+    // Parse metadata
+    var metadata domain.WithdrawalWebhookMetadata
     if payment.Metadata != nil {
         metadataBytes, err := json.Marshal(payment. Metadata)
         if err != nil {
             uc.logger. Error("failed to marshal payment metadata", zap.Error(err))
-        } else if err := json.Unmarshal(metadataBytes, &metadata); err != nil {
-            uc. logger.Error("failed to unmarshal payment metadata", zap.Error(err))
+        } else if err := json. Unmarshal(metadataBytes, &metadata); err != nil {
+            uc.logger. Error("failed to unmarshal payment metadata", zap.Error(err))
         }
     }
 
-    // ✅ Parse original amount (KES) from metadata - SAME AS DEPOSIT
+    // Parse original amount (KES) from metadata
     var b2cAmount float64
     if metadata.OriginalAmount != "" {
-        parsedAmount, err := strconv.ParseFloat(metadata.OriginalAmount, 64)
+        parsedAmount, err := strconv.ParseFloat(metadata. OriginalAmount, 64)
         if err != nil || parsedAmount <= 0 {
             uc.logger.Error("invalid original_amount in metadata",
                 zap.String("payment_ref", payment.PaymentRef),
@@ -133,9 +132,9 @@ func (uc *PaymentUsecase) processMpesaWithdrawal(payment *domain.Payment) {
         }
     }
 
-    // Fallback (last resort)
+    // Fallback
     if b2cAmount <= 0 {
-        uc.logger. Warn("falling back to payment amount for B2C",
+        uc. logger.Warn("falling back to payment amount for B2C",
             zap.String("payment_ref", payment.PaymentRef),
             zap.Float64("fallback_amount", payment.Amount))
         b2cAmount = payment.Amount
@@ -144,12 +143,12 @@ func (uc *PaymentUsecase) processMpesaWithdrawal(payment *domain.Payment) {
     uc.logger.Info("initiating B2C with original amount",
         zap.String("payment_ref", payment.PaymentRef),
         zap.Float64("b2c_amount", b2cAmount),
-        zap.String("original_currency", metadata. OriginalCurrency),
+        zap.String("original_currency", metadata.OriginalCurrency),
         zap.Float64("converted_amount", payment.Amount),
         zap.String("target_currency", payment.Currency))
 
     // Update status to processing
-    if err := uc.paymentRepo. UpdateStatus(ctx, payment.ID, domain.PaymentStatusProcessing); err != nil {
+    if err := uc.paymentRepo.UpdateStatus(ctx, payment. ID, domain.PaymentStatusProcessing); err != nil {
         uc.logger.Error("failed to update payment status to processing",
             zap.Int64("payment_id", payment.ID),
             zap.String("payment_ref", payment.PaymentRef),
@@ -158,34 +157,34 @@ func (uc *PaymentUsecase) processMpesaWithdrawal(payment *domain.Payment) {
     }
 
     // Build callback URLs
-    resultURL := fmt.Sprintf("%s/api/v1/callbacks/mpesa/b2c/%s", uc. config.CallbackURL, payment. PaymentRef)
-    timeoutURL := fmt.Sprintf("%s/api/v1/callbacks/mpesa/b2c/timeout/%s", uc.config. CallbackURL, payment.PaymentRef)
+    resultURL := fmt.Sprintf("%s/api/v1/callbacks/mpesa/b2c/%s", uc.config.BaseCallbackURL, payment.PaymentRef)
+    timeoutURL := fmt.Sprintf("%s/api/v1/callbacks/mpesa/b2c/timeout/%s", uc.config.BaseCallbackURL, payment.PaymentRef)
 
     uc.logger.Debug("initiating M-Pesa B2C",
         zap.String("payment_ref", payment.PaymentRef),
         zap.Float64("amount", b2cAmount),
         zap.String("result_url", resultURL))
 
-    // ✅ Initiate B2C with original local currency amount
-    response, err := uc.mpesaProvider. InitiateB2C(
+    // Initiate B2C with original local currency amount
+    response, err := uc.mpesaProvider.InitiateB2C(
         ctx,
-        *payment. PhoneNumber,
-        payment. PartnerTxRef,
-        b2cAmount, // ✅ Use original amount (KES, not USD)
+        *payment.PhoneNumber,
+        payment.PartnerTxRef,
+        b2cAmount,
         resultURL,
         timeoutURL,
     )
 
     if err != nil {
         uc.logger.Error("M-Pesa B2C initiation failed",
-            zap.Int64("payment_id", payment.ID),
+            zap.Int64("payment_id", payment. ID),
             zap.String("payment_ref", payment.PaymentRef),
             zap.Error(err))
-        _ = uc.paymentRepo. SetError(ctx, payment.ID, err.Error())
+        _ = uc.paymentRepo.SetError(ctx, payment.ID, err.Error())
         return
     }
 
-    uc. logger.Info("M-Pesa B2C initiated",
+    uc.logger.Info("M-Pesa B2C initiated",
         zap.String("payment_ref", payment.PaymentRef),
         zap.String("conversation_id", response.ConversationID),
         zap.String("response_code", response.ResponseCode))
@@ -193,8 +192,8 @@ func (uc *PaymentUsecase) processMpesaWithdrawal(payment *domain.Payment) {
     // Create provider transaction record
     requestPayload, _ := json.Marshal(map[string]interface{}{
         "phone_number":      *payment.PhoneNumber,
-        "amount":            b2cAmount, // Original amount
-        "converted_amount":  payment.Amount, // USD amount
+        "amount":            b2cAmount,
+        "converted_amount":  payment.Amount,
         "original_currency": metadata.OriginalCurrency,
         "target_currency":   payment.Currency,
         "result_url":        resultURL,
@@ -202,10 +201,10 @@ func (uc *PaymentUsecase) processMpesaWithdrawal(payment *domain.Payment) {
         "account_reference": payment.PartnerTxRef,
     })
 
-    responsePayload, _ := json. Marshal(response)
+    responsePayload, _ := json.Marshal(response)
 
     providerTx := &domain.ProviderTransaction{
-        PaymentID:       payment.ID,
+        PaymentID:        payment.ID,
         Provider:        domain.ProviderMpesa,
         TransactionType: "b2c",
         RequestPayload:  requestPayload,
@@ -241,24 +240,202 @@ func (uc *PaymentUsecase) processMpesaWithdrawal(payment *domain.Payment) {
     }
 }
 
-// processBankWithdrawal processes bank withdrawal
+// ✅ processBankWithdrawal processes bank withdrawal via B2B
 func (uc *PaymentUsecase) processBankWithdrawal(payment *domain.Payment) {
-    ctx := context. Background()
+    ctx := context.Background()
 
-    uc.logger.Info("processing bank withdrawal",
+    uc.logger.Info("processing bank withdrawal via B2B",
         zap.Int64("payment_id", payment.ID),
         zap.String("payment_ref", payment.PaymentRef),
         zap.Float64("amount", payment.Amount))
 
+    // Parse metadata to get bank information
+    var metadata domain.WithdrawalWebhookMetadata
+    if payment. Metadata != nil {
+        metadataBytes, err := json. Marshal(payment.Metadata)
+        if err != nil {
+            uc.logger.Error("failed to marshal payment metadata", zap. Error(err))
+            _ = uc.paymentRepo. SetError(ctx, payment.ID, "failed to parse metadata")
+            return
+        }
+        
+        if err := json.Unmarshal(metadataBytes, &metadata); err != nil {
+            uc.logger.Error("failed to unmarshal payment metadata", zap.Error(err))
+            _ = uc.paymentRepo.SetError(ctx, payment.ID, "failed to parse metadata")
+            return
+        }
+    }
+
+    // Validate bank information exists
+    if metadata.BankAccount == "" {
+        uc.logger. Error("bank_account not found in metadata",
+            zap.String("payment_ref", payment.PaymentRef))
+        _ = uc.paymentRepo.SetError(ctx, payment.ID, "bank_account is required in metadata")
+        return
+    }
+
+    // Parse bank_account format:  "bank_name,account_number"
+    bankName, accountNumber, err := domain.ValidateBankAccount(metadata.BankAccount)
+    if err != nil {
+        uc.logger.Error("invalid bank_account format",
+            zap. String("payment_ref", payment. PaymentRef),
+            zap.String("bank_account", metadata.BankAccount),
+            zap.Error(err))
+        _ = uc.paymentRepo.SetError(ctx, payment.ID, fmt.Sprintf("invalid bank_account:  %v", err))
+        return
+    }
+
+    // Get bank information
+    bankInfo, err := domain.GetBankByName(bankName)
+    if err != nil {
+        uc.logger.Error("bank not found",
+            zap. String("payment_ref", payment. PaymentRef),
+            zap.String("bank_name", bankName),
+            zap.Error(err))
+        _ = uc.paymentRepo.SetError(ctx, payment.ID, fmt.Sprintf("bank not found: %v", err))
+        return
+    }
+
+    uc.logger.Info("bank details retrieved",
+        zap.String("payment_ref", payment.PaymentRef),
+        zap.String("bank_name", bankInfo.Name),
+        zap.String("paybill", bankInfo.PaybillNumber),
+        zap.String("account_number", accountNumber))
+
+    // Parse original amount (KES) from metadata
+    var b2bAmount float64
+    if metadata. OriginalAmount != "" {
+        parsedAmount, err := strconv.ParseFloat(metadata. OriginalAmount, 64)
+        if err != nil || parsedAmount <= 0 {
+            uc.logger.Error("invalid original_amount in metadata",
+                zap.String("payment_ref", payment.PaymentRef),
+                zap.String("original_amount", metadata.OriginalAmount),
+                zap.Error(err))
+        } else {
+            b2bAmount = parsedAmount
+        }
+    }
+
+    // Fallback
+    if b2bAmount <= 0 {
+        uc.logger. Warn("falling back to payment amount for B2B",
+            zap.String("payment_ref", payment.PaymentRef),
+            zap.Float64("fallback_amount", payment.Amount))
+        b2bAmount = payment. Amount
+    }
+
+    uc.logger.Info("initiating B2B with original amount",
+        zap.String("payment_ref", payment.PaymentRef),
+        zap.String("bank_name", bankInfo.Name),
+        zap.String("paybill", bankInfo. PaybillNumber),
+        zap.String("account_number", accountNumber),
+        zap.Float64("b2b_amount", b2bAmount),
+        zap.String("original_currency", metadata.OriginalCurrency),
+        zap.Float64("converted_amount", payment. Amount),
+        zap.String("target_currency", payment.Currency))
+
     // Update status to processing
-    if err := uc.paymentRepo.UpdateStatus(ctx, payment.ID, domain.PaymentStatusProcessing); err != nil {
-        uc.logger.Error("failed to update payment status",
-            zap.Int64("payment_id", payment.ID),
+    if err := uc. paymentRepo.UpdateStatus(ctx, payment.ID, domain.PaymentStatusProcessing); err != nil {
+        uc.logger. Error("failed to update payment status to processing",
+            zap.Int64("payment_id", payment. ID),
+            zap.String("payment_ref", payment.PaymentRef),
             zap.Error(err))
         return
     }
 
-    // TODO:  Implement bank withdrawal processing
-    uc.logger. Warn("bank withdrawal processing not yet implemented",
-        zap.String("payment_ref", payment.PaymentRef))
+    // Build callback URLs
+    resultURL := fmt. Sprintf("%s/api/v1/callbacks/mpesa/b2b/%s", uc.config.BaseCallbackURL, payment.PaymentRef)
+    timeoutURL := fmt. Sprintf("%s/api/v1/callbacks/mpesa/b2b/timeout/%s", uc.config.BaseCallbackURL, payment.PaymentRef)
+
+    // Build remarks
+    remarks := fmt.Sprintf("Withdrawal to %s - %s", bankInfo.Name, payment. PartnerTxRef)
+
+    uc.logger.Debug("initiating M-Pesa B2B",
+        zap.String("payment_ref", payment.PaymentRef),
+        zap.Float64("amount", b2bAmount),
+        zap.String("paybill", bankInfo.PaybillNumber),
+        zap.String("account_number", accountNumber),
+        zap.String("result_url", resultURL))
+
+    // Initiate B2B payment
+    response, err := uc.mpesaProvider.InitiateB2B(
+        ctx,
+        bankInfo.PaybillNumber,  // Bank paybill number
+        accountNumber,            // Customer account number
+        b2bAmount,                // Amount in KES
+        remarks,                  // Remarks
+        resultURL,                // Result URL
+        timeoutURL,               // Timeout URL
+    )
+
+    if err != nil {
+        uc.logger.Error("M-Pesa B2B initiation failed",
+            zap. Int64("payment_id", payment.ID),
+            zap.String("payment_ref", payment. PaymentRef),
+            zap.String("bank_name", bankInfo. Name),
+            zap.Error(err))
+        _ = uc.paymentRepo.SetError(ctx, payment.ID, err.Error())
+        return
+    }
+
+    uc.logger. Info("M-Pesa B2B initiated",
+        zap.String("payment_ref", payment.PaymentRef),
+        zap.String("bank_name", bankInfo.Name),
+        zap.String("conversation_id", response.ConversationID),
+        zap.String("response_code", response.ResponseCode))
+
+    // Create provider transaction record
+    requestPayload, _ := json.Marshal(map[string]interface{}{
+        "bank_name":         bankInfo.Name,
+        "paybill":           bankInfo. PaybillNumber,
+        "account_number":    accountNumber,
+        "amount":            b2bAmount,
+        "converted_amount":  payment.Amount,
+        "original_currency": metadata. OriginalCurrency,
+        "target_currency":   payment. Currency,
+        "result_url":        resultURL,
+        "timeout_url":       timeoutURL,
+        "account_reference": payment.PartnerTxRef,
+        "remarks":           remarks,
+    })
+
+    responsePayload, _ := json.Marshal(response)
+
+    providerTx := &domain. ProviderTransaction{
+        PaymentID:       payment.ID,
+        Provider:        domain.ProviderBank,  // Use ProviderBank
+        TransactionType: "b2b",
+        RequestPayload:   requestPayload,
+        ResponsePayload: responsePayload,
+        Status:          domain.TxStatusSent,
+    }
+
+    if response.ResponseCode == "0" {
+        conversationID := response.ConversationID
+        providerTx.ProviderTxID = &conversationID
+
+        if err := uc.providerTxRepo.Create(ctx, providerTx); err != nil {
+            uc.logger.Error("failed to create provider transaction",
+                zap. Int64("payment_id", payment.ID),
+                zap. String("payment_ref", payment. PaymentRef),
+                zap.Error(err))
+        } else {
+            uc.logger.Info("provider transaction created successfully",
+                zap.Int64("provider_tx_id", providerTx.ID),
+                zap. String("payment_ref", payment. PaymentRef),
+                zap.String("bank_name", bankInfo.Name))
+        }
+    } else {
+        uc.logger. Warn("M-Pesa B2B rejected",
+            zap.String("payment_ref", payment.PaymentRef),
+            zap.String("bank_name", bankInfo.Name),
+            zap.String("response_code", response.ResponseCode),
+            zap.String("response_description", response.ResponseDescription))
+
+        providerTx.Status = domain.TxStatusFailed
+        providerTx.ResultCode = &response.ResponseCode
+        providerTx.ResultDescription = &response.ResponseDescription
+        _ = uc.providerTxRepo.Create(ctx, providerTx)
+        _ = uc.paymentRepo.SetError(ctx, payment.ID, response.ResponseDescription)
+    }
 }
