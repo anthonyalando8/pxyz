@@ -13,6 +13,10 @@ type AppConfig struct {
 	SMTPUser string
 	SMTPPort string
 	SMTPPass string
+	FromName   string
+	ReplyTo    string
+	DomainName string
+
 }
 
 func Load() AppConfig {
@@ -25,6 +29,10 @@ func Load() AppConfig {
 		SMTPUser: getEnv("SMTPUser", ""),
 		SMTPPort: getEnv("SMTPPort", ""),
 		SMTPPass: getEnv("SMTPPass", ""),
+		FromName:   getEnv("EMAIL_FROM_NAME", "Derinance Support"),
+		ReplyTo:    getEnv("EMAIL_REPLY_TO", "support@derinance.com"),
+		DomainName: getEnv("EMAIL_DOMAIN", "derinance.com"),
+
 	}
 }
 

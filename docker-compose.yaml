@@ -313,6 +313,9 @@ services:
       SMTPUser: no_reply@derinance.com
       SMTPPort: 465
       SMTPPass: B-e02G#D-T7O*8Qe
+      EMAIL_FROM_NAME: Derinance Support
+      EMAIL_REPLY_TO: support@derinance.com
+      EMAIL_DOMAIN: derinance.com
     extra_hosts:
       - "212.95.35.81:host-gateway"
     networks:

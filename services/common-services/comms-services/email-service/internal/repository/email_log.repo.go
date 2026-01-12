@@ -8,13 +8,16 @@ import (
 )
 
 type EmailLog struct {
-	ID             string 
-	UserID         string
-	Subject        string
-	RecipientEmail string
-	Type           string
-	Status         string
-	SentAt         time.Time
+	ID             string      `json:"id"`
+	UserID         string     `json:"user_id,omitempty"`
+	Subject        string    `json:"subject,omitempty"`
+	RecipientEmail string     `json:"recipient_email"`
+	Type      string     `json:"email_type"`       // otp, password-reset, etc.
+	Status string     `json:"delivery_status"`  // sent, failed
+	SentAt         time.Time  `json:"sent_at"`
+	ErrorMessage   string    `json:"error_message,omitempty"`
+	Duration       time.Duration      `json:"duration"`         // in milliseconds
+	CreatedAt      time.Time  `json:"created_at"`
 }
 
 type EmailLogRepo struct {

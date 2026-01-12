@@ -1,17 +1,19 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net"
 
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
-	pb "x/shared/genproto/emailpb"
-	"x/shared/utils/id"
+	"email-service/internal/config"
 	"email-service/internal/handler"
 	"email-service/internal/repository"
 	"email-service/internal/service"
-	"email-service/internal/config"
+	pb "x/shared/genproto/emailpb"
+	"x/shared/utils/id"
 )
 
 func main() {
@@ -27,13 +29,26 @@ func main() {
 
 	// Init dependencies
 	emailRepo := repository.NewEmailLogRepo(db)
-	emailSvc := service.NewEmailSender(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass)
+	emailSvc := service.NewEmailSender(service.EmailConfig{
+		SMTPHost:   cfg.SMTPHost,
+		SMTPPort:   cfg.SMTPPort,
+		Username:   cfg.SMTPUser,
+		Password:   cfg.SMTPPass,
+		FromName:   cfg.FromName,
+		ReplyTo:    cfg.ReplyTo,
+		DomainName: cfg.DomainName,
+	})
+	logger, err := zap.NewProduction()
+    if err != nil {
+        panic(fmt.Sprintf("failed to initialize logger: %v", err))
+    }
+    defer logger. Sync()
 
 	// snowflake
 	sf, err := id.NewSnowflake(4)
 	if err != nil { log.Fatalf("sf: %v", err) }
 	// Init handler
-	emailHandler := handler.NewEmailHandler(emailSvc, emailRepo, sf)
+	emailHandler := handler.NewEmailHandler(emailSvc, emailRepo, sf, logger)
 
 	// Start gRPC server
 	listener, err := net.Listen("tcp",cfg.GRPCPort)

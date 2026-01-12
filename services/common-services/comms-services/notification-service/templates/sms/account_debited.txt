@@ -2,7 +2,7 @@
 Hello,
 
 Your account has been debited by {{.Amount}} {{.Currency}} on {{.Date}} at {{.Time}}.
-Ref: {{.ReferenceNumber}}, External Ref: {{.ExternalRef}}.
+Ref: {{.ReferenceNumber}}.
 
 For any queries please contact us.
 {{end}}

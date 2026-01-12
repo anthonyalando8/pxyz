@@ -9,4 +9,7 @@ type EmailLog struct {
 	EmailType      string     `json:"email_type"`       // otp, password-reset, etc.
 	DeliveryStatus string     `json:"delivery_status"`  // sent, failed
 	SentAt         time.Time  `json:"sent_at"`
+	ErrorMessage   string    `json:"error_message,omitempty"`
+	Duration       time.Duration      `json:"duration"`         // in milliseconds
+	CreatedAt      time.Time  `json:"created_at"`
 }
