@@ -2,6 +2,7 @@ package grpchandler
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"time"
 
@@ -32,6 +33,7 @@ func (h *NotificationHandler) CreateNotification(
 	var createdNotifications []*notificationpb.Notification
 
 	for _, nPB := range req.GetNotifications() {
+		fmt.Println(nPB)
 		if nPB.Payload != nil {
 			log.Printf(
 				"[NotificationHandler] Received Payload | EventType=%s | OwnerID=%s | Payload=%+v",
