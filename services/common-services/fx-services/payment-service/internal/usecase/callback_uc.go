@@ -338,31 +338,35 @@ func (uc *CallbackUsecase) ProcessMpesaB2CCallback(ctx context.Context, paymentR
 func (uc *CallbackUsecase) ProcessMpesaB2BCallback(ctx context.Context, paymentRef string, payload []byte) error {
 	uc.logger.Info("received M-Pesa B2B callback",
 		zap.String("payment_ref", paymentRef),
-		zap.Int("payload_size", len(payload)))
+		zap.Int("payload_size", len(payload)),
+		zap.String("raw_payload", string(payload))) // ✅ Log full payload for debugging
 
-	// Parse callback (B2B uses same structure as B2C)
-	callbackResult, err := uc.mpesaProvider.ParseB2BCallback(payload)
+	// ✅ Use flexible parser
+	callbackResult, err := uc. mpesaProvider.ParseB2BCallbackFlexible(payload)
 	if err != nil {
-		uc. logger.Error("failed to parse M-Pesa B2B callback",
+		uc.logger.Error("failed to parse M-Pesa B2B callback",
 			zap.String("payment_ref", paymentRef),
+			zap.String("payload", string(payload)),
 			zap.Error(err))
 		return fmt.Errorf("failed to parse callback: %w", err)
 	}
 
 	uc.logger.Info("M-Pesa B2B callback parsed",
 		zap.String("payment_ref", paymentRef),
-		zap.String("conversation_id", callbackResult.ConversationID),
+		zap.  String("conversation_id", callbackResult.ConversationID),
 		zap.String("result_code", callbackResult.ResultCode),
 		zap.Bool("success", callbackResult.Success),
-		zap.String("transaction_id", callbackResult.TransactionID))
+		zap.String("transaction_id", callbackResult.TransactionID),
+		zap.Float64("amount", callbackResult. Amount),
+		zap.Any("raw_data", callbackResult.RawData))
 
 	// Get payment
 	payment, err := uc. paymentRepo.GetByPaymentRef(ctx, paymentRef)
 	if err != nil {
-		uc.logger.Error("payment not found for B2B callback",
+		uc.logger. Error("payment not found for B2B callback",
 			zap.String("payment_ref", paymentRef),
 			zap.Error(err))
-		return fmt.Errorf("payment not found:  %w", err)
+		return fmt.Errorf("payment not found:   %w", err)
 	}
 
 	// Update callback data
@@ -371,11 +375,11 @@ func (uc *CallbackUsecase) ProcessMpesaB2BCallback(ctx context.Context, paymentR
 	_ = json.Unmarshal(callbackJSON, &callbackData)
 
 	var providerRef *string
-	if callbackResult. ProviderTxID != "" {
-		providerRef = &callbackResult.ProviderTxID
+	if callbackResult.ProviderTxID != "" {
+		providerRef = &callbackResult. ProviderTxID
 	}
 
-	if err := uc.paymentRepo.UpdateCallback(ctx, payment.ID, callbackData, providerRef); err != nil {
+	if err := uc.paymentRepo.UpdateCallback(ctx, payment. ID, callbackData, providerRef); err != nil {
 		uc. logger.Error("failed to update B2B callback data",
 			zap.String("payment_ref", paymentRef),
 			zap.Error(err))
@@ -383,14 +387,14 @@ func (uc *CallbackUsecase) ProcessMpesaB2BCallback(ctx context.Context, paymentR
 
 	// Update status based on result
 	if callbackResult.Success {
-		uc.logger.Info("M-Pesa B2B bank withdrawal successful",
+		uc.logger. Info("M-Pesa B2B bank withdrawal successful",
 			zap.String("payment_ref", paymentRef),
 			zap.String("transaction_id", callbackResult.TransactionID),
 			zap.Float64("amount", callbackResult.Amount))
 
 		// Update payment to completed
-		if err := uc. paymentRepo.UpdateStatus(ctx, payment.ID, domain.PaymentStatusCompleted); err != nil {
-			uc. logger.Error("failed to update payment status to completed",
+		if err := uc.  paymentRepo.UpdateStatus(ctx, payment. ID, domain.PaymentStatusCompleted); err != nil {
+			uc.logger.Error("failed to update payment status to completed",
 				zap.String("payment_ref", paymentRef),
 				zap.Error(err))
 		}
@@ -400,13 +404,13 @@ func (uc *CallbackUsecase) ProcessMpesaB2BCallback(ctx context.Context, paymentR
 		go uc.notifyPartner(payment, callbackResult)
 
 	} else {
-		uc. logger.Warn("M-Pesa B2B bank withdrawal failed",
+		uc. logger. Warn("M-Pesa B2B bank withdrawal failed",
 			zap.String("payment_ref", paymentRef),
 			zap.String("result_code", callbackResult.ResultCode),
 			zap.String("result_description", callbackResult.ResultDescription))
 
 		// Update payment to failed
-		if err := uc.paymentRepo.UpdateStatus(ctx, payment.ID, domain.PaymentStatusFailed); err != nil {
+		if err := uc. paymentRepo.  UpdateStatus(ctx, payment.ID, domain.PaymentStatusFailed); err != nil {
 			uc.logger.Error("failed to update payment status to failed",
 				zap.String("payment_ref", paymentRef),
 				zap.Error(err))

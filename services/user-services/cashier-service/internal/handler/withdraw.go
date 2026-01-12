@@ -157,8 +157,8 @@ func (h *PaymentHandler) validateWithdrawalRequest(req *WithdrawalRequest) error
 	if req.Amount <= 0 {
 		return fmt.Errorf("amount must be greater than zero")
 	}
-	if req.Amount < 10 {
-		return fmt. Errorf("amount must be at least 10")
+	if req.Amount < 5 {
+		return fmt. Errorf("amount must be at least 5")
 	}
 	if req.Amount > 999999999999999999.99 {
 		return fmt. Errorf("amount exceeds maximum allowed value")
