@@ -1080,7 +1080,7 @@ services:
       PARTNER_MPESA_NAME: ${PARTNER_MPESA_NAME:-MPESA M-Pesa}
       PARTNER_MPESA_API_KEY: ${PARTNER_MPESA_API_KEY:-pk_P-cFwhoDeQZPmERPPCp-ssCQcNm1JAkUI7-kjnOChd8=}
       PARTNER_MPESA_API_SECRET: ${PARTNER_MPESA_API_SECRET:-sk__SvW-useAWtD29zZbN1R0q6s4efACf2IR5AT3gU3hmnlVTJNxPJne7Na2kDjoxDh}
-      PARTNER_MPESA_WEBHOOK_URL: ${PARTNER_MPESA_WEBHOOK_URL:-https://api.safarigari.com/api/v1/webhooks/payment}
+      PARTNER_MPESA_WEBHOOK_URL: ${PARTNER_MPESA_WEBHOOK_URL:-https://api.safarigari.com}
       PARTNER_MPESA_CALLBACK_URL: ${PARTNER_MPESA_CALLBACK_URL:-https://payment-service.com/callbacks/mpesa}
       PARTNER_MPESA_ENABLED: ${PARTNER_MPESA_ENABLED:-true}
       
@@ -1090,7 +1090,7 @@ services:
       PARTNER_AIRTEL_NAME: ${PARTNER_AIRTEL_NAME:-Airtel Money Uganda}
       PARTNER_AIRTEL_API_KEY: ${PARTNER_AIRTEL_API_KEY:-pk_airtel_test_key_12345}
       PARTNER_AIRTEL_API_SECRET: ${PARTNER_AIRTEL_API_SECRET:-sk_airtel_test_secret_67890}
-      PARTNER_AIRTEL_WEBHOOK_URL:  ${PARTNER_AIRTEL_WEBHOOK_URL:-https://api.safarigari.com/api/v1/webhooks/payment}
+      PARTNER_AIRTEL_WEBHOOK_URL:  ${PARTNER_AIRTEL_WEBHOOK_URL:-https://api.safarigari.com}
       PARTNER_AIRTEL_CALLBACK_URL: ${PARTNER_AIRTEL_CALLBACK_URL:-https://payment-service.com/callbacks/airtel}
       PARTNER_AIRTEL_ENABLED: ${PARTNER_AIRTEL_ENABLED:-true}
       
@@ -1100,7 +1100,7 @@ services:
       PARTNER_BANK_KE_NAME: ${PARTNER_BANK_KE_NAME:-Bank Transfer Kenya}
       PARTNER_BANK_KE_API_KEY: ${PARTNER_BANK_KE_API_KEY:-pk_pUKedNQf6Q1vscFOyTalzRTMTVcmhuaL8Svcw3Nmpqw=}
       PARTNER_BANK_KE_API_SECRET: ${PARTNER_BANK_KE_API_SECRET:-sk_Vz53qsDODga0n5ZXBJUUApGKw7LCbOkyRg12pf7POmL7qjQN6wVorifojJfHANO8}
-      PARTNER_BANK_KE_WEBHOOK_URL: ${PARTNER_BANK_KE_WEBHOOK_URL:-https://api.safarigari.com/api/v1/webhooks/payment}
+      PARTNER_BANK_KE_WEBHOOK_URL: ${PARTNER_BANK_KE_WEBHOOK_URL:-https://api.safarigari.com}
       PARTNER_BANK_KE_CALLBACK_URL: ${PARTNER_BANK_KE_CALLBACK_URL:-https://payment-service.com/callbacks/BANK_KE}
       PARTNER_BANK_KE_ENABLED: ${PARTNER_BANK_KE_ENABLED:-true}
       
@@ -1110,7 +1110,7 @@ services:
       PARTNER_ORANGEMONEY_NAME: ${PARTNER_ORANGEMONEY_NAME:-Orange Money}
       PARTNER_ORANGEMONEY_API_KEY:  ${PARTNER_ORANGEMONEY_API_KEY:-pk_orange_prod_key}
       PARTNER_ORANGEMONEY_API_SECRET: ${PARTNER_ORANGEMONEY_API_SECRET:-sk_orange_prod_secret}
-      PARTNER_ORANGEMONEY_WEBHOOK_URL: ${PARTNER_ORANGEMONEY_WEBHOOK_URL:-https://api.safarigari.com/api/v1/webhooks/payment}
+      PARTNER_ORANGEMONEY_WEBHOOK_URL: ${PARTNER_ORANGEMONEY_WEBHOOK_URL:-https://api.safarigari.com}
       PARTNER_ORANGEMONEY_CALLBACK_URL: ${PARTNER_ORANGEMONEY_CALLBACK_URL:-https://payment-service.com/callbacks/orangemoney}
       PARTNER_ORANGEMONEY_ENABLED:  ${PARTNER_ORANGEMONEY_ENABLED:-false}
       
