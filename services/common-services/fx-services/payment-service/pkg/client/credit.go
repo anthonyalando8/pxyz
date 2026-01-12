@@ -74,7 +74,7 @@ func (c *PartnerCreditClient) CreditUser(ctx context.Context, partnerID string, 
 		zap.String("external_ref", req.ExternalRef))
 
 	// Build URL - use partner's webhook URL
-	url := fmt.Sprintf("%s/transactions/credit", partner.WebhookURL)
+	url := fmt.Sprintf("%s/api/v1/partner/api/transactions/credit", partner.WebhookURL)
 
 	// Marshal payload
 	payload, err := json.Marshal(req)

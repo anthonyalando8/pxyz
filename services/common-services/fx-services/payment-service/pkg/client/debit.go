@@ -79,7 +79,7 @@ func (c *PartnerDebitClient) DebitUser(ctx context.Context, partnerID string, re
 		zap.String("payment_method", req.PaymentMethod))
 
 	// Build URL - use partner's webhook URL
-	url := fmt.Sprintf("%s/transactions/debit", partner.WebhookURL)
+	url := fmt.Sprintf("%s/api/v1/partner/api/transactions/debit", partner.WebhookURL)
 
 	// Marshal payload
 	payload, err := json. Marshal(req)
