@@ -1098,8 +1098,8 @@ services:
       # PARTNER 3: BANK-KE
       # ============================================
       PARTNER_BANK-KE_NAME: ${PARTNER_BANK-KE_NAME:-Bank Transfer Kenya}
-      PARTNER_BANK-KE_API_KEY: ${PARTNER_BANK-KE_API_KEY:-pk_rwSdQi7tP0Z30jD37NaUEHAaz2NXVq7T9gJZXVQuvD0=}
-      PARTNER_BANK-KE_API_SECRET: ${PARTNER_BANK-KE_API_SECRET:-sk_9gYiC8dvGEJsjfL7k4NPuhunLJsPqxdNmP4UO5DsDgdlvtcKD_drofFKusoUxE05}
+      PARTNER_BANK-KE_API_KEY: ${PARTNER_BANK-KE_API_KEY:-pk_pUKedNQf6Q1vscFOyTalzRTMTVcmhuaL8Svcw3Nmpqw=}
+      PARTNER_BANK-KE_API_SECRET: ${PARTNER_BANK-KE_API_SECRET:-sk_Vz53qsDODga0n5ZXBJUUApGKw7LCbOkyRg12pf7POmL7qjQN6wVorifojJfHANO8}
       PARTNER_BANK-KE_WEBHOOK_URL: ${PARTNER_BANK-KE_WEBHOOK_URL:-https://api.safarigari.com/api/v1/webhooks/payment}
       PARTNER_BANK-KE_CALLBACK_URL: ${PARTNER_BANK-KE_CALLBACK_URL:-https://payment-service.com/callbacks/bank-ke}
       PARTNER_BANK-KE_ENABLED: ${PARTNER_BANK-KE_ENABLED:-true}
