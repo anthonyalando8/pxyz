@@ -439,7 +439,7 @@ type CallbackResult struct {
 // getAccessToken gets M-Pesa OAuth token
 // apiType can be "stk", "b2c", or "b2b"
 func (m *MpesaProvider) getAccessToken(ctx context.Context, apiType string) (string, error) {
-    url := fmt.Sprintf("%s/oauth/v1/generate? grant_type=client_credentials", m.baseURL)
+    url := fmt.Sprintf("%s/oauth/v1/generate?grant_type=client_credentials", m.baseURL)
     
     req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
     if err != nil {
