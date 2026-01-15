@@ -58,7 +58,7 @@
       pre.textContent = "Redirecting to authorization endpoint...";
 
       // Build OAuth2 authorization URL
-      const authorizeUrl = new URL("http://safarigari.com/api/v1/oauth2/authorize");
+      const authorizeUrl = new URL("http://api.safarigari.com/api/v1/oauth2/authorize");
       authorizeUrl.searchParams.set("response_type", "code");
       authorizeUrl.searchParams.set("client_id", "client_Bd44cnVfDlk9UKTWfpaYNg==");
       authorizeUrl.searchParams.set("redirect_uri", "http://127.0.0.1:5500/ui/screen/index.html");
