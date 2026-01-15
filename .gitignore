@@ -93,3 +93,8 @@
 /services/common-services/fx-services/payment-service/.env
 /services/common-services/fx-services/payment-service/certs/
 /services/common-services/fx-services/payment-service/certs/*
+
+
+/services/common-services/fx-services/crypto-service/.env
+/services/common-services/fx-services/crypto-service/secrets/
+/services/common-services/fx-services/crypto-service/secrets/*
