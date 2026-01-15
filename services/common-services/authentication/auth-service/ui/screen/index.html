@@ -54,14 +54,14 @@
           </div>
           <div class="col-md-6 mb-3">
             <label>Client ID</label>
-            <input type="text" name="client_id" class="form-control" value="client_Bd44cnVfDlk9UKTWfpaYNg==" required />
+            <input type="text" name="client_id" class="form-control" value="client_0PhT7X8rDZbqVJ7FW6Bk3A==" required />
           </div>
         </div>
 
         <div class="row">
           <div class="col-md-6 mb-3">
             <label>Client Secret</label>
-            <input type="text" name="client_secret" value="secret_3lU3lCMVxVnc_GiuUYfhXBc3uMNQYpfZpupmtvx89hM=" class="form-control" placeholder="(optional for PKCE)" />
+            <input type="text" name="client_secret" value="secret_GomIOr17XYAWZlG4pigiCCdSHtve2Hc_RqlkPaVebZs=" class="form-control" placeholder="(optional for PKCE)" />
           </div>
           <div class="col-md-6 mb-3">
             <label>Code (auto filled)</label>
@@ -131,7 +131,7 @@
     document.getElementById("loginBtn").addEventListener("click", () => {
       const authorizeUrl = new URL(`${baseURL}/oauth2/authorize`);
       authorizeUrl.searchParams.set("response_type", "code");
-      authorizeUrl.searchParams.set("client_id", "client_Bd44cnVfDlk9UKTWfpaYNg==");
+      authorizeUrl.searchParams.set("client_id", "client_0PhT7X8rDZbqVJ7FW6Bk3A==");
       authorizeUrl.searchParams.set("redirect_uri", "http://api.safarigari.com/api/v1/oauth2/test_redirect");
       authorizeUrl.searchParams.set("scope", "read");
       authorizeUrl.searchParams.set("state", "xyz123");
