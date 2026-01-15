@@ -124,27 +124,40 @@ func (t *TronChain) GetBalance(ctx context.Context, address string, asset *domai
 }
 
 // getTRXBalance gets native TRX balance
-func (t *TronChain) getTRXBalance(ctx context.Context, addressStr string, asset *domain.Asset) (*domain.Balance, error) {
-	t.logger.Info("getting TRX balance",
-		zap.String("address", addressStr))
+// getTRXBalance gets native TRX balance using HTTP API
+func (t *TronChain) getTRXBalance(ctx context. Context, addr string, asset *domain.Asset) (*domain.Balance, error) {
+	t.logger.Info("getting TRX balance via HTTP",
+		zap.String("address", addr))
 
-	addr := address.Address(addressStr)
-	account, err := t.grpcClient.GetAccount(addr.String())
+	// ✅ Use HTTP API (most reliable)
+	accountInfo, err := t.httpClient.GetAccountInfo(ctx, addr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get account: %w", err)
+		// Account might not exist yet (no transactions)
+		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "Not Found") {
+			t.logger.Info("account not found, returning zero balance",
+				zap. String("address", addr))
+			
+			return &domain.Balance{
+				Address:  addr,
+				Asset:    asset,
+				Amount:   big.NewInt(0),
+				Decimals: 6,
+			}, nil
+		}
+		return nil, fmt.Errorf("failed to get account info: %w", err)
 	}
 
-	balance := big.NewInt(account.Balance)
+	balance := big.NewInt(accountInfo.Balance)
 
 	t.logger.Info("TRX balance retrieved",
-		zap.String("address", addressStr),
+		zap.String("address", addr),
 		zap.String("balance", balance.String()))
 
 	return &domain.Balance{
-		Address:  addressStr,
+		Address:  addr,
 		Asset:    asset,
 		Amount:   balance,
-		Decimals: 6, // TRX has 6 decimals
+		Decimals: 6,
 	}, nil
 }
 
@@ -168,51 +181,63 @@ func (t *TronChain) Send(ctx context.Context, req *domain.TransactionRequest) (*
 
 // sendTRX sends native TRX
 // internal/chains/tron/tron_complete.go (UPDATE sendTRX)
+// internal/chains/tron/tron_complete.go (UPDATE sendTRX)
 
-func (t *TronChain) sendTRX(ctx context.Context, req *domain.TransactionRequest) (*domain.TransactionResult, error) {
+// sendTRX sends native TRX
+func (t *TronChain) sendTRX(ctx context.Context, req *domain. TransactionRequest) (*domain.TransactionResult, error) {
 	t.logger.Info("sending TRX transaction",
-		zap. String("from", req.From),
+		zap.String("from", req.From),
 		zap.String("to", req.To),
-		zap.String("amount", req. Amount.String()))
+		zap.String("amount", req.Amount.String()))
 
-	fromAddr := address.Address(req. From)
-	toAddr := address.Address(req.To)
-
-	// Create transaction
-	tx, err := t.grpcClient.Transfer(fromAddr.String(), toAddr.String(), req.Amount.Int64())
+	// ✅ Use the addresses as Base58 strings directly
+	// The SDK should handle the conversion internally
+	tx, err := t.grpcClient.Transfer(req.From, req.To, req.Amount.Int64())
 	if err != nil {
-		return nil, fmt. Errorf("failed to create transaction: %w", err)
+		return nil, fmt.Errorf("failed to create transaction: %w", err)
+	}
+
+	if tx == nil || tx.Transaction == nil {
+		return nil, fmt.Errorf("transaction creation returned empty result")
+	}
+
+	// Check transaction result
+	if tx.Result != nil && tx.Result.Code != 0 {
+		return nil, fmt.Errorf("transaction creation failed: %s", string(tx.Result.Message))
 	}
 
 	// Sign transaction
-	signedTx, err := t.signTransaction(tx. Transaction, req.PrivateKey)
+	signedTx, err := t.signTransaction(tx.Transaction, req.PrivateKey)
 	if err != nil {
-		return nil, fmt. Errorf("failed to sign transaction:  %w", err)
+		return nil, fmt.Errorf("failed to sign transaction: %w", err)
 	}
 
-	// ✅ Calculate transaction hash
+	// Calculate hash
 	txHash, err := getTxHash(signedTx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get transaction hash: %w", err)
+		return nil, fmt.Errorf("failed to get transaction hash:  %w", err)
 	}
 
 	// Broadcast
 	result, err := t.grpcClient.Broadcast(signedTx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to broadcast:  %w", err)
+		return nil, fmt. Errorf("failed to broadcast: %w", err)
 	}
 
 	if !result.Result {
-		return nil, fmt. Errorf("broadcast failed: %s", result.Message)
+		return nil, fmt.Errorf("broadcast failed: %s", string(result.Message))
 	}
 
-	t.logger.Info("TRX transaction sent",
-		zap.String("tx_hash", txHash))
+	t.logger.Info("TRX transaction sent successfully",
+		zap.String("tx_hash", txHash),
+		zap.String("from", req.From),
+		zap.String("to", req.To),
+		zap.String("amount", req.Amount.String()))
 
 	return &domain.TransactionResult{
-		TxHash:     txHash,
-		Status:     domain.TxStatusPending,
-		Fee:       big. NewInt(0),
+		TxHash:    txHash,
+		Status:    domain.TxStatusPending,
+		Fee:       big.NewInt(0),
 		Timestamp: time.Now(),
 	}, nil
 }

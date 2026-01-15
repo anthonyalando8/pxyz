@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	//"strings"
@@ -75,17 +76,17 @@ func (t *TronChain) getTRC20Balance(ctx context.Context, addr string, asset *dom
 	// ✅ Use HTTP client (most reliable)
 	balanceStr, err := t.httpClient.GetTokenBalance(ctx, addr, *asset.ContractAddr)
 	if err != nil {
-		// If HTTP fails, return zero balance (account might not have interacted with token yet)
-		t.logger. Warn("failed to get token balance, assuming zero",
-			zap.String("address", addr),
-			zap.Error(err))
-		
-		return &domain.Balance{
-			Address:  addr,
-			Asset:    asset,
-			Amount:   big.NewInt(0),
-			Decimals: asset.Decimals,
-		}, nil
+		// ✅ Change from Warn to Debug for 404 errors
+		if strings.Contains(err.Error(), "404") {
+			t.logger.Debug("no token transactions yet, returning zero",
+				zap.String("address", addr),
+				zap.String("token", asset.Symbol))
+		} else {
+			t.logger. Warn("failed to get token balance",
+				zap.String("address", addr),
+				zap.Error(err))
+		}
+		balanceStr = "0"
 	}
 
 	// Parse balance

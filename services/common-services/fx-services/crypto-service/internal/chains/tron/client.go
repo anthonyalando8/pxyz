@@ -119,39 +119,67 @@ func (c *TronHTTPClient) GetAccountInfo(ctx context.Context, address string) (*A
 	c.logger.Info("getting account info via HTTP",
 		zap.String("address", address))
 
-	url := fmt.Sprintf("%s/v1/accounts/%s", c.baseURL, address)
+	// Use wallet/getaccount endpoint (works for new accounts too)
+	url := fmt.Sprintf("%s/wallet/getaccount", c.baseURL)
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	payload := map[string]interface{}{
+		"address": address,
+		"visible": true, // Use Base58 address format
+	}
+
+	jsonData, _ := json.Marshal(payload)
+
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	if c.apiKey != "" {
-		req.Header.Set("TRON-PRO-API-KEY", c.apiKey)
+		req. Header.Set("TRON-PRO-API-KEY", c.apiKey)
 	}
-	req.Header. Set("Content-Type", "application/json")
+	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c. httpClient.Do(req)
 	if err != nil {
-		return nil, fmt. Errorf("failed to execute request: %w", err)
+		return nil, fmt.Errorf("failed to execute request: %w", err)
 	}
-	defer resp.Body. Close()
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp. Body)
+
+	// Check for empty response (account doesn't exist yet)
+	if len(body) == 0 || string(body) == "{}" {
+		c.logger.Info("account has no data yet, returning zero balance",
+			zap.String("address", address))
+		
+		return &AccountInfo{
+			Address:       address,
+			Balance:      0,
+			CreateTime:   0,
+			TotalTxCount: 0,
+		}, nil
+	}
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io. ReadAll(resp.Body)
 		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
 	}
 
-	var result struct {
-		Success bool        `json:"success"`
-		Data    AccountInfo `json:"data"`
+	var accountInfo AccountInfo
+	if err := json. Unmarshal(body, &accountInfo); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	if err := json. NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt. Errorf("failed to decode response: %w", err)
+	// If address is empty in response, account doesn't exist
+	if accountInfo.Address == "" {
+		accountInfo.Address = address
+		accountInfo.Balance = 0
 	}
 
-	return &result.Data, nil
+	c.logger.Info("account info retrieved",
+		zap.String("address", address),
+		zap.Int64("balance", accountInfo.Balance))
+
+	return &accountInfo, nil
 }
 
 // AccountInfo represents account information

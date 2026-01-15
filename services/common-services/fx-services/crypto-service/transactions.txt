@@ -1,0 +1,9 @@
+═══════════════════════════════════════════════════════════════
+Transaction Hash: d44dcc0c2d40a8161c7034ae97dfd82ea94af4e4b0bf7afe16b45fa8a1e9501d
+From:            TBjWJNB858R69VmbS6SBMHBazgUfBWiGgh
+To:              TUuP36jySFNFS2BobNkWMtuD2LYUTuPvPg
+Amount:          200.000000 TRX
+Time:            2026-01-15T11:37:08+03:00
+Explorer:        https://shasta.tronscan.org/#/transaction/d44dcc0c2d40a8161c7034ae97dfd82ea94af4e4b0bf7afe16b45fa8a1e9501d
+═══════════════════════════════════════════════════════════════
+

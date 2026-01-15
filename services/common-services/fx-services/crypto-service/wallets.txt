@@ -1,0 +1,14 @@
+TRON TEST WALLETS
+=================
+
+SENDER WALLET:
+Address:      TBjWJNB858R69VmbS6SBMHBazgUfBWiGgh
+Private Key: 98f0221c1dc873234005c1a167304243a0c150154899856e29c4b7b4d51abbe1
+
+RECIPIENT WALLET:
+Address:     TUuP36jySFNFS2BobNkWMtuD2LYUTuPvPg
+Private Key: 061d7baaf6b970f67cf16e7975ab661e51e79c52db114a8255bfed2c43be1f29
+
+TMmwv5Y14U1yukru3VRbG4yPf1hYNnKmx1
+
+Get test TRX:  https://www.trongrid.io/shasta#TBjWJNB858R69VmbS6SBMHBazgUfBWiGgh
