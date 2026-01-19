@@ -1178,7 +1178,7 @@ services:
     env_file:
       - ./services/common-services/fx-services/crypto-service/.env  # Read from .env file
     volumes:
-      - ./services/common-services/fx-services/crypto-service/secrets:/app/secrets: ro
+      - ./services/common-services/fx-services/crypto-service/secrets:/app/secrets:ro
       - ./services/common-services/fx-services/crypto-service/vault:/app/vault  # For file-based vault
     networks:
       - micro_net
