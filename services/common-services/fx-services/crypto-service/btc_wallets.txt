@@ -1,0 +1,16 @@
+BITCOIN TESTNET WALLETS
+==========================
+
+SENDER WALLET:
+Address:     mm8yD5KsgjTosiBczAm8JbeKmsNG5QN87u
+Private Key:  cQPKs4dsNHy1xfX9doppxt6G68ko28pU9Z1FpGqSAv3BjKBz6cZc
+
+RECIPIENT WALLET:
+Address:     miq5uRWViDNykxT975uRSLHxyku2CdkTNn
+Private Key:  cNfmDfCSX8GnMp781Dz397qmezzHQP4AvJYRbxVjamxxaNZrvifD
+
+
+Get testnet BTC:
+  - https://coinfaucet.eu/en/btc-testnet/
+  - https://testnet-faucet.mempool.co/
+  - https://bitcoinfaucet.uo1.net/

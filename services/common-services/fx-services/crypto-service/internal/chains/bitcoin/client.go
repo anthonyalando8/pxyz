@@ -1,4 +1,5 @@
 package bitcoin
+
 // internal/chains/bitcoin/client.go
 import (
 	"bytes"
@@ -7,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -219,8 +221,132 @@ func (c *BitcoinClient) GetTransaction(ctx context. Context, txHash string) (*Tr
 	return &txInfo, nil
 }
 
-// EstimateFee estimates transaction fee (sat/vB)
+
+// EstimateFee estimates transaction fee with multiple fallbacks
 func (c *BitcoinClient) EstimateFee(ctx context.Context, confirmationTarget int) (float64, error) {
+	// Try 1: Mempool.space (most reliable)
+	if fee, err := c.estimateFeeMempool(ctx, confirmationTarget); err == nil {
+		return fee, nil
+	}
+
+	// Try 2: Blockstream API
+	if fee, err := c. estimateFeeBlockstream(ctx, confirmationTarget); err == nil {
+		return fee, nil
+	}
+
+	// Try 3: Bitcoin Core RPC (if configured)
+	if c.rpcURL != "" && ! strings.Contains(c.rpcURL, "blockstream") && !strings.Contains(c.rpcURL, "mempool") {
+		if fee, err := c.estimateFeeRPC(ctx, confirmationTarget); err == nil {
+			return fee, nil
+		}
+	}
+
+	// Fallback:  Use conservative defaults based on network conditions
+	return c.getDefaultFeeRate(confirmationTarget), nil
+}
+
+// estimateFeeMempool gets fee from mempool.space
+func (c *BitcoinClient) estimateFeeMempool(ctx context.Context, confirmationTarget int) (float64, error) {
+	var feeAPIURL string
+	switch c.network {
+	case "mainnet":
+		feeAPIURL = "https://mempool.space/api/v1/fees/recommended"
+	case "testnet":
+		feeAPIURL = "https://mempool.space/testnet/api/v1/fees/recommended"
+	default:
+		feeAPIURL = "https://mempool.space/testnet/api/v1/fees/recommended"
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", feeAPIURL, nil)
+	if err != nil {
+		return 0, err
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	defer resp. Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return 0, fmt.Errorf("status %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp. Body)
+	if err != nil {
+		return 0, err
+	}
+
+	var feeRates struct {
+		FastestFee  int `json:"fastestFee"`
+		HalfHourFee int `json:"halfHourFee"`
+		HourFee     int `json:"hourFee"`
+		EconomyFee  int `json:"economyFee"`
+		MinimumFee  int `json:"minimumFee"`
+	}
+
+	if err := json.Unmarshal(body, &feeRates); err != nil {
+		return 0, err
+	}
+
+	switch {
+	case confirmationTarget <= 1:
+		return float64(feeRates.FastestFee), nil
+	case confirmationTarget <= 3:
+		return float64(feeRates.HalfHourFee), nil
+	case confirmationTarget <= 6:
+		return float64(feeRates. HourFee), nil
+	default:
+		return float64(feeRates.EconomyFee), nil
+	}
+}
+
+// estimateFeeBlockstream gets fee from Blockstream
+func (c *BitcoinClient) estimateFeeBlockstream(ctx context.Context, confirmationTarget int) (float64, error) {
+	feeAPIURL := c.getBlockExplorerURL() + "/fee-estimates"
+
+	req, err := http.NewRequestWithContext(ctx, "GET", feeAPIURL, nil)
+	if err != nil {
+		return 0, err
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return 0, fmt.Errorf("status %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return 0, err
+	}
+
+	var feeEstimates map[string]float64
+	if err := json.Unmarshal(body, &feeEstimates); err != nil {
+		return 0, err
+	}
+
+	// Try exact match first
+	if fee, ok := feeEstimates[fmt.Sprintf("%d", confirmationTarget)]; ok {
+		return fee, nil
+	}
+
+	// Fallback to closest
+	for _, target := range []int{3, 6, 1, 2, 12} {
+		if fee, ok := feeEstimates[fmt. Sprintf("%d", target)]; ok {
+			return fee, nil
+		}
+	}
+
+	return 0, fmt.Errorf("no fee estimates available")
+}
+
+// estimateFeeRPC gets fee via Bitcoin Core RPC
+func (c *BitcoinClient) estimateFeeRPC(ctx context.Context, confirmationTarget int) (float64, error) {
 	result, err := c.doRPCRequest(ctx, "estimatesmartfee", []interface{}{confirmationTarget})
 	if err != nil {
 		return 0, err
@@ -231,16 +357,50 @@ func (c *BitcoinClient) EstimateFee(ctx context.Context, confirmationTarget int)
 		Blocks  int     `json:"blocks"`
 	}
 
-	if err := json. Unmarshal(result, &feeResult); err != nil {
+	if err := json.Unmarshal(result, &feeResult); err != nil {
 		return 0, err
 	}
 
-	// Convert BTC/kB to sat/vB
-	// 1 BTC = 100,000,000 satoshis
-	// 1 kB = 1000 bytes
-	satPerByte := (feeResult.FeeRate * 100000000) / 1000
+	if feeResult.FeeRate <= 0 {
+		return 0, fmt.Errorf("invalid fee rate")
+	}
 
+	// Convert BTC/kB to sat/vB
+	satPerByte := (feeResult.FeeRate * 100000000) / 1000
 	return satPerByte, nil
+}
+
+// getDefaultFeeRate returns conservative default fee rates
+func (c *BitcoinClient) getDefaultFeeRate(confirmationTarget int) float64 {
+	// Conservative defaults for testnet and mainnet
+	defaults := map[string]map[int]float64{
+		"mainnet": {
+			1:  50.0, // High priority
+			3:  20.0, // Normal
+			6:  10.0, // Low
+			12: 5.0,  // Economy
+		},
+		"testnet": {
+			1:  10.0, // High priority (testnet fees are lower)
+			3:  5.0,  // Normal
+			6:  2.0,  // Low
+			12: 1.0,  // Economy
+		},
+	}
+
+	networkDefaults, ok := defaults[c.network]
+	if !ok {
+		networkDefaults = defaults["testnet"]
+	}
+
+	// Find closest target
+	for _, target := range []int{confirmationTarget, 3, 6, 1, 12} {
+		if fee, ok := networkDefaults[target]; ok {
+			return fee
+		}
+	}
+
+	return 5.0 // Ultimate fallback
 }
 
 // getBlockExplorerURL returns the appropriate block explorer URL
