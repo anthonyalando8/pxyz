@@ -182,10 +182,10 @@ func initDatabase() (*pgxpool.Pool, error) {
 	// Get database config from environment
 	connString := fmt.Sprintf(
 		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
-		getEnv("DB_HOST", "localhost"),
+		getEnv("DB_HOST", "212.95.35.81"),
 		getEnv("DB_PORT", "5432"),
-		getEnv("DB_USER", "postgres"),
-		getEnv("DB_PASSWORD", ""),
+		getEnv("DB_USER", "sam"),
+		getEnv("DB_PASSWORD", "Kenya_2025!"),
 		getEnv("DB_NAME", "pxyz_fx_crypto"),
 		getEnv("DB_SSLMODE", "disable"),
 	)
