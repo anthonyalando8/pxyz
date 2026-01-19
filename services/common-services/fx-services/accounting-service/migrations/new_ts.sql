@@ -72,6 +72,11 @@ BEGIN
   END IF;
 END $$;
 
+ALTER TYPE transaction_type_enum ADD VALUE IF NOT EXISTS 'crypto_deposit';
+ALTER TYPE transaction_type_enum ADD VALUE IF NOT EXISTS 'crypto_withdrawal';
+ALTER TYPE transaction_type_enum ADD VALUE IF NOT EXISTS 'crypto_conversion';
+ALTER TYPE transaction_type_enum ADD VALUE IF NOT EXISTS 'crypto_transfer';
+
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'fee_type_enum') THEN
@@ -81,6 +86,10 @@ BEGIN
     );
   END IF;
 END $$;
+
+ALTER TYPE fee_type_enum ADD VALUE IF NOT EXISTS 'network_fee';      -- Blockchain fee (pass-through)
+ALTER TYPE fee_type_enum ADD VALUE IF NOT EXISTS 'platform_fee';     -- Platform revenue
+ALTER TYPE fee_type_enum ADD VALUE IF NOT EXISTS 'combined_fee';    -- Combined network + platform fee
 
 -- ===============================
 -- CURRENCIES
@@ -108,6 +117,441 @@ CREATE INDEX IF NOT EXISTS idx_currencies_demo ON currencies (demo_enabled) WHER
 COMMENT ON TABLE currencies IS 'Master list of supported currencies (fiat and crypto)';
 COMMENT ON COLUMN currencies.demo_enabled IS 'Whether this currency is available for demo accounts';
 COMMENT ON COLUMN currencies.demo_initial_balance IS 'Starting balance for new demo accounts in this currency (in decimal, e.g., 10000. 00 for USD)';
+
+-- New
+UPDATE currencies 
+SET 
+    is_fiat = true,
+    is_crypto = false,
+    updated_at = NOW()
+WHERE code = 'USD' AND is_fiat = true;
+
+-- migrations/001_add_crypto_to_currencies.sql
+
+-- ============================================================================
+-- Step 1: Add crypto-specific columns
+-- ============================================================================
+
+ALTER TABLE currencies 
+ADD COLUMN IF NOT EXISTS is_crypto BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN IF NOT EXISTS blockchain VARCHAR(50),
+ADD COLUMN IF NOT EXISTS contract_address TEXT,
+ADD COLUMN IF NOT EXISTS contract_type VARCHAR(20),  -- TRC20, ERC20, BEP20, native
+ADD COLUMN IF NOT EXISTS network VARCHAR(50),        -- mainnet, testnet, shasta, etc.
+ADD COLUMN IF NOT EXISTS confirmation_blocks SMALLINT DEFAULT 1,
+ADD COLUMN IF NOT EXISTS withdrawal_enabled BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN IF NOT EXISTS deposit_enabled BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN IF NOT EXISTS min_withdrawal NUMERIC(30, 18),
+ADD COLUMN IF NOT EXISTS max_withdrawal NUMERIC(30, 18),
+ADD COLUMN IF NOT EXISTS withdrawal_fee_reserve NUMERIC(30, 18) DEFAULT 0;
+
+-- Add constraints
+ALTER TABLE currencies
+ADD CONSTRAINT chk_crypto_or_fiat CHECK (
+    (is_fiat = true AND is_crypto = false) OR 
+    (is_fiat = false AND is_crypto = true) OR
+    (is_fiat = false AND is_crypto = false)
+);
+
+ALTER TABLE currencies
+ADD CONSTRAINT chk_crypto_has_blockchain CHECK (
+    (is_crypto = false) OR 
+    (is_crypto = true AND blockchain IS NOT NULL)
+);
+
+ALTER TABLE currencies
+ADD CONSTRAINT chk_native_no_contract CHECK (
+    (contract_type != 'native') OR 
+    (contract_type = 'native' AND contract_address IS NULL)
+);
+
+-- Add indexes
+CREATE INDEX IF NOT EXISTS idx_currencies_crypto ON currencies(is_crypto) WHERE is_crypto = true;
+CREATE INDEX IF NOT EXISTS idx_currencies_blockchain ON currencies(blockchain) WHERE blockchain IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_currencies_active_crypto ON currencies(is_active, is_crypto) WHERE is_crypto = true;
+
+-- ============================================================================
+-- Step 2: Update existing USDT and BTC (assuming they exist)
+-- ============================================================================
+
+-- Update USDT to USDT TRC20 Mainnet
+UPDATE currencies 
+SET 
+    is_crypto = true,
+    blockchain = 'TRON',
+    contract_address = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
+    contract_type = 'TRC20',
+    network = 'mainnet',
+    confirmation_blocks = 1,
+    withdrawal_enabled = true,
+    deposit_enabled = true,
+    min_withdrawal = 10.000000,
+    max_withdrawal = 100000.000000,
+    withdrawal_fee_reserve = 10.000000,  -- Need 10 TRX for fees
+    decimals = 6,
+    demo_enabled = true,
+    demo_initial_balance = 1000.000000,
+    min_amount = 1.000000,
+    updated_at = NOW()
+WHERE code = 'USDT';
+
+-- Update BTC if it exists
+UPDATE currencies 
+SET 
+    is_crypto = true,
+    blockchain = 'BITCOIN',
+    contract_type = 'native',
+    network = 'mainnet',
+    confirmation_blocks = 3,
+    withdrawal_enabled = true,
+    deposit_enabled = true,
+    min_withdrawal = 0.001,
+    max_withdrawal = 10.0,
+    decimals = 8,
+    demo_enabled = true,
+    demo_initial_balance = 0.1,
+    min_amount = 0.00000001,  -- 1 satoshi
+    updated_at = NOW()
+WHERE code = 'BTC';
+
+-- ============================================================================
+-- Step 3: Insert new currencies (if they don't exist)
+-- ============================================================================
+
+-- TRX (TRON native token)
+INSERT INTO currencies (
+    code, 
+    name, 
+    symbol, 
+    decimals, 
+    is_fiat, 
+    is_crypto, 
+    blockchain, 
+    contract_type, 
+    network,
+    confirmation_blocks,
+    is_active,
+    demo_enabled,
+    demo_initial_balance,
+    min_amount,
+    max_amount,
+    min_withdrawal,
+    max_withdrawal,
+    withdrawal_enabled,
+    deposit_enabled
+) VALUES (
+    'TRX',
+    'TRON',
+    'TRX',
+    6,
+    false,
+    true,
+    'TRON',
+    'native',
+    'mainnet',
+    1,
+    true,
+    true,
+    10000.000000,      -- 10,000 TRX for demo
+    0.000001,          -- 1 SUN minimum
+    NULL,
+    1.000000,          -- Minimum 1 TRX withdrawal
+    NULL,
+    true,
+    true
+) ON CONFLICT (code) DO UPDATE SET
+    is_crypto = true,
+    blockchain = 'TRON',
+    contract_type = 'native',
+    network = 'mainnet',
+    updated_at = NOW();
+
+-- USDT Testnet (Shasta)
+INSERT INTO currencies (
+    code, 
+    name, 
+    symbol, 
+    decimals, 
+    is_fiat, 
+    is_crypto, 
+    blockchain, 
+    contract_address,
+    contract_type, 
+    network,
+    confirmation_blocks,
+    is_active,
+    demo_enabled,
+    demo_initial_balance,
+    min_amount,
+    max_amount,
+    min_withdrawal,
+    max_withdrawal,
+    withdrawal_enabled,
+    deposit_enabled,
+    withdrawal_fee_reserve
+) VALUES (
+    'USDT_TST',
+    'Tether USD (Testnet)',
+    'USDT',
+    6,
+    false,
+    true,
+    'TRON',
+    'TG3XXyExBkPp9nzdajDZsozEu4BkaSJozs',  -- Shasta testnet contract
+    'TRC20',
+    'shasta',
+    1,
+    true,
+    true,
+    1000.000000,
+    1.000000,
+    NULL,
+    10.000000,
+    100000.000000,
+    true,
+    true,
+    10.000000
+) ON CONFLICT (code) DO NOTHING;
+
+-- TRX Testnet
+INSERT INTO currencies (
+    code, 
+    name, 
+    symbol, 
+    decimals, 
+    is_fiat, 
+    is_crypto, 
+    blockchain, 
+    contract_type, 
+    network,
+    confirmation_blocks,
+    is_active,
+    demo_enabled,
+    demo_initial_balance,
+    min_amount,
+    min_withdrawal,
+    withdrawal_enabled,
+    deposit_enabled
+) VALUES (
+    'TRX_TST',
+    'TRON (Testnet)',
+    'TRX',
+    6,
+    false,
+    true,
+    'TRON',
+    'native',
+    'shasta',
+    1,
+    true,
+    true,
+    10000.000000,
+    0.000001,
+    1.000000,
+    true,
+    true
+) ON CONFLICT (code) DO NOTHING;
+
+-- BTC (if doesn't exist)
+INSERT INTO currencies (
+    code, 
+    name, 
+    symbol, 
+    decimals, 
+    is_fiat, 
+    is_crypto, 
+    blockchain, 
+    contract_type, 
+    network,
+    confirmation_blocks,
+    is_active,
+    demo_enabled,
+    demo_initial_balance,
+    min_amount,
+    max_amount,
+    min_withdrawal,
+    max_withdrawal,
+    withdrawal_enabled,
+    deposit_enabled
+) VALUES (
+    'BTC',
+    'Bitcoin',
+    '₿',
+    8,
+    false,
+    true,
+    'BITCOIN',
+    'native',
+    'mainnet',
+    3,
+    true,
+    true,
+    0.1,
+    0.00000001,     -- 1 satoshi
+    NULL,
+    0.001,
+    10.0,
+    true,
+    true
+) ON CONFLICT (code) DO NOTHING;
+
+-- ============================================================================
+-- Step 4: Create crypto metadata table
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS crypto_metadata (
+    currency_code VARCHAR(8) PRIMARY KEY REFERENCES currencies(code) ON DELETE CASCADE,
+    
+    -- Explorer links
+    block_explorer_url TEXT,
+    tx_explorer_pattern TEXT,
+    address_explorer_pattern TEXT,
+    
+    -- Network info
+    average_block_time_seconds INT,
+    
+    -- Technical
+    supports_memo BOOLEAN DEFAULT false,
+    memo_required BOOLEAN DEFAULT false,
+    address_format_regex TEXT,
+    
+    -- Status tracking
+    last_block_synced BIGINT,
+    last_sync_at TIMESTAMPTZ,
+    
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Insert metadata for TRON mainnet currencies
+INSERT INTO crypto_metadata (
+    currency_code,
+    block_explorer_url,
+    tx_explorer_pattern,
+    address_explorer_pattern,
+    average_block_time_seconds,
+    supports_memo,
+    memo_required,
+    address_format_regex
+) VALUES 
+(
+    'TRX',
+    'https://tronscan.org',
+    'https://tronscan.org/#/transaction/{txhash}',
+    'https://tronscan.org/#/address/{address}',
+    3,
+    false,
+    false,
+    '^T[A-Za-z0-9]{33}$'
+),
+(
+    'USDT',
+    'https://tronscan.org',
+    'https://tronscan.org/#/transaction/{txhash}',
+    'https://tronscan.org/#/address/{address}',
+    3,
+    false,
+    false,
+    '^T[A-Za-z0-9]{33}$'
+)
+ON CONFLICT (currency_code) DO NOTHING;
+
+-- Insert metadata for TRON testnet currencies
+INSERT INTO crypto_metadata (
+    currency_code,
+    block_explorer_url,
+    tx_explorer_pattern,
+    address_explorer_pattern,
+    average_block_time_seconds,
+    supports_memo,
+    address_format_regex
+) VALUES 
+(
+    'TRX_TST',
+    'https://shasta. tronscan.org',
+    'https://shasta.tronscan.org/#/transaction/{txhash}',
+    'https://shasta.tronscan.org/#/address/{address}',
+    3,
+    false,
+    '^T[A-Za-z0-9]{33}$'
+),
+(
+    'USDT_TST',
+    'https://shasta.tronscan.org',
+    'https://shasta.tronscan.org/#/transaction/{txhash}',
+    'https://shasta.tronscan.org/#/address/{address}',
+    3,
+    false,
+    '^T[A-Za-z0-9]{33}$'
+)
+ON CONFLICT (currency_code) DO NOTHING;
+
+-- Insert metadata for Bitcoin
+INSERT INTO crypto_metadata (
+    currency_code,
+    block_explorer_url,
+    tx_explorer_pattern,
+    address_explorer_pattern,
+    average_block_time_seconds,
+    supports_memo,
+    address_format_regex
+) VALUES 
+(
+    'BTC',
+    'https://blockchair.com/bitcoin',
+    'https://blockchair.com/bitcoin/transaction/{txhash}',
+    'https://blockchair.com/bitcoin/address/{address}',
+    600,
+    false,
+    '^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^bc1[a-z0-9]{39,59}$'
+)
+ON CONFLICT (currency_code) DO NOTHING;
+
+-- ============================================================================
+-- Step 5: Create helpful views
+-- ============================================================================
+
+CREATE OR REPLACE VIEW crypto_currencies AS
+SELECT 
+    c.code,
+    c.name,
+    c.symbol,
+    c.decimals,
+    c.blockchain,
+    c.contract_address,
+    c.contract_type,
+    c.network,
+    c.confirmation_blocks,
+    c.is_active,
+    c.withdrawal_enabled,
+    c.deposit_enabled,
+    c.min_withdrawal,
+    c.max_withdrawal,
+    c.withdrawal_fee_reserve,
+    c.min_amount,
+    c.max_amount,
+    cm.block_explorer_url,
+    cm.tx_explorer_pattern,
+    cm.address_explorer_pattern,
+    cm.average_block_time_seconds,
+    cm.address_format_regex
+FROM currencies c
+LEFT JOIN crypto_metadata cm ON c.code = cm.currency_code
+WHERE c.is_crypto = true
+  AND c.is_active = true;
+
+COMMENT ON VIEW crypto_currencies IS 'Active cryptocurrencies with metadata';
+
+-- View for mainnet only
+CREATE OR REPLACE VIEW crypto_currencies_mainnet AS
+SELECT * FROM crypto_currencies
+WHERE network = 'mainnet';
+
+-- View for testnet only
+CREATE OR REPLACE VIEW crypto_currencies_testnet AS
+SELECT * FROM crypto_currencies
+WHERE network IN ('shasta', 'testnet', 'sepolia');
+-- End New
 
 -- ===============================
 -- FX RATES (Hypertable)
@@ -646,65 +1090,62 @@ ADD CONSTRAINT chk_tariffs_valid CHECK (
 COMMENT ON COLUMN transaction_fee_rules.tariffs IS 
 'Amount-based tariff structure:  [{"min_amount": 0, "max_amount": 100, "fee_bps": 50, "fixed_fee": 0.50}, ...]';
 
--- CREATE TABLE IF NOT EXISTS tariffs (
---   id                BIGSERIAL PRIMARY KEY,
---   tariff_code       VARCHAR(50) NOT NULL UNIQUE,  -- e.g., 'STANDARD', 'VIP', 'PROMO_2024'
---   tariff_name       TEXT NOT NULL,                -- e.g., 'Standard Plan', 'VIP Plan'
---   description       TEXT,
---   tariff_type       VARCHAR(50) NOT NULL,         -- 'user', 'agent', 'partner', 'system'
-  
---   -- Pricing details
---   is_default        BOOLEAN NOT NULL DEFAULT false,
---   is_active         BOOLEAN NOT NULL DEFAULT true,
---   priority          INT NOT NULL DEFAULT 0,       -- Higher priority = preferred when multiple match
-  
---   -- Validity period
---   valid_from        TIMESTAMPTZ NOT NULL DEFAULT now(),
---   valid_to          TIMESTAMPTZ,
-  
---   -- Metadata
---   metadata          JSONB DEFAULT '{}'::jsonb,    -- Additional flexible data
-  
---   -- Audit
---   created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
---   updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
---   created_by        TEXT,
-  
---   CONSTRAINT chk_valid_date_range CHECK (valid_to IS NULL OR valid_from < valid_to),
---   CONSTRAINT chk_one_default_per_type UNIQUE (tariff_type, is_default) 
---     WHERE is_default = true  -- Only one default per type
--- );
+ALTER TABLE transaction_fee_rules
+DROP CONSTRAINT IF EXISTS chk_percentage_range;
 
--- -- ============================================================================
--- -- TARIFF FEE RULES JUNCTION TABLE
--- -- ============================================================================
--- CREATE TABLE IF NOT EXISTS tariff_fee_rules (
---   id                BIGSERIAL PRIMARY KEY,
---   tariff_id         BIGINT NOT NULL REFERENCES tariffs(id) ON DELETE CASCADE,
---   fee_rule_id       BIGINT NOT NULL REFERENCES transaction_fee_rules(id) ON DELETE CASCADE,
-  
---   -- Override fee values for this tariff (optional)
---   override_fee_value      NUMERIC(10,6),
---   override_min_fee        NUMERIC(30, 18),
---   override_max_fee        NUMERIC(30, 18),
-  
---   -- Priority within tariff
---   priority          INT NOT NULL DEFAULT 0,
---   is_active         BOOLEAN NOT NULL DEFAULT true,
-  
---   -- Audit
---   created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
---   updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
-  
---   CONSTRAINT uq_tariff_fee_rule UNIQUE (tariff_id, fee_rule_id),
---   CONSTRAINT chk_override_min_max CHECK (
---     override_min_fee IS NULL OR 
---     override_max_fee IS NULL OR 
---     override_min_fee <= override_max_fee
---   )
--- );
+ALTER TABLE transaction_fee_rules
+ADD CONSTRAINT chk_percentage_range CHECK (
+  calculation_method != 'percentage'
+  OR (fee_value >= 0 AND fee_value <= 10000)
+);
 
+-- New
+-- Add network fee tracking table
+CREATE TABLE IF NOT EXISTS network_fees (
+    id BIGSERIAL PRIMARY KEY,
+    chain VARCHAR(50) NOT NULL,
+    asset VARCHAR(50) NOT NULL,
+    operation VARCHAR(50) NOT NULL,
+    
+    -- Estimated fees (from blockchain)
+    base_fee NUMERIC(30, 18) NOT NULL,
+    priority_fee NUMERIC(30, 18),
+    
+    -- TRON-specific
+    energy_used BIGINT,
+    bandwidth_used BIGINT,
+    
+    -- BTC-specific
+    satoshis_per_byte BIGINT,
+    estimated_bytes INT,
+    
+    -- Fee markup configuration
+    markup_percentage NUMERIC(5, 2) DEFAULT 0,  -- e.g., 10% = 10. 00
+    
+    estimated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    valid_until TIMESTAMPTZ NOT NULL,
+    
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_network_fees_chain_asset ON network_fees(chain, asset, operation);
+-- End New
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_fee_rule_active 
+  ON transaction_fee_rules (
+    transaction_type, 
+    fee_type,
+    priority,
+    (source_currency IS NOT DISTINCT FROM NULL),
+    (target_currency IS NOT DISTINCT FROM NULL),
+    (account_type IS NOT DISTINCT FROM NULL),
+    (owner_type IS NOT DISTINCT FROM NULL)
+  ) 
+  WHERE is_active = true AND valid_to IS NULL;
 -- Indexes for fee rules (unchanged)
+
+DROP INDEX IF EXISTS uq_fee_rule_active;
+
 CREATE UNIQUE INDEX IF NOT EXISTS uq_fee_rule_active_simple
   ON transaction_fee_rules (
     transaction_type,

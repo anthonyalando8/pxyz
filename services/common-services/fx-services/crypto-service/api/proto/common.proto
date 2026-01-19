@@ -1,0 +1,87 @@
+// api/proto/common.proto
+syntax = "proto3";
+
+package crypto.v1;
+
+option go_package = "shared/genproto/shared/accounting/cryptopb";
+
+import "google/protobuf/timestamp.proto";
+
+// Chain represents blockchain networks
+enum Chain {
+    CHAIN_UNSPECIFIED = 0;
+    CHAIN_TRON = 1;
+    CHAIN_BITCOIN = 2;
+    CHAIN_ETHEREUM = 3;
+}
+
+// Asset represents cryptocurrency assets
+message Asset {
+    string code = 1;           // USDT, TRX, BTC, ETH
+    string name = 2;           // Tether USD, TRON, Bitcoin
+    Chain chain = 3;
+    string contract_address = 4;  // For tokens (TRC20, ERC20)
+    int32 decimals = 5;
+}
+
+// TransactionType
+enum TransactionType {
+    TRANSACTION_TYPE_UNSPECIFIED = 0;
+    TRANSACTION_TYPE_DEPOSIT = 1;
+    TRANSACTION_TYPE_WITHDRAWAL = 2;
+    TRANSACTION_TYPE_INTERNAL_TRANSFER = 3;
+    TRANSACTION_TYPE_CONVERSION = 4;
+    TRANSACTION_TYPE_FEE_PAYMENT = 5;
+}
+
+// TransactionStatus
+enum TransactionStatus {
+    TRANSACTION_STATUS_UNSPECIFIED = 0;
+    TRANSACTION_STATUS_PENDING = 1;
+    TRANSACTION_STATUS_BROADCASTING = 2;
+    TRANSACTION_STATUS_BROADCASTED = 3;
+    TRANSACTION_STATUS_CONFIRMING = 4;
+    TRANSACTION_STATUS_CONFIRMED = 5;
+    TRANSACTION_STATUS_COMPLETED = 6;
+    TRANSACTION_STATUS_FAILED = 7;
+    TRANSACTION_STATUS_CANCELLED = 8;
+}
+
+// DepositStatus
+enum DepositStatus {
+    DEPOSIT_STATUS_UNSPECIFIED = 0;
+    DEPOSIT_STATUS_DETECTED = 1;
+    DEPOSIT_STATUS_PENDING = 2;
+    DEPOSIT_STATUS_CONFIRMED = 3;
+    DEPOSIT_STATUS_CREDITED = 4;
+    DEPOSIT_STATUS_FAILED = 5;
+}
+
+// Money represents amount with currency
+message Money {
+    string amount = 1;         // String to preserve precision
+    string currency = 2;       // USDT, TRX, BTC, USD
+    int32 decimals = 3;
+}
+
+// FeeBreakdown
+message FeeBreakdown {
+    Money network_fee = 1;
+    string network_fee_currency = 2;
+    Money platform_fee = 3;
+    Money total_fee = 4;
+    string explanation = 5;
+}
+
+// Pagination
+message PaginationRequest {
+    int32 page = 1;
+    int32 page_size = 2;
+}
+
+message PaginationResponse {
+    int32 page = 1;
+    int32 page_size = 2;
+    int64 total = 3;
+    int32 total_pages = 4;
+}

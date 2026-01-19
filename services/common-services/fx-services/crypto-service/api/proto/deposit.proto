@@ -1,0 +1,85 @@
+// api/proto/deposit.proto
+syntax = "proto3";
+
+package crypto.v1;
+
+option go_package = "shared/genproto/shared/accounting/cryptopb";
+
+import "common.proto";
+import "google/protobuf/timestamp.proto";
+
+// DepositService handles deposit monitoring and tracking
+service DepositService {
+    // Get user deposits
+    rpc GetUserDeposits(GetUserDepositsRequest) returns (GetUserDepositsResponse);
+    
+    // Get deposit by ID
+    rpc GetDeposit(GetDepositRequest) returns (GetDepositResponse);
+    
+    // Get pending deposits (waiting confirmations)
+    rpc GetPendingDeposits(GetPendingDepositsRequest) returns (GetPendingDepositsResponse);
+}
+
+// ============================================================================
+// MESSAGES
+// ============================================================================
+
+// Deposit
+message Deposit {
+    int64 id = 1;
+    string deposit_id = 2;  // UUID
+    string user_id = 3;
+    Chain chain = 4;
+    string asset = 5;
+    
+    string from_address = 6;
+    string to_address = 7;
+    Money amount = 8;
+    
+    string tx_hash = 9;
+    int64 block_number = 10;
+    int32 confirmations = 11;
+    int32 required_confirmations = 12;
+    
+    DepositStatus status = 13;
+    bool user_notified = 14;
+    
+    google.protobuf. Timestamp detected_at = 15;
+    google.protobuf.Timestamp confirmed_at = 16;
+    google.protobuf. Timestamp credited_at = 17;
+    google.protobuf. Timestamp block_timestamp = 18;
+}
+
+// GetUserDeposits
+message GetUserDepositsRequest {
+    string user_id = 1;
+    Chain chain = 2;  // Optional filter
+    string asset = 3;  // Optional filter
+    DepositStatus status = 4;  // Optional filter
+    PaginationRequest pagination = 5;
+}
+
+message GetUserDepositsResponse {
+    repeated Deposit deposits = 1;
+    PaginationResponse pagination = 2;
+}
+
+// GetDeposit
+message GetDepositRequest {
+    string deposit_id = 1;
+    string user_id = 2;
+}
+
+message GetDepositResponse {
+    Deposit deposit = 1;
+}
+
+// GetPendingDeposits
+message GetPendingDepositsRequest {
+    string user_id = 1;
+}
+
+message GetPendingDepositsResponse {
+    repeated Deposit deposits = 1;
+    int32 total = 2;
+}

@@ -1,0 +1,180 @@
+// api/proto/wallet.proto
+syntax = "proto3";
+
+package crypto.v1;
+
+option go_package = "shared/genproto/shared/accounting/cryptopb";
+
+import "common.proto";
+import "google/protobuf/timestamp.proto";
+
+// WalletService handles wallet management
+service WalletService {
+    // Create a new wallet for user
+    rpc CreateWallet(CreateWalletRequest) returns (CreateWalletResponse);
+    
+    // Get user's wallets
+    rpc GetUserWallets(GetUserWalletsRequest) returns (GetUserWalletsResponse);
+    
+    // Get specific wallet
+    rpc GetWallet(GetWalletRequest) returns (GetWalletResponse);
+    
+    // Get wallet balance
+    rpc GetBalance(GetBalanceRequest) returns (GetBalanceResponse);
+    
+    // Get wallet by address
+    rpc GetWalletByAddress(GetWalletByAddressRequest) returns (GetWalletResponse);
+    
+    // Refresh balance from blockchain
+    rpc RefreshBalance(RefreshBalanceRequest) returns (RefreshBalanceResponse);
+
+    // Get system wallets
+    rpc GetSystemWallets(GetSystemWalletsRequest) returns (GetSystemWalletsResponse);
+    // Get system wallets balance
+    rpc GetSystemBalance(GetSystemBalanceRequest) returns (GetSystemBalanceResponse);
+    // Get system wallets by assets
+    rpc GetSystemWalletByAsset(GetSystemWalletByAssetRequest) returns (GetSystemWalletResponse);
+
+}
+
+// ============================================================================
+// MESSAGES
+// ============================================================================
+
+// Wallet represents a crypto wallet
+message Wallet {
+    int64 id = 1;
+    string user_id = 2;
+    Chain chain = 3;
+    string asset = 4;
+    string address = 5;
+    string label = 6;
+    bool is_primary = 7;
+    bool is_active = 8;
+    Money balance = 9;
+    google.protobuf.Timestamp created_at = 10;
+    google.protobuf.Timestamp last_balance_update = 11;
+}
+
+// CreateWallet
+message CreateWalletRequest {
+    string user_id = 1;
+    Chain chain = 2;
+    string asset = 3;
+    string label = 4;  // Optional user-friendly name
+}
+
+message CreateWalletResponse {
+    Wallet wallet = 1;
+    string message = 2;
+}
+
+// GetUserWallets
+message GetUserWalletsRequest {
+    string user_id = 1;
+    Chain chain = 2;      // Optional filter
+    string asset = 3;     // Optional filter
+    bool active_only = 4;
+}
+
+message GetUserWalletsResponse {
+    repeated Wallet wallets = 1;
+    int32 total = 2;
+}
+
+// GetWallet
+message GetWalletRequest {
+    int64 wallet_id = 1;
+    string user_id = 2;  // For authorization
+}
+
+message GetWalletResponse {
+    Wallet wallet = 1;
+}
+
+// GetBalance
+message GetBalanceRequest {
+    string user_id = 1;
+    Chain chain = 2;
+    string asset = 3;
+}
+
+message GetBalanceResponse {
+    Money balance = 1;
+    string address = 2;
+    int64 wallet_id = 3;
+    google.protobuf.Timestamp updated_at = 4;
+}
+
+// GetWalletByAddress
+message GetWalletByAddressRequest {
+    string address = 1;
+}
+
+// RefreshBalance
+message RefreshBalanceRequest {
+    int64 wallet_id = 1;
+    string user_id = 2;
+}
+
+message RefreshBalanceResponse {
+    Money balance = 1;
+    Money previous_balance = 2;
+    google.protobuf.Timestamp updated_at = 3;
+}
+// ============================================================================
+// SYSTEM WALLET MESSAGES
+// ============================================================================
+
+// GetSystemWallets - Retrieve all system wallets
+message GetSystemWalletsRequest {
+    // Optional filters
+    Chain chain = 1;      // Filter by chain
+    string asset = 2;     // Filter by asset
+    bool active_only = 3; // Only return active wallets
+}
+
+message GetSystemWalletsResponse {
+    repeated Wallet wallets = 1;
+    int32 total = 2;
+    SystemBalanceSummary summary = 3; // Total balances across all wallets
+}
+
+
+// GetSystemBalance - Get balance for specific system wallet
+message GetSystemBalanceRequest {
+    Chain chain = 1;
+    string asset = 2;
+    bool force_refresh = 3; // Force blockchain refresh
+}
+
+message GetSystemBalanceResponse {
+    Wallet wallet = 1;
+    Money blockchain_balance = 2; // Fresh from blockchain
+    Money cached_balance = 3;     // Database cache
+    bool balances_match = 4;      // Whether they match
+    google.protobuf.Timestamp updated_at = 5;
+}
+
+// GetSystemWalletByAsset - Get specific system wallet
+message GetSystemWalletByAssetRequest {
+    Chain chain = 1;
+    string asset = 2;
+}
+
+message GetSystemWalletResponse {
+    Wallet wallet = 1;
+}
+
+// SystemBalanceSummary - Summary of all system balances
+message SystemBalanceSummary {
+    repeated AssetBalance balances = 1;
+    Money total_value_usd = 2; // Total in USD (if conversion available)
+}
+
+message AssetBalance {
+    Chain chain = 1;
+    string asset = 2;
+    Money balance = 3;
+    Money value_usd = 4; // USD equivalent
+}

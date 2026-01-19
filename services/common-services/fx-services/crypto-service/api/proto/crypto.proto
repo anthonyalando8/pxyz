@@ -1,0 +1,62 @@
+// api/proto/crypto.proto
+syntax = "proto3";
+
+package crypto.v1;
+
+option go_package = "shared/genproto/shared/accounting/cryptopb";
+
+import "wallet.proto";
+import "transaction.proto";
+import "deposit.proto";
+import "common.proto";
+
+// CryptoService - Main service aggregating all crypto operations
+service CryptoService {
+    // Health check
+    rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+    
+    // Get supported chains and assets
+    rpc GetSupportedAssets(GetSupportedAssetsRequest) returns (GetSupportedAssetsResponse);
+    
+    // Validate address
+    rpc ValidateAddress(ValidateAddressRequest) returns (ValidateAddressResponse);
+}
+
+// ============================================================================
+// MESSAGES
+// ============================================================================
+
+// HealthCheck
+message HealthCheckRequest {}
+
+message HealthCheckResponse {
+    string status = 1;
+    string version = 2;
+    repeated ChainStatus chains = 3;
+}
+
+message ChainStatus {
+    Chain chain = 1;
+    bool available = 2;
+    int64 current_block = 3;
+    string message = 4;
+}
+
+// GetSupportedAssets
+message GetSupportedAssetsRequest {}
+
+message GetSupportedAssetsResponse {
+    repeated Asset assets = 1;
+}
+
+// ValidateAddress
+message ValidateAddressRequest {
+    Chain chain = 1;
+    string address = 2;
+}
+
+message ValidateAddressResponse {
+    bool is_valid = 1;
+    string message = 2;
+    string formatted_address = 3;  // Standardized format
+}

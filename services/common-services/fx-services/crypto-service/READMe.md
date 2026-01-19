@@ -450,3 +450,82 @@ func importTronWallet(privateKeyHex string) (*domain.Wallet, error) {
 	}, nil
 }
 ```
+# Business Model
+
+## Crypto Transaction Business Logic & Revenue Model
+
+The crypto system will initially support **TRON (TRX and TRC20/USDT)**, **Bitcoin (BTC)**, and selected **stablecoins**. The primary objective is to enable reliable crypto deposits, withdrawals, conversions, and internal wallet movements while ensuring that **all network and operational costs are transparently calculated and passed to users**, with additional platform fees forming a core revenue stream.
+
+### Network Fees and Cost Recovery
+
+On the TRON network, **TRC20 tokens such as USDT require TRX to pay transaction fees**, since all smart-contract executions consume TRON resources (energy and bandwidth) funded by TRX. This means that even if a user only holds USDT, the system must maintain sufficient TRX reserves to execute transfers. To ensure sustainability, the system must **estimate transaction costs before execution**, allowing the platform to:
+
+1. Know the exact or approximate network cost per transaction.
+2. Charge the user that cost upfront.
+3. Avoid subsidizing user transactions unintentionally.
+
+These network fees are not a revenue source themselves, but they are a **pass-through cost** that must always be recovered from users.
+
+---
+
+### Platform Transaction Fees (Primary Revenue)
+
+Beyond network fees, the business earns directly from **platform-level transaction fees**, applied consistently across crypto operations. These include:
+
+* **Crypto ↔ Internal USD wallet conversions**
+* **Internal wallet ↔ Crypto wallet withdrawals**
+* **External wallet transfers**
+
+For every conversion between a crypto wallet and the internal USD wallet (in either direction), the platform applies a **minimum fixed service fee (e.g., not less than KES 100)**, regardless of transaction size. This ensures profitability even on small-value transactions.
+
+Additionally, when users send crypto to **external wallets**, the platform applies:
+
+* Network fee (charged to the user)
+* Plus a **platform withdrawal fee**, which is pure revenue
+
+This dual-fee model (network + platform) ensures the business earns on every outbound crypto movement.
+
+---
+
+### Deposit Detection and User Engagement
+
+The system will actively **monitor blockchain activity for incoming transactions** to user-assigned crypto addresses. Once an incoming transaction is detected (even before final confirmation), the platform can:
+
+* Flag the transaction as “incoming”
+* Send **email or in-app alerts** to the user
+
+This improves transparency, trust, and user experience, while also enabling early fraud detection and reconciliation.
+
+---
+
+### Asset Selection Strategy
+
+The initial crypto rollout prioritizes **low-cost, stable, and widely used assets**:
+
+* **TRON USDT (TRC20)** for fast and cheap stablecoin transfers
+* **Bitcoin (BTC)** for its simplicity and predictable fee structure
+
+Ethereum-based assets are intentionally postponed due to **high and volatile gas fees**, which can negatively impact both user experience and platform profitability. Instead, the focus is on stablecoins that can reliably hold value and be used for conversions and settlements.
+
+---
+
+### Strategic Positioning and Future Expansion
+
+By first implementing crypto wallets, transfers, and conversions, the platform lays the foundation for **future P2P functionality**, where users can exchange value directly using crypto rails. Crypto handling is treated as a prerequisite infrastructure layer, ensuring that when P2P is introduced later, it builds on a stable, tested, and revenue-generating core.
+
+Once crypto is fully integrated and monetized, the system is considered functionally complete from a payments perspective, allowing the business to shift focus toward **commercialization, scaling, and partnerships**.
+
+---
+
+### Summary of Revenue Streams
+
+In simple terms, the business earns from:
+
+1. **Fixed conversion fees** (crypto ↔ internal USD wallet)
+2. **Withdrawal fees** on external crypto transfers
+3. **Spread or configurable fees** applied via adjustable DB-driven rules
+4. Guaranteed recovery of **all blockchain network fees** from users
+
+This ensures that **every crypto transaction either breaks even or generates profit**, making the crypto service sustainable and scalable.
+
+---

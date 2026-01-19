@@ -313,6 +313,9 @@ services:
       SMTPUser: no_reply@derinance.com
       SMTPPort: 465
       SMTPPass: B-e02G#D-T7O*8Qe
+      EMAIL_FROM_NAME: Derinance Support
+      EMAIL_REPLY_TO: support@derinance.com
+      EMAIL_DOMAIN: derinance.com
     extra_hosts:
       - "212.95.35.81:host-gateway"
     networks:
@@ -645,27 +648,40 @@ services:
       - micro_net
     depends_on:
       - redis
-
   # 🔹 Partner Service
   partner-service:
     build:
       context: .
       dockerfile: services/partner-services/partner-service/Dockerfile
     container_name: partner-service
+    
     labels:
+      # Enable Traefik
       - "traefik.enable=true"
-      - "traefik.http.routers.partner-svc.rule=PathPrefix(`/api/v1/partner/svc`)"
+      
+      # Router configuration
+      - "traefik.http.routers.partner-svc.rule=PathPrefix(`/api/v1/partner/svc`) || PathPrefix(`/api/v1/partner/api`)"
+      - "traefik.http.routers.partner-svc.entrypoints=web"  # ✅ Explicit entrypoint
+      
+      # Service configuration
       - "traefik.http.services.partner-svc.loadbalancer.server.port=7510"
-
-      # 🔸 Strip the `/api/v1` prefix
+      
+      # Middleware configuration
       - "traefik.http.middlewares.partner-svc-stripprefix.stripprefix.prefixes=/api/v1"
-      - "traefik.http.routers.partner-svc.middlewares=ptnaccess-stripprefix"
+      - "traefik.http.routers.partner-svc.middlewares=partner-svc-stripprefix"
+    
     env_file:
       - ./services/partner-services/partner-service/.env
+    
     volumes:
       - ./services/partner-services/partner-service/secrets:/app/secrets:ro
+    
     networks:
       - micro_net
+    
+    extra_hosts:
+      - "212.95.35.81:host-gateway"
+    
     environment:
       DB_HOST: 212.95.35.81
       DB_PORT: 5432
@@ -677,43 +693,70 @@ services:
       REDIS_ADDR: redis:6379
       REDIS_PASS: ""
       JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy  # ✅ Wait for Redis
+    
+    restart: unless-stopped  # ✅ Auto-restart on failure
 
-  # 🔹Ptn Auth Service
   ptn-auth-service:
     build:
       context: .
       dockerfile: services/partner-services/ptn-auth-service/Dockerfile
-    container_name: ptn-auth-service
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.partner-auth.rule=PathPrefix(`/api/v1/partner/auth`)"
-      - "traefik.http.services.partner-auth.loadbalancer.server.port=7500"
 
-      # 🔸 Strip the `/api/v1` prefix
-      - "traefik.http.middlewares.partner-auth-stripprefix.stripprefix.prefixes=/api/v1"
-      - "traefik.http.routers.partner-auth.middlewares=ptnaccess-stripprefix"
+    container_name: ptn-auth-service
     env_file:
       - ./services/partner-services/ptn-auth-service/.env
-    volumes:
-      - ./services/partner-services/ptn-auth-service/secrets:/app/secrets:ro
-      - ./uploads:/app/uploads
+
     environment:
+      DB_NAME: pxyz_partner
       DB_HOST: 212.95.35.81
       DB_PORT: 5432
       DB_USER: sam
       DB_PASSWORD: Kenya_2025!
-      DB_NAME: pxyz_partner
+
       REDIS_ADDR: redis:6379
+      REDIS_PASS: ""
+
+      HTTP_ADDR: :7500
+      GRPC_ADDR: :7501
+
+      JWT_ISSUER: ptn-auth-service
+      JWT_AUDIENCE: pxyz-ptn-clients
+      JWT_ACCESS_TTL: 5h
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+      JWT_PRIVATE_KEY_PATH: /app/secrets/jwt_private.pem
+
+    volumes:
+      - ./services/partner-services/ptn-auth-service/secrets:/app/secrets:ro
+      - ./uploads:/app/uploads:rw
+
     networks:
       - micro_net
+
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.partner-auth.rule: "PathPrefix(`/api/v1/partner/auth`)"
+      traefik.http.routers.partner-auth.middlewares: "partner-auth-stripprefix"
+      traefik.http.middlewares.partner-auth-stripprefix.stripprefix.prefixes: "/api/v1"
+      traefik.http.services.partner-auth.loadbalancer.server.port: "7500"
+
+
     depends_on:
-      - redis
-      - core-service
-      - ptn-session-service
-      - email-service
-      - otp-service
+      otp-service:
+        condition: service_started
+      redis:
+        condition: service_started
+      core-service:
+        condition: service_started
+      ptn-session-service:
+        condition: service_started
+      email-service:
+        condition: service_started
+    extra_hosts:
+      - "212.95.35.81:host-gateway"
+
 
   # 🔹 Ptn Session Service
   ptn-session-service:
@@ -785,6 +828,7 @@ services:
       - micro_net
     depends_on:
       - redis
+  # 🔹 Receipt Service
   receipt-service:
     build:
       context: .
@@ -866,7 +910,264 @@ services:
     
     # ADDED: Restart policy
     restart: unless-stopped
+
+  accounting-service:
+    build:
+      context: .
+      dockerfile: services/common-services/fx-services/accounting-service/Dockerfile
+    container_name: accounting-service
+    ports:
+    - "8024:8024"  # gRPC port
+    # labels:
+    #   - "traefik.enable=true"
+    #   - "traefik.http.routers.accounting.rule=PathPrefix(`/accounting`)"
+    #   - "traefik.http.services.accounting.loadbalancer.server.port=8024"
+    env_file:
+      - ./services/common-services/fx-services/accounting-service/.env
+    volumes:
+      - ./services/common-services/fx-services/accounting-service/secrets:/app/secrets:ro
+      - ./uploads:/app/uploads
+    networks:
+      - micro_net
+    environment:
+      DB_HOST: 212.95.35.81
+      DB_PORT: 5432
+      DB_USER: sam
+      DB_PASSWORD: Kenya_2025!
+      DB_NAME: pxyz_fx
+      REDIS_ADDR: redis:6379
+      GRPC_ADDR: :8024
+      REDIS_PASS:
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    depends_on:
+      redis:
+        condition: service_healthy   # Wait for Redis to be healthy
+      kafka:
+        condition: service_healthy
+    extra_hosts:
+    - "212.95.35.81:host-gateway"
+  # 🔹 Cashier Service
+  cashier-service:
+    build:
+      context: .
+      dockerfile: services/user-services/cashier-service/Dockerfile
+    container_name: cashier-service
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.cashier.rule=PathPrefix(`/api/v1/cashier/`)"
+      - "traefik.http.services.cashier.loadbalancer.server.port=8021"
+
+      - "traefik.http.middlewares.cashier-stripprefix.stripprefix.prefixes=/api/v1"
+      - "traefik.http.routers.cashier.middlewares=ptnaccess-stripprefix"
+    env_file:
+      - ./services/user-services/cashier-service/.env
+    volumes:
+      - ./services/user-services/cashier-service/secrets:/app/secrets:ro
+    networks:
+      - micro_net
+    environment:
+      HTTP_ADDR: :8021
+      DB_HOST: 212.95.35.81
+      DB_PORT: 5432
+      DB_USER: sam
+      DB_PASSWORD: Kenya_2025!
+      DB_NAME: pxyz_fx
+      REDIS_ADDR: redis:6379
+      REDIS_PASS:
+      JWT_PRIVATE_KEY_PATH: /app/secrets/jwt_private.pem
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+      JWT_AUDIENCE: pxyz-clients
+      JWT_ISSUER: auth-service
+      JWT_ACCESS_TTL: 5h
+      MPESA_CONSUMER_KEY: WE0ODHDhooeTBWhIxIwbqM3L7cd9SSxTagXCrZhynGmwRiAp
+      MPESA_CONSUMER_SECRET: fDLAvAoRFT6QBnKgrxNrUfA3Mozx0btGpm7DIGqVBfn44adGiDHtdKlJnJ9jbN1K
+      MPESA_PASSKEY: bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919
+      MPESA_SHORT_CODE: 174379
+      MPESA_TILL_NUMBER: 174379
+    depends_on:
+        redis:
+          condition: service_healthy   # Wait for Redis to be healthy
+    extra_hosts:
+      - "212.95.35.81:host-gateway"  
+  
+  payment-service:
+    build: 
+      context: .
+      dockerfile: services/common-services/fx-services/payment-service/Dockerfile
+    container_name: payment-service
+
+    volumes:
+      - ./services/common-services/fx-services/payment-service/certs:/app/certs:ro
     
+    labels:
+      - "traefik.enable=true"
+      
+      # HTTP routes for webhooks and callbacks
+      - "traefik.http.routers.payment.rule=PathPrefix(`/api/v1/payments`) || PathPrefix(`/api/v1/webhooks`) || PathPrefix(`/api/v1/callbacks`)"
+      - "traefik.http.routers.payment.entrypoints=web"
+      - "traefik.http.services.payment.loadbalancer.server.port=8027"
+    
+    env_file:
+      - ./services/common-services/fx-services/payment-service/.env
+    
+    ports: 
+      - "8027:8027"
+    
+    environment:
+      # ============================================
+      # SERVER CONFIGURATION
+      # ============================================
+      SERVER_PORT: 8027
+      ENVIRONMENT: production
+      
+      # ============================================
+      # DATABASE CONFIGURATION
+      # ============================================
+      DB_HOST: 212.95.35.81
+      DB_PORT: 5432
+      DB_USER: sam
+      DB_PASSWORD: Kenya_2025! 
+      DB_NAME: pxyz_fx
+      DB_SSL_MODE: disable
+      
+      # ============================================
+      # M-PESA STK PUSH CONFIGURATION
+      # ============================================
+      MPESA_ENVIRONMENT: production
+      MPESA_CERT_PATH:  /app/certs/cert. cer
+      MPESA_CONSUMER_KEY: ${MPESA_CONSUMER_KEY:-wEA6YGhwryMXXTKtd1D56GB4JAs3x8crdrO2Od1oBjd1lrrJ}
+      MPESA_CONSUMER_SECRET: ${MPESA_CONSUMER_SECRET:-DWravQBWqsX1H4BADy5aIS4tVx2cQSsfCRPsVjA3q5od5IKKKptjkk1WGpdGDZ5B}
+      MPESA_PASSKEY:  ${MPESA_PASSKEY:-88d5db37f317ec4187458429c2ad4082ceb0691becbfd19589da695d2866058a}
+      MPESA_SHORT_CODE: ${MPESA_SHORT_CODE:-4001513}
+      MPESA_INITIATOR_NAME: ${MPESA_INITIATOR_NAME:-SAMWEB}
+      MPESA_INITIATOR_PASSWORD: ${MPESA_INITIATOR_PASSWORD:-Samson@200010!}
+      MPESA_SECURITY_CREDENTIAL: ${MPESA_SECURITY_CREDENTIAL:-your_security_credential}
+      
+      # ============================================
+      # M-PESA B2C CONFIGURATION
+      # ============================================
+      B2C_SHORT_CODE: ${B2C_SHORT_CODE:-4001513}
+      B2C_INITIATOR_NAME:  ${B2C_INITIATOR_NAME:-SAMWEB}
+      B2C_PASSWORD:  ${B2C_PASSWORD:-Samson@200010!}
+      B2C_SECURITY_CREDENTIAL: ${B2C_SECURITY_CREDENTIAL:-your_b2c_security_credential}
+      B2C_PASSKEY: ${B2C_PASSKEY:-88d5db37f317ec4187458429c2ad4082ceb0691becbfd19589da695d2866058a}
+      B2C_CONSUMER_KEY:  ${B2C_CONSUMER_KEY:-wEA6YGhwryMXXTKtd1D56GB4JAs3x8crdrO2Od1oBjd1lrrJ}
+      B2C_CONSUMER_SECRET: ${B2C_CONSUMER_SECRET:-DWravQBWqsX1H4BADy5aIS4tVx2cQSsfCRPsVjA3q5od5IKKKptjkk1WGpdGDZ5B}
+      
+      # ============================================
+      # M-PESA B2B CONFIGURATION
+      # ============================================
+      B2B_CONSUMER_KEY: ${B2B_CONSUMER_KEY:-wEA6YGhwryMXXTKtd1D56GB4JAs3x8crdrO2Od1oBjd1lrrJ}
+      B2B_CONSUMER_SECRET: ${B2B_CONSUMER_SECRET:-DWravQBWqsX1H4BADy5aIS4tVx2cQSsfCRPsVjA3q5od5IKKKptjkk1WGpdGDZ5B}
+      B2B_SHORTCODE: ${B2B_SHORTCODE:-4001513}
+      B2B_INITIATOR_NAME: ${B2B_INITIATOR_NAME:-SAFARIB2B}
+      B2B_INITIATOR_PASSWORD: ${B2B_INITIATOR_PASSWORD:-Samson@200010!}
+      B2B_SECURITY_CREDENTIAL: ${B2B_SECURITY_CREDENTIAL:-your_b2b_security_credential}
+      
+      # ============================================
+      # LEGACY PARTNER CONFIGURATION (Backward Compatibility)
+      # ============================================
+      PARTNER_API_KEY: ${PARTNER_API_KEY:-pk_P-cFwhoDeQZPmERPPCp-ssCQcNm1JAkUI7-kjnOChd8=}
+      PARTNER_API_SECRET: ${PARTNER_API_SECRET:-sk__SvW-useAWtD29zZbN1R0q6s4efACf2IR5AT3gU3hmnlVTJNxPJne7Na2kDjoxDh}
+      PARTNER_WEBHOOK_URL: https://api.safarigari.com
+      CALLBACK_BASE_URL: https://api.safarigari.com
+      
+      # ============================================
+      # MULTI-PARTNER CONFIGURATION
+      # ============================================
+      PARTNER_IDS: ${PARTNER_IDS:-MPESA,airtel,BANK_KE,orangemoney}
+      
+      # ============================================
+      # PARTNER 1: MPESA
+      # ============================================
+      PARTNER_MPESA_NAME: ${PARTNER_MPESA_NAME:-MPESA M-Pesa}
+      PARTNER_MPESA_API_KEY: ${PARTNER_MPESA_API_KEY:-pk_P-cFwhoDeQZPmERPPCp-ssCQcNm1JAkUI7-kjnOChd8=}
+      PARTNER_MPESA_API_SECRET: ${PARTNER_MPESA_API_SECRET:-sk__SvW-useAWtD29zZbN1R0q6s4efACf2IR5AT3gU3hmnlVTJNxPJne7Na2kDjoxDh}
+      PARTNER_MPESA_WEBHOOK_URL: ${PARTNER_MPESA_WEBHOOK_URL:-https://api.safarigari.com}
+      PARTNER_MPESA_CALLBACK_URL: ${PARTNER_MPESA_CALLBACK_URL:-https://payment-service.com/callbacks/mpesa}
+      PARTNER_MPESA_ENABLED: ${PARTNER_MPESA_ENABLED:-true}
+      
+      # ============================================
+      # PARTNER 2: AIRTEL
+      # ============================================
+      PARTNER_AIRTEL_NAME: ${PARTNER_AIRTEL_NAME:-Airtel Money Uganda}
+      PARTNER_AIRTEL_API_KEY: ${PARTNER_AIRTEL_API_KEY:-pk_airtel_test_key_12345}
+      PARTNER_AIRTEL_API_SECRET: ${PARTNER_AIRTEL_API_SECRET:-sk_airtel_test_secret_67890}
+      PARTNER_AIRTEL_WEBHOOK_URL:  ${PARTNER_AIRTEL_WEBHOOK_URL:-https://api.safarigari.com}
+      PARTNER_AIRTEL_CALLBACK_URL: ${PARTNER_AIRTEL_CALLBACK_URL:-https://payment-service.com/callbacks/airtel}
+      PARTNER_AIRTEL_ENABLED: ${PARTNER_AIRTEL_ENABLED:-true}
+      
+      # ============================================
+      # PARTNER 3: BANK_KE
+      # ============================================
+      PARTNER_BANK_KE_NAME: ${PARTNER_BANK_KE_NAME:-Bank Transfer Kenya}
+      PARTNER_BANK_KE_API_KEY: ${PARTNER_BANK_KE_API_KEY:-pk_pUKedNQf6Q1vscFOyTalzRTMTVcmhuaL8Svcw3Nmpqw=}
+      PARTNER_BANK_KE_API_SECRET: ${PARTNER_BANK_KE_API_SECRET:-sk_Vz53qsDODga0n5ZXBJUUApGKw7LCbOkyRg12pf7POmL7qjQN6wVorifojJfHANO8}
+      PARTNER_BANK_KE_WEBHOOK_URL: ${PARTNER_BANK_KE_WEBHOOK_URL:-https://api.safarigari.com}
+      PARTNER_BANK_KE_CALLBACK_URL: ${PARTNER_BANK_KE_CALLBACK_URL:-https://payment-service.com/callbacks/BANK_KE}
+      PARTNER_BANK_KE_ENABLED: ${PARTNER_BANK_KE_ENABLED:-true}
+      
+      # ============================================
+      # PARTNER 4: ORANGE MONEY
+      # ============================================
+      PARTNER_ORANGEMONEY_NAME: ${PARTNER_ORANGEMONEY_NAME:-Orange Money}
+      PARTNER_ORANGEMONEY_API_KEY:  ${PARTNER_ORANGEMONEY_API_KEY:-pk_orange_prod_key}
+      PARTNER_ORANGEMONEY_API_SECRET: ${PARTNER_ORANGEMONEY_API_SECRET:-sk_orange_prod_secret}
+      PARTNER_ORANGEMONEY_WEBHOOK_URL: ${PARTNER_ORANGEMONEY_WEBHOOK_URL:-https://api.safarigari.com}
+      PARTNER_ORANGEMONEY_CALLBACK_URL: ${PARTNER_ORANGEMONEY_CALLBACK_URL:-https://payment-service.com/callbacks/orangemoney}
+      PARTNER_ORANGEMONEY_ENABLED:  ${PARTNER_ORANGEMONEY_ENABLED:-false}
+      
+      # ============================================
+      # REDIS CONFIGURATION
+      # ============================================
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD:  ""
+      REDIS_DB:  0
+    
+    networks: 
+      - micro_net
+    
+    extra_hosts:
+      - "212.95.35.81:host-gateway"
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8027/api/v1/payments/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    
+    # Dependencies
+    depends_on: 
+      redis:
+        condition: service_healthy
+      accounting-service: 
+        condition: service_started
+      partner-service:
+        condition:  service_started
+    
+    # Resource limits
+    deploy:
+      resources: 
+        limits: 
+          cpus:  '1.0'
+          memory: 1G
+        reservations: 
+          cpus: '0.5'
+          memory: 512M
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Logging
+    logging: 
+      driver: "json-file"
+      options: 
+        max-size: "10m"
+        max-file: "3"
+
 volumes:
   prometheus_data:
     driver: local

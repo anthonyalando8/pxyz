@@ -9,8 +9,22 @@ import (
 // config/config.go
 type Config struct {
 	// ... other config
+	// Server     ServerConfig
+	// Database   DatabaseConfig
+	Security   SecurityConfig
+	// Blockchain BlockchainConfig
 
 	Tron TronConfig
+	Bitcoin    BitcoinConfig
+}
+
+type SecurityConfig struct {
+	MasterKey       string
+	VaultProvider   string // "env", "file", "hashicorp"
+	VaultAddress    string
+	VaultToken      string
+	FileVaultDir    string
+	FileVaultKey    string
 }
 
 type TronConfig struct {
@@ -18,6 +32,12 @@ type TronConfig struct {
 	Network   string
 	HTTPUrl   string
 	GRPCUrl   string
+}
+
+type BitcoinConfig struct {
+	RPCURL  string
+	APIKey  string
+	Network string // mainnet, testnet, regtest
 }
 
 func Load(logger *zap.Logger) (*Config, error) {
@@ -36,12 +56,38 @@ func Load(logger *zap.Logger) (*Config, error) {
 		grpcUrl = "grpc.nile.trongrid.io:50051"
 	}
 
+	btcNetwork := getEnv("BTC_NETWORK", "testnet")
+	btcRPCURL := getEnv("BTC_RPC_URL", "")
+	
+	// Use default public endpoints if not specified
+	if btcRPCURL == "" {
+		switch btcNetwork {
+		case "mainnet":
+			btcRPCURL = "https://blockstream.info/api"
+		case "testnet": 
+			btcRPCURL = "https://blockstream.info/testnet/api"
+		}
+	}
+
 	return &Config{
 		Tron: TronConfig{
 			APIKey:  getEnv("TRON_API_KEY", ""),
 			Network: network,
 			HTTPUrl: httpUrl,
 			GRPCUrl: grpcUrl,
+		},
+		Bitcoin:  BitcoinConfig{
+			RPCURL:  btcRPCURL,
+			APIKey:  getEnv("BTC_API_KEY", ""),
+			Network: btcNetwork,
+		},
+		Security: SecurityConfig{
+			MasterKey:     os.Getenv("CRYPTO_MASTER_KEY"),
+			VaultProvider: getEnv("VAULT_PROVIDER", "env"),
+			VaultAddress:  os.Getenv("VAULT_ADDRESS"),
+			VaultToken:    os.Getenv("VAULT_TOKEN"),
+			FileVaultDir:  getEnv("FILE_VAULT_DIR", "./vault"),
+			FileVaultKey:  os.Getenv("FILE_VAULT_KEY"),
 		},
 	}, nil
 }

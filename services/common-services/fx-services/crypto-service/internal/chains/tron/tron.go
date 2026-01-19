@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/fbsobreira/gotron-sdk/pkg/address"
 	"github.com/fbsobreira/gotron-sdk/pkg/client"
 	"github.com/fbsobreira/gotron-sdk/pkg/proto/core"
@@ -34,7 +35,7 @@ func NewTronChain(apiKey, network string, logger *zap.Logger) (*TronChain, error
 	case "mainnet":
 		grpcURL = "grpc.trongrid.io:50051"
 		httpURL = "https://api.trongrid.io"
-	case "shasta": 
+	case "shasta":
 		grpcURL = "grpc.shasta.trongrid.io:50051"
 		httpURL = "https://api.shasta.trongrid.io"
 	case "nile":
@@ -52,7 +53,7 @@ func NewTronChain(apiKey, network string, logger *zap.Logger) (*TronChain, error
 	}
 
 	// ✅ Initialize gRPC client with insecure credentials
-	grpcClient := client. NewGrpcClient(grpcURL)
+	grpcClient := client.NewGrpcClient(grpcURL)
 	grpcClient.SetAPIKey(apiKey)
 
 	// ✅ Set insecure credentials (required for gRPC)
@@ -125,7 +126,7 @@ func (t *TronChain) GetBalance(ctx context.Context, address string, asset *domai
 
 // getTRXBalance gets native TRX balance
 // getTRXBalance gets native TRX balance using HTTP API
-func (t *TronChain) getTRXBalance(ctx context. Context, addr string, asset *domain.Asset) (*domain.Balance, error) {
+func (t *TronChain) getTRXBalance(ctx context.Context, addr string, asset *domain.Asset) (*domain.Balance, error) {
 	t.logger.Info("getting TRX balance via HTTP",
 		zap.String("address", addr))
 
@@ -135,8 +136,8 @@ func (t *TronChain) getTRXBalance(ctx context. Context, addr string, asset *doma
 		// Account might not exist yet (no transactions)
 		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "Not Found") {
 			t.logger.Info("account not found, returning zero balance",
-				zap. String("address", addr))
-			
+				zap.String("address", addr))
+
 			return &domain.Balance{
 				Address:  addr,
 				Asset:    asset,
@@ -184,7 +185,7 @@ func (t *TronChain) Send(ctx context.Context, req *domain.TransactionRequest) (*
 // internal/chains/tron/tron_complete.go (UPDATE sendTRX)
 
 // sendTRX sends native TRX
-func (t *TronChain) sendTRX(ctx context.Context, req *domain. TransactionRequest) (*domain.TransactionResult, error) {
+func (t *TronChain) sendTRX(ctx context.Context, req *domain.TransactionRequest) (*domain.TransactionResult, error) {
 	t.logger.Info("sending TRX transaction",
 		zap.String("from", req.From),
 		zap.String("to", req.To),
@@ -221,7 +222,7 @@ func (t *TronChain) sendTRX(ctx context.Context, req *domain. TransactionRequest
 	// Broadcast
 	result, err := t.grpcClient.Broadcast(signedTx)
 	if err != nil {
-		return nil, fmt. Errorf("failed to broadcast: %w", err)
+		return nil, fmt.Errorf("failed to broadcast: %w", err)
 	}
 
 	if !result.Result {
@@ -629,3 +630,43 @@ func (t *TronChain) GetAccountInfo(ctx context.Context, address string) (*Accoun
 func (t *TronChain) GetTRC20Transactions(ctx context.Context, address, contractAddress string, limit int) ([]TransactionRecord, error) {
 	return t.httpClient.GetTRC20Transactions(ctx, address, contractAddress, limit)
 }
+
+func (t *TronChain) ImportWallet(ctx context.Context, privateKey string) (*domain.Wallet, error) {
+	t.logger.Info("importing TRON wallet from private key")
+
+	privateKey = strings.TrimSpace(privateKey)
+	if len(privateKey) != 64 {
+		return nil, fmt.Errorf("invalid private key length: expected 64 hex characters, got %d", len(privateKey))
+	}
+
+	// Decode hex private key
+	privateKeyBytes, err := hex.DecodeString(privateKey)
+	if err != nil {
+		return nil, fmt.Errorf("invalid private key format: %w", err)
+	}
+
+	// Convert to ECDSA private key
+	ecdsaPrivKey, err := crypto.ToECDSA(privateKeyBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse ECDSA private key: %w", err)
+	}
+
+	// Extract public key
+	pubKey := ecdsaPrivKey.PublicKey
+
+	// Generate TRON address from public key
+	addr := address.PubkeyToAddress(pubKey)
+	walletAddress := addr.String()
+
+	t.logger.Info("TRON wallet imported successfully",
+		zap.String("address", walletAddress))
+
+	return &domain.Wallet{
+		Address:    walletAddress,
+		PrivateKey: privateKey, // store ENCRYPTED in real code
+		PublicKey:  hex.EncodeToString(crypto.FromECDSAPub(&pubKey)),
+		Chain:      "TRON",
+		CreatedAt:  time.Now(),
+	}, nil
+}
+
