@@ -15,7 +15,7 @@ RUN go mod download
 RUN go mod tidy
 
 # Copy secrets if needed
-COPY services/common-services/fx-services/crypto-service/secrets ./secrets
+# COPY services/common-services/fx-services/crypto-service/secrets ./secrets
 
 # Copy crypto-service source
 COPY services/common-services/fx-services/crypto-service/ ./ 
