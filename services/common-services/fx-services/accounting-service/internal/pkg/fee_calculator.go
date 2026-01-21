@@ -300,6 +300,8 @@ func (uc *TransactionFeeCalculator) calculateFeeFromRule(rule *domain.Transactio
 
 		calc.CalculatedFrom = fmt.Sprintf("fixed fee: %.2f", feeAmount)
 
+	// accounting-service/internal/service/fee_calculator.go
+
 	case domain.FeeCalculationTiered:
 		tiers, err := rule.GetTiers()
 		if err != nil {
@@ -318,7 +320,7 @@ func (uc *TransactionFeeCalculator) calculateFeeFromRule(rule *domain.Transactio
 
 				if tier.Rate != nil {
 					basisPoints := *tier.Rate // Already float64
-
+					
 					if basisPoints < 0 || basisPoints > 10000 {
 						return nil, fmt.Errorf("tier basis points out of range: %.2f", basisPoints)
 					}
@@ -326,21 +328,27 @@ func (uc *TransactionFeeCalculator) calculateFeeFromRule(rule *domain.Transactio
 					feeRate := basisPoints / 10000.0
 					feeAmount += amount * feeRate
 
-					rateStr := fmt.Sprintf("%.4f", feeRate) //  Convert to string for display
+					// ✅ FIX: Show the actual basis points, not fee rate
+					rateStr := fmt.Sprintf("%.0f", basisPoints) // "100" not "0.01"
 					calc.AppliedRate = &rateStr
 
 					maxAmountStr := "∞"
 					if tier.MaxAmount != nil {
 						maxAmountStr = fmt.Sprintf("%.2f", *tier.MaxAmount)
 					}
-					calc.CalculatedFrom = fmt.Sprintf("tiered rate: %.4f%% (%.4f bps) for range %.2f-%s",
-						feeRate*100, feeRate, tier.MinAmount, maxAmountStr)
+					
+					// ✅ FIX:  Show correct percentage calculation
+					calc. CalculatedFrom = fmt.Sprintf("tiered rate: %.4f%% (%.2f bps) for range %.2f-%s",
+						feeRate*100,  // ✅ This converts 0.01 → 1.00%
+						basisPoints,  // ✅ Shows "100 bps"
+						tier.MinAmount, 
+						maxAmountStr)
 				}
 
 				if tier.FixedFee != nil {
 					feeAmount += *tier.FixedFee
-					if calc.CalculatedFrom != "" {
-						calc.CalculatedFrom += fmt.Sprintf(" + fixed: %.8f", *tier.FixedFee)
+					if calc. CalculatedFrom != "" {
+						calc.CalculatedFrom += fmt.Sprintf(" + fixed:  %.8f", *tier.FixedFee)
 					}
 				}
 
