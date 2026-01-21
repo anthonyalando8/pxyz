@@ -18,6 +18,7 @@ func (h *PaymentHandler) handleCalculateFee(ctx context.Context, client *Client,
 		Amount          float64 `json:"amount"`
 		SourceCurrency  string  `json:"source_currency,omitempty"`
 		TargetCurrency  string  `json:"target_currency,omitempty"`
+		ToAddress 	 *string  `json:"to_address,omitempty"`
 	}
 
 	if err := json.Unmarshal(data, &req); err != nil {
@@ -39,6 +40,9 @@ func (h *PaymentHandler) handleCalculateFee(ctx context.Context, client *Client,
 	}
 	if req.TargetCurrency != "" {
 		feeReq.TargetCurrency = &req.TargetCurrency
+	}
+	if req.ToAddress != nil {
+		feeReq.ToAddress = req.ToAddress
 	}
 
 	resp, err := h.accountingClient.Client.CalculateFee(ctx, feeReq)
