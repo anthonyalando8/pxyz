@@ -23,7 +23,7 @@ func assetFromCode(code string) *domain.Asset {
 			Chain:        "TRON",
 			Symbol:       "USDT",
 			Type:         domain.AssetTypeToken,
-			ContractAddr: stringPtr("TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"), // TRON USDT mainnet
+			ContractAddr: stringPtr("TG3XXyExBkPp9nzdajDZsozEu4BkaSJozs"), // TRON USDT mainnet
 			Decimals:     6,
 		}
 	case "BTC":
