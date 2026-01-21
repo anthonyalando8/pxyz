@@ -323,6 +323,7 @@ func (r *transactionRepo) Transfer(
 			DrCr:          domain.DrCrCredit,
 			Currency:      systemRevAccount.Currency,
 			ReceiptCode:   req.ReceiptCode,
+			IsFee:         true,
 			Description:   strPtr(fmt.Sprintf("Transfer fee (%.2f%%)", (feeAmount/req.Amount)*100)),
 			Metadata:      req.Metadata,
 		})
@@ -466,6 +467,7 @@ func (r *transactionRepo) ConvertAndTransfer(
 			DrCr:          domain.DrCrCredit,
 			Currency:      systemRevAccount.Currency,
 			ReceiptCode:   req.ReceiptCode,
+			IsFee:         true,
 			Description:   strPtr("Conversion fee"),
 			Metadata:      metadata,
 		})
@@ -708,10 +710,18 @@ func (r *transactionRepo) ExecuteTransactionOptimistic(
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
+	var payableAmount float64 = 0
+
+	for _, l := range req.Entries  {
+		if l.DrCr == domain.DrCrCredit && !l.IsFee {
+			payableAmount += l.Amount
+		}
+	}
 
 	return &domain.LedgerAggregate{
 		Journal: journal,
 		Ledgers: ledgers,
+		PayableAmount: payableAmount,
 	}, nil
 }
 
@@ -780,10 +790,18 @@ func (r *transactionRepo) ExecuteTransactionPessimistic(
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
+	var payableAmount float64 = 0
+
+	for _, l := range req.Entries  {
+		if l.DrCr == domain.DrCrCredit && !l.IsFee {
+			payableAmount += l.Amount
+		}
+	}
 
 	return &domain.LedgerAggregate{
 		Journal: journal,
 		Ledgers: ledgers,
+		PayableAmount: payableAmount,
 	}, nil
 }
 

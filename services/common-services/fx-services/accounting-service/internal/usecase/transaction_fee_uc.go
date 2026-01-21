@@ -105,8 +105,9 @@ func (uc *TransactionFeeUsecase) CalculateFee(
 	sourceCurrency, targetCurrency *string,
 	accountType *domain.AccountType,
 	ownerType *domain.OwnerType,
+	toAddress *string,
 ) (*domain.FeeCalculation, error) {
-	return uc.feeCalculator.CalculateFee(ctx, transactionType, amount, sourceCurrency, targetCurrency, accountType, ownerType)
+	return uc.feeCalculator.CalculateFee(ctx, transactionType, amount, sourceCurrency, targetCurrency, accountType, ownerType, toAddress)
 }
 
 // CalculateMultipleFees calculates all applicable fees for a transaction
@@ -335,8 +336,9 @@ func (uc *TransactionFeeUsecase) PreviewFee(
 	sourceCurrency, targetCurrency *string,
 	accountType *domain.AccountType,
 	ownerType *domain.OwnerType,
+	toAddress *string,
 ) (*domain.FeeCalculation, error) {
-	return uc.CalculateFee(ctx, transactionType, amount, sourceCurrency, targetCurrency, accountType, ownerType)
+	return uc.CalculateFee(ctx, transactionType, amount, sourceCurrency, targetCurrency, accountType, ownerType, toAddress,)
 }
 
 // CreateFeeForTransaction creates fees for a transaction and returns total

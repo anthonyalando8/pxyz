@@ -152,6 +152,7 @@ func (h *AccountingHandler) CalculateFee(
 		ptrString(targetCurrency),
 		ptrAccountType(accountType),
 		ptrOwnerType(ownerType),
+		req.ToAddress,
 	)
 	if err != nil {
 		return nil, handleUsecaseError(err)
@@ -201,22 +202,6 @@ func (h *AccountingHandler) GetAgentCommissionSummary(
 	}, nil
 }
 
-// package handler
-
-// import (
-// 	"context"
-// 	"fmt"
-// 	"reflect"
-// 	"strconv"
-
-// 	"accounting-service/internal/domain"
-// 	accountingpb "x/shared/genproto/shared/accounting/v1"
-
-// 	"google.golang.org/grpc/codes"
-// 	"google.golang.org/grpc/status"
-// 	"google.golang.org/protobuf/types/known/timestamppb"
-// )
-
 // ===============================
 // CREDIT
 // ===============================
@@ -241,6 +226,7 @@ func (h *AccountingHandler) Credit(
 		CreatedByExternalID: req.CreatedByExternalId,
 		CreatedByType:       convertOwnerTypeToDomain(req.CreatedByType),
 		TransactionType:     getTransactionType(req.TransactionType, domain.TransactionTypeTransfer),
+		ToAddress: req.ToAddress,
 	}
 
 	// Execute
@@ -258,6 +244,7 @@ func (h *AccountingHandler) Credit(
 		ReceiptCode:  receiptCode,
 		BalanceAfter: balanceAfter,
 		CreatedAt:    timestamppb.New(aggregate.Journal.CreatedAt),
+		PayableAmount: aggregate.PayableAmount,
 	}, nil
 }
 
@@ -285,6 +272,7 @@ func (h *AccountingHandler) Debit(
 		CreatedByExternalID: req.CreatedByExternalId,
 		CreatedByType:       convertOwnerTypeToDomain(req.CreatedByType),
 		TransactionType:     getTransactionType(req.TransactionType, domain. TransactionTypeTransfer),
+		ToAddress: req.ToAddress,
 	}
 
 	// Execute
@@ -302,6 +290,7 @@ func (h *AccountingHandler) Debit(
 		ReceiptCode:   receiptCode,
 		BalanceAfter: balanceAfter,
 		CreatedAt:     timestamppb.New(aggregate.Journal.CreatedAt),
+		PayableAmount: aggregate.PayableAmount,
 	}, nil
 }
 
@@ -331,6 +320,7 @@ func (h *AccountingHandler) Transfer(
 		CreatedByType:       convertOwnerTypeToDomain(req.CreatedByType),
 		AgentExternalID:     req. AgentExternalId,
 		TransactionType:     getTransactionType(req.TransactionType, domain.TransactionTypeTransfer),
+		ToAddress: req.ToAddress,
 	}
 
 	// Execute
@@ -349,6 +339,7 @@ func (h *AccountingHandler) Transfer(
 		FeeAmount:        feeAmount,
 		AgentCommission: agentCommission,
 		CreatedAt:       timestamppb.New(aggregate.Journal.CreatedAt),
+		PayableAmount: aggregate.PayableAmount,
 	}, nil
 }
 
@@ -376,6 +367,7 @@ func (h *AccountingHandler) ConvertAndTransfer(
 		CreatedByExternalID: req.CreatedByExternalId,
 		CreatedByType:       convertOwnerTypeToDomain(req.CreatedByType),
 		AgentExternalID:     req. AgentExternalId,
+		ToAddress: req.ToAddress,
 	}
 
 	// Execute
@@ -399,6 +391,7 @@ func (h *AccountingHandler) ConvertAndTransfer(
 		FxRateId:        conversionData.FxRateID,
 		FeeAmount:       conversionData.FeeAmount,
 		CreatedAt:       timestamppb.New(aggregate.Journal.CreatedAt),
+		PayableAmount: aggregate.PayableAmount,
 	}, nil
 }
 

@@ -153,6 +153,7 @@ func NewAccountingGRPCServer(cfg config.AppConfig) {
 		feeRepo,
 		feeRuleRepo,
 		rdb,
+		cryptoClient,
 	)
 	log.Println("✅ Fee calculator initialized")
 	

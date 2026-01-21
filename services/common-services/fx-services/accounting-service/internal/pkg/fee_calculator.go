@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	cryptoclient "x/shared/common/crypto"
 
 	//"math/big"
 	"time"
@@ -20,10 +21,12 @@ import (
 )
 
 // TransactionFeeCalculator handles business logic for transaction fees
+// TransactionFeeCalculator handles business logic for transaction fees
 type TransactionFeeCalculator struct {
-	feeRepo     repository.TransactionFeeRepository
-	feeRuleRepo repository.TransactionFeeRuleRepository
-	redisClient *redis.Client
+	feeRepo      repository.TransactionFeeRepository
+	feeRuleRepo  repository.TransactionFeeRuleRepository
+	redisClient  *redis.Client
+	cryptoClient *cryptoclient. CryptoClient // ✅ Add crypto client
 }
 
 // NewTransactionFeeCalculator initializes a new TransactionFeeCalculator
@@ -31,11 +34,13 @@ func NewTransactionFeeCalculator(
 	feeRepo repository.TransactionFeeRepository,
 	feeRuleRepo repository.TransactionFeeRuleRepository,
 	redisClient *redis.Client,
+	cryptoClient *cryptoclient. CryptoClient, // ✅ Add parameter
 ) *TransactionFeeCalculator {
 	return &TransactionFeeCalculator{
-		feeRepo:     feeRepo,
-		feeRuleRepo: feeRuleRepo,
-		redisClient: redisClient,
+		feeRepo:      feeRepo,
+		feeRuleRepo:   feeRuleRepo,
+		redisClient:  redisClient,
+		cryptoClient:  cryptoClient, // ✅ Store it
 	}
 }
 
@@ -49,7 +54,11 @@ func (uc *TransactionFeeCalculator) BeginTx(ctx context.Context) (pgx.Tx, error)
 // FEE CALCULATION
 // ===============================
 
-// CalculateFee calculates the fee for a transaction based on active rules
+// CalculateFee is the MAIN entry point for all fee calculations
+// It automatically handles: 
+// - Platform fees (from rules)
+// - Network fees (for crypto withdrawals)
+// - Returns unified breakdown
 func (uc *TransactionFeeCalculator) CalculateFee(
 	ctx context.Context,
 	transactionType domain.TransactionType,
@@ -57,14 +66,109 @@ func (uc *TransactionFeeCalculator) CalculateFee(
 	sourceCurrency, targetCurrency *string,
 	accountType *domain.AccountType,
 	ownerType *domain.OwnerType,
+	// ✅ NEW: Optional parameters for crypto withdrawals
+	toAddress *string, // Destination address (for network fee estimation)
 ) (*domain.FeeCalculation, error) {
-	// Try cache first (fee rules are relatively stable)
+	
+	// Validate inputs
+	if sourceCurrency == nil {
+		return nil, fmt.Errorf("source currency is required")
+	}
+
+	currency := *sourceCurrency
+
+	// 1. Calculate platform fee using rules
+	platformFee, err := uc.calculatePlatformFee(
+		ctx,
+		transactionType,
+		amount,
+		sourceCurrency,
+		targetCurrency,
+		accountType,
+		ownerType,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate platform fee: %w", err)
+	}
+
+	// 2. Check if we need network fee (only for crypto withdrawals)
+	needsNetworkFee := transactionType == domain.TransactionTypeWithdrawal && 
+		uc.isCryptoCurrency(currency)
+
+	// Start with platform fee
+	totalFee := platformFee. Amount
+	breakdown := platformFee. CalculatedFrom
+	networkFeeCurrency := ""
+	var networkFeeAmount float64
+
+	// 3. Add network fee if applicable
+	if needsNetworkFee && uc.cryptoClient != nil {
+		destAddress := ""
+		if toAddress != nil {
+			destAddress = *toAddress
+		}
+
+		networkFeeCalc, err := uc.getNetworkFee(ctx, currency, amount, destAddress)
+		if err != nil {
+			// Log warning but don't fail - use estimate
+			fmt.Printf("⚠️  Failed to get network fee for %s:  %v, using estimate\n", currency, err)
+			networkFeeCalc = uc.getEstimatedNetworkFee(currency)
+		}
+
+		if networkFeeCalc != nil {
+			networkFeeAmount = networkFeeCalc.Amount
+			networkFeeCurrency = networkFeeCalc.Currency
+			
+			// For crypto, network fee is in native currency (TRX, BTC, etc.)
+			// Platform fee is in transaction currency (USDT, etc.)
+			// We keep them separate but report both
+			
+			breakdown += fmt.Sprintf(" | network fee: %.8f %s (%s)", 
+				networkFeeCalc.Amount, 
+				networkFeeCalc.Currency,
+				networkFeeCalc. Explanation)
+		}
+	}
+
+	// 4. Round total fee
+	totalFee = math.Round(totalFee*100000000) / 100000000
+	networkFeeAmount = math.Round(networkFeeAmount*100000000) / 100000000
+
+	// 5. Return unified calculation
+	result := &domain.FeeCalculation{
+		RuleID:             platformFee.RuleID,
+		FeeType:            platformFee. FeeType,
+		Amount:              totalFee,          // Platform fee (in transaction currency)
+		Currency:           currency,
+		NetworkFee:         networkFeeAmount,  // ✅ Network fee (in native currency)
+		NetworkFeeCurrency: networkFeeCurrency, // ✅ Network fee currency
+		AppliedRate:        platformFee.AppliedRate,
+		CalculatedFrom:     breakdown,
+	}
+
+	return result, nil
+}
+
+// ===============================
+// INTERNAL HELPER:  PLATFORM FEE
+// ===============================
+
+// calculatePlatformFee handles platform fee calculation using rules
+func (uc *TransactionFeeCalculator) calculatePlatformFee(
+	ctx context.Context,
+	transactionType domain.TransactionType,
+	amount float64,
+	sourceCurrency, targetCurrency *string,
+	accountType *domain. AccountType,
+	ownerType *domain.OwnerType,
+) (*domain.FeeCalculation, error) {
+	
+	// Try cache first
 	cacheKey := uc.buildFeeCalculationCacheKey(transactionType, sourceCurrency, targetCurrency, accountType, ownerType)
 
 	if val, err := uc.redisClient.Get(ctx, cacheKey).Result(); err == nil {
 		var cachedRule domain.TransactionFeeRule
 		if jsonErr := json.Unmarshal([]byte(val), &cachedRule); jsonErr == nil {
-			// Recalculate with cached rule
 			return uc.calculateFeeFromRule(&cachedRule, amount)
 		}
 	}
@@ -72,27 +176,31 @@ func (uc *TransactionFeeCalculator) CalculateFee(
 	// Find best matching rule
 	rule, err := uc.feeRuleRepo.FindBestMatch(ctx, transactionType, sourceCurrency, targetCurrency, accountType, ownerType)
 	if err != nil {
-		return nil, fmt.Errorf("no fee rule found: %w", err)
+		return nil, fmt. Errorf("no fee rule found: %w", err)
 	}
 
 	if rule == nil {
 		// No rule found = no fee
 		return &domain.FeeCalculation{
 			FeeType:        domain.FeeTypePlatform,
-			Amount:         0,
-			Currency:       *sourceCurrency,
+			Amount:          0,
+			Currency:       ptrStrToStr(sourceCurrency),
 			CalculatedFrom: "no matching rule",
 		}, nil
 	}
 
 	// Cache the rule (5 minutes)
 	if data, err := json.Marshal(rule); err == nil {
-		_ = uc.redisClient.Set(ctx, cacheKey, data, 5*time.Minute).Err()
+		_ = uc.redisClient. Set(ctx, cacheKey, data, 5*time.Minute).Err()
 	}
 
 	// Calculate fee from rule
 	return uc.calculateFeeFromRule(rule, amount)
 }
+
+// ===============================
+// BACKWARD COMPATIBILITY
+// ===============================
 
 // CalculateMultipleFees calculates all applicable fees for a transaction
 func (uc *TransactionFeeCalculator) CalculateMultipleFees(
@@ -103,34 +211,15 @@ func (uc *TransactionFeeCalculator) CalculateMultipleFees(
 	accountType *domain.AccountType,
 	ownerType *domain.OwnerType,
 ) ([]*domain.FeeCalculation, error) {
-	// Find all matching rules
-	rules, err := uc.feeRuleRepo.FindAllMatches(ctx, transactionType, sourceCurrency, targetCurrency, accountType, ownerType)
+	
+	// Use unified CalculateFee
+	mainFee, err := uc. CalculateFee(ctx, transactionType, amount, sourceCurrency, targetCurrency, accountType, ownerType, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find fee rules: %w", err)
+		return nil, err
 	}
 
-	if len(rules) == 0 {
-		return []*domain.FeeCalculation{}, nil
-	}
-
-	// Calculate fee for each rule
-	var calculations []*domain.FeeCalculation
-
-	for _, rule := range rules {
-		calc, err := uc.calculateFeeFromRule(rule, amount)
-		if err != nil {
-			// Log error but continue
-			continue
-		}
-
-		if calc.Amount > 0 {
-			calculations = append(calculations, calc)
-		}
-	}
-
-	return calculations, nil
+	return []*domain.FeeCalculation{mainFee}, nil
 }
-
 // service/fee_calculator.go
 
 func (uc *TransactionFeeCalculator) calculateFeeFromRule(rule *domain.TransactionFeeRule, amount float64) (*domain.FeeCalculation, error) {

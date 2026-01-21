@@ -1119,6 +1119,7 @@ func (uc *TransactionUsecase) Transfer(
 		nullableStr(destAccount.Currency),
 		&req.AccountType,
 		ptrOwnerType(req.CreatedByType),
+		req.ToAddress,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate transfer fee: %w", err)
@@ -1232,6 +1233,7 @@ func (uc *TransactionUsecase) ConvertAndTransfer(
 		nullableStr(destAccount.Currency),
 		&req. AccountType,
 		ptrOwnerType(req.CreatedByType),
+		req.ToAddress,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate conversion fee: %w", err)

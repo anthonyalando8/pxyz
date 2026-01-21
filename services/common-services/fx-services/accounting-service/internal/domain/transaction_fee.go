@@ -108,14 +108,58 @@ type FeeRuleFilter struct {
 	Offset          int
 }
 
-// FeeCalculation represents the result of a fee calculation
+// // FeeCalculation represents the result of a fee calculation
+// type FeeCalculation struct {
+// 	RuleID         *int64
+// 	FeeType        FeeType
+// 	Amount         float64
+// 	Currency       string
+// 	AppliedRate    *string // For percentage fees
+// 	CalculatedFrom string  // Description of how fee was calculated
+// }
+
+// accounting-service/internal/domain/fee. go
+
 type FeeCalculation struct {
-	RuleID         *int64
-	FeeType        FeeType
-	Amount         float64
-	Currency       string
-	AppliedRate    *string // For percentage fees
-	CalculatedFrom string  // Description of how fee was calculated
+	RuleID             *int64  `json:"rule_id,omitempty"`
+	FeeType            FeeType `json:"fee_type"`
+	Amount             float64 `json:"amount"`              // Platform fee amount
+	Currency           string  `json:"currency"`            // Platform fee currency
+	NetworkFee         float64 `json:"network_fee"`         // ✅ Network fee amount
+	NetworkFeeCurrency string  `json:"network_fee_currency"` // ✅ Network fee currency (TRX, BTC, etc.)
+	AppliedRate        *string `json:"applied_rate,omitempty"`
+	CalculatedFrom     string  `json:"calculated_from"`
+}
+
+// GetTotalFee returns total of platform + network fees
+// NOTE: These might be in different currencies! 
+func (fc *FeeCalculation) GetTotalFee() float64 {
+	return fc.Amount + fc.NetworkFee
+}
+
+// HasNetworkFee checks if network fee is applicable
+func (fc *FeeCalculation) HasNetworkFee() bool {
+	return fc.NetworkFee > 0
+}
+
+// WithdrawalFeeBreakdown contains complete withdrawal fee breakdown
+type WithdrawalFeeBreakdown struct {
+	Currency           string  `json:"currency"`
+	Amount             float64 `json:"amount"`
+	PlatformFee        float64 `json:"platform_fee"`
+	NetworkFee         float64 `json:"network_fee"`
+	NetworkFeeCurrency string  `json:"network_fee_currency,omitempty"`
+	TotalFee           float64 `json:"total_fee"`
+	Breakdown          string  `json:"breakdown"` // Human-readable explanation
+}
+
+// NetworkFeeCalculation contains network fee details
+type NetworkFeeCalculation struct {
+	Amount      float64       `json:"amount"`
+	Currency    string        `json:"currency"`
+	EstimatedAt time. Time     `json:"estimated_at"`
+	ValidFor    time.Duration `json:"valid_for"`
+	Explanation string        `json:"explanation"`
 }
 
 // IsValid checks if the fee rule has valid required fields

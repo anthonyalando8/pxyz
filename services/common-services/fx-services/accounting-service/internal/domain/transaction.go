@@ -14,6 +14,7 @@ type LedgerAggregate struct {
 	Ledgers []*Ledger         // Double-entry ledger entries
 	Receipt *Receipt          // Optional receipt reference
 	Fees    []*TransactionFee // Applied fees
+	PayableAmount float64   // Total payable amount (credits minus fees)
 }
 
 // Receipt represents a transaction receipt (optional)
@@ -64,6 +65,7 @@ type LedgerEntryRequest struct {
 	Description   *string                // Optional description
 	ReceiptCode   *string                // Optional receipt code
 	Metadata      map[string]interface{} `json:"metadata,omitempty"` // Additional metadata
+	IsFee		 bool                   // Is this a fee entry?
 }
 
 // ===============================
@@ -105,6 +107,8 @@ type CreditRequest struct {
 	Metadata            map[string]interface{} `json:"metadata,omitempty"`
 	ReceiptCode         *string
 	TransactionType     TransactionType `json:"transaction_type"`
+	ToAddress	   *string				 `json:"to_address,omitempty"`          // Destination address for crypto transfers
+
 }
 
 // DebitRequest represents a simple debit operation (remove money from account)
@@ -121,6 +125,7 @@ type DebitRequest struct {
 	Metadata            map[string]interface{} `json:"metadata,omitempty"`
 	ReceiptCode         *string
 	TransactionType     TransactionType `json:"transaction_type"`
+	ToAddress	   *string				 `json:"to_address,omitempty"`          // Destination address for crypto transfers
 }
 
 // TransferRequest represents a transfer between two accounts (same currency)
@@ -139,6 +144,7 @@ type TransferRequest struct {
 	ReceiptCode         *string
 	TransactionType     TransactionType `json:"transaction_type"`
 	TransactionFee *TransactionFee
+	ToAddress	   *string				 `json:"to_address,omitempty"`          // Destination address for crypto transfers
 }
 
 // ConversionRequest represents a currency conversion transfer
@@ -155,6 +161,7 @@ type ConversionRequest struct {
 	Metadata            map[string]interface{} `json:"metadata,omitempty"`
 	ReceiptCode         *string
 	TransactionFee *TransactionFee
+	ToAddress	   *string				 `json:"to_address,omitempty"`          // Destination address for crypto transfers
 }
 
 type AgentCommissionRequest struct {

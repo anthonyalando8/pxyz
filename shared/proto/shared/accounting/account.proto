@@ -493,6 +493,7 @@ message CalculateFeeRequest {
     optional string target_currency = 4;
     optional AccountType account_type = 5;
     optional OwnerType owner_type = 6;
+    optional string to_address = 7;
 }
 
 message FeeCalculation {
@@ -598,6 +599,7 @@ message CreditRequest {
     string created_by_external_id = 8;
     OwnerType created_by_type = 9;
     TransactionType transaction_type = 10;
+    optional string to_address = 11;
 }
 
 message CreditResponse {
@@ -605,6 +607,7 @@ message CreditResponse {
     string receipt_code = 2;
     double balance_after = 3;
     google.protobuf.Timestamp created_at = 4;
+    double payable_amount = 5;
 }
 
 message DebitRequest {
@@ -618,6 +621,7 @@ message DebitRequest {
     string created_by_external_id = 8;
     OwnerType created_by_type = 9;
     TransactionType transaction_type = 10;
+    optional string to_address = 11;
 }
 
 message DebitResponse {
@@ -625,6 +629,7 @@ message DebitResponse {
     string receipt_code = 2;
     double balance_after = 3;
     google.protobuf.Timestamp created_at = 4;
+    double payable_amount = 5;
 }
 
 message TransferRequest {
@@ -639,6 +644,7 @@ message TransferRequest {
     OwnerType created_by_type = 9;
     optional string agent_external_id = 10; // Agent who facilitated
     TransactionType transaction_type = 11;
+    optional string to_address = 12;
 }
 
 message TransferResponse {
@@ -647,6 +653,8 @@ message TransferResponse {
     double fee_amount = 3;
     double agent_commission = 4;
     google.protobuf.Timestamp created_at = 5;
+    double balance_after = 6;
+    double payable_amount = 7;
 }
 
 message ConversionRequest {
@@ -659,6 +667,8 @@ message ConversionRequest {
     string created_by_external_id = 7;
     OwnerType created_by_type = 8;
     optional string agent_external_id = 9;
+    optional string to_address = 10;
+
 }
 
 message ConversionResponse {
@@ -672,6 +682,7 @@ message ConversionResponse {
     int64 fx_rate_id = 8;
     double fee_amount = 9;
     google.protobuf.Timestamp created_at = 10;
+    double payable_amount = 11;
 }
 
 message TradeRequest {
@@ -854,7 +865,7 @@ message AgentCommission {
     bool paid_out = 11;
     optional string payout_receipt_code = 12;
     optional google.protobuf.Timestamp paid_out_at = 13;
-    google.protobuf. Timestamp created_at = 14;
+    google.protobuf.Timestamp created_at = 14;
 }
 
 message CreateAgentRequest {
@@ -982,10 +993,12 @@ message GetAgentStatsResponse {
     map<string, int32> agents_by_country = 4; // {"KE": 50, "UG": 30}
     map<string, int32> agents_by_payment_method = 5; // {"mpesa": 40, "bank": 40}
 }
+
 // ===============================
 // SERVICE DEFINITION
 // ===============================
 
+// Accounting Service Definition
 service AccountingService {
     // ===============================
     // ACCOUNT MANAGEMENT

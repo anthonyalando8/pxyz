@@ -353,44 +353,6 @@ CREATE INDEX idx_address_book_chain ON crypto_address_book(chain);
 
 COMMENT ON TABLE crypto_address_book IS 'User-saved external cryptocurrency addresses';
 
--- ============================================================================
--- 7. NETWORK FEE ESTIMATES - Cache fee estimates
--- ============================================================================
-
-CREATE TABLE network_fee_estimates (
-    id                      BIGSERIAL PRIMARY KEY,
-    chain                   VARCHAR(50) NOT NULL,
-    asset                   VARCHAR(50) NOT NULL,
-    operation               VARCHAR(50) NOT NULL,           -- withdrawal, transfer
-    
-    -- Fee estimates (in smallest unit)
-    low_fee                 NUMERIC(30, 18) NOT NULL,
-    medium_fee              NUMERIC(30, 18) NOT NULL,
-    high_fee                NUMERIC(30, 18) NOT NULL,
-    
-    -- Chain-specific details
-    fee_currency            VARCHAR(50) NOT NULL,
-    gas_price               NUMERIC(30, 18),                -- Ethereum
-    energy_price            NUMERIC(30, 18),                -- TRON (SUN per energy)
-    sat_per_byte            INT,                            -- Bitcoin
-    
-    -- Metadata
-    network_congestion      VARCHAR(20),                    -- low, medium, high
-    estimated_confirmation_time INT,                        -- seconds
-    
-    -- Cache validity
-    estimated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    valid_until             TIMESTAMPTZ NOT NULL,
-    
-    created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_fee_estimates_chain_asset ON network_fee_estimates(chain, asset, operation);
-CREATE INDEX idx_fee_estimates_valid_until
-ON network_fee_estimates(valid_until);
-
-
-COMMENT ON TABLE network_fee_estimates IS 'Cached network fee estimates for quick quoting';
 
 -- ============================================================================
 -- VIEWS - Convenient data access

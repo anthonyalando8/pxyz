@@ -90,7 +90,7 @@ message Account {
     AccountType account_type = 7;
     bool is_active = 8;
     bool is_locked = 9;
-    int64 overdraft_limit = 10;
+    double overdraft_limit = 10;
     int64 parent_agent_id = 11;
     string commission_rate = 12; // NUMERIC as string (e.g. "0.0025")
     google.protobuf.Timestamp created_at = 13;
@@ -100,10 +100,10 @@ message Account {
 message Balance {
     int64 account_id = 1;
     string account_number = 2;
-    int64 balance = 3; // Atomic units (e.g., cents)
-    int64 available_balance = 4;
-    int64 pending_debit = 5;
-    int64 pending_credit = 6;
+    double balance = 3; // Atomic units (e.g., cents)
+    double available_balance = 4;
+    double pending_debit = 5;
+    double pending_credit = 6;
     string currency = 7;
     int64 version = 8;
     google.protobuf.Timestamp last_transaction_at = 9;
@@ -115,7 +115,7 @@ message CreateAccountRequest {
     string currency = 3;
     AccountPurpose purpose = 4;
     AccountType account_type = 5;
-    int64 overdraft_limit = 6;
+    double overdraft_limit = 6;
     int64 parent_agent_id = 7;
     string commission_rate = 8;
 }
@@ -168,7 +168,7 @@ message UpdateAccountRequest {
     int64 id = 1;
     optional bool is_active = 2;
     optional bool is_locked = 3;
-    optional int64 overdraft_limit = 4;
+    optional double overdraft_limit = 4;
 }
 
 message UpdateAccountResponse {
@@ -192,7 +192,7 @@ message GetBalanceResponse {
 
 message LedgerEntry {
     string account_number = 1;
-    int64 amount = 2; // Atomic units
+    double amount = 2; // Atomic units
     DrCr dr_cr = 3;
     string currency = 4;
     optional string description = 5;
@@ -216,9 +216,9 @@ message ExecuteTransactionResponse {
     string receipt_code = 1;
     int64 transaction_id = 2;
     TransactionStatus status = 3;
-    int64 amount = 4;
+    double amount = 4;
     string currency = 5;
-    int64 fee = 6;
+    double fee = 6;
     int64 processing_time_ms = 7;
     google.protobuf.Timestamp created_at = 8;
 }
@@ -243,9 +243,9 @@ message ExecuteTransactionSyncResponse {
     string receipt_code = 1;
     int64 transaction_id = 2;
     TransactionStatus status = 3;
-    int64 amount = 4;
+    double amount = 4;
     string currency = 5;
-    int64 fee = 6;
+    double fee = 6;
     int64 processing_time_ms = 7;
     google.protobuf.Timestamp created_at = 8;
 }
@@ -295,10 +295,10 @@ message Ledger {
     int64 journal_id = 2;
     int64 account_id = 3;
     string account_number = 4;
-    int64 amount = 5;
+    double amount = 5;
     DrCr dr_cr = 6;
     string currency = 7;
-    int64 balance_after = 8;
+    double balance_after = 8;
     optional string description = 9;
     optional string receipt_code = 10;
     google.protobuf.Timestamp created_at = 11;
@@ -358,10 +358,10 @@ message AccountStatement {
     string account_number = 1;
     AccountType account_type = 2;
     repeated Ledger ledgers = 3;
-    int64 opening_balance = 4;
-    int64 closing_balance = 5;
-    int64 total_debits = 6;
-    int64 total_credits = 7;
+    double opening_balance = 4;
+    double closing_balance = 5;
+    double total_debits = 6;
+    double total_credits = 7;
     google.protobuf.Timestamp period_start = 8;
     google.protobuf.Timestamp period_end = 9;
 }
@@ -394,15 +394,15 @@ message OwnerSummary {
     string owner_id = 2;
     AccountType account_type = 3;
     repeated AccountBalance account_balances = 4;
-    int64 total_balance_usd_equivalent = 5;
+    double total_balance_usd_equivalent = 5;
 }
 
 message AccountBalance {
     int64 account_id = 1;
     string account_number = 2;
     string currency = 3;
-    int64 balance = 4;
-    int64 available_balance = 5;
+    double balance = 4;
+    double available_balance = 5;
 }
 
 message GetOwnerSummaryRequest {
@@ -424,10 +424,10 @@ message DailyReport {
     string owner_id = 2;
     int64 account_id = 3;
     string currency = 4;
-    int64 total_debit = 5;
-    int64 total_credit = 6;
-    int64 balance = 7;
-    int64 net_change = 8;
+    double total_debit = 5;
+    double total_credit = 6;
+    double balance = 7;
+    double net_change = 8;
     google.protobuf.Timestamp date = 9;
 }
 
@@ -444,10 +444,10 @@ message TransactionSummary {
     TransactionType transaction_type = 1;
     string currency = 2;
     int64 count = 3;
-    int64 total_amount = 4;
-    int64 min_amount = 5;
-    int64 max_amount = 6;
-    int64 avg_amount = 7;
+    double total_amount = 4;
+    double min_amount = 5;
+    double max_amount = 6;
+    double avg_amount = 7;
 }
 
 message GetTransactionSummaryRequest {
@@ -465,7 +465,7 @@ message GetSystemHoldingsRequest {
 }
 
 message GetSystemHoldingsResponse {
-    map<string, int64> holdings = 1; // currency -> amount
+    map<string, double> holdings = 1; // currency -> amount
 }
 
 // ===============================
@@ -477,7 +477,7 @@ message TransactionFee {
     string receipt_code = 2;
     int64 fee_rule_id = 3;
     FeeType fee_type = 4;
-    int64 amount = 5;
+    double amount = 5;
     string currency = 6;
     optional int64 collected_by_account_id = 7;
     optional int64 ledger_id = 8;
@@ -488,16 +488,17 @@ message TransactionFee {
 
 message CalculateFeeRequest {
     TransactionType transaction_type = 1;
-    int64 amount = 2;
+    double amount = 2;
     optional string source_currency = 3;
     optional string target_currency = 4;
     optional AccountType account_type = 5;
     optional OwnerType owner_type = 6;
+    optional string to_address = 7;
 }
 
 message FeeCalculation {
     FeeType fee_type = 1;
-    int64 amount = 2;
+    double amount = 2;
     string currency = 3;
     optional string applied_rate = 4;
     optional int64 rule_id = 5;
@@ -523,7 +524,7 @@ message GetAgentCommissionSummaryRequest {
 }
 
 message GetAgentCommissionSummaryResponse {
-    map<string, int64> commissions = 1; // currency -> total commission
+    map<string, double> commissions = 1; // currency -> total commission
 }
 
 // ===============================
@@ -576,7 +577,7 @@ message TransactionEvent {
     string receipt_code = 2;
     int64 transaction_id = 3;
     TransactionStatus status = 4;
-    int64 amount = 5;
+    double amount = 5;
     string currency = 6;
     optional string error_message = 7;
     google.protobuf.Timestamp timestamp = 8;
@@ -589,46 +590,52 @@ message TransactionEvent {
 
 message CreditRequest {
     string account_number = 1;
-    int64 amount = 2;
-    string currency = 3;
+    double amount = 2;
+    string currenccy = 3;
     AccountType account_type = 4;
     string description = 5;
     optional string idempotency_key = 6;
     optional string external_ref = 7;
     string created_by_external_id = 8;
     OwnerType created_by_type = 9;
+    TransactionType transaction_type = 10;
+    optional string to_address = 11;
 }
 
 message CreditResponse {
     int64 journal_id = 1;
     string receipt_code = 2;
-    int64 balance_after = 3;
+    double balance_after = 3;
     google.protobuf.Timestamp created_at = 4;
+    double payable_amount = 5;
 }
 
 message DebitRequest {
     string account_number = 1;
-    int64 amount = 2;
-    string currency = 3;
+    double amount = 2;
+    string currenccy = 3;
     AccountType account_type = 4;
     string description = 5;
     optional string idempotency_key = 6;
     optional string external_ref = 7;
     string created_by_external_id = 8;
     OwnerType created_by_type = 9;
+    TransactionType transaction_type = 10;
+    optional string to_address = 11;
 }
 
 message DebitResponse {
     int64 journal_id = 1;
     string receipt_code = 2;
-    int64 balance_after = 3;
+    double balance_after = 3;
     google.protobuf.Timestamp created_at = 4;
+    double payable_amount = 5;
 }
 
 message TransferRequest {
     string from_account_number = 1;
     string to_account_number = 2;
-    int64 amount = 3;
+    double amount = 3;
     AccountType account_type = 4;
     string description = 5;
     optional string idempotency_key = 6;
@@ -636,26 +643,32 @@ message TransferRequest {
     string created_by_external_id = 8;
     OwnerType created_by_type = 9;
     optional string agent_external_id = 10; // Agent who facilitated
+    TransactionType transaction_type = 11;
+    optional string to_address = 12;
 }
 
 message TransferResponse {
     int64 journal_id = 1;
     string receipt_code = 2;
-    int64 fee_amount = 3;
-    int64 agent_commission = 4;
+    double fee_amount = 3;
+    double agent_commission = 4;
     google.protobuf.Timestamp created_at = 5;
+    double balance_after = 6;
+    double payable_amount = 7;
 }
 
 message ConversionRequest {
     string from_account_number = 1;
     string to_account_number = 2;
-    int64 amount = 3; // Amount in source currency
+    double amount = 3; // Amount in source currency
     AccountType account_type = 4;
     optional string idempotency_key = 5;
     optional string external_ref = 6;
     string created_by_external_id = 7;
     OwnerType created_by_type = 8;
     optional string agent_external_id = 9;
+    optional string to_address = 10;
+
 }
 
 message ConversionResponse {
@@ -663,18 +676,19 @@ message ConversionResponse {
     string receipt_code = 2;
     string source_currency = 3;
     string dest_currency = 4;
-    int64 source_amount = 5;
-    int64 converted_amount = 6;
+    double source_amount = 5;
+    double converted_amount = 6;
     string fx_rate = 7;
     int64 fx_rate_id = 8;
-    int64 fee_amount = 9;
+    double fee_amount = 9;
     google.protobuf.Timestamp created_at = 10;
+    double payable_amount = 11;
 }
 
 message TradeRequest {
     string account_number = 1;
-    int64 amount = 2;
-    string currency = 3;
+    double amount = 2;
+    string currenccy = 3;
     AccountType account_type = 4;
     string trade_id = 5;
     string trade_type = 6; // e.g., "forex", "crypto", "sports"
@@ -688,7 +702,7 @@ message TradeResponse {
     string receipt_code = 2;
     string trade_id = 3;
     string trade_result = 4; // "win" or "loss"
-    int64 balance_after = 5;
+    double balance_after = 5;
     google.protobuf.Timestamp created_at = 6;
 }
 
@@ -696,8 +710,8 @@ message AgentCommissionRequest {
     string agent_external_id = 1;
     string transaction_ref = 2; // Receipt code of original transaction
     string currency = 3;
-    int64 transaction_amount = 4;
-    int64 commission_amount = 5;
+    double transaction_amount = 4;
+    double commission_amount = 5;
     optional string commission_rate = 6;
     optional string idempotency_key = 7;
 }
@@ -706,15 +720,285 @@ message AgentCommissionResponse {
     int64 journal_id = 1;
     string receipt_code = 2;
     string agent_external_id = 3;
-    int64 commission_amount = 4;
+    double commission_amount = 4;
     google.protobuf.Timestamp created_at = 5;
 }
 
+
+enum ApprovalStatus {
+    APPROVAL_STATUS_UNSPECIFIED = 0;
+    APPROVAL_STATUS_PENDING = 1;
+    APPROVAL_STATUS_APPROVED = 2;
+    APPROVAL_STATUS_REJECTED = 3;
+    APPROVAL_STATUS_EXECUTED = 4;
+    APPROVAL_STATUS_FAILED = 5;
+}
+
+message TransactionApproval {
+    int64 id = 1;
+    int64 requested_by = 2;
+    TransactionType transaction_type = 3;
+    string account_number = 4;
+    double amount = 5;
+    string currency = 6;
+    string description = 7;
+    ApprovalStatus status = 8;
+    optional int64 approved_by = 9;
+    optional string rejection_reason = 10;
+    optional string receipt_code = 11;
+    optional string to_account_number = 12; // For transfers
+    google.protobuf.Timestamp created_at = 13;
+    google.protobuf.Timestamp updated_at = 14;
+}
+
+message CreateTransactionApprovalRequest {
+    int64 requested_by = 1;
+    TransactionType transaction_type = 2;
+    string account_number = 3;
+    double amount = 4;
+    string currency = 5;
+    string description = 6;
+    optional string to_account_number = 7; // For transfers and conversion
+}
+
+message CreateTransactionApprovalResponse {
+    TransactionApproval approval = 1;
+    string message = 2;
+}
+
+message GetPendingApprovalsRequest {
+    optional int32 limit = 1;
+    optional int32 offset = 2;
+}
+
+message GetPendingApprovalsResponse {
+    repeated TransactionApproval approvals = 1;
+    int32 total = 2;
+}
+
+message ApproveTransactionRequest {
+    int64 request_id = 1;
+    int64 approved_by = 2;
+    bool approved = 3;
+    optional string reason = 4;
+}
+
+message ApproveTransactionResponse {
+    TransactionApproval approval = 1;
+    optional string receipt_code = 2;
+    string message = 3;
+}
+
+message GetApprovalHistoryRequest {
+    optional int64 requested_by = 1;
+    optional ApprovalStatus status = 2;
+    optional google.protobuf.Timestamp from = 3;
+    optional google. protobuf.Timestamp to = 4;
+    int32 limit = 5;
+    int32 offset = 6;
+}
+
+message GetApprovalHistoryResponse {
+    repeated TransactionApproval approvals = 1;
+    int32 total = 2;
+}
+
+
+// ===============================
+// AGENT MESSAGES
+// ===============================
+
+// ===============================
+// ENUMS
+// ===============================
+
+enum RelationshipType {
+    RELATIONSHIP_TYPE_UNSPECIFIED = 0;
+    RELATIONSHIP_TYPE_DIRECT = 1;
+    RELATIONSHIP_TYPE_REFERRAL = 2;
+    RELATIONSHIP_TYPE_PARTNER = 3;
+    RELATIONSHIP_TYPE_FRANCHISE = 4;
+}
+
+enum AgentStatus {
+    AGENT_STATUS_UNSPECIFIED = 0;
+    AGENT_STATUS_ACTIVE = 1;
+    AGENT_STATUS_INACTIVE = 2;
+    AGENT_STATUS_DELETED = 3;
+}
+
+// ===============================
+// MESSAGES
+// ===============================
+
+message Agent {
+    string agent_external_id = 1;
+    optional string user_external_id = 2; // Auth user ID
+    optional string service = 3;
+    optional string commission_rate = 4; // NUMERIC as string (e.g., "0.05" for 5%)
+    RelationshipType relationship_type = 5;
+    bool is_active = 6;
+    optional string name = 7;
+    map<string, string> metadata = 8;
+    google.protobuf.Timestamp created_at = 9;
+    google.protobuf.Timestamp updated_at = 10;
+    repeated Account accounts = 11; // ✅ Agent's accounts (commission account, etc.)
+    
+    // ✅ NEW FIELDS
+    optional string commission_rate_for_deposit = 12; // NUMERIC as string (e.g., "0.015" for 1.5%)
+    optional string payment_method = 13; // mpesa, bank, cash, etc. 
+    map<string, bool> location = 14; // Country codes with flags:  {"KE": true, "UG": false}
+    AgentStatus status = 15; // active, inactive, deleted
+}
+
+message AgentCommission {
+    int64 id = 1;
+    string agent_external_id = 2;
+    string user_external_id = 3;
+    int64 agent_account_id = 4;
+    int64 user_account_id = 5;
+    string receipt_code = 6;
+    string transaction_amount = 7; // NUMERIC as string
+    string commission_rate = 8; // NUMERIC as string
+    string commission_amount = 9; // NUMERIC as string
+    string currency = 10;
+    bool paid_out = 11;
+    optional string payout_receipt_code = 12;
+    optional google.protobuf.Timestamp paid_out_at = 13;
+    google.protobuf.Timestamp created_at = 14;
+}
+
+message CreateAgentRequest {
+    optional string user_external_id = 1;
+    optional string service = 2;
+    optional string commission_rate = 3; // "0.05" for 5%
+    RelationshipType relationship_type = 4;
+    bool is_active = 5;
+    optional string name = 6;
+    map<string, string> metadata = 7;
+    bool create_accounts = 8; // ✅ Whether to auto-create commission accounts
+    
+    // ✅ NEW FIELDS
+    optional string commission_rate_for_deposit = 9;
+    optional string payment_method = 10;
+    map<string, bool> location = 11; // {"KE": true, "UG": true, "TZ": false}
+    optional AgentStatus status = 12; // defaults to ACTIVE
+}
+
+message CreateAgentResponse {
+    Agent agent = 1;
+    string message = 2;
+}
+
+message UpdateAgentRequest {
+    string agent_external_id = 1;
+    optional string user_external_id = 2;
+    optional string service = 3;
+    optional string commission_rate = 4;
+    optional RelationshipType relationship_type = 5;
+    optional bool is_active = 6;
+    optional string name = 7;
+    map<string, string> metadata = 8;
+    
+    // ✅ NEW FIELDS
+    optional string commission_rate_for_deposit = 9;
+    optional string payment_method = 10;
+    map<string, bool> location = 11;
+    optional AgentStatus status = 12;
+}
+
+message UpdateAgentResponse {
+    Agent agent = 1;
+    string message = 2;
+}
+
+message DeleteAgentRequest {
+    string agent_external_id = 1;
+}
+
+message DeleteAgentResponse {
+    string message = 1;
+}
+
+message GetAgentByIDRequest {
+    string agent_external_id = 1;
+    bool include_accounts = 2; // ✅ Whether to include agent accounts in response
+}
+
+message GetAgentByIDResponse {
+    Agent agent = 1;
+}
+
+message GetAgentByUserIDRequest {
+    string user_external_id = 1;
+    bool include_accounts = 2; // ✅ Whether to include agent accounts in response
+}
+
+message GetAgentByUserIDResponse {
+    Agent agent = 1;
+}
+
+message ListAgentsRequest {
+    int32 limit = 1; // Max 100
+    int32 offset = 2;
+    bool include_accounts = 3; // ✅ Whether to include accounts for each agent
+    
+    // ✅ NEW FILTERS
+    optional string country_code = 4; // Filter by country (e.g., "KE", "UG")
+    optional string payment_method = 5; // Filter by payment method (e.g., "mpesa", "bank")
+    optional AgentStatus status = 6; // Filter by status
+    optional RelationshipType relationship_type = 7; // Filter by relationship type
+}
+
+message ListAgentsResponse {
+    repeated Agent agents = 1;
+    int32 total = 2;
+}
+
+message ListCommissionsForAgentRequest {
+    string agent_external_id = 1;
+    int32 limit = 2; // Max 100
+    int32 offset = 3;
+}
+
+message ListCommissionsForAgentResponse {
+    repeated AgentCommission commissions = 1;
+    int32 total = 2;
+}
+
+// ✅ NEW:  Get agents by multiple countries
+message GetAgentsByCountriesRequest {
+    repeated string country_codes = 1; // ["KE", "UG", "TZ"]
+    int32 limit = 2;
+    int32 offset = 3;
+    bool include_accounts = 4;
+    optional AgentStatus status = 5; // Filter by status
+}
+
+message GetAgentsByCountriesResponse {
+    repeated Agent agents = 1;
+    int32 total = 2;
+}
+
+// ✅ NEW: Get agent statistics
+message GetAgentStatsRequest {
+    optional string country_code = 1;
+    optional string payment_method = 2;
+}
+
+message GetAgentStatsResponse {
+    int32 total_agents = 1;
+    int32 active_agents = 2;
+    int32 inactive_agents = 3;
+    map<string, int32> agents_by_country = 4; // {"KE": 50, "UG": 30}
+    map<string, int32> agents_by_payment_method = 5; // {"mpesa": 40, "bank": 40}
+}
 
 // ===============================
 // SERVICE DEFINITION
 // ===============================
 
+// Accounting Service Definition
 service AccountingService {
     // ===============================
     // ACCOUNT MANAGEMENT
@@ -849,7 +1133,56 @@ service AccountingService {
     // ===============================
     // HEALTH & MONITORING
     // ===============================
+
+    // Create transaction approval request (for regular admins)
+    rpc CreateTransactionApproval(CreateTransactionApprovalRequest) returns (CreateTransactionApprovalResponse);
+    
+    // Get pending approvals (for super admins)
+    rpc GetPendingApprovals(GetPendingApprovalsRequest) returns (GetPendingApprovalsResponse);
+    
+    // Approve or reject transaction (for super admins)
+    rpc ApproveTransaction(ApproveTransactionRequest) returns (ApproveTransactionResponse);
+    
+    // Get approval history
+    rpc GetApprovalHistory(GetApprovalHistoryRequest) returns (GetApprovalHistoryResponse);
     
     // Health check
     rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+
+     // ===============================
+    // AGENT MANAGEMENT
+    // ===============================
+    
+    // Create a new agent
+    rpc CreateAgent(CreateAgentRequest) returns (CreateAgentResponse);
+    
+    // Update agent information
+    rpc UpdateAgent(UpdateAgentRequest) returns (UpdateAgentResponse);
+    
+    // Delete agent (soft delete recommended)
+    rpc DeleteAgent(DeleteAgentRequest) returns (DeleteAgentResponse);
+    
+    // Get agent by agent external ID
+    rpc GetAgentByID(GetAgentByIDRequest) returns (GetAgentByIDResponse);
+    
+    // Get agent by user external ID
+    rpc GetAgentByUserID(GetAgentByUserIDRequest) returns (GetAgentByUserIDResponse);
+    
+    // List all agents with pagination and filters
+    rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse);
+    
+    // ✅ NEW: Get agents by multiple countries
+    rpc GetAgentsByCountries(GetAgentsByCountriesRequest) returns (GetAgentsByCountriesResponse);
+    
+    // ✅ NEW: Get agent statistics
+    rpc GetAgentStats(GetAgentStatsRequest) returns (GetAgentStatsResponse);
+    
+    // ===============================
+    // AGENT COMMISSION QUERIES
+    // ===============================
+    
+    // List commissions for a specific agent
+    rpc ListCommissionsForAgent(ListCommissionsForAgentRequest) returns (ListCommissionsForAgentResponse);
+
+
 }
