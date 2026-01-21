@@ -51,11 +51,5 @@ func (h *PaymentHandler) handleCalculateFee(ctx context.Context, client *Client,
 		return
 	}
 
-	client.SendSuccess("fee calculated", map[string]interface{}{
-		"fee_type":     resp.Calculation.FeeType.String(),
-		"amount":       resp.Calculation.Amount,
-		"currency":     resp.Calculation.Currency,
-		"applied_rate": resp.Calculation.AppliedRate,
-		"calculated_from": resp.Calculation.CalculatedFrom,
-	})
+	client.SendSuccess("fee calculated", resp.Calculation)
 }

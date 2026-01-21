@@ -34,7 +34,7 @@ INSERT INTO fx_rates (base_currency, quote_currency, rate, bid_rate, ask_rate, s
 -- BTC ↔ USD (Bitcoin)
 -- ============================================================================
 ('BTC', 'USD', 
- 102500. 000000000000000000,  -- Updated:  $102,500 (current BTC price)
+ 102500.000000000000000000,  -- Updated:  $102,500 (current BTC price)
  102295.000000000000000000,  -- Bid: -0.2%
  102705.000000000000000000,  -- Ask: +0.2%
  0.200000, 
