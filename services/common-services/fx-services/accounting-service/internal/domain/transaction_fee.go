@@ -120,26 +120,56 @@ type FeeRuleFilter struct {
 
 // accounting-service/internal/domain/fee. go
 
+// accounting-service/internal/domain/fee. go
+
 type FeeCalculation struct {
-	RuleID             *int64  `json:"rule_id,omitempty"`
-	FeeType            FeeType `json:"fee_type"`
-	Amount             float64 `json:"amount"`              // Platform fee amount
-	Currency           string  `json:"currency"`            // Platform fee currency
-	NetworkFee         float64 `json:"network_fee"`         // ✅ Network fee amount
-	NetworkFeeCurrency string  `json:"network_fee_currency"` // ✅ Network fee currency (TRX, BTC, etc.)
-	AppliedRate        *string `json:"applied_rate,omitempty"`
-	CalculatedFrom     string  `json:"calculated_from"`
+	RuleID    *int64  `json:"rule_id,omitempty"`
+	FeeType   FeeType `json:"fee_type"`
+	
+	// Platform fee
+	Amount   float64 `json:"amount"`   // Platform fee in transaction currency
+	Currency string  `json:"currency"` // Transaction currency (USDT, BTC, etc.)
+	
+	// Network fee (converted to transaction currency)
+	NetworkFee  float64 `json:"network_fee"`  // Network fee (converted to transaction currency)
+	
+	// Network fee (original)
+	NetworkFeeOriginal         float64 `json:"network_fee_original"`          // ✅ Original amount (e.g., 0.69 TRX)
+	NetworkFeeOriginalCurrency string  `json:"network_fee_original_currency"` // ✅ Original currency (e.g., "TRX")
+	
+	// Total
+	TotalFee float64 `json:"total_fee"` // ✅ Platform + Network (both in transaction currency)
+	
+	// Metadata
+	AppliedRate    *string `json:"applied_rate,omitempty"`
+	CalculatedFrom string  `json:"calculated_from"`
 }
 
-// GetTotalFee returns total of platform + network fees
-// NOTE: These might be in different currencies! 
+// GetTotalFee returns total fee (platform + network)
 func (fc *FeeCalculation) GetTotalFee() float64 {
-	return fc.Amount + fc.NetworkFee
+	return fc.  TotalFee
 }
 
 // HasNetworkFee checks if network fee is applicable
 func (fc *FeeCalculation) HasNetworkFee() bool {
 	return fc.NetworkFee > 0
+}
+
+// GetNetworkFeeDisplay returns human-readable network fee
+func (fc *FeeCalculation) GetNetworkFeeDisplay() string {
+	if ! fc.HasNetworkFee() {
+		return "No network fee"
+	}
+	
+	if fc.NetworkFeeOriginalCurrency != "" && fc.NetworkFeeOriginalCurrency != fc.Currency {
+		return fmt. Sprintf("%.8f %s (from %.8f %s)",
+			fc.NetworkFee,
+			fc.Currency,
+			fc.NetworkFeeOriginal,
+			fc.NetworkFeeOriginalCurrency)
+	}
+	
+	return fmt.Sprintf("%.8f %s", fc.NetworkFee, fc.Currency)
 }
 
 // WithdrawalFeeBreakdown contains complete withdrawal fee breakdown

@@ -495,14 +495,27 @@ message CalculateFeeRequest {
     optional OwnerType owner_type = 6;
     optional string to_address = 7;
 }
-
 message FeeCalculation {
     FeeType fee_type = 1;
+
+    // Platform fee
     double amount = 2;
     string currency = 3;
-    optional string applied_rate = 4;
-    optional int64 rule_id = 5;
-    string calculated_from = 6;
+
+    // Network fee (converted to transaction currency)
+    double network_fee = 4;
+
+    // Network fee (original)
+    double network_fee_original = 5;
+    string network_fee_original_currency = 6;
+
+    // Total
+    double total_fee = 7;
+
+    // Metadata
+    optional string applied_rate = 8;
+    optional int64 rule_id = 9;
+    string calculated_from = 10;
 }
 
 message CalculateFeeResponse {

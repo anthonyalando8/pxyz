@@ -4430,13 +4430,22 @@ func (x *CalculateFeeRequest) GetToAddress() string {
 }
 
 type FeeCalculation struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	FeeType        FeeType                `protobuf:"varint,1,opt,name=fee_type,json=feeType,proto3,enum=accounting.v1.FeeType" json:"fee_type,omitempty"`
-	Amount         float64                `protobuf:"fixed64,2,opt,name=amount,proto3" json:"amount,omitempty"`
-	Currency       string                 `protobuf:"bytes,3,opt,name=currency,proto3" json:"currency,omitempty"`
-	AppliedRate    *string                `protobuf:"bytes,4,opt,name=applied_rate,json=appliedRate,proto3,oneof" json:"applied_rate,omitempty"`
-	RuleId         *int64                 `protobuf:"varint,5,opt,name=rule_id,json=ruleId,proto3,oneof" json:"rule_id,omitempty"`
-	CalculatedFrom string                 `protobuf:"bytes,6,opt,name=calculated_from,json=calculatedFrom,proto3" json:"calculated_from,omitempty"`
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	FeeType FeeType                `protobuf:"varint,1,opt,name=fee_type,json=feeType,proto3,enum=accounting.v1.FeeType" json:"fee_type,omitempty"`
+	// Platform fee
+	Amount   float64 `protobuf:"fixed64,2,opt,name=amount,proto3" json:"amount,omitempty"`
+	Currency string  `protobuf:"bytes,3,opt,name=currency,proto3" json:"currency,omitempty"`
+	// Network fee (converted to transaction currency)
+	NetworkFee float64 `protobuf:"fixed64,4,opt,name=network_fee,json=networkFee,proto3" json:"network_fee,omitempty"`
+	// Network fee (original)
+	NetworkFeeOriginal         float64 `protobuf:"fixed64,5,opt,name=network_fee_original,json=networkFeeOriginal,proto3" json:"network_fee_original,omitempty"`
+	NetworkFeeOriginalCurrency string  `protobuf:"bytes,6,opt,name=network_fee_original_currency,json=networkFeeOriginalCurrency,proto3" json:"network_fee_original_currency,omitempty"`
+	// Total
+	TotalFee float64 `protobuf:"fixed64,7,opt,name=total_fee,json=totalFee,proto3" json:"total_fee,omitempty"`
+	// Metadata
+	AppliedRate    *string `protobuf:"bytes,8,opt,name=applied_rate,json=appliedRate,proto3,oneof" json:"applied_rate,omitempty"`
+	RuleId         *int64  `protobuf:"varint,9,opt,name=rule_id,json=ruleId,proto3,oneof" json:"rule_id,omitempty"`
+	CalculatedFrom string  `protobuf:"bytes,10,opt,name=calculated_from,json=calculatedFrom,proto3" json:"calculated_from,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -4490,6 +4499,34 @@ func (x *FeeCalculation) GetCurrency() string {
 		return x.Currency
 	}
 	return ""
+}
+
+func (x *FeeCalculation) GetNetworkFee() float64 {
+	if x != nil {
+		return x.NetworkFee
+	}
+	return 0
+}
+
+func (x *FeeCalculation) GetNetworkFeeOriginal() float64 {
+	if x != nil {
+		return x.NetworkFeeOriginal
+	}
+	return 0
+}
+
+func (x *FeeCalculation) GetNetworkFeeOriginalCurrency() string {
+	if x != nil {
+		return x.NetworkFeeOriginalCurrency
+	}
+	return ""
+}
+
+func (x *FeeCalculation) GetTotalFee() float64 {
+	if x != nil {
+		return x.TotalFee
+	}
+	return 0
 }
 
 func (x *FeeCalculation) GetAppliedRate() string {
@@ -8938,14 +8975,20 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\x10_target_currencyB\x0f\n" +
 	"\r_account_typeB\r\n" +
 	"\v_owner_typeB\r\n" +
-	"\v_to_address\"\x83\x02\n" +
+	"\v_to_address\"\xb6\x03\n" +
 	"\x0eFeeCalculation\x121\n" +
 	"\bfee_type\x18\x01 \x01(\x0e2\x16.accounting.v1.FeeTypeR\afeeType\x12\x16\n" +
 	"\x06amount\x18\x02 \x01(\x01R\x06amount\x12\x1a\n" +
-	"\bcurrency\x18\x03 \x01(\tR\bcurrency\x12&\n" +
-	"\fapplied_rate\x18\x04 \x01(\tH\x00R\vappliedRate\x88\x01\x01\x12\x1c\n" +
-	"\arule_id\x18\x05 \x01(\x03H\x01R\x06ruleId\x88\x01\x01\x12'\n" +
-	"\x0fcalculated_from\x18\x06 \x01(\tR\x0ecalculatedFromB\x0f\n" +
+	"\bcurrency\x18\x03 \x01(\tR\bcurrency\x12\x1f\n" +
+	"\vnetwork_fee\x18\x04 \x01(\x01R\n" +
+	"networkFee\x120\n" +
+	"\x14network_fee_original\x18\x05 \x01(\x01R\x12networkFeeOriginal\x12A\n" +
+	"\x1dnetwork_fee_original_currency\x18\x06 \x01(\tR\x1anetworkFeeOriginalCurrency\x12\x1b\n" +
+	"\ttotal_fee\x18\a \x01(\x01R\btotalFee\x12&\n" +
+	"\fapplied_rate\x18\b \x01(\tH\x00R\vappliedRate\x88\x01\x01\x12\x1c\n" +
+	"\arule_id\x18\t \x01(\x03H\x01R\x06ruleId\x88\x01\x01\x12'\n" +
+	"\x0fcalculated_from\x18\n" +
+	" \x01(\tR\x0ecalculatedFromB\x0f\n" +
 	"\r_applied_rateB\n" +
 	"\n" +
 	"\b_rule_id\"W\n" +

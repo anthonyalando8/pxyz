@@ -662,20 +662,36 @@ func convertFeesToProto(fees []*domain.TransactionFee) []*accountingpb.Transacti
 	return result
 }
 
-func convertFeeCalculationToProto(c *domain.FeeCalculation) *accountingpb.FeeCalculation {
+func convertFeeCalculationToProto(
+	c *domain.FeeCalculation,
+) *accountingpb.FeeCalculation {
 	if c == nil {
 		return nil
 	}
 
-	return &accountingpb.FeeCalculation{
-		FeeType:        convertFeeTypeToProto(c.FeeType),
-		Amount:         c.Amount,
-		Currency:       c.Currency,
-		AppliedRate:    c.AppliedRate,
-		RuleId:         c.RuleID,
-		CalculatedFrom: c.CalculatedFrom,
+	p := &accountingpb.FeeCalculation{
+		FeeType:                     convertFeeTypeToProto(c.FeeType),
+		Amount:                      c.Amount,
+		Currency:                    c.Currency,
+		NetworkFee:                  c.NetworkFee,
+		NetworkFeeOriginal:          c.NetworkFeeOriginal,
+		NetworkFeeOriginalCurrency:  c.NetworkFeeOriginalCurrency,
+		TotalFee:                    c.TotalFee,
+		CalculatedFrom:              c.CalculatedFrom,
 	}
+
+	// Optional fields
+	if c.AppliedRate != nil {
+		p.AppliedRate = c.AppliedRate
+	}
+
+	if c.RuleID != nil {
+		p.RuleId = c.RuleID
+	}
+
+	return p
 }
+
 
 // ===============================
 // HELPER FUNCTIONS

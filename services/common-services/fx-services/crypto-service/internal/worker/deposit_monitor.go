@@ -35,11 +35,11 @@ func (dm *DepositMonitor) Start(ctx context.Context) {
 	defer tronTicker.Stop()
 	
 	// Process pending deposits every 1 minute
-	processTicker := time.NewTicker(1 * time.Minute)
+	processTicker := time.NewTicker(30 * time.Minute)
 	defer processTicker.Stop()
 	
 	// Send notifications every 2 minutes
-	notifyTicker := time.NewTicker(2 * time.Minute)
+	notifyTicker := time.NewTicker(30 * time.Minute)
 	defer notifyTicker.Stop()
 	
 	for {

@@ -152,6 +152,7 @@ func NewAccountingGRPCServer(cfg config.AppConfig) {
 	feeCal := feecalculator.NewTransactionFeeCalculator(
 		feeRepo,
 		feeRuleRepo,
+		currencyRepo,
 		rdb,
 		cryptoClient,
 	)
