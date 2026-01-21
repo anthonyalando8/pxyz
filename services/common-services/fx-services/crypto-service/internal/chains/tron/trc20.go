@@ -205,74 +205,167 @@ func (t *TronChain) sendTRC20(ctx context.Context, req *domain.TransactionReques
 }
 
 // estimateTRC20Fee estimates TRC20 transfer fee
-func (t *TronChain) estimateTRC20Fee(ctx context.Context, req *domain.TransactionRequest) (*domain.Fee, error) {
+// internal/chains/tron/tron. go
+
+func (t *TronChain) estimateTRC20Fee(ctx context. Context, req *domain.TransactionRequest) (*domain.Fee, error) {
 	if req.Asset.ContractAddr == nil {
 		return nil, fmt.Errorf("contract address required for TRC20 tokens")
 	}
 
-	t.logger.Info("estimating TRC20 fee",
+	t.logger.Info("Estimating TRC20 fee",
 		zap.String("from", req.From),
-		zap.String("to", req.To),
-		zap.String("contract", *req.Asset.ContractAddr))
+		zap.String("to", req. To),
+		zap.String("contract", *req.Asset. ContractAddr))
 
-	// ✅ Convert addresses properly
+	// Build function call data for transfer(address,uint256)
+	functionSelector := "transfer(address,uint256)"
+	
+	// Convert to address to hex format
 	toAddress, err := address.Base58ToAddress(req.To)
 	if err != nil {
 		return nil, fmt.Errorf("invalid to address: %w", err)
 	}
+	
+	// Remove the first byte (0x41) and pad to 32 bytes
+	toAddrBytes := toAddress. Bytes()[1:]
+	toParam := hex.EncodeToString(common.LeftPadBytes(toAddrBytes, 32))
+	
+	// Pad amount to 32 bytes
+	amountParam := hex.EncodeToString(common.LeftPadBytes(req.Amount. Bytes(), 32))
+	
+	// Combine parameters (without function selector for parameter field)
+	parameter := toParam + amountParam
 
-	fromAddress, err := address.Base58ToAddress(req.From)
-	if err != nil {
-		return nil, fmt.Errorf("invalid from address: %w", err)
-	}
-
-	contractAddress, err := address.Base58ToAddress(*req.Asset.ContractAddr)
-	if err != nil {
-		return nil, fmt.Errorf("invalid contract address: %w", err)
-	}
-
-	// Build transfer call for estimation
-	functionSelector := "a9059cbb"
-	toAddrBytes := toAddress.Bytes()[1:]
-	toParam := common.LeftPadBytes(toAddrBytes, 32)
-	amountParam := common.LeftPadBytes(req.Amount.Bytes(), 32)
-	data := functionSelector + hex.EncodeToString(toParam) + hex.EncodeToString(amountParam)
-
-	// Trigger constant contract to estimate
-	result, err := t.grpcClient.TriggerConstantContract(
-		fromAddress.String(),
-		contractAddress.String(),
-		data,
-		"0",
+	// ✅ Use HTTP client instead of gRPC
+	result, err := t.httpClient.TriggerConstantContract(
+		ctx,
+		req.From,
+		*req.Asset.ContractAddr,
+		functionSelector,
+		parameter,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to estimate:  %w", err)
+		t.logger.Warn("Failed to estimate via API, using conservative estimate", 
+			zap.Error(err))
+		return t.getConservativeTRC20Fee(), nil
 	}
 
-	// Get energy used
+	if ! result.Result.Result {
+		t.logger.Warn("Contract call failed, using conservative estimate",
+			zap.String("message", result.Result.Message))
+		return t.getConservativeTRC20Fee(), nil
+	}
+
 	energyUsed := result.EnergyUsed
+	if energyUsed == 0 {
+		// Default energy for TRC20 transfer
+		energyUsed = 65000
+		t.logger.Info("No energy estimate returned, using default", 
+			zap.Int64("default_energy", energyUsed))
+	}
 
-	// TRC20 transfers typically use ~30,000-65,000 energy
-	// If user has no energy, they pay in TRX
-	// Energy price is dynamic, but approximately 420 SUN per energy unit
-	// 1 TRX = 1,000,000 SUN
+	// ✅ Get account resources to check available energy
+	accountResources, err := t.httpClient.GetAccountResources(ctx, req.From)
+	if err != nil {
+		t. logger.Warn("Failed to get account resources, assuming no free energy",
+			zap.Error(err))
+		accountResources = &AccountResources{
+			EnergyAvailable:     0,
+			BandwidthAvailable: 0,
+		}
+	}
 
-	// Estimate fee in SUN (1 TRX = 1,000,000 SUN)
-	energyPrice := int64(420) // SUN per energy unit
-	feeInSun := energyUsed * energyPrice
-
-	// Convert to TRX (for display)
-	feeInTRX := new(big.Int).SetInt64(feeInSun)
+	// ✅ Calculate actual fee based on resources
+	fee := t.calculateTRC20FeeFromEnergy(energyUsed, accountResources)
 
 	t.logger.Info("TRC20 fee estimated",
-		zap.Int64("energy_used", energyUsed),
-		zap.String("fee_sun", feeInTRX.String()))
+		zap.Int64("energy_required", energyUsed),
+		zap.Int64("energy_available", accountResources.EnergyAvailable),
+		zap.Int64("bandwidth_available", accountResources.BandwidthAvailable),
+		zap.String("fee_sun", fee.Amount.String()),
+		zap.String("fee_trx", fmt.Sprintf("%.6f", float64(fee.Amount. Int64())/1000000)))
+
+	return fee, nil
+}
+
+//  Calculate TRC20 fee based on energy and bandwidth
+func (t *TronChain) calculateTRC20FeeFromEnergy(energyRequired int64, resources *AccountResources) *domain.Fee {
+	const (
+		energyPriceInSUN = 420  // SUN per energy unit (dynamic, but ~420 is typical)
+		bandwidthCost    = 345  // Bandwidth units for TRC20
+		bandwidthPrice   = 1000 // SUN per bandwidth unit
+	)
+
+	var totalFeeSUN int64
+
+	// 1. Calculate energy cost
+	if resources.EnergyAvailable >= energyRequired {
+		// User has enough free energy - no energy cost
+		t.logger.Info("Using free energy",
+			zap.Int64("required", energyRequired),
+			zap.Int64("available", resources. EnergyAvailable))
+	} else {
+		// Need to burn TRX for energy
+		energyDeficit := energyRequired - resources. EnergyAvailable
+		energyCost := energyDeficit * energyPriceInSUN
+		totalFeeSUN += energyCost
+		
+		t.logger.Info("Energy deficit - will burn TRX",
+			zap.Int64("deficit", energyDeficit),
+			zap.Int64("cost_sun", energyCost),
+			zap.String("cost_trx", fmt.Sprintf("%.6f", float64(energyCost)/1000000)))
+	}
+
+	// 2. Calculate bandwidth cost
+	if resources.BandwidthAvailable >= bandwidthCost {
+		// User has enough free bandwidth
+		t.logger.Info("Using free bandwidth",
+			zap.Int64("required", bandwidthCost),
+			zap.Int64("available", resources.BandwidthAvailable))
+	} else {
+		// Need to burn TRX for bandwidth
+		bandwidthDeficit := bandwidthCost - resources.BandwidthAvailable
+		bwCost := bandwidthDeficit * bandwidthPrice
+		totalFeeSUN += bwCost
+		
+		t.logger. Info("Bandwidth deficit - will burn TRX",
+			zap.Int64("deficit", bandwidthDeficit),
+			zap.Int64("cost_sun", bwCost),
+			zap.String("cost_trx", fmt.Sprintf("%.6f", float64(bwCost)/1000000)))
+	}
+
+	// 3. Apply minimum fee (bandwidth is always needed, even with energy)
+	if totalFeeSUN < 345000 {
+		totalFeeSUN = 345000 // 0.345 TRX minimum (bandwidth cost)
+	}
 
 	return &domain.Fee{
-		Amount:   feeInTRX,
+		Amount:   big.NewInt(totalFeeSUN),
 		Currency: "TRX",
-		GasLimit: &energyUsed,
-	}, nil
+		GasLimit:  &energyRequired,
+	}
+}
+
+//  Conservative fallback estimate
+func (t *TronChain) getConservativeTRC20Fee() *domain.Fee {
+	// Conservative estimate assuming: 
+	// - No free energy:  65,000 * 420 = 27,300,000 SUN
+	// - No free bandwidth: 345 * 1000 = 345,000 SUN
+	// Total: ~27.645 TRX
+	// Use middle estimate: 14 TRX
+	
+	conservativeFee := big.NewInt(14000000) // 14 TRX
+	energyEstimate := int64(65000)
+	
+	t.logger.Info("Using conservative TRC20 fee estimate",
+		zap.String("fee_trx", "14.0"),
+		zap.Int64("estimated_energy", energyEstimate))
+	
+	return &domain. Fee{
+		Amount:   conservativeFee,
+		Currency:  "TRX",
+		GasLimit: &energyEstimate,
+	}
 }
 
 // getTRC20Transaction gets TRC20 transaction details

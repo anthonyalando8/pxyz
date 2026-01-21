@@ -416,6 +416,7 @@
                         <button class="template-btn" onclick="loadTemplate('list_deposits')">List Deposits</button>
                         <button class="template-btn" onclick="loadTemplate('list_withdrawals')">List Withdrawals</button>
                         <button class="template-btn" onclick="loadTemplate('get_profile')">Get Profile</button>
+                        <button class="template-btn" onclick="loadTemplate('calculate_fee')">Calculate Fee</button>
                         <button class="template-btn" onclick="loadTemplate('ping')">Ping</button>
                         <button class="template-btn" onclick="loadTemplate('custom')">Empty</button>
                     </div>
@@ -529,6 +530,11 @@
             list_withdrawals:  {
                 limit: 10,
                 offset: 0
+            },
+            calculate_fee: {
+                amount: 10,
+                source_currency: 'USD',
+                transaction_type: 'withdrawal'
             },
             get_profile: {},
             ping: {

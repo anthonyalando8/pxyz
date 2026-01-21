@@ -339,3 +339,219 @@ func (c *TronHTTPClient) GetTokenBalance(ctx context.Context, address, contractA
 
 	return result.Data, nil
 }
+
+// new
+
+// internal/chains/tron/client.go
+
+// Add these methods to your TronHTTPClient:
+
+// TriggerConstantContract triggers a constant contract call (doesn't modify state)
+func (c *TronHTTPClient) TriggerConstantContract(ctx context.Context, ownerAddress, contractAddress, functionSelector, parameter string) (*TriggerConstantResult, error) {
+	c.logger.Info("triggering constant contract",
+		zap.String("owner", ownerAddress),
+		zap.String("contract", contractAddress))
+
+	url := fmt.Sprintf("%s/wallet/triggerconstantcontract", c. baseURL)
+
+	payload := map[string]interface{}{
+		"owner_address":      ownerAddress,
+		"contract_address":  contractAddress,
+		"function_selector": functionSelector,
+		"parameter":         parameter,
+		"visible":            true,
+	}
+
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt. Errorf("failed to marshal payload: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt. Errorf("failed to create request: %w", err)
+	}
+
+	if c.apiKey != "" {
+		req.Header.Set("TRON-PRO-API-KEY", c. apiKey)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c. httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp. Body)
+	if err != nil {
+		return nil, fmt. Errorf("failed to read response:  %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	var result TriggerConstantResult
+	if err := json. Unmarshal(body, &result); err != nil {
+		c.logger.Warn("Failed to parse trigger response",
+			zap.Error(err),
+			zap.String("response", string(body)))
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	c.logger.Info("constant contract triggered",
+		zap. Int64("energy_used", result. EnergyUsed),
+		zap.Bool("success", result.Result. Result))
+
+	return &result, nil
+}
+
+// TriggerConstantResult represents the response from triggerconstantcontract
+type TriggerConstantResult struct {
+	Result struct {
+		Result  bool   `json:"result"`
+		Code    string `json:"code,omitempty"`
+		Message string `json:"message,omitempty"`
+	} `json:"result"`
+	EnergyUsed     int64    `json:"energy_used"`
+	ConstantResult []string `json:"constant_result"`
+	Transaction    struct {
+		Ret []struct {
+			ContractRet string `json:"contractRet"`
+		} `json:"ret"`
+		Visible  bool `json:"visible"`
+		TxID     string `json:"txID"`
+		RawData  struct {
+			Contract []struct {
+				Parameter struct {
+					Value struct {
+						Data            string `json:"data"`
+						OwnerAddress    string `json:"owner_address"`
+						ContractAddress string `json:"contract_address"`
+					} `json:"value"`
+					TypeUrl string `json:"type_url"`
+				} `json:"parameter"`
+				Type string `json:"type"`
+			} `json:"contract"`
+			RefBlockBytes string `json:"ref_block_bytes"`
+			RefBlockHash  string `json:"ref_block_hash"`
+			Expiration    int64  `json:"expiration"`
+			Timestamp     int64  `json:"timestamp"`
+		} `json:"raw_data"`
+	} `json:"transaction"`
+}
+
+// GetAccountResources gets account energy and bandwidth resources
+func (c *TronHTTPClient) GetAccountResources(ctx context.Context, address string) (*AccountResources, error) {
+	c.logger.Info("getting account resources",
+		zap.String("address", address))
+
+	url := fmt.Sprintf("%s/wallet/getaccountresource", c.baseURL)
+
+	payload := map[string]interface{}{
+		"address": address,
+		"visible": true,
+	}
+
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal payload: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	if c.apiKey != "" {
+		req.Header.Set("TRON-PRO-API-KEY", c.apiKey)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer resp. Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	// Empty response means new account with no resources
+	if len(body) == 0 || string(body) == "{}" {
+		return &AccountResources{
+			EnergyLimit:        0,
+			EnergyUsed:         0,
+			EnergyAvailable:    0,
+			NetLimit:           0,
+			NetUsed:            0,
+			BandwidthAvailable: 0,
+		}, nil
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	var result struct {
+		EnergyLimit         int64 `json:"EnergyLimit"`
+		EnergyUsed          int64 `json:"EnergyUsed"`
+		TotalEnergyLimit    int64 `json:"TotalEnergyLimit"`
+		TotalEnergyWeight   int64 `json:"TotalEnergyWeight"`
+		NetLimit            int64 `json:"NetLimit"`
+		NetUsed             int64 `json:"NetUsed"`
+		TotalNetLimit       int64 `json:"TotalNetLimit"`
+		TotalNetWeight      int64 `json:"TotalNetWeight"`
+		FreeNetLimit        int64 `json:"freeNetLimit"`
+		FreeNetUsed         int64 `json:"freeNetUsed"`
+		AssetNetLimit       []struct {
+			Key   string `json:"key"`
+			Value int64  `json:"value"`
+		} `json:"assetNetLimit,omitempty"`
+		AssetNetUsed []struct {
+			Key   string `json:"key"`
+			Value int64  `json:"value"`
+		} `json:"assetNetUsed,omitempty"`
+	}
+
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	resources := &AccountResources{
+		EnergyLimit:        result. EnergyLimit,
+		EnergyUsed:         result. EnergyUsed,
+		EnergyAvailable:    result.EnergyLimit - result.EnergyUsed,
+		NetLimit:           result.NetLimit + result.FreeNetLimit,
+		NetUsed:            result.NetUsed + result.FreeNetUsed,
+		BandwidthAvailable: (result.NetLimit + result.FreeNetLimit) - (result.NetUsed + result. FreeNetUsed),
+	}
+
+	// Ensure non-negative
+	if resources.EnergyAvailable < 0 {
+		resources.EnergyAvailable = 0
+	}
+	if resources.BandwidthAvailable < 0 {
+		resources.BandwidthAvailable = 0
+	}
+
+	c.logger.Info("account resources retrieved",
+		zap. String("address", address),
+		zap.Int64("energy_available", resources.EnergyAvailable),
+		zap.Int64("bandwidth_available", resources.BandwidthAvailable))
+
+	return resources, nil
+}
+
+// AccountResources represents TRON account resources
+type AccountResources struct {
+	EnergyLimit        int64
+	EnergyUsed         int64
+	EnergyAvailable    int64
+	NetLimit           int64
+	NetUsed            int64
+	BandwidthAvailable int64
+}
