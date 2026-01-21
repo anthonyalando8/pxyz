@@ -54,7 +54,7 @@ type TransactionFeeRule struct {
 type FeeTier struct {
 	MinAmount float64  `json:"min_amount"`
 	MaxAmount *float64 `json:"max_amount,omitempty"` // NULL means unlimited
-	Rate      *string  `json:"rate,omitempty"`       // Percentage rate as string
+	Rate      *float64  `json:"rate,omitempty"`       // Percentage rate as string
 	FixedFee  *float64 `json:"fixed_fee,omitempty"`  // Fixed fee in smallest unit
 }
 

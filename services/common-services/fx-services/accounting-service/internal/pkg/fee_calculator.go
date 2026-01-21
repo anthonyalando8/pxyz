@@ -290,32 +290,30 @@ func (uc *TransactionFeeCalculator) calculateFeeFromRule(rule *domain.Transactio
 				tierFound = true
 
 				if tier.Rate != nil {
-					basisPoints, err := strconv.ParseFloat(*tier.Rate, 64)
-					if err != nil {
-						return nil, fmt.Errorf("invalid tier rate:  %s", *tier.Rate)
-					}
-
+					basisPoints := *tier.Rate // Already float64
+					
 					if basisPoints < 0 || basisPoints > 10000 {
-						return nil, fmt.Errorf("tier basis points out of range:  %.2f", basisPoints)
+						return nil, fmt.Errorf("tier basis points out of range: %.2f", basisPoints)
 					}
 
 					feeRate := basisPoints / 10000.0
 					feeAmount += amount * feeRate
 
-					calc.AppliedRate = tier.Rate
+					rateStr := fmt.Sprintf("%.0f", basisPoints) // ✅ Convert to string for display
+					calc.AppliedRate = &rateStr
 
 					maxAmountStr := "∞"
 					if tier.MaxAmount != nil {
 						maxAmountStr = fmt.Sprintf("%.2f", *tier.MaxAmount)
 					}
-					calc.CalculatedFrom = fmt.Sprintf("tiered rate: %.4f%% (%s bps) for range %.2f-%s",
-						feeRate*100, *tier.Rate, tier.MinAmount, maxAmountStr)
+					calc.CalculatedFrom = fmt.Sprintf("tiered rate: %.4f%% (%.0f bps) for range %.2f-%s",
+						feeRate*100, basisPoints, tier.MinAmount, maxAmountStr)
 				}
 
 				if tier.FixedFee != nil {
 					feeAmount += *tier.FixedFee
-					if calc.CalculatedFrom != "" {
-						calc.CalculatedFrom += fmt.Sprintf(" + fixed:  %.2f", *tier.FixedFee)
+					if calc. CalculatedFrom != "" {
+						calc.CalculatedFrom += fmt.Sprintf(" + fixed: %.8f", *tier.FixedFee)
 					}
 				}
 
@@ -324,7 +322,7 @@ func (uc *TransactionFeeCalculator) calculateFeeFromRule(rule *domain.Transactio
 		}
 
 		if !tierFound {
-			return nil, fmt.Errorf("no tier found for amount: %.2f", amount)
+			return nil, fmt. Errorf("no tier found for amount: %.2f", amount)
 		}
 
 	default:
