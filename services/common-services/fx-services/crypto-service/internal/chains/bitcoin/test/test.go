@@ -356,14 +356,60 @@ func step3SendTransaction() {
 
 	// Convert to satoshis (1 BTC = 100,000,000 satoshis)
 	sendAmount := big.NewInt(int64(amountFloat * 100000000))
+	sendAmountSats := sendAmount.Int64()
+	// humanAmount := fmt.Sprintf("%.8f BTC", amountFloat)
+
+	// ✅ Actually estimate the fee (don't hardcode it!)
+	fmt. Println("\n⏳ Estimating transaction fee...")
+	
+	// Create a temporary transaction request to estimate fee
+	feeEstimate, err := bitcoinChain.EstimateFee(ctx, &domain.TransactionRequest{
+		From:   senderWallet.Address,
+		To:     recipientWallet.Address,
+		Asset:  btcAsset,
+		Amount:  sendAmount,
+		Priority: domain.TxPriorityNormal,
+	})
+	
+	if err != nil {
+		fmt.Printf("⚠️  Could not estimate fee: %v\n", err)
+		fmt.Println("Using default estimate...")
+		// Fallback to conservative estimate
+		feeEstimate = &domain.Fee{
+			Amount:   big.NewInt(5000), // 5000 sats fallback
+			Currency: "BTC",
+		}
+	}
+
+	estimatedFeeSats := feeEstimate.Amount.Int64()
+	estimatedFeeBTC := float64(estimatedFeeSats) / 100000000
+
+	if sendAmountSats < estimatedFeeSats {
+		fmt.Printf("\n⚠️  WARNING: Amount is smaller than estimated fee!\n")
+		fmt.Printf("   Amount:          %d satoshis (%.8f BTC)\n", sendAmountSats, amountFloat)
+		fmt.Printf("   Estimated Fee:  %d satoshis (%.8f BTC)\n", estimatedFeeSats, estimatedFeeBTC)
+		fmt.Printf("   Total needed:   %d satoshis (%.8f BTC)\n", 
+			sendAmountSats+estimatedFeeSats, 
+			amountFloat+estimatedFeeBTC)
+		fmt.Printf("   Minimum recommended amount: %.8f BTC\n\n", float64(estimatedFeeSats+1000)/100000000)
+		
+		if ! askYesNo("This transaction will cost more in fees than you're sending. Continue anyway?") {
+			fmt.Println("❌ Transaction cancelled.")
+			return
+		}
+	}
+
 	humanAmount := fmt.Sprintf("%.8f BTC", amountFloat)
 
 	fmt.Printf("\n📤 Transaction Summary:\n")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Printf("   From:    %s\n", senderWallet.Address)
-	fmt.Printf("   To:      %s\n", recipientWallet.Address)
-	fmt.Printf("   Amount:  %s\n", humanAmount)
-	fmt.Printf("   Fee:     ~0.0001 BTC (estimated)\n")
+	fmt. Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Printf("   From:     %s\n", senderWallet.Address)
+	fmt.Printf("   To:       %s\n", recipientWallet. Address)
+	fmt.Printf("   Amount:   %s (%d satoshis)\n", humanAmount, sendAmountSats)
+	fmt.Printf("   Est Fee:  %.8f BTC (%d satoshis)\n", estimatedFeeBTC, estimatedFeeSats) // ✅ Show actual estimate
+	fmt.Printf("   Total:    %.8f BTC (%d satoshis)\n", 
+		amountFloat+estimatedFeeBTC, 
+		sendAmountSats+estimatedFeeSats)
 	fmt. Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println()
 

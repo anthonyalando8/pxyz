@@ -217,6 +217,35 @@ func (r *CryptoTransactionRepository) GetByTxHash(ctx context.Context, txHash st
 	return tx, nil
 }
 
+// GetByAccountingTxID retrieves a transaction by accounting transaction ID
+func (r *CryptoTransactionRepository) GetByAccountingTxID(ctx context.Context, accountingTxID string) (*domain.CryptoTransaction, error) {
+	query := `
+		SELECT 
+			id, transaction_id, user_id, type, chain, asset,
+			from_wallet_id, from_address, to_wallet_id, to_address, is_internal,
+			amount, network_fee, network_fee_currency, platform_fee, platform_fee_currency, total_fee,
+			tx_hash, block_number, block_timestamp, confirmations, required_confirmations,
+			gas_used, gas_price, energy_used, bandwidth_used,
+			status, status_message, accounting_tx_id, memo, metadata,
+			initiated_at, broadcasted_at, confirmed_at, completed_at, failed_at,
+			created_at, updated_at
+		FROM crypto_transactions
+		WHERE accounting_tx_id = $1
+	`
+
+	tx := &domain.CryptoTransaction{}
+	err := r.scanTransaction(r.pool. QueryRow(ctx, query, accountingTxID), tx)
+
+	if err == pgx.ErrNoRows {
+		return nil, nil // Return nil for idempotency check (not found is not an error)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get transaction by accounting ID: %w", err)
+	}
+
+	return tx, nil
+}
+
 // Update updates a transaction
 func (r *CryptoTransactionRepository) Update(ctx context.Context, tx *domain. CryptoTransaction) error {
 	query := `

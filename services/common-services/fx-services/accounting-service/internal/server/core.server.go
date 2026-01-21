@@ -8,24 +8,25 @@ import (
 
 	"accounting-service/internal/config"
 	hgrpc "accounting-service/internal/handler/grpc"
+	feecalculator "accounting-service/internal/pkg"
+	"accounting-service/internal/pub"
 	"accounting-service/internal/repository"
 	"accounting-service/internal/service"
 	"accounting-service/internal/usecase"
-	accountingpb "x/shared/genproto/shared/accounting/v1"
-	"accounting-service/internal/pub"
 	authclient "x/shared/auth"
+	cryptoclient "x/shared/common/crypto"
 	receiptclient "x/shared/common/receipt"
+	accountingpb "x/shared/genproto/shared/accounting/v1"
 	notificationclient "x/shared/notification"
 	partnerclient "x/shared/partner"
-	feecalculator "accounting-service/internal/pkg"
 
 	"x/shared/utils/id"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/segmentio/kafka-go"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
-	"go.uber.org/zap"
 )
 
 // NewAccountingGRPCServer initializes and starts the accounting gRPC server
@@ -116,6 +117,11 @@ func NewAccountingGRPCServer(cfg config.AppConfig) {
 	// Partner Service - For partner-specific operations
 	partnerSvc := partnerclient.NewPartnerService()
 	log.Println("✅ Partner service client initialized")
+
+	cryptoClient := cryptoclient.NewCryptoClientOrNil()
+	if cryptoClient == nil {
+		log.Println("⚠️  Crypto service unavailable - wallets will not be created")
+	}
 
 	// ===============================
 	// REPOSITORIES (Data Layer)
@@ -251,6 +257,7 @@ func NewAccountingGRPCServer(cfg config.AppConfig) {
 			accountUC,
 			authClient,
 			partnerSvc,
+			cryptoClient,
 			dbpool,
 		)
 

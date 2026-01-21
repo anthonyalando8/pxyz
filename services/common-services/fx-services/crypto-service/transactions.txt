@@ -7,3 +7,21 @@ Time:            2026-01-15T11:37:08+03:00
 Explorer:        https://shasta.tronscan.org/#/transaction/d44dcc0c2d40a8161c7034ae97dfd82ea94af4e4b0bf7afe16b45fa8a1e9501d
 ═══════════════════════════════════════════════════════════════
 
+═══════════════════════════════════════════════════════════════
+Transaction Hash: f0ed3f4e9a5262d4e6a30f0d43d04335724da3bbae9105398fab411f10b2e356
+From:            TBjWJNB858R69VmbS6SBMHBazgUfBWiGgh
+To:              TUuP36jySFNFS2BobNkWMtuD2LYUTuPvPg
+Amount:          150.000000 TRX
+Time:            2026-01-21T11:44:00+03:00
+Explorer:        https://shasta.tronscan.org/#/transaction/f0ed3f4e9a5262d4e6a30f0d43d04335724da3bbae9105398fab411f10b2e356
+═══════════════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════════════
+Transaction Hash: 6cfaef46f26008fb336beedbd7c2cd593644e71ff6caca32ec2e53eed9523917
+From:            TBjWJNB858R69VmbS6SBMHBazgUfBWiGgh
+To:              TUuP36jySFNFS2BobNkWMtuD2LYUTuPvPg
+Amount:          60.000000 TRX
+Time:            2026-01-21T11:55:58+03:00
+Explorer:        https://shasta.tronscan.org/#/transaction/6cfaef46f26008fb336beedbd7c2cd593644e71ff6caca32ec2e53eed9523917
+═══════════════════════════════════════════════════════════════
+

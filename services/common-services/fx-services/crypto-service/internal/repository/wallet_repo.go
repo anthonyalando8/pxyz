@@ -4,6 +4,7 @@ package repository
 import (
 	"context"
 	"crypto-service/internal/domain"
+	"database/sql"
 	"fmt"
 	"math/big"
 	"strings"
@@ -596,42 +597,181 @@ func (r *CryptoWalletRepository) GetActiveWallets(ctx context.Context) ([]*domai
 	return wallets, nil
 }
 
+// internal/repository/crypto_wallet_repo.go
+
+// Add this method to CryptoWalletRepository: 
+
+// GetWalletsWithBalance retrieves wallets with balance above minimum
+func (r *CryptoWalletRepository) GetWalletsWithBalance(
+	ctx context.Context,
+	chain, asset string,
+	minBalance *big.Int,
+) ([]*domain.CryptoWallet, error) {
+	
+	query := `
+		SELECT 
+			id, user_id, chain, asset, address, public_key,
+			encrypted_private_key, encryption_version, label,
+			is_primary, is_active, balance, last_balance_update,
+			last_deposit_check, last_transaction_block,
+			created_at, updated_at
+		FROM crypto_wallets
+		WHERE chain = $1 
+		  AND asset = $2
+		  AND is_active = true
+		  AND balance:: numeric >= $3
+		  AND user_id != 'SYSTEM'  -- Exclude system wallets
+		ORDER BY balance DESC
+	`
+
+	rows, err := r.pool.Query(ctx, query, chain, asset, minBalance. String())
+	if err != nil {
+		return nil, fmt. Errorf("failed to query wallets with balance: %w", err)
+	}
+	defer rows.  Close()
+
+	var wallets []*domain.CryptoWallet
+	for rows. Next() {
+		wallet, err := scanWallet(rows)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan wallet: %w", err)
+		}
+		wallets = append(wallets, wallet)
+	}
+
+	if err := rows. Err(); err != nil {
+		return nil, fmt.Errorf("error iterating wallets:  %w", err)
+	}
+
+	return wallets, nil
+}
+
+// GetWalletsByChainAsset retrieves all wallets for a chain/asset combination
+func (r *CryptoWalletRepository) GetWalletsByChainAsset(
+	ctx context.  Context,
+	chain, asset string,
+) ([]*domain.CryptoWallet, error) {
+	
+	query := `
+		SELECT 
+			id, user_id, chain, asset, address, public_key,
+			encrypted_private_key, encryption_version, label,
+			is_primary, is_active, balance, last_balance_update,
+			last_deposit_check, last_transaction_block,
+			created_at, updated_at
+		FROM crypto_wallets
+		WHERE chain = $1 
+		  AND asset = $2
+		  AND is_active = true
+		ORDER BY created_at DESC
+	`
+
+	rows, err := r.pool.Query(ctx, query, chain, asset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query wallets: %w", err)
+	}
+	defer rows.Close()
+
+	var wallets []*domain.CryptoWallet
+	for rows. Next() {
+		wallet, err := scanWallet(rows)
+		if err != nil {
+			return nil, err
+		}
+		wallets = append(wallets, wallet)
+	}
+
+	return wallets, nil
+}
+
+// CountWalletsWithBalance counts wallets with balance above minimum
+func (r *CryptoWalletRepository) CountWalletsWithBalance(
+	ctx context.Context,
+	chain, asset string,
+	minBalance *big.Int,
+) (int64, error) {
+	
+	query := `
+		SELECT COUNT(*)
+		FROM crypto_wallets
+		WHERE chain = $1 
+		  AND asset = $2
+		  AND is_active = true
+		  AND balance::numeric >= $3
+		  AND user_id != 'SYSTEM'
+	`
+
+	var count int64
+	err := r.pool. QueryRow(ctx, query, chain, asset, minBalance.String()).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count wallets:  %w", err)
+	}
+
+	return count, nil
+}
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+// internal/repository/crypto_wallet_repo. go
+
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
 
-// scanWallet scans a row into a CryptoWallet
-func scanWallet(row pgx.Row) (*domain.CryptoWallet, error) {
+// Scanner interface for both Row and Rows
+type Scanner interface {
+	Scan(dest ...interface{}) error
+}
+
+// scanWallet scans using the Scanner interface (works for both Row and Rows)
+func scanWallet(scanner Scanner) (*domain.CryptoWallet, error) {
 	wallet := &domain.CryptoWallet{}
 	var balanceStr string
+	var lastBalanceUpdate, lastDepositCheck sql.NullTime
+	var lastTransactionBlock sql.NullInt64
 	
-	err := row.Scan(
+	err := scanner. Scan(
 		&wallet.ID,
 		&wallet.UserID,
-		&wallet.Chain,
-		&wallet. Asset,
+		&wallet.  Chain,
+		&wallet.Asset,
 		&wallet.Address,
 		&wallet.PublicKey,
-		&wallet. EncryptedPrivateKey,
+		&wallet.EncryptedPrivateKey,
 		&wallet.EncryptionVersion,
 		&wallet.Label,
 		&wallet.IsPrimary,
-		&wallet. IsActive,
+		&wallet.IsActive,
 		&balanceStr,
-		&wallet.LastBalanceUpdate,
-		&wallet.LastDepositCheck,
-		&wallet.LastTransactionBlock,
-		&wallet.CreatedAt,
+		&lastBalanceUpdate,
+		&lastDepositCheck,
+		&lastTransactionBlock,
+		&wallet. CreatedAt,
 		&wallet.UpdatedAt,
 	)
 	
 	if err != nil {
-		return nil, fmt.Errorf("failed to scan wallet: %w", err)
+		return nil, fmt. Errorf("failed to scan wallet: %w", err)
 	}
 	
+	// Parse balance
 	wallet.Balance, _ = new(big.Int).SetString(balanceStr, 10)
 	if wallet.Balance == nil {
 		wallet.Balance = big.NewInt(0)
+	}
+	
+	// Handle nullable fields
+	if lastBalanceUpdate. Valid {
+		wallet.LastBalanceUpdate = &lastBalanceUpdate.Time
+	}
+	
+	if lastDepositCheck.Valid {
+		wallet.LastDepositCheck = &lastDepositCheck. Time
+	}
+	
+	if lastTransactionBlock.Valid {
+		wallet.LastTransactionBlock = &lastTransactionBlock.Int64
 	}
 	
 	return wallet, nil
@@ -644,11 +784,11 @@ func formatBalance(balance *big.Int, decimals int, asset string) string {
 	}
 	
 	divisor := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(decimals)), nil)
-	wholePart := new(big.Int).Div(balance, divisor)
+	wholePart := new(big.  Int).Div(balance, divisor)
 	remainder := new(big.Int).Mod(balance, divisor)
 	
-	if remainder. Cmp(big.NewInt(0)) == 0 {
-		return fmt.Sprintf("%s %s", wholePart.String(), asset)
+	if remainder.Cmp(big.NewInt(0)) == 0 {
+		return fmt. Sprintf("%s %s", wholePart.String(), asset)
 	}
 	
 	// Format with decimals
@@ -659,7 +799,7 @@ func formatBalance(balance *big.Int, decimals int, asset string) string {
 	
 	formatted := fmt.Sprintf("%s%s", wholePart.String(), decimalPart.Text('f', decimals)[1:])
 	// Trim trailing zeros
-	formatted = strings.TrimRight(strings.TrimRight(formatted, "0"), ".")
+	formatted = strings.TrimRight(strings. TrimRight(formatted, "0"), ".")
 	
 	return fmt.Sprintf("%s %s", formatted, asset)
 }

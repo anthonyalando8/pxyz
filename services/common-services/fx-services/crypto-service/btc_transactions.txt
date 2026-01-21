@@ -1,0 +1,10 @@
+═══════════════════════════════════════════════════════════════
+Transaction Hash: 89fa7bfcef09a3a8554eb0572d173637ca64e918b87b09b78031ff48ebc57add
+Network:          testnet
+From:            mm8yD5KsgjTosiBczAm8JbeKmsNG5QN87u
+To:              miq5uRWViDNykxT975uRSLHxyku2CdkTNn
+Amount:          0.00000900 BTC
+Time:            2026-01-21T11:52:59+03:00
+Explorer:         https://blockstream.info/testnet/tx/89fa7bfcef09a3a8554eb0572d173637ca64e918b87b09b78031ff48ebc57add
+═══════════════════════════════════════════════════════════════
+

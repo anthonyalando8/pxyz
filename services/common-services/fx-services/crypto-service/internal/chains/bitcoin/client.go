@@ -178,19 +178,51 @@ func (c *BitcoinClient) GetUTXOs(ctx context.Context, address string) ([]UTXO, e
 	return utxos, nil
 }
 
-// BroadcastTransaction broadcasts a signed transaction
+// BroadcastTransaction broadcasts a signed transaction (FIXED)
 func (c *BitcoinClient) BroadcastTransaction(ctx context.Context, rawTx string) (string, error) {
-	result, err := c.doRPCRequest(ctx, "sendrawtransaction", []interface{}{rawTx})
+	// Ensure proper URL format
+	baseURL := strings.TrimSuffix(c.getBlockExplorerURL(), "/")
+	broadcastURL := baseURL + "/tx"
+	
+	c.logger.Info("Broadcasting transaction",
+		zap.String("url", broadcastURL))
+	
+	req, err := http.NewRequestWithContext(ctx, "POST", broadcastURL, strings.NewReader(rawTx))
 	if err != nil {
-		return "", fmt.Errorf("failed to broadcast transaction: %w", err)
+		return "", fmt.Errorf("failed to create request: %w", err)
 	}
-
-	var txHash string
-	if err := json. Unmarshal(result, &txHash); err != nil {
-		return "", err
+	
+	req.Header.Set("Content-Type", "text/plain")
+	
+	// Create client without redirect following
+	client := &http.Client{
+		Timeout: 30 * time. Second,
+		CheckRedirect:  func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
 	}
-
-	return txHash, nil
+	
+	resp, err := client. Do(req)
+	if err != nil {
+		return "", fmt.Errorf("HTTP request failed: %w", err)
+	}
+	defer resp.Body. Close()
+	
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt. Errorf("failed to read response: %w", err)
+	}
+	
+	c.logger.Info("Broadcast response",
+		zap.Int("status", resp.StatusCode),
+		zap.String("body", string(body)))
+	
+	if resp.StatusCode == http.StatusOK {
+		txHash := strings.TrimSpace(string(body))
+		return txHash, nil
+	}
+	
+	return "", fmt. Errorf("broadcast failed (status %d): %s", resp.StatusCode, string(body))
 }
 
 // GetTransaction gets transaction details

@@ -82,9 +82,7 @@ func (h *PaymentHandler) handleGetAccountBalance(ctx context.Context, client *Cl
 
 // Supported currencies (can be moved to config/database)
 var SupportedCurrencies = []string{
-	"USD", "EUR", "GBP", "BTC", "ETH", "USDT", "USDC",
-	"KES", "TZS", "UGX", "RWF", // East African currencies
-	"ZAR", "NGN", "GHS",         // Other African currencies
+	"USD","BTC", "USDT", "USDC", "TRX",// "EUR", "GBP", "ETH",
 }
 
 // handleCreateAccount creates a new wallet account for user

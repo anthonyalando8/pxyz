@@ -307,3 +307,224 @@ func stringToChainEnum(chain string) pb.Chain {
 		return pb.Chain_CHAIN_UNSPECIFIED
 	}
 }
+
+// internal/handler/wallet_handler.go
+
+// CreateWallets creates multiple wallets in batch
+func (h *WalletHandler) CreateWallets(
+	ctx context.Context,
+	req *pb.CreateWalletsRequest,
+) (*pb.CreateWalletsResponse, error) {
+	
+	h.logger.Info("Creating multiple wallets",
+		zap.String("user_id", req.UserId),
+		zap.Int("count", len(req.Wallets)))
+	
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+	
+	if len(req.Wallets) == 0 {
+		return nil, status.Error(codes. InvalidArgument, "at least one wallet spec required")
+	}
+	
+	var createdWallets []*pb. Wallet
+	var errors []*pb.WalletError
+	
+	// Create each wallet
+	for _, spec := range req.Wallets {
+		chainName := chainEnumToString(spec.Chain)
+		
+		wallet, err := h.walletUsecase.CreateWallet(
+			ctx,
+			req.UserId,
+			chainName,
+			spec. Asset,
+			spec.Label,
+		)
+		
+		if err != nil {
+			h.logger. Warn("Failed to create wallet",
+				zap.String("chain", chainName),
+				zap.String("asset", spec.Asset),
+				zap.Error(err))
+			
+			errors = append(errors, &pb.WalletError{
+				Chain:        spec.Chain,
+				Asset:        spec.Asset,
+				ErrorMessage: err.Error(),
+			})
+			continue
+		}
+		
+		createdWallets = append(createdWallets, walletToProto(wallet))
+	}
+	
+	successCount := len(createdWallets)
+	failedCount := len(errors)
+	
+	message := fmt.Sprintf("Created %d wallets successfully", successCount)
+	if failedCount > 0 {
+		message = fmt.Sprintf("Created %d wallets, %d failed", successCount, failedCount)
+	}
+	
+	h.logger.Info("Batch wallet creation completed",
+		zap.Int("success", successCount),
+		zap.Int("failed", failedCount))
+	
+	return &pb. CreateWalletsResponse{
+		Wallets:       createdWallets,
+		Errors:       errors,
+		SuccessCount: int32(successCount),
+		FailedCount:  int32(failedCount),
+		Message:      message,
+	}, nil
+}
+
+// InitializeUserWallets creates wallets for all supported chains/assets
+func (h *WalletHandler) InitializeUserWallets(
+	ctx context. Context,
+	req *pb. InitializeUserWalletsRequest,
+) (*pb.InitializeUserWalletsResponse, error) {
+	
+	h.logger. Info("Initializing user wallets",
+		zap.String("user_id", req.UserId))
+	
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+	
+	// Determine which chains/assets to create
+	specs := h.getWalletSpecs(req. Chains, req.Assets)
+	
+	var createdWallets []*pb.Wallet
+	var errors []*pb.WalletError
+	var skippedCount int32
+	
+	// Create each wallet
+	for _, spec := range specs {
+		chainName := chainEnumToString(spec.Chain)
+		
+		// Check if wallet already exists
+		if req.SkipExisting {
+			existing, _ := h.walletUsecase.GetUserWallet(ctx, req.UserId, chainName, spec.Asset)
+			if existing != nil {
+				h.logger.Info("Wallet already exists, skipping",
+					zap. String("chain", chainName),
+					zap.String("asset", spec.Asset))
+				skippedCount++
+				continue
+			}
+		}
+		
+		// Create wallet
+		wallet, err := h.walletUsecase. CreateWallet(
+			ctx,
+			req.UserId,
+			chainName,
+			spec. Asset,
+			fmt.Sprintf("%s %s Wallet", chainName, spec.Asset),
+		)
+		
+		if err != nil {
+			h.logger. Warn("Failed to create wallet",
+				zap.String("chain", chainName),
+				zap.String("asset", spec.Asset),
+				zap.Error(err))
+			
+			errors = append(errors, &pb.WalletError{
+				Chain:         spec.Chain,
+				Asset:        spec.Asset,
+				ErrorMessage: err.Error(),
+			})
+			continue
+		}
+		
+		createdWallets = append(createdWallets, walletToProto(wallet))
+	}
+	
+	totalCreated := int32(len(createdWallets))
+	totalFailed := int32(len(errors))
+	
+	message := fmt.Sprintf("Initialized %d wallets for user", totalCreated)
+	if skippedCount > 0 {
+		message += fmt.Sprintf(" (%d skipped)", skippedCount)
+	}
+	if totalFailed > 0 {
+		message += fmt.Sprintf(" (%d failed)", totalFailed)
+	}
+	
+	h.logger.Info("User wallet initialization completed",
+		zap.String("user_id", req.UserId),
+		zap.Int32("created", totalCreated),
+		zap.Int32("skipped", skippedCount),
+		zap.Int32("failed", totalFailed))
+	
+	return &pb.InitializeUserWalletsResponse{
+		Wallets:       createdWallets,
+		Errors:        errors,
+		TotalCreated:  totalCreated,
+		TotalSkipped:   skippedCount,
+		TotalFailed:   totalFailed,
+		Message:       message,
+	}, nil
+}
+
+// getWalletSpecs returns the list of wallets to create
+func (h *WalletHandler) getWalletSpecs(chains []pb.Chain, assets []string) []*pb.WalletSpec {
+	// Default supported configurations
+	defaultSpecs := []*pb.WalletSpec{
+		// TRON
+		{Chain: pb.Chain_CHAIN_TRON, Asset: "TRX"},
+		{Chain: pb.Chain_CHAIN_TRON, Asset: "USDT"},
+		
+		// Bitcoin
+		{Chain: pb.Chain_CHAIN_BITCOIN, Asset: "BTC"},
+		
+		// Add more as you support them
+		// {Chain: pb.Chain_CHAIN_ETHEREUM, Asset: "ETH"},
+		// {Chain: pb.Chain_CHAIN_ETHEREUM, Asset: "USDT"},
+		// {Chain: pb. Chain_CHAIN_ETHEREUM, Asset: "USDC"},
+	}
+	
+	// If specific chains/assets requested, filter
+	if len(chains) > 0 || len(assets) > 0 {
+		var filtered []*pb.WalletSpec
+		
+		for _, spec := range defaultSpecs {
+			// Check chain filter
+			if len(chains) > 0 {
+				chainMatch := false
+				for _, c := range chains {
+					if c == spec.Chain {
+						chainMatch = true
+						break
+					}
+				}
+				if ! chainMatch {
+					continue
+				}
+			}
+			
+			// Check asset filter
+			if len(assets) > 0 {
+				assetMatch := false
+				for _, a := range assets {
+					if a == spec.Asset {
+						assetMatch = true
+						break
+					}
+				}
+				if !assetMatch {
+					continue
+				}
+			}
+			
+			filtered = append(filtered, spec)
+		}
+		
+		return filtered
+	}
+	
+	return defaultSpecs
+}

@@ -15,6 +15,7 @@ const (
 	TransactionTypeInternalTransfer TransactionType = "internal_transfer"
 	TransactionTypeConversion       TransactionType = "conversion"
 	TransactionTypeFeePayment       TransactionType = "fee_payment"
+	TransactionTypeSweep             TransactionType = "sweep"  
 )
 
 // TransactionStatus represents transaction status

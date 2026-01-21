@@ -1,6 +1,6 @@
 // cmd/test/main.go (UPDATED - Load existing or enter manually)
 
-package tron_test
+package main
 
 import (
 	"bufio"
@@ -317,6 +317,8 @@ func step2CheckBalances() {
 // STEP 3: SEND TRANSACTION
 // ============================================================================
 
+// cmd/test/main.go (or cmd/test_tron/main.go)
+
 func step3SendTransaction() {
 	fmt.Println("╔═══════════════════════════════════════════════════════════════╗")
 	fmt.Println("║  STEP 3: SEND TRANSACTION                                    ║")
@@ -325,7 +327,7 @@ func step3SendTransaction() {
 
 	// Get current sender balance first
 	fmt. Println("📊 Checking current sender balance...")
-	trxBalance, err := tronChain.GetBalance(ctx, senderWallet. Address, trxAsset)
+	trxBalance, err := tronChain.GetBalance(ctx, senderWallet.Address, trxAsset)
 	if err != nil {
 		fmt.Printf("❌ Failed to get balance: %v\n", err)
 		return
@@ -333,35 +335,27 @@ func step3SendTransaction() {
 
 	// Convert to human-readable
 	humanBalance := new(big.Float).Quo(
-		new(big.Float).SetInt(trxBalance. Amount),
+		new(big. Float).SetInt(trxBalance. Amount),
 		big.NewFloat(1000000),
 	)
 	fmt.Printf("   Available:  %s TRX\n\n", humanBalance.String())
 
-	// ✅ Ask for amount to send
+	// Ask for amount to send
 	var amountFloat float64
 	for {
 		amountStr := readInput(fmt.Sprintf("Enter amount to send in TRX (max:  %s): ", humanBalance.String()))
 		
 		_, err := fmt.Sscanf(amountStr, "%f", &amountFloat)
 		if err != nil || amountFloat <= 0 {
-			fmt. Println("❌ Invalid amount. Please enter a positive number.")
+			fmt.Println("❌ Invalid amount. Please enter a positive number.")
 			continue
 		}
 
 		// Check if amount exceeds balance
 		maxAmount, _ := humanBalance.Float64()
 		if amountFloat > maxAmount {
-			fmt. Printf("❌ Amount exceeds balance. You have %s TRX\n", humanBalance.String())
+			fmt.Printf("❌ Amount exceeds balance. You have %s TRX\n", humanBalance.String())
 			continue
-		}
-
-		// Reserve some TRX for fees (0.1 TRX)
-		if amountFloat >= maxAmount-0.1 {
-			fmt. Println("⚠️  Warning: You should keep some TRX for transaction fees (~0.1 TRX)")
-			if !askYesNo("Continue anyway?") {
-				continue
-			}
 		}
 
 		break
@@ -369,23 +363,62 @@ func step3SendTransaction() {
 
 	// Convert to SUN (1 TRX = 1,000,000 SUN)
 	sendAmount := big.NewInt(int64(amountFloat * 1000000))
+	
+	// ✅ Estimate actual fee
+	fmt.Println("\n⏳ Estimating transaction fee...")
+	
+	feeEstimate, err := tronChain.EstimateFee(ctx, &domain.TransactionRequest{
+		From:   senderWallet.Address,
+		To:     recipientWallet.Address,
+		Asset:  trxAsset,
+		Amount: sendAmount,
+		Priority: domain.TxPriorityNormal,
+	})
+	
+	if err != nil {
+		fmt.Printf("⚠️  Could not estimate fee: %v\n", err)
+		fmt.Println("Using default estimate of 0.1 TRX...")
+		feeEstimate = &domain.Fee{
+			Amount:   big.NewInt(100000), // 0.1 TRX fallback
+			Currency: "TRX",
+		}
+	}
+	
+	estimatedFeeSUN := feeEstimate.Amount.Int64()
+	estimatedFeeTRX := float64(estimatedFeeSUN) / 1000000
+	
+	// Check if user has enough for amount + fee
+	totalNeededTRX := amountFloat + estimatedFeeTRX
+	maxAmount, _ := humanBalance.Float64()
+	
+	if totalNeededTRX > maxAmount {
+		fmt.Printf("\n❌ Insufficient balance!\n")
+		fmt.Printf("   Amount:       %.6f TRX\n", amountFloat)
+		fmt.Printf("   Fee:          %.6f TRX\n", estimatedFeeTRX)
+		fmt.Printf("   Total needed: %.6f TRX\n", totalNeededTRX)
+		fmt.Printf("   Available:   %.6f TRX\n", maxAmount)
+		fmt.Printf("   Shortfall:   %.6f TRX\n\n", totalNeededTRX-maxAmount)
+		return
+	}
+
 	humanAmount := fmt.Sprintf("%.6f TRX", amountFloat)
 
 	fmt.Printf("\n📤 Transaction Summary:\n")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Printf("   From:     %s\n", senderWallet.Address)
-	fmt.Printf("   To:      %s\n", recipientWallet.Address)
-	fmt.Printf("   Amount:  %s\n", humanAmount)
-	fmt.Printf("   Fee:     ~0.1 TRX (estimated)\n")
+	fmt.Printf("   To:       %s\n", recipientWallet. Address)
+	fmt.Printf("   Amount:   %s (%d SUN)\n", humanAmount, sendAmount.Int64())
+	fmt.Printf("   Est Fee:  %.6f TRX (%d SUN)\n", estimatedFeeTRX, estimatedFeeSUN) // ✅ Show actual estimate
+	fmt.Printf("   Total:    %.6f TRX\n", totalNeededTRX)
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt. Println()
+	fmt.Println()
 
-	if !askYesNo("Confirm and send transaction?") {
+	if ! askYesNo("Confirm and send transaction?") {
 		fmt.Println("❌ Transaction cancelled.")
 		return
 	}
 
-	fmt. Println("\n⏳ Building and signing transaction...")
+	fmt.Println("\n⏳ Building and signing transaction...")
 
 	sendReq := &domain.TransactionRequest{
 		From:       senderWallet.Address,
@@ -402,11 +435,15 @@ func step3SendTransaction() {
 		return
 	}
 
-	fmt. Println("\n✅ Transaction sent successfully!")
+	// Calculate actual fee from result
+	actualFeeTRX := float64(result.Fee.Int64()) / 1000000
+
+	fmt.Println("\n✅ Transaction sent successfully!")
 	fmt. Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Printf("   TX Hash:   %s\n", result. TxHash)
-	fmt.Printf("   Status:   %s\n", result.Status)
-	fmt.Printf("   Time:     %s\n", result.Timestamp.Format("2006-01-02 15:04:05"))
+	fmt.Printf("   TX Hash:   %s\n", result.TxHash)
+	fmt.Printf("   Status:    %s\n", result.Status)
+	fmt.Printf("   Actual Fee: %.6f TRX (%s SUN)\n", actualFeeTRX, result.Fee.String())
+	fmt.Printf("   Time:      %s\n", result.  Timestamp. Format("2006-01-02 15:04:05"))
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println()
 	fmt.Printf("🔍 View on Block Explorer:\n")

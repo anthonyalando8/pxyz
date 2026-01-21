@@ -87,6 +87,7 @@ const (
 	TransactionType_TRANSACTION_TYPE_INTERNAL_TRANSFER TransactionType = 3
 	TransactionType_TRANSACTION_TYPE_CONVERSION        TransactionType = 4
 	TransactionType_TRANSACTION_TYPE_FEE_PAYMENT       TransactionType = 5
+	TransactionType_TRANSACTION_TYPE_SWEEP             TransactionType = 6
 )
 
 // Enum value maps for TransactionType.
@@ -98,6 +99,7 @@ var (
 		3: "TRANSACTION_TYPE_INTERNAL_TRANSFER",
 		4: "TRANSACTION_TYPE_CONVERSION",
 		5: "TRANSACTION_TYPE_FEE_PAYMENT",
+		6: "TRANSACTION_TYPE_SWEEP",
 	}
 	TransactionType_value = map[string]int32{
 		"TRANSACTION_TYPE_UNSPECIFIED":       0,
@@ -106,6 +108,7 @@ var (
 		"TRANSACTION_TYPE_INTERNAL_TRANSFER": 3,
 		"TRANSACTION_TYPE_CONVERSION":        4,
 		"TRANSACTION_TYPE_FEE_PAYMENT":       5,
+		"TRANSACTION_TYPE_SWEEP":             6,
 	}
 )
 
@@ -635,14 +638,15 @@ const file_common_proto_rawDesc = "" +
 	"\n" +
 	"CHAIN_TRON\x10\x01\x12\x11\n" +
 	"\rCHAIN_BITCOIN\x10\x02\x12\x12\n" +
-	"\x0eCHAIN_ETHEREUM\x10\x03*\xdd\x01\n" +
+	"\x0eCHAIN_ETHEREUM\x10\x03*\xf9\x01\n" +
 	"\x0fTransactionType\x12 \n" +
 	"\x1cTRANSACTION_TYPE_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18TRANSACTION_TYPE_DEPOSIT\x10\x01\x12\x1f\n" +
 	"\x1bTRANSACTION_TYPE_WITHDRAWAL\x10\x02\x12&\n" +
 	"\"TRANSACTION_TYPE_INTERNAL_TRANSFER\x10\x03\x12\x1f\n" +
 	"\x1bTRANSACTION_TYPE_CONVERSION\x10\x04\x12 \n" +
-	"\x1cTRANSACTION_TYPE_FEE_PAYMENT\x10\x05*\xc8\x02\n" +
+	"\x1cTRANSACTION_TYPE_FEE_PAYMENT\x10\x05\x12\x1a\n" +
+	"\x16TRANSACTION_TYPE_SWEEP\x10\x06*\xc8\x02\n" +
 	"\x11TransactionStatus\x12\"\n" +
 	"\x1eTRANSACTION_STATUS_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aTRANSACTION_STATUS_PENDING\x10\x01\x12#\n" +

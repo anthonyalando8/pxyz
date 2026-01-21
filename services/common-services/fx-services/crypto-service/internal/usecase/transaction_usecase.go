@@ -19,7 +19,7 @@ type TransactionUsecase struct {
 	transactionRepo *repository.CryptoTransactionRepository
 	walletRepo      *repository.CryptoWalletRepository
 	chainRegistry   *registry.Registry
-	encryption      *security.Encryption
+	encryption      *security. Encryption
 	systemUsecase   *SystemUsecase
 	logger          *zap.Logger
 }
@@ -27,450 +27,538 @@ type TransactionUsecase struct {
 func NewTransactionUsecase(
 	transactionRepo *repository.CryptoTransactionRepository,
 	walletRepo *repository.CryptoWalletRepository,
-	chainRegistry *registry. Registry,
-	encryption *security. Encryption,
-	systemUsecase   *SystemUsecase,
+	chainRegistry *registry.Registry,
+	encryption *security.Encryption,
+	systemUsecase *SystemUsecase,
 	logger *zap.Logger,
 ) *TransactionUsecase {
 	return &TransactionUsecase{
 		transactionRepo: transactionRepo,
-		walletRepo:      walletRepo,
+		walletRepo:       walletRepo,
 		chainRegistry:   chainRegistry,
 		encryption:      encryption,
 		systemUsecase:   systemUsecase,
-		logger:           logger,
+		logger:          logger,
 	}
 }
 
-// GetWithdrawalQuote estimates fees for a withdrawal
-func (uc *TransactionUsecase) GetWithdrawalQuote(
+// ============================================================================
+// NETWORK FEE ESTIMATION (for accounting module)
+// ============================================================================
+
+// EstimateNetworkFee estimates blockchain network fee for accounting
+func (uc *TransactionUsecase) EstimateNetworkFee(
 	ctx context.Context,
-	userID, chainName, assetCode, amount, toAddress string,
-) (*WithdrawalQuote, error) {
+	chainName, assetCode, amount string,
+	toAddress string, // Optional, can be empty
+) (*NetworkFeeEstimate, error) {
 	
-	uc.logger.Info("Getting withdrawal quote",
-		zap.String("user_id", userID),
+	uc.logger.Info("Estimating network fee",
 		zap.String("chain", chainName),
 		zap.String("asset", assetCode),
-		zap.String("amount", amount),
-	)
+		zap.String("amount", amount))
 	
-	// 1. Get user's wallet
-	wallet, err := uc.walletRepo.GetUserPrimaryWallet(ctx, userID, chainName, assetCode)
+	// Get system hot wallet (all withdrawals come from here)
+	systemWallet, err := uc.systemUsecase.GetSystemWallet(ctx, chainName, assetCode)
 	if err != nil {
-		return nil, fmt.Errorf("wallet not found: %w", err)
+		return nil, fmt.Errorf("system wallet not found: %w", err)
 	}
 	
-	// 2. Parse amount
+	// Parse amount
 	amountBig, ok := new(big.Int).SetString(amount, 10)
 	if !ok {
 		return nil, fmt.Errorf("invalid amount format")
 	}
 	
-	// 3. Get blockchain implementation
+	// Get blockchain implementation
 	chain, err := uc.chainRegistry.Get(chainName)
 	if err != nil {
 		return nil, fmt.Errorf("unsupported chain: %w", err)
 	}
 	
-	// 4. Validate destination address
-	err = chain.ValidateAddress(toAddress)
-	if err != nil {
-		return nil, fmt.Errorf("invalid destination address")
+	// Use a dummy address if none provided
+	if toAddress == "" {
+		toAddress = systemWallet.Address // Use self as dummy
 	}
 	
-	// 5. Estimate network fees from blockchain
+	// Validate destination address
+	if err := chain.ValidateAddress(toAddress); err != nil {
+		return nil, fmt.Errorf("invalid destination address: %w", err)
+	}
+	
+	// Estimate network fee from blockchain
 	feeEstimate, err := chain.EstimateFee(ctx, &domain.TransactionRequest{
-		From:   wallet.Address,
+		From:   systemWallet.Address, // ✅ From system wallet
 		To:     toAddress,
 		Asset:  assetFromCode(assetCode),
 		Amount: amountBig,
+		Priority: domain.TxPriorityNormal,
 	})
+	
 	if err != nil {
-		return nil, fmt.Errorf("failed to estimate network fee: %w", err)
+		uc.logger. Warn("Failed to estimate fee from chain, using defaults",
+			zap.Error(err),
+			zap.String("chain", chainName))
+		
+		// Return conservative defaults
+		feeEstimate = uc.getDefaultFeeEstimate(chainName, assetCode)
 	}
 	
-	uc.logger.Info("Network fee estimated",
-		zap.String("fee", feeEstimate.Amount.String()),
-		zap.String("currency", feeEstimate.Currency),
-	)
+	estimate := &NetworkFeeEstimate{
+		Chain:          chainName,
+		Asset:          assetCode,
+		FeeAmount:      feeEstimate.Amount,
+		FeeCurrency:    feeEstimate.Currency,
+		FeeFormatted:   formatAmount(feeEstimate.Amount, feeEstimate.Currency),
+		EstimatedAt:    time.Now(),
+		ValidFor:       5 * time.Minute,
+	}
 	
-	// 6. Calculate platform fee (fixed for now, would come from accounting service)
-	platformFee := uc.calculatePlatformFee(assetCode, amountBig)
+	uc. logger.Info("Network fee estimated",
+		zap.String("fee", estimate.FeeFormatted),
+		zap.String("currency", estimate.FeeCurrency))
 	
-	// 7. Calculate total
-	totalFee := new(big.Int).Add(feeEstimate.Amount, platformFee)
-	requiredBalance := new(big.Int).Add(amountBig, totalFee)
+	return estimate, nil
+}
+
+// GetWithdrawalQuote provides fee estimate (for accounting to show users)
+func (uc *TransactionUsecase) GetWithdrawalQuote(
+	ctx context.Context,
+	chainName, assetCode, amount, toAddress string,
+) (*WithdrawalQuote, error) {
 	
-	// 8. Check if user has sufficient balance
-	hasBalance := wallet.Balance.Cmp(requiredBalance) >= 0
+	// Just estimate network fee - accounting handles platform fee
+	networkFee, err := uc. EstimateNetworkFee(ctx, chainName, assetCode, amount, toAddress)
+	if err != nil {
+		return nil, err
+	}
+	
+	amountBig, _ := new(big.Int).SetString(amount, 10)
 	
 	quote := &WithdrawalQuote{
-		QuoteID:         uuid.New().String(),
-		Amount:          amountBig,
-		NetworkFee:      feeEstimate.Amount,
-		NetworkFeeCurrency: feeEstimate.Currency,
-		PlatformFee:     platformFee,
-		TotalFee:        totalFee,
-		TotalCost:       requiredBalance,
-		UserHasBalance:  hasBalance,
-		ValidUntil:      time.Now().Add(5 * time. Minute),
-		Explanation:     fmt.Sprintf("Network fee: %s, Platform fee: %s", 
-			formatAmount(feeEstimate.Amount, assetCode),
-			formatAmount(platformFee, assetCode),
-		),
+		QuoteID:            uuid.New().String(),
+		Chain:              chainName,
+		Asset:              assetCode,
+		Amount:             amountBig,
+		NetworkFee:         networkFee. FeeAmount,
+		NetworkFeeCurrency: networkFee.FeeCurrency,
+		Explanation:        fmt.Sprintf("Network fee: %s %s", networkFee.FeeFormatted, networkFee. FeeCurrency),
+		ValidUntil:         time.Now().Add(5 * time.Minute),
 	}
 	
 	return quote, nil
 }
 
-// Withdraw sends crypto to external address (BLOCKCHAIN TRANSACTION)
+// ============================================================================
+// WITHDRAWAL (from system hot wallet to external address)
+// ============================================================================
+
+// Withdraw sends crypto from SYSTEM hot wallet to external address
+// NOTE:  Accounting module should have already: 
+//   1. Verified user has sufficient virtual balance
+//   2. Deducted amount + fees from user's virtual wallet
+//   3. Called this method to execute blockchain transaction
 func (uc *TransactionUsecase) Withdraw(
 	ctx context.Context,
-	userID, chainName, assetCode, amount, toAddress, memo string,
+	accountingTxID  string, // From accounting module for idempotency
+	chainName, assetCode, amount, toAddress, memo string,
+	userID string, // For tracking who requested it
 ) (*domain.CryptoTransaction, error) {
 	
-	uc.logger. Info("Processing withdrawal",
+	uc.logger.Info("Processing withdrawal from system hot wallet",
+		zap.String("accounting_tx_id", accountingTxID),
 		zap.String("user_id", userID),
 		zap.String("chain", chainName),
 		zap.String("asset", assetCode),
-		zap.String("to", toAddress),
-	)
+		zap.String("to", toAddress))
 	
-	// 1. Get wallet and validate
-	wallet, err := uc.walletRepo.GetUserPrimaryWallet(ctx, userID, chainName, assetCode)
-	if err != nil {
-		return nil, fmt. Errorf("wallet not found: %w", err)
+	// 1. Check for duplicate request (idempotency)
+	existingTx, err := uc.transactionRepo. GetByAccountingTxID(ctx, accountingTxID)
+	if err == nil && existingTx != nil {
+		uc.logger.Info("Duplicate withdrawal request detected",
+			zap.String("accounting_tx_id", accountingTxID),
+			zap.String("existing_tx", existingTx.TransactionID))
+		return existingTx, nil
 	}
 	
-	// 2. Parse amount
+	// 2. Get system hot wallet
+	systemWallet, err := uc.systemUsecase.GetSystemWallet(ctx, chainName, assetCode)
+	if err != nil {
+		return nil, fmt. Errorf("system wallet not found: %w", err)
+	}
+	
+	// 3. Parse amount
 	amountBig, ok := new(big.Int).SetString(amount, 10)
 	if !ok {
-		return nil, fmt.Errorf("invalid amount")
+		return nil, fmt.Errorf("invalid amount format")
 	}
 	
-	// 3. Get quote
-	quote, err := uc.GetWithdrawalQuote(ctx, userID, chainName, assetCode, amount, toAddress)
+	// 4. Estimate network fee
+	feeEstimate, err := uc.EstimateNetworkFee(ctx, chainName, assetCode, amount, toAddress)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to estimate fee: %w", err)
 	}
 	
-	if ! quote.UserHasBalance {
-		return nil, fmt.Errorf("insufficient balance:  need %s, have %s",
-			formatAmount(quote.TotalCost, assetCode),
-			formatAmount(wallet.Balance, assetCode),
-		)
+	// 5. Check system wallet has enough (amount + network fee)
+	totalNeeded := new(big.Int).Add(amountBig, feeEstimate.FeeAmount)
+	if systemWallet.Balance.Cmp(totalNeeded) < 0 {
+		return nil, fmt.Errorf("insufficient system wallet balance:  have %s, need %s",
+			formatAmount(systemWallet.Balance, assetCode),
+			formatAmount(totalNeeded, assetCode))
 	}
 	
-	// 4. Create transaction record
-	tx := &domain.CryptoTransaction{
+	// 6. Create transaction record
+	tx := &domain. CryptoTransaction{
 		TransactionID:          uuid.New().String(),
-		UserID:                userID,
-		Type:                  domain.TransactionTypeWithdrawal,
-		Chain:                 chainName,
-		Asset:                 assetCode,
-		FromWalletID:          &wallet.ID,
-		FromAddress:           wallet.Address,
-		ToAddress:             toAddress,
-		IsInternal:            false, // External withdrawal
-		Amount:                amountBig,
-		NetworkFee:            quote.NetworkFee,
-		NetworkFeeCurrency:    &quote.NetworkFeeCurrency,
-		PlatformFee:           quote.PlatformFee,
-		PlatformFeeCurrency:   &assetCode,
-		TotalFee:              quote.TotalFee,
-		Status:                domain.TransactionStatusPending,
-		RequiredConfirmations: getRequiredConfirmations(chainName),
-		Memo:                  &memo,
-		InitiatedAt:           time.Now(),
+		AccountingTxID:         &accountingTxID, // Link to accounting module
+		UserID:                 userID,      // Who requested it
+		Type:                   domain.TransactionTypeWithdrawal,
+		Chain:                  chainName,
+		Asset:                  assetCode,
+		FromWalletID:           &systemWallet.ID,
+		FromAddress:            systemWallet. Address, // ✅ From system wallet
+		ToAddress:              toAddress,            // To external address
+		IsInternal:             false,
+		Amount:                 amountBig,
+		NetworkFee:             feeEstimate.FeeAmount,
+		NetworkFeeCurrency:     &feeEstimate.FeeCurrency,
+		PlatformFee:            big.NewInt(0), // Handled by accounting
+		TotalFee:               feeEstimate.FeeAmount,
+		Status:                 domain.TransactionStatusPending,
+		RequiredConfirmations:  getRequiredConfirmations(chainName),
+		Memo:                   &memo,
+		InitiatedAt:            time.Now(),
 	}
 	
-	// 5. Save to database
+	// 7. Save to database
 	if err := uc.transactionRepo. Create(ctx, tx); err != nil {
 		return nil, fmt.Errorf("failed to create transaction: %w", err)
 	}
 	
-	// 6. Get blockchain implementation
+	// 8. Get blockchain implementation
 	chain, err := uc.chainRegistry.Get(chainName)
 	if err != nil {
+		uc.transactionRepo.MarkAsFailed(ctx, tx.ID, fmt.Sprintf("Unsupported chain: %v", err))
 		return nil, err
 	}
 	
-	// 7. Decrypt private key
-	privateKey, err := uc.encryption.Decrypt(wallet.EncryptedPrivateKey)
+	// 9. Decrypt system wallet private key
+	privateKey, err := uc.encryption.Decrypt(systemWallet.EncryptedPrivateKey)
 	if err != nil {
-		uc.transactionRepo. MarkAsFailed(ctx, tx.ID, "Failed to decrypt private key")
+		uc.transactionRepo.MarkAsFailed(ctx, tx. ID, "Failed to decrypt system wallet key")
 		return nil, fmt.Errorf("failed to decrypt key: %w", err)
 	}
 	
-	// 8. Execute blockchain transaction
+	// 10. Execute blockchain transaction
 	uc.transactionRepo.UpdateStatus(ctx, tx.ID, domain.TransactionStatusBroadcasting, nil)
 	
 	txResult, err := chain.Send(ctx, &domain.TransactionRequest{
-		From:       wallet.Address,
+		From:       systemWallet.Address, // ✅ System wallet signs
 		To:         toAddress,
-		Asset:       assetFromCode(assetCode),
+		Asset:      assetFromCode(assetCode),
 		Amount:     amountBig,
 		PrivateKey: privateKey,
 		Memo:       &memo,
+		Priority:   domain.TxPriorityNormal,
 	})
 	
 	if err != nil {
 		uc.logger.Error("Blockchain transaction failed",
-			zap.Error(err),
+			zap. Error(err),
 			zap.String("tx_id", tx.TransactionID),
-		)
-		uc.transactionRepo.MarkAsFailed(ctx, tx.ID, err.Error())
+			zap.String("accounting_tx_id", accountingTxID))
+		
+		uc.transactionRepo.MarkAsFailed(ctx, tx. ID, err.Error())
+		
+		// TODO:  Notify accounting module of failure for refund
+		
 		return nil, fmt.Errorf("blockchain transaction failed: %w", err)
 	}
 	
-	// 9. Update transaction with blockchain details
+	// 11. Update transaction with blockchain details
 	tx.TxHash = &txResult.TxHash
 	tx.Status = domain.TransactionStatusBroadcasted
 	now := time.Now()
 	tx.BroadcastedAt = &now
 	
 	if err := uc.transactionRepo.Update(ctx, tx); err != nil {
-		uc. logger.Error("Failed to update transaction", zap.Error(err))
+		uc.logger.Error("Failed to update transaction", zap.Error(err))
 	}
 	
-	uc.logger.Info("Withdrawal broadcasted to blockchain",
-		zap.String("tx_hash", txResult.TxHash),
-		zap.String("tx_id", tx.TransactionID),
-	)
+	// 12. Update system wallet balance
+	actualCost := new(big.Int).Add(amountBig, txResult.Fee)
+	newSystemBalance := new(big.Int).Sub(systemWallet.Balance, actualCost)
+	uc.walletRepo.UpdateBalance(ctx, systemWallet.ID, newSystemBalance)
 	
-	// 10. Update wallet balance (optimistic)
-	newBalance := new(big.Int).Sub(wallet.Balance, quote.TotalCost)
-	uc.walletRepo.UpdateBalance(ctx, wallet.ID, newBalance)
+	uc.logger.Info("Withdrawal broadcasted successfully",
+		zap. String("tx_hash", txResult.TxHash),
+		zap.String("tx_id", tx.TransactionID),
+		zap.String("accounting_tx_id", accountingTxID),
+		zap.String("new_system_balance", newSystemBalance.String()))
+	
+	// TODO: Notify accounting module of success
 	
 	return tx, nil
 }
 
-// InternalTransfer transfers between users (LEDGER ONLY, NO BLOCKCHAIN)
-func (uc *TransactionUsecase) InternalTransfer(
+// ============================================================================
+// SWEEP (user address → system wallet)
+// ============================================================================
+
+// SweepUserWallet sweeps funds from user's deposit address to system wallet
+func (uc *TransactionUsecase) SweepUserWallet(
 	ctx context.Context,
-	fromUserID, toUserID, chainName, assetCode, amount, memo string,
+	userID, chainName, assetCode string,
 ) (*domain.CryptoTransaction, error) {
 	
-	uc.logger.Info("Processing internal transfer",
-		zap.String("from_user", fromUserID),
-		zap.String("to_user", toUserID),
-		zap.String("asset", assetCode),
-	)
+	uc.logger.Info("Sweeping user wallet to system",
+		zap.String("user_id", userID),
+		zap.String("chain", chainName),
+		zap.String("asset", assetCode))
 	
-	// 1. Get both users' wallets
-	fromWallet, err := uc.walletRepo.GetUserPrimaryWallet(ctx, fromUserID, chainName, assetCode)
+	// 1. Get user's deposit address
+	userWallet, err := uc.walletRepo.GetUserPrimaryWallet(ctx, userID, chainName, assetCode)
 	if err != nil {
-		return nil, fmt.Errorf("sender wallet not found: %w", err)
+		return nil, fmt.Errorf("user wallet not found: %w", err)
 	}
 	
-	toWallet, err := uc.walletRepo.GetUserPrimaryWallet(ctx, toUserID, chainName, assetCode)
+	// 2. Get system wallet
+	systemWallet, err := uc.systemUsecase.GetSystemWallet(ctx, chainName, assetCode)
 	if err != nil {
-		return nil, fmt. Errorf("recipient wallet not found: %w", err)
+		return nil, fmt.Errorf("system wallet not found: %w", err)
 	}
 	
-	// 2. Parse amount
-	amountBig, ok := new(big.Int).SetString(amount, 10)
-	if !ok {
-		return nil, fmt.Errorf("invalid amount")
+	// 3. Check if user wallet has balance worth sweeping
+	minSweepAmount := getMinimumSweepAmount(chainName, assetCode)
+	if userWallet.Balance.Cmp(minSweepAmount) < 0 {
+		return nil, fmt.Errorf("balance too low to sweep: %s", userWallet.Balance.String())
 	}
 	
-	// 3. Estimate network fee (for display, not actually charged on blockchain)
-	chain, err := uc.chainRegistry.Get(chainName)
+	// 4. Estimate network fee
+	feeEstimate, err := uc.EstimateNetworkFee(ctx, chainName, assetCode, userWallet.Balance.String(), systemWallet.Address)
 	if err != nil {
 		return nil, err
 	}
 	
-	estimatedNetworkFee, _ := chain.EstimateFee(ctx, &domain.TransactionRequest{
-		From:   fromWallet.Address,
-		To:     toWallet.Address,
-		Asset:  assetFromCode(assetCode),
-		Amount:  amountBig,
+	// 5. Calculate amount to sweep (balance - fee)
+	sweepAmount := new(big.Int).Sub(userWallet.Balance, feeEstimate.FeeAmount)
+	if sweepAmount. Cmp(big.NewInt(0)) <= 0 {
+		return nil, fmt.Errorf("balance not enough to cover network fee")
+	}
+	
+	// 6. Create transaction record
+	tx := &domain.CryptoTransaction{
+		TransactionID:           uuid.New().String(),
+		UserID:                 userID,
+		Type:                   domain.TransactionTypeSweep,
+		Chain:                   chainName,
+		Asset:                  assetCode,
+		FromWalletID:           &userWallet.ID,
+		FromAddress:            userWallet.Address, // User's deposit address
+		ToWalletID:             &systemWallet.ID,
+		ToAddress:              systemWallet.Address, // System wallet
+		IsInternal:             true, // Internal sweep
+		Amount:                 sweepAmount,
+		NetworkFee:              feeEstimate.FeeAmount,
+		NetworkFeeCurrency:     &feeEstimate. FeeCurrency,
+		PlatformFee:            big. NewInt(0),
+		TotalFee:               feeEstimate.FeeAmount,
+		Status:                 domain.TransactionStatusPending,
+		RequiredConfirmations:  getRequiredConfirmations(chainName),
+		InitiatedAt:            time.Now(),
+	}
+	
+	// 7. Save to database
+	if err := uc.transactionRepo.Create(ctx, tx); err != nil {
+		return nil, err
+	}
+	
+	// 8. Get blockchain implementation
+	chain, err := uc.chainRegistry.Get(chainName)
+	if err != nil {
+		uc.transactionRepo. MarkAsFailed(ctx, tx.ID, fmt.Sprintf("Unsupported chain: %v", err))
+		return nil, err
+	}
+	
+	// 9. Decrypt user wallet private key
+	privateKey, err := uc.encryption.Decrypt(userWallet.EncryptedPrivateKey)
+	if err != nil {
+		uc.transactionRepo.MarkAsFailed(ctx, tx.ID, "Failed to decrypt key")
+		return nil, err
+	}
+	
+	// 10. Execute blockchain transaction
+	uc.transactionRepo.UpdateStatus(ctx, tx.ID, domain.TransactionStatusBroadcasting, nil)
+	
+	txResult, err := chain. Send(ctx, &domain.TransactionRequest{
+		From:       userWallet.Address, // ✅ From user's deposit address
+		To:         systemWallet.Address, // ✅ To system wallet
+		Asset:      assetFromCode(assetCode),
+		Amount:     sweepAmount,
+		PrivateKey: privateKey,
+		Priority:   domain.TxPriorityLow, // Low priority for sweeps
 	})
 	
-	// 4. Calculate platform fee (small fee for internal transfer)
-	platformFee := uc.calculateInternalTransferFee(assetCode, amountBig, estimatedNetworkFee.Amount)
-	totalFee := platformFee
-	
-	// 5. Check balance
-	requiredBalance := new(big.Int).Add(amountBig, totalFee)
-	if fromWallet.Balance.Cmp(requiredBalance) < 0 {
-		return nil, fmt.Errorf("insufficient balance")
+	if err != nil {
+		uc.logger.Error("Sweep transaction failed",
+			zap. Error(err),
+			zap.String("user_id", userID))
+		
+		uc.transactionRepo.MarkAsFailed(ctx, tx.ID, err.Error())
+		return nil, err
 	}
 	
-	// 6. Create transaction record (INTERNAL, no blockchain)
-	tx := &domain.CryptoTransaction{
-		TransactionID:       uuid.New().String(),
-		UserID:              fromUserID,
-		Type:                domain.TransactionTypeInternalTransfer,
-		Chain:                chainName,
-		Asset:                assetCode,
-		FromWalletID:        &fromWallet.ID,
-		FromAddress:         fromWallet.Address,
-		ToWalletID:          &toWallet.ID,
-		ToAddress:           toWallet.Address,
-		IsInternal:          true, // ✅ Internal transfer (no blockchain)
-		Amount:              amountBig,
-		NetworkFee:          big.NewInt(0), // No actual network fee
-		PlatformFee:         platformFee,
-		PlatformFeeCurrency: &assetCode,
-		TotalFee:            totalFee,
-		Status:               domain.TransactionStatusCompleted, // Instant
-		Memo:                &memo,
-		InitiatedAt:         time. Now(),
-	}
-	
+	// 11. Update transaction
+	tx.TxHash = &txResult.TxHash
+	tx.Status = domain.TransactionStatusBroadcasted
 	now := time.Now()
-	tx.CompletedAt = &now
+	tx.BroadcastedAt = &now
+	uc.transactionRepo.Update(ctx, tx)
 	
-	// 7. Save transaction
-	if err := uc.transactionRepo.Create(ctx, tx); err != nil {
-		return nil, fmt.Errorf("failed to create transaction: %w", err)
-	}
+	// 12. Update balances
+	uc.walletRepo.UpdateBalance(ctx, userWallet.ID, big.NewInt(0)) // User address now empty
+	newSystemBalance := new(big.Int).Add(systemWallet.Balance, sweepAmount)
+	uc.walletRepo.UpdateBalance(ctx, systemWallet.ID, newSystemBalance)
 	
-	// 8. Update balances (ledger-based)
-	fromNewBalance := new(big.Int).Sub(fromWallet.Balance, requiredBalance)
-	toNewBalance := new(big.Int).Add(toWallet.Balance, amountBig)
-	
-	if err := uc.walletRepo.UpdateBalance(ctx, fromWallet.ID, fromNewBalance); err != nil {
-		return nil, fmt.Errorf("failed to update sender balance: %w", err)
-	}
-	
-	if err := uc.walletRepo. UpdateBalance(ctx, toWallet.ID, toNewBalance); err != nil {
-		return nil, fmt.Errorf("failed to update recipient balance: %w", err)
-	}
-	
-	uc.logger.Info("Internal transfer completed",
-		zap.String("tx_id", tx.TransactionID),
-		zap.String("from", fromWallet.Address),
-		zap.String("to", toWallet.Address),
-	)
+	uc.logger.Info("Sweep completed successfully",
+		zap.String("tx_hash", txResult. TxHash),
+		zap.String("amount_swept", sweepAmount.String()),
+		zap.String("new_system_balance", newSystemBalance.String()))
 	
 	return tx, nil
 }
 
-// GetUserTransactions retrieves transaction history
-func (uc *TransactionUsecase) GetUserTransactions(
+// SweepAllUsers sweeps all user wallets for a chain/asset (batch operation)
+func (uc *TransactionUsecase) SweepAllUsers(
 	ctx context.Context,
+	chainName, assetCode string,
+) ([]*domain.CryptoTransaction, error) {
+	
+	uc.logger.Info("Starting batch sweep",
+		zap.String("chain", chainName),
+		zap.String("asset", assetCode))
+	
+	// Get all user wallets with balance
+	wallets, err := uc.walletRepo.GetWalletsWithBalance(ctx, chainName, assetCode, getMinimumSweepAmount(chainName, assetCode))
+	if err != nil {
+		return nil, err
+	}
+	
+	uc.logger.Info("Found wallets to sweep", zap.Int("count", len(wallets)))
+	
+	var swept []*domain.CryptoTransaction
+	var failed int
+	
+	for _, wallet := range wallets {
+		tx, err := uc.SweepUserWallet(ctx, wallet.UserID, chainName, assetCode)
+		if err != nil {
+			uc.logger. Warn("Failed to sweep wallet",
+				zap.Error(err),
+				zap.String("user_id", wallet.UserID),
+				zap.String("address", wallet.Address))
+			failed++
+			continue
+		}
+		swept = append(swept, tx)
+	}
+	
+	uc.logger.Info("Batch sweep completed",
+		zap.Int("successful", len(swept)),
+		zap.Int("failed", failed))
+	
+	return swept, nil
+}
+
+// ============================================================================
+// TRANSACTION QUERIES
+// ============================================================================
+
+func (uc *TransactionUsecase) GetUserTransactions(
+	ctx context. Context,
 	userID string,
 	limit, offset int,
 ) ([]*domain.CryptoTransaction, error) {
 	return uc.transactionRepo.GetUserTransactions(ctx, userID, limit, offset)
 }
 
-// GetTransaction retrieves a specific transaction
 func (uc *TransactionUsecase) GetTransaction(
 	ctx context.Context,
-	transactionID, userID string,
+	transactionID string,
 ) (*domain.CryptoTransaction, error) {
-	
-	tx, err := uc.transactionRepo.GetByTransactionID(ctx, transactionID)
-	if err != nil {
-		return nil, err
-	}
-	
-	// Verify ownership
-	if tx.UserID != userID {
-		return nil, fmt.Errorf("unauthorized")
-	}
-	
-	return tx, nil
-}
-
-// CancelTransaction cancels a pending transaction
-func (uc *TransactionUsecase) CancelTransaction(
-	ctx context.Context,
-	transactionID, userID, reason string,
-) error {
-	
-	tx, err := uc.GetTransaction(ctx, transactionID, userID)
-	if err != nil {
-		return err
-	}
-	
-	// Can only cancel pending transactions
-	if tx.Status != domain.TransactionStatusPending {
-		return fmt.Errorf("can only cancel pending transactions")
-	}
-	
-	return uc.transactionRepo.UpdateStatus(ctx, tx.ID, domain.TransactionStatusCancelled, &reason)
+	return uc.transactionRepo.GetByTransactionID(ctx, transactionID)
 }
 
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
 
-func (uc *TransactionUsecase) calculatePlatformFee(assetCode string, amount *big. Int) *big.Int {
-	// Fixed fee for now (would come from accounting service)
-	// Example: 1 USDT = 1,000,000 SUN
-	fixedFees := map[string]int64{
-		"USDT": 1000000,  // 1 USDT
-		"TRX":  100000,   // 0.1 TRX
-		"BTC":  1000,     // 0.00001 BTC
+func (uc *TransactionUsecase) getDefaultFeeEstimate(chainName, assetCode string) *domain.Fee {
+	// Conservative default fees
+	defaults := map[string]map[string]int64{
+		"TRON": {
+			"TRX":   100000,   // 0.1 TRX
+			"USDT": 5000000,  // 5 TRX equivalent
+		},
+		"BITCOIN": {
+			"BTC":  5000, // 5000 satoshis
+		},
 	}
 	
-	if fee, ok := fixedFees[assetCode]; ok {
-		return big.NewInt(fee)
+	if chainDefaults, ok := defaults[chainName]; ok {
+		if fee, ok := chainDefaults[assetCode]; ok {
+			return &domain.Fee{
+				Amount:   big.NewInt(fee),
+				Currency: chainName,
+			}
+		}
 	}
 	
-	return big.NewInt(0)
+	return &domain.Fee{
+		Amount:   big.NewInt(10000),
+		Currency: chainName,
+	}
 }
 
-func (uc *TransactionUsecase) calculateInternalTransferFee(
-	assetCode string,
-	amount *big.Int,
-	estimatedNetworkFee *big. Int,
-) *big.Int {
-	// CEO requirement: charge estimated network fee + small markup
-	// Example: network fee + 5% platform fee
+func getMinimumSweepAmount(chainName, assetCode string) *big.Int {
+	// Minimum amount worth sweeping (to avoid dust)
+	mins := map[string]map[string]int64{
+		"TRON": {
+			"TRX":  10000000, // 10 TRX
+			"USDT": 10000000, // 10 USDT
+		},
+		"BITCOIN": {
+			"BTC": 100000, // 0.001 BTC
+		},
+	}
 	
-	markup := new(big.Float).Mul(
-		new(big.Float).SetInt(estimatedNetworkFee),
-		big.NewFloat(1.05), // 5% markup
-	)
+	if chainMins, ok := mins[chainName]; ok {
+		if min, ok := chainMins[assetCode]; ok {
+			return big.NewInt(min)
+		}
+	}
 	
-	fee, _ := markup.Int(nil)
-	return fee
+	return big.NewInt(1000000) // Default 1 unit
 }
 
-// WithdrawalQuote represents withdrawal cost estimate
+// Types for accounting module integration
+
+type NetworkFeeEstimate struct {
+	Chain        string
+	Asset        string
+	FeeAmount    *big.Int
+	FeeCurrency  string
+	FeeFormatted string
+	EstimatedAt  time.Time
+	ValidFor     time.Duration
+}
+
 type WithdrawalQuote struct {
 	QuoteID            string
+	Chain              string
+	Asset              string
 	Amount             *big.Int
 	NetworkFee         *big.Int
 	NetworkFeeCurrency string
-	PlatformFee        *big.Int
-	TotalFee           *big.Int
-	TotalCost          *big.Int
-	UserHasBalance     bool
-	ValidUntil         time.Time
 	Explanation        string
-}
-
-// When collecting platform fees, credit system wallet
-func (uc *TransactionUsecase) creditPlatformFee(
-	ctx context.Context,
-	chainName, assetCode string,
-	feeAmount *big.Int,
-) error {
-	
-	// Get system wallet
-	systemWallet, err := uc.systemUsecase.GetSystemWallet(ctx, chainName, assetCode)
-	if err != nil {
-		return fmt.Errorf("failed to get system wallet: %w", err)
-	}
-	
-	// Update system wallet balance
-	newBalance := new(big.Int).Add(systemWallet.Balance, feeAmount)
-	if err := uc.walletRepo.UpdateBalance(ctx, systemWallet.ID, newBalance); err != nil {
-		return fmt. Errorf("failed to update system balance: %w", err)
-	}
-	
-	uc.logger.Info("Platform fee credited to system wallet",
-		zap. String("chain", chainName),
-		zap.String("asset", assetCode),
-		zap.String("amount", feeAmount.String()),
-		zap.String("new_balance", newBalance.String()))
-	
-	return nil
+	ValidUntil         time.Time
 }

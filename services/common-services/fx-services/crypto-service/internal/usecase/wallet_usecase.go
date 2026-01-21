@@ -105,6 +105,45 @@ func (uc *WalletUsecase) CreateWallet(
 	return wallet, nil
 }
 
+// internal/usecase/wallet_usecase.go
+
+// CreateWallets creates multiple wallets in batch
+func (uc *WalletUsecase) CreateWallets(
+	ctx context.Context,
+	userID string,
+	specs []WalletSpec,
+) ([]*domain.CryptoWallet, []error) {
+	
+	var wallets []*domain.CryptoWallet
+	var errors []error
+	
+	for _, spec := range specs {
+		wallet, err := uc.CreateWallet(ctx, userID, spec.Chain, spec.Asset, spec.Label)
+		if err != nil {
+			errors = append(errors, fmt.Errorf("%s %s: %w", spec.Chain, spec.Asset, err))
+			continue
+		}
+		wallets = append(wallets, wallet)
+	}
+	
+	return wallets, errors
+}
+
+type WalletSpec struct {
+	Chain string
+	Asset string
+	Label string
+}
+
+// GetUserWallet retrieves user's wallet for chain/asset
+func (uc *WalletUsecase) GetUserWallet(
+	ctx context.Context,
+	userID, chain, asset string,
+) (*domain.CryptoWallet, error) {
+	
+	return uc.walletRepo.GetUserWalletByChainAsset(ctx, userID, chain, asset)
+}
+
 // GetUserWallets retrieves all wallets for a user
 func (uc *WalletUsecase) GetUserWallets(
 	ctx context.Context,

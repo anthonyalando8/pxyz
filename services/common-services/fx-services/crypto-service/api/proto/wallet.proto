@@ -13,6 +13,11 @@ service WalletService {
     // Create a new wallet for user
     rpc CreateWallet(CreateWalletRequest) returns (CreateWalletResponse);
     
+    // ✅ NEW: Create multiple wallets at once
+    rpc CreateWallets(CreateWalletsRequest) returns (CreateWalletsResponse);
+    
+    // ✅ NEW:  Batch create wallets for user (all supported chains/assets)
+    rpc InitializeUserWallets(InitializeUserWalletsRequest) returns (InitializeUserWalletsResponse);
     // Get user's wallets
     rpc GetUserWallets(GetUserWalletsRequest) returns (GetUserWalletsResponse);
     
@@ -177,4 +182,51 @@ message AssetBalance {
     string asset = 2;
     Money balance = 3;
     Money value_usd = 4; // USD equivalent
+}
+
+// ============================================================================
+// MULTI-WALLET CREATION MESSAGES
+// ============================================================================
+
+// CreateWallets - Create multiple wallets in one request
+message CreateWalletsRequest {
+    string user_id = 1;
+    repeated WalletSpec wallets = 2; // List of wallets to create
+}
+
+message WalletSpec {
+    Chain chain = 1;
+    string asset = 2;
+    string label = 3;  // Optional
+}
+
+message CreateWalletsResponse {
+    repeated Wallet wallets = 1;      // Successfully created wallets
+    repeated WalletError errors = 2;  // Failed wallet creations
+    int32 success_count = 3;
+    int32 failed_count = 4;
+    string message = 5;
+}
+
+message WalletError {
+    Chain chain = 1;
+    string asset = 2;
+    string error_message = 3;
+}
+
+// InitializeUserWallets - Create wallets for all supported chains/assets
+message InitializeUserWalletsRequest {
+    string user_id = 1;
+    repeated Chain chains = 2;        // Which chains to initialize (empty = all)
+    repeated string assets = 3;       // Which assets (empty = all supported)
+    bool skip_existing = 4;           // Skip if wallet already exists
+}
+
+message InitializeUserWalletsResponse {
+    repeated Wallet wallets = 1;
+    repeated WalletError errors = 2;
+    int32 total_created = 3;
+    int32 total_skipped = 4;
+    int32 total_failed = 5;
+    string message = 6;
 }

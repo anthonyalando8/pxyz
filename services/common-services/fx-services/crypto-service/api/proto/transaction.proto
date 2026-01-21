@@ -1,7 +1,7 @@
-// api/proto/transaction.proto
+// api/proto/transaction. proto
 syntax = "proto3";
 
-package crypto. v1;
+package crypto.v1;
 
 option go_package = "shared/genproto/shared/accounting/cryptopb";
 
@@ -10,84 +10,65 @@ import "google/protobuf/timestamp.proto";
 
 // TransactionService handles crypto transactions
 service TransactionService {
-    // Withdraw to external address
-    rpc Withdraw(WithdrawRequest) returns (WithdrawResponse);
+    // Estimate network fee (for accounting module)
+    rpc EstimateNetworkFee(EstimateNetworkFeeRequest) returns (EstimateNetworkFeeResponse);
     
-    // Internal transfer between users
-    rpc InternalTransfer(InternalTransferRequest) returns (InternalTransferResponse);
-    
-    // Get withdrawal fee quote
+    // Get withdrawal quote
     rpc GetWithdrawalQuote(GetWithdrawalQuoteRequest) returns (GetWithdrawalQuoteResponse);
     
-    // Get transaction by ID
+    // Execute withdrawal from system wallet (called by accounting)
+    rpc Withdraw(WithdrawRequest) returns (WithdrawResponse);
+    
+    // Sweep operations (internal)
+    rpc SweepUserWallet(SweepUserWalletRequest) returns (SweepUserWalletResponse);
+
+    // Sweep all user wallets for a specific asset and chain
+    rpc SweepAllUsers(SweepAllUsersRequest) returns (SweepAllUsersResponse);
+    
+    // Transaction queries
     rpc GetTransaction(GetTransactionRequest) returns (GetTransactionResponse);
-    
-    // Get user transactions
+
+    // Get transactions for a user with filters and pagination
     rpc GetUserTransactions(GetUserTransactionsRequest) returns (GetUserTransactionsResponse);
-    
-    // Get transaction status
+
+    // Get transaction status by transaction ID
     rpc GetTransactionStatus(GetTransactionStatusRequest) returns (GetTransactionStatusResponse);
-    
-    // Cancel pending transaction
-    rpc CancelTransaction(CancelTransactionRequest) returns (CancelTransactionResponse);
 }
 
 // ============================================================================
-// MESSAGES
+// NETWORK FEE ESTIMATION
 // ============================================================================
 
-// Transaction
-message Transaction {
-    int64 id = 1;
-    string transaction_id = 2;  // UUID
-    string user_id = 3;
-    TransactionType type = 4;
-    Chain chain = 5;
-    string asset = 6;
-    
-    string from_address = 7;
-    string to_address = 8;
-    bool is_internal = 9;
-    
-    Money amount = 10;
-    FeeBreakdown fees = 11;
-    
-    string tx_hash = 12;
-    int64 block_number = 13;
-    int32 confirmations = 14;
-    int32 required_confirmations = 15;
-    
-    TransactionStatus status = 16;
-    string status_message = 17;
-    
-    google.protobuf. Timestamp initiated_at = 18;
-    google.protobuf.Timestamp confirmed_at = 19;
-    google.protobuf.Timestamp created_at = 20;
+message EstimateNetworkFeeRequest {
+    Chain chain = 1;
+    string asset = 2;
+    string amount = 3;
+    string to_address = 4;  // Optional, for more accurate estimation
 }
 
-// TransactionSummary (for lists)
-message TransactionSummary {
-    string transaction_id = 1;
-    TransactionType type = 2;
+message EstimateNetworkFeeResponse {
+    Chain chain = 1;
+    string asset = 2;
+    string fee_amount = 3;       // In smallest unit
+    string fee_currency = 4;     // Usually same as chain native token
+    string fee_formatted = 5;    // Human-readable
+    google.protobuf.Timestamp estimated_at = 6;
+    int32 valid_for = 7;         // Seconds
+    string explanation = 8;
+}
+
+// ============================================================================
+// WITHDRAWAL
+// ============================================================================
+
+message WithdrawRequest {
+    string accounting_tx_id  = 1;       // From accounting module (idempotency key)
+    string user_id = 2;          // For tracking who requested
     Chain chain = 3;
     string asset = 4;
-    string amount = 5;
-    string fee = 6;
-    TransactionStatus status = 7;
-    string tx_hash = 8;
-    bool is_internal = 9;
-    google.protobuf. Timestamp created_at = 10;
-}
-
-// Withdraw
-message WithdrawRequest {
-    string user_id = 1;
-    Chain chain = 2;
-    string asset = 3;
-    string amount = 4;
-    string to_address = 5;
-    string memo = 6;  // Optional
-    bool auto_confirm = 7;  // Skip confirmation step
+    string amount = 5;           // In smallest unit
+    string to_address = 6;
+    string memo = 7;             // Optional
 }
 
 message WithdrawResponse {
@@ -95,58 +76,116 @@ message WithdrawResponse {
     string message = 2;
 }
 
-// InternalTransfer
-message InternalTransferRequest {
-    string from_user_id = 1;
-    string to_user_id = 2;
-    Chain chain = 3;
-    string asset = 4;
-    string amount = 5;
-    string memo = 6;
-}
+// ============================================================================
+// WITHDRAWAL QUOTE
+// ============================================================================
 
-message InternalTransferResponse {
-    Transaction transaction = 1;
-    string message = 2;
-}
-
-// GetWithdrawalQuote
 message GetWithdrawalQuoteRequest {
-    string user_id = 1;
-    Chain chain = 2;
-    string asset = 3;
-    string amount = 4;
-    string to_address = 5;
+    Chain chain = 1;
+    string asset = 2;
+    string amount = 3;
+    string to_address = 4;
 }
 
 message GetWithdrawalQuoteResponse {
     string quote_id = 1;
-    Money amount = 2;
-    FeeBreakdown fees = 3;
-    Money total_cost = 4;  // amount + fees
-    Money required_balance = 5;
-    bool user_has_balance = 6;
+    Chain chain = 2;
+    string asset = 3;
+    Money amount = 4;
+    Money network_fee = 5;
+    string network_fee_currency = 6;
     google.protobuf.Timestamp valid_until = 7;
     string explanation = 8;
 }
 
-// GetTransaction
+// ============================================================================
+// SWEEP OPERATIONS
+// ============================================================================
+
+message SweepUserWalletRequest {
+    string user_id = 1;
+    Chain chain = 2;
+    string asset = 3;
+}
+
+message SweepUserWalletResponse {
+    Transaction transaction = 1;
+    string message = 2;
+}
+
+message SweepAllUsersRequest {
+    Chain chain = 1;
+    string asset = 2;
+}
+
+message SweepAllUsersResponse {
+    repeated Transaction transactions = 1;
+    int32 success_count = 2;
+    int32 failed_count = 3;
+    string message = 4;
+}
+
+// ============================================================================
+// TRANSACTION QUERIES
+// ============================================================================
+
+message Transaction {
+    int64 id = 1;
+    string transaction_id = 2;
+    string accounting_tx_id = 3;  // From accounting module
+    string user_id = 4;
+    TransactionType type = 5;
+    Chain chain = 6;
+    string asset = 7;
+    
+    string from_address = 8;
+    string to_address = 9;
+    bool is_internal = 10;
+    
+    Money amount = 11;
+    Money network_fee = 12;
+    
+    string tx_hash = 13;
+    int64 block_number = 14;
+    int32 confirmations = 15;
+    int32 required_confirmations = 16;
+    
+    TransactionStatus status = 17;
+    string status_message = 18;
+    
+    google.protobuf.Timestamp initiated_at = 19;
+    google.protobuf.Timestamp broadcasted_at = 20;
+    google.protobuf.Timestamp confirmed_at = 21;
+    google.protobuf.Timestamp created_at = 22;
+}
+
+message TransactionSummary {
+    string transaction_id = 1;
+    TransactionType type = 2;
+    Chain chain = 3;
+    string asset = 4;
+    string amount = 5;
+    string network_fee = 6;
+    TransactionStatus status = 7;
+    string tx_hash = 8;
+    bool is_internal = 9;
+    google.protobuf.Timestamp created_at = 10;
+}
+
 message GetTransactionRequest {
     string transaction_id = 1;
-    string user_id = 2;  // For authorization
 }
 
 message GetTransactionResponse {
     Transaction transaction = 1;
 }
 
-// GetUserTransactions
 message GetUserTransactionsRequest {
     string user_id = 1;
-    Chain chain = 2;  // Optional filter
-    string asset = 3;  // Optional filter
-    TransactionType type = 4;  // Optional filter
-    TransactionStatus status = 5;  // Optional filter
+    Chain chain = 2;             // Optional filter
+    string asset = 3;            // Optional filter
+    TransactionType type = 4;    // Optional filter
+    TransactionStatus status = 5; // Optional filter
     PaginationRequest pagination = 6;
 }
 
@@ -155,10 +194,8 @@ message GetUserTransactionsResponse {
     PaginationResponse pagination = 2;
 }
 
-// GetTransactionStatus
 message GetTransactionStatusRequest {
     string transaction_id = 1;
-    string user_id = 2;
 }
 
 message GetTransactionStatusResponse {
@@ -168,16 +205,4 @@ message GetTransactionStatusResponse {
     string tx_hash = 4;
     string status_message = 5;
     google.protobuf.Timestamp updated_at = 6;
-}
-
-// CancelTransaction
-message CancelTransactionRequest {
-    string transaction_id = 1;
-    string user_id = 2;
-    string reason = 3;
-}
-
-message CancelTransactionResponse {
-    bool success = 1;
-    string message = 2;
 }

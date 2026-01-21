@@ -22,6 +22,8 @@ const _ = grpc.SupportPackageIsVersion9
 
 const (
 	WalletService_CreateWallet_FullMethodName           = "/crypto.v1.WalletService/CreateWallet"
+	WalletService_CreateWallets_FullMethodName          = "/crypto.v1.WalletService/CreateWallets"
+	WalletService_InitializeUserWallets_FullMethodName  = "/crypto.v1.WalletService/InitializeUserWallets"
 	WalletService_GetUserWallets_FullMethodName         = "/crypto.v1.WalletService/GetUserWallets"
 	WalletService_GetWallet_FullMethodName              = "/crypto.v1.WalletService/GetWallet"
 	WalletService_GetBalance_FullMethodName             = "/crypto.v1.WalletService/GetBalance"
@@ -40,6 +42,10 @@ const (
 type WalletServiceClient interface {
 	// Create a new wallet for user
 	CreateWallet(ctx context.Context, in *CreateWalletRequest, opts ...grpc.CallOption) (*CreateWalletResponse, error)
+	// ✅ NEW: Create multiple wallets at once
+	CreateWallets(ctx context.Context, in *CreateWalletsRequest, opts ...grpc.CallOption) (*CreateWalletsResponse, error)
+	// ✅ NEW:  Batch create wallets for user (all supported chains/assets)
+	InitializeUserWallets(ctx context.Context, in *InitializeUserWalletsRequest, opts ...grpc.CallOption) (*InitializeUserWalletsResponse, error)
 	// Get user's wallets
 	GetUserWallets(ctx context.Context, in *GetUserWalletsRequest, opts ...grpc.CallOption) (*GetUserWalletsResponse, error)
 	// Get specific wallet
@@ -70,6 +76,26 @@ func (c *walletServiceClient) CreateWallet(ctx context.Context, in *CreateWallet
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CreateWalletResponse)
 	err := c.cc.Invoke(ctx, WalletService_CreateWallet_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *walletServiceClient) CreateWallets(ctx context.Context, in *CreateWalletsRequest, opts ...grpc.CallOption) (*CreateWalletsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateWalletsResponse)
+	err := c.cc.Invoke(ctx, WalletService_CreateWallets_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *walletServiceClient) InitializeUserWallets(ctx context.Context, in *InitializeUserWalletsRequest, opts ...grpc.CallOption) (*InitializeUserWalletsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(InitializeUserWalletsResponse)
+	err := c.cc.Invoke(ctx, WalletService_InitializeUserWallets_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -164,6 +190,10 @@ func (c *walletServiceClient) GetSystemWalletByAsset(ctx context.Context, in *Ge
 type WalletServiceServer interface {
 	// Create a new wallet for user
 	CreateWallet(context.Context, *CreateWalletRequest) (*CreateWalletResponse, error)
+	// ✅ NEW: Create multiple wallets at once
+	CreateWallets(context.Context, *CreateWalletsRequest) (*CreateWalletsResponse, error)
+	// ✅ NEW:  Batch create wallets for user (all supported chains/assets)
+	InitializeUserWallets(context.Context, *InitializeUserWalletsRequest) (*InitializeUserWalletsResponse, error)
 	// Get user's wallets
 	GetUserWallets(context.Context, *GetUserWalletsRequest) (*GetUserWalletsResponse, error)
 	// Get specific wallet
@@ -192,6 +222,12 @@ type UnimplementedWalletServiceServer struct{}
 
 func (UnimplementedWalletServiceServer) CreateWallet(context.Context, *CreateWalletRequest) (*CreateWalletResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateWallet not implemented")
+}
+func (UnimplementedWalletServiceServer) CreateWallets(context.Context, *CreateWalletsRequest) (*CreateWalletsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateWallets not implemented")
+}
+func (UnimplementedWalletServiceServer) InitializeUserWallets(context.Context, *InitializeUserWalletsRequest) (*InitializeUserWalletsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method InitializeUserWallets not implemented")
 }
 func (UnimplementedWalletServiceServer) GetUserWallets(context.Context, *GetUserWalletsRequest) (*GetUserWalletsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetUserWallets not implemented")
@@ -252,6 +288,42 @@ func _WalletService_CreateWallet_Handler(srv interface{}, ctx context.Context, d
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(WalletServiceServer).CreateWallet(ctx, req.(*CreateWalletRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WalletService_CreateWallets_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateWalletsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WalletServiceServer).CreateWallets(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WalletService_CreateWallets_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WalletServiceServer).CreateWallets(ctx, req.(*CreateWalletsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WalletService_InitializeUserWallets_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InitializeUserWalletsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WalletServiceServer).InitializeUserWallets(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WalletService_InitializeUserWallets_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WalletServiceServer).InitializeUserWallets(ctx, req.(*InitializeUserWalletsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -410,6 +482,14 @@ var WalletService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateWallet",
 			Handler:    _WalletService_CreateWallet_Handler,
+		},
+		{
+			MethodName: "CreateWallets",
+			Handler:    _WalletService_CreateWallets_Handler,
+		},
+		{
+			MethodName: "InitializeUserWallets",
+			Handler:    _WalletService_InitializeUserWallets_Handler,
 		},
 		{
 			MethodName: "GetUserWallets",
