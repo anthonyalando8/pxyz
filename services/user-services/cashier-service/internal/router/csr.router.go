@@ -46,9 +46,6 @@ func SetupRoutes(
 			w.Write([]byte("ok"))
 		})
 
-		// M-Pesa callback
-		pub.Post("/cashier/mpesa/callback", h. MpesaCallback)
-
 		// Partner deposit callback (when partner credits user)
 		// pub.Post("/cashier/partner/deposit/callback", h.HandlePartnerDepositCallback)
 	})

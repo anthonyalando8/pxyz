@@ -25,7 +25,7 @@ import (
 type TransactionFeeCalculator struct {
 	feeRepo      repository.TransactionFeeRepository
 	feeRuleRepo  repository.TransactionFeeRuleRepository
-	currencyRepo repository.CurrencyRepository // ✅ Add currency repo for FX rates
+	currencyRepo repository.CurrencyRepository //  Add currency repo for FX rates
 	redisClient  *redis.Client
 	cryptoClient *cryptoclient.CryptoClient
 }
@@ -33,14 +33,14 @@ type TransactionFeeCalculator struct {
 func NewTransactionFeeCalculator(
 	feeRepo repository.TransactionFeeRepository,
 	feeRuleRepo repository.TransactionFeeRuleRepository,
-	currencyRepo repository.CurrencyRepository, // ✅ Add parameter
+	currencyRepo repository.CurrencyRepository, //  Add parameter
 	redisClient *redis.Client,
 	cryptoClient *cryptoclient.CryptoClient,
 ) *TransactionFeeCalculator {
 	return &TransactionFeeCalculator{
 		feeRepo:      feeRepo,
 		feeRuleRepo:  feeRuleRepo,
-		currencyRepo: currencyRepo, // ✅ Store it
+		currencyRepo: currencyRepo, //  Store it
 		redisClient:  redisClient,
 		cryptoClient: cryptoClient,
 	}
@@ -121,7 +121,7 @@ func (uc *TransactionFeeCalculator) CalculateFee(
 			networkFeeOriginal = networkFeeCalc.Amount
 			networkFeeOriginalCurrency = networkFeeCalc.Currency
 
-			// ✅ Convert network fee to source currency if needed
+			//  Convert network fee to source currency if needed
 			if networkFeeCalc.Currency != currency {
 				converted, err := uc.convertCurrency(
 					ctx,
@@ -149,7 +149,7 @@ func (uc *TransactionFeeCalculator) CalculateFee(
 					currency)
 			}
 
-			// ✅ Add converted network fee to total (now in same currency)
+			//  Add converted network fee to total (now in same currency)
 			totalFee += networkFeeInSourceCurrency
 		}
 	}
@@ -164,10 +164,10 @@ func (uc *TransactionFeeCalculator) CalculateFee(
 		FeeType:                    platformFee.FeeType,
 		Amount:                     platformFee.Amount, // Platform fee only
 		Currency:                   currency,
-		NetworkFee:                 networkFeeInSourceCurrency, // ✅ Network fee (converted)
-		NetworkFeeOriginal:         networkFeeOriginal,         // ✅ Original network fee amount
-		NetworkFeeOriginalCurrency: networkFeeOriginalCurrency, // ✅ Original currency (TRX, BTC, etc.)
-		TotalFee:                   totalFee,                   // ✅ Platform + Network (both in source currency)
+		NetworkFee:                 networkFeeInSourceCurrency, //  Network fee (converted)
+		NetworkFeeOriginal:         networkFeeOriginal,         //  Original network fee amount
+		NetworkFeeOriginalCurrency: networkFeeOriginalCurrency, //  Original currency (TRX, BTC, etc.)
+		TotalFee:                   totalFee,                   //  Platform + Network (both in source currency)
 		AppliedRate:                platformFee.AppliedRate,
 		CalculatedFrom:             breakdown,
 	}
@@ -263,12 +263,12 @@ func (uc *TransactionFeeCalculator) calculateFeeFromRule(rule *domain.Transactio
 
 	var feeAmount float64
 
-	// ✅ NEW: Check if rule has tariffs (amount-based pricing)
+	//  NEW: Check if rule has tariffs (amount-based pricing)
 	if rule.Tariffs != nil && *rule.Tariffs != "" {
 		return uc.calculateFeeFromTariffs(rule, amount, calc)
 	}
 
-	// ✅ Existing calculation methods (percentage, fixed, tiered)
+	//  Existing calculation methods (percentage, fixed, tiered)
 	switch rule.CalculationMethod {
 	case domain.FeeCalculationPercentage:
 		basisPoints, err := strconv.ParseFloat(rule.FeeValue, 64)
@@ -328,7 +328,7 @@ func (uc *TransactionFeeCalculator) calculateFeeFromRule(rule *domain.Transactio
 					feeRate := basisPoints / 10000.0
 					feeAmount += amount * feeRate
 
-					// ✅ FIX: Show the actual basis points, not fee rate
+					//  FIX: Show the actual basis points, not fee rate
 					rateStr := fmt.Sprintf("%.0f", basisPoints) // "100" not "0.01"
 					calc.AppliedRate = &rateStr
 
@@ -337,10 +337,10 @@ func (uc *TransactionFeeCalculator) calculateFeeFromRule(rule *domain.Transactio
 						maxAmountStr = fmt.Sprintf("%.2f", *tier.MaxAmount)
 					}
 					
-					// ✅ FIX:  Show correct percentage calculation
+					//  FIX:  Show correct percentage calculation
 					calc. CalculatedFrom = fmt.Sprintf("tiered rate: %.4f%% (%.2f bps) for range %.2f-%s",
-						feeRate*100,  // ✅ This converts 0.01 → 1.00%
-						basisPoints,  // ✅ Shows "100 bps"
+						feeRate*100,  //  This converts 0.01 → 1.00%
+						basisPoints,  //  Shows "100 bps"
 						tier.MinAmount, 
 						maxAmountStr)
 				}
@@ -383,10 +383,10 @@ func (uc *TransactionFeeCalculator) calculateFeeFromRule(rule *domain.Transactio
 	return calc, nil
 }
 
-// ✅ NEW: Calculate fee using tariffs (amount-based pricing)
+//  NEW: Calculate fee using tariffs (amount-based pricing)
 // service/fee_calculator.go
 
-// ✅ UPDATED: Calculate fee using tariffs (supports both percentage and fixed)
+//  UPDATED: Calculate fee using tariffs (supports both percentage and fixed)
 func (uc *TransactionFeeCalculator) calculateFeeFromTariffs(
 	rule *domain.TransactionFeeRule,
 	amount float64,

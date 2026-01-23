@@ -45,14 +45,14 @@ func (h *PaymentHandler) handleConvertAndTransfer(ctx context.Context, client *C
 	}
 
 	// Get user's source account
-	fromAccount, err := h.GetAccountByCurrency(ctx, client.UserID, "user", req.FromCurrency)
+	fromAccount, err := h.GetAccountByCurrency(ctx, client.UserID, "user", req.FromCurrency,nil)
 	if err != nil {
 		client.SendError("source account not found: " + err.Error())
 		return
 	}
 
 	// Get user's destination account
-toAccount, err := h.GetAccountByCurrency(ctx, client.UserID, "user", req.ToCurrency)
+toAccount, err := h.GetAccountByCurrency(ctx, client.UserID, "user", req.ToCurrency,nil)
 	if err != nil {
 		client.SendError("destination account not found: " + err.Error())
 		return

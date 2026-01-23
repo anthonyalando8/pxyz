@@ -6,13 +6,10 @@ import (
 	"net/http"
 
 	"cashier-service/internal/config"
-	"cashier-service/internal/domain"
 	"cashier-service/internal/handler"
-	"cashier-service/internal/provider/mpesa"
 	"cashier-service/internal/repository"
 	"cashier-service/internal/router"
 	"cashier-service/internal/sub"
-	mpesausecase "cashier-service/internal/usecase/mpesa"
 	transaction "cashier-service/internal/event_handler"
 	usecase "cashier-service/internal/usecase/transaction"
 	authclient "x/shared/auth"
@@ -25,6 +22,8 @@ import (
 	"x/shared/utils/id"
 	"x/shared/auth/otp"
 	accountclient "x/shared/account"
+	cryptoclient "x/shared/common/crypto"
+
 	"x/shared/utils/profile"
 
 	"github.com/go-chi/chi/v5"
@@ -77,26 +76,21 @@ func NewServer(cfg config.AppConfig) *http. Server {
 	otpSvc := otpclient.NewOTPService()
 	accountClient := accountclient.NewAccountClient()
 
+	cryptoClient := cryptoclient.NewCryptoClient()
+	if cryptoClient == nil {
+		log.Println("⚠️  Crypto service unavailable - wallets will not be created")
+	}
+
 	// --- Init gRPC Clients ---
 	partnerSvc := partnerclient. NewPartnerService()
 	accountingClient := accountingclient. NewAccountingClient()
 	notificationCli := notificationclient.NewNotificationService()
 
-	// --- Init Payment Providers ---
-	mpesaClient := mpesa.NewMpesaClient(
-		cfg.MpesaBaseURL,
-		cfg.MpesaConsumerKey,
-		cfg.MpesaConsumerSecret,
-		cfg.MpesaPassKey,
-		cfg.MpesaShortCode,
-	)
-	mpesaProvider := mpesa.NewMpesaProvider(mpesaClient)
 
 	// --- Init Repositories ---
 	userRepo := repository.NewUserRepository(db)
 
 	// --- Init Usecases ---
-	paymentUC := mpesausecase.NewPaymentUsecase([]domain.Provider{mpesaProvider})
 	userUC := usecase.NewUserUsecase(userRepo)
 
 	// --- Init WebSocket Hub ---
@@ -129,7 +123,6 @@ func NewServer(cfg config.AppConfig) *http. Server {
 
 	// --- Init Handlers ---
 	paymentHandler := handler.NewPaymentHandler(
-		paymentUC,
 		partnerSvc,
 		accountingClient,
 		notificationCli,
@@ -137,6 +130,7 @@ func NewServer(cfg config.AppConfig) *http. Server {
 		hub,
 		otpSvc,
 		accountClient,
+		cryptoClient,
 		rdb,
 		logger,
 		profileFetcher,

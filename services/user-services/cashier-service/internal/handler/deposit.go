@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"math"
 	"strconv"
 	"time"
 
@@ -19,20 +18,6 @@ import (
 
 	"go.uber.org/zap"
 )
-
-// ✅ Service types that require phone numbers
-var servicesRequiringPhone = map[string]bool{
-	"mpesa":        true,
-	"airtel_money": true,
-	"mtn_money":    true,
-	"orange_money": true,
-}
-
-// ✅ Service types that require bank account
-var servicesRequiringBank = map[string]bool{
-	"bank":           true,
-	"bank_transfer": true,
-}
 
 // DepositRequest represents the deposit request structure
 type DepositRequest struct {
@@ -396,11 +381,6 @@ func (h *PaymentHandler) processDepositFlow(
 // ============================================
 // SHARED UTILITY FUNCTIONS
 // ============================================
-
-// ✅ SHARED: Round to 2 decimal places
-func roundTo2Decimals(value float64) float64 {
-	return math.Round(value*100) / 100
-}
 
 
 // ✅ UPDATED:  Placeholder for agent deposit with phone number

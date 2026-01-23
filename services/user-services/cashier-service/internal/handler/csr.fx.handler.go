@@ -97,9 +97,14 @@ func (h *PaymentHandler) GetPartnerByID(ctx context.Context, partnerID string) (
 }
 
 // SelectRandomPartner selects a random partner from a list
+
+// SelectRandomPartner selects a random partner from the list
 func SelectRandomPartner(partners []*partnersvcpb.Partner) *partnersvcpb.Partner {
 	if len(partners) == 0 {
 		return nil
+	}
+	if len(partners) == 1 {
+		return partners[0]
 	}
 	return partners[rand.Intn(len(partners))]
 }
@@ -129,9 +134,13 @@ func (h *PaymentHandler) GetAccounts(ctx context.Context, ownerID, ownerType str
 }
 
 // GetAccountByCurrency fetches a single account number for a given ownerID, ownerType, and currency
-func (h *PaymentHandler) GetAccountByCurrency(ctx context.Context, ownerID, ownerType, currency string) (string, error) {
+func (h *PaymentHandler) GetAccountByCurrency(ctx context.Context, ownerID, ownerType, currency string, purpose *accountingpb.AccountPurpose) (string, error) {
 	if ownerID == "" || ownerType == "" || currency == "" {
 		return "", fmt.Errorf("ownerID, ownerType, and currency cannot be empty")
+	}
+	accountPurpose := accountingpb.AccountPurpose_ACCOUNT_PURPOSE_WALLET
+	if purpose != nil {
+		accountPurpose = *purpose
 	}
 
 	resp, err := h.GetAccounts(ctx, ownerID, ownerType)
@@ -141,7 +150,7 @@ func (h *PaymentHandler) GetAccountByCurrency(ctx context.Context, ownerID, owne
 
 	// Find account with matching currency and wallet purpose
 	for _, acct := range resp.Accounts {
-		if acct.Currency == currency && acct.Purpose == accountingpb.AccountPurpose_ACCOUNT_PURPOSE_WALLET {
+		if acct.Currency == currency && acct.Purpose == accountPurpose {
 			return acct.AccountNumber, nil
 		}
 	}
@@ -154,26 +163,6 @@ func (h *PaymentHandler) GetAccountByCurrency(ctx context.Context, ownerID, owne
 	}
 
 	return "", fmt.Errorf("no account found for ownerID=%s, ownerType=%s with currency=%s", ownerID, ownerType, currency)
-}
-
-// GetAccountByPurpose fetches an account by owner and purpose
-func (h *PaymentHandler) GetAccountByPurpose(ctx context.Context, ownerID, ownerType string, purpose accountingpb.AccountPurpose) (string, error) {
-	if ownerID == "" || ownerType == "" {
-		return "", fmt.Errorf("ownerID and ownerType cannot be empty")
-	}
-
-	resp, err := h.GetAccounts(ctx, ownerID, ownerType)
-	if err != nil {
-		return "", err
-	}
-
-	for _, acct := range resp.Accounts {
-		if acct.Purpose == purpose {
-			return acct.AccountNumber, nil
-		}
-	}
-
-	return "", fmt.Errorf("no account found for ownerID=%s, ownerType=%s with purpose=%s", ownerID, ownerType, purpose.String())
 }
 
 // GetAccountBalance fetches the balance for a specific account number
@@ -228,7 +217,7 @@ func (h *PaymentHandler) GetPartnerAndUserAccounts(ctx context.Context, service,
 	// Fetch user account concurrently
 	go func() {
 		defer wg.Done()
-		userAccount, userErr = h.GetAccountByCurrency(ctx, userID, "user", currency)
+		userAccount, userErr = h.GetAccountByCurrency(ctx, userID, "user", currency, nil)
 	}()
 
 	wg.Wait()
@@ -244,7 +233,7 @@ func (h *PaymentHandler) GetPartnerAndUserAccounts(ctx context.Context, service,
 	}
 
 	// Fetch selected partner's account
-	partnerAccount, err = h.GetAccountByCurrency(ctx, partner.Id, "partner", currency)
+	partnerAccount, err = h.GetAccountByCurrency(ctx, partner.Id, "partner", currency, nil)
 	if err != nil {
 		return "", "", nil, fmt.Errorf("failed to fetch partner account: %w", err)
 	}
@@ -272,13 +261,13 @@ func (h *PaymentHandler) GetPartnerAndUserAccountsByPartnerID(ctx context.Contex
 	// Fetch partner account
 	go func() {
 		defer wg.Done()
-		partnerAccount, partnerAcctErr = h.GetAccountByCurrency(ctx, partnerID, "partner", currency)
+		partnerAccount, partnerAcctErr = h.GetAccountByCurrency(ctx, partnerID, "partner", currency, nil)
 	}()
 
 	// Fetch user account
 	go func() {
 		defer wg.Done()
-		userAccount, userErr = h.GetAccountByCurrency(ctx, userID, "user", currency)
+		userAccount, userErr = h.GetAccountByCurrency(ctx, userID, "user", currency,nil)
 	}()
 
 	wg.Wait()
