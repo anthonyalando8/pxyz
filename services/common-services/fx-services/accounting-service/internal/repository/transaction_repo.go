@@ -480,7 +480,7 @@ func (r *transactionRepo) ConvertAndTransfer(
 func (r *transactionRepo) calculateConversion(amount float64, rate float64) float64 {
 	// Convert to float, apply rate, round to nearest float64
 	converted := float64(amount) * rate
-	return float64(converted + 0.5) // Round to nearest
+	return converted // Round to nearest
 }
 
 // ========================================
