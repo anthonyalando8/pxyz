@@ -38,6 +38,7 @@ type Wallet struct {
 	Balance           *Money                 `protobuf:"bytes,9,opt,name=balance,proto3" json:"balance,omitempty"`
 	CreatedAt         *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	LastBalanceUpdate *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=last_balance_update,json=lastBalanceUpdate,proto3" json:"last_balance_update,omitempty"`
+	Memo              string                 `protobuf:"bytes,12,opt,name=memo,proto3" json:"memo,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -147,6 +148,13 @@ func (x *Wallet) GetLastBalanceUpdate() *timestamppb.Timestamp {
 		return x.LastBalanceUpdate
 	}
 	return nil
+}
+
+func (x *Wallet) GetMemo() string {
+	if x != nil {
+		return x.Memo
+	}
+	return ""
 }
 
 // CreateWallet
@@ -272,13 +280,14 @@ func (x *CreateWalletResponse) GetMessage() string {
 
 // GetUserWallets
 type GetUserWalletsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	Chain         Chain                  `protobuf:"varint,2,opt,name=chain,proto3,enum=crypto.v1.Chain" json:"chain,omitempty"` // Optional filter
-	Asset         string                 `protobuf:"bytes,3,opt,name=asset,proto3" json:"asset,omitempty"`                       // Optional filter
-	ActiveOnly    bool                   `protobuf:"varint,4,opt,name=active_only,json=activeOnly,proto3" json:"active_only,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	UserId          string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Chain           Chain                  `protobuf:"varint,2,opt,name=chain,proto3,enum=crypto.v1.Chain" json:"chain,omitempty"` // Optional filter
+	Asset           string                 `protobuf:"bytes,3,opt,name=asset,proto3" json:"asset,omitempty"`                       // Optional filter
+	ActiveOnly      bool                   `protobuf:"varint,4,opt,name=active_only,json=activeOnly,proto3" json:"active_only,omitempty"`
+	CreateIfMissing bool                   `protobuf:"varint,5,opt,name=create_if_missing,json=createIfMissing,proto3" json:"create_if_missing,omitempty"` // Create wallet if not found
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *GetUserWalletsRequest) Reset() {
@@ -335,6 +344,13 @@ func (x *GetUserWalletsRequest) GetAsset() string {
 func (x *GetUserWalletsRequest) GetActiveOnly() bool {
 	if x != nil {
 		return x.ActiveOnly
+	}
+	return false
+}
+
+func (x *GetUserWalletsRequest) GetCreateIfMissing() bool {
+	if x != nil {
+		return x.CreateIfMissing
 	}
 	return false
 }
@@ -1658,7 +1674,7 @@ var File_wallet_proto protoreflect.FileDescriptor
 
 const file_wallet_proto_rawDesc = "" +
 	"\n" +
-	"\fwallet.proto\x12\tcrypto.v1\x1a\fcommon.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x8e\x03\n" +
+	"\fwallet.proto\x12\tcrypto.v1\x1a\fcommon.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa2\x03\n" +
 	"\x06Wallet\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\x12&\n" +
@@ -1673,7 +1689,8 @@ const file_wallet_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\n" +
 	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12J\n" +
-	"\x13last_balance_update\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\x11lastBalanceUpdate\"\x82\x01\n" +
+	"\x13last_balance_update\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\x11lastBalanceUpdate\x12\x12\n" +
+	"\x04memo\x18\f \x01(\tR\x04memo\"\x82\x01\n" +
 	"\x13CreateWalletRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12&\n" +
 	"\x05chain\x18\x02 \x01(\x0e2\x10.crypto.v1.ChainR\x05chain\x12\x14\n" +
@@ -1681,13 +1698,14 @@ const file_wallet_proto_rawDesc = "" +
 	"\x05label\x18\x04 \x01(\tR\x05label\"[\n" +
 	"\x14CreateWalletResponse\x12)\n" +
 	"\x06wallet\x18\x01 \x01(\v2\x11.crypto.v1.WalletR\x06wallet\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"\x8f\x01\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"\xbb\x01\n" +
 	"\x15GetUserWalletsRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12&\n" +
 	"\x05chain\x18\x02 \x01(\x0e2\x10.crypto.v1.ChainR\x05chain\x12\x14\n" +
 	"\x05asset\x18\x03 \x01(\tR\x05asset\x12\x1f\n" +
 	"\vactive_only\x18\x04 \x01(\bR\n" +
-	"activeOnly\"[\n" +
+	"activeOnly\x12*\n" +
+	"\x11create_if_missing\x18\x05 \x01(\bR\x0fcreateIfMissing\"[\n" +
 	"\x16GetUserWalletsResponse\x12+\n" +
 	"\awallets\x18\x01 \x03(\v2\x11.crypto.v1.WalletR\awallets\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x05R\x05total\"H\n" +

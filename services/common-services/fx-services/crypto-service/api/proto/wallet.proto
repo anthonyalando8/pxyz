@@ -59,6 +59,7 @@ message Wallet {
     Money balance = 9;
     google.protobuf.Timestamp created_at = 10;
     google.protobuf.Timestamp last_balance_update = 11;
+    string memo = 12;
 }
 
 // CreateWallet
@@ -80,6 +81,7 @@ message GetUserWalletsRequest {
     Chain chain = 2;      // Optional filter
     string asset = 3;     // Optional filter
     bool active_only = 4;
+    bool create_if_missing = 5; // Create wallet if not found
 }
 
 message GetUserWalletsResponse {

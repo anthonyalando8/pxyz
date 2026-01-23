@@ -105,7 +105,7 @@ func (h *WalletHandler) GetUserWallets(
 	}
 	
 	// Get wallets
-	wallets, err := h.walletUsecase.GetUserWallets(ctx, req.UserId, chainFilter, assetFilter)
+	wallets, err := h.walletUsecase.GetUserWallets(ctx, req.UserId, chainFilter, assetFilter,req.CreateIfMissing)
 	if err != nil {
 		h. logger.Error("Failed to get wallets", zap.Error(err))
 		return nil, status. Errorf(codes.Internal, "failed to get wallets: %v", err)

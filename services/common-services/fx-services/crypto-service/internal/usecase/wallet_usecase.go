@@ -145,31 +145,86 @@ func (uc *WalletUsecase) GetUserWallet(
 }
 
 // GetUserWallets retrieves all wallets for a user
+// internal/usecase/wallet_usecase.go
+
 func (uc *WalletUsecase) GetUserWallets(
 	ctx context.Context,
 	userID string,
 	chainFilter, assetFilter *string,
+	createIfNotExists bool, //
 ) ([]*domain.CryptoWallet, error) {
-	
+
 	// Get all user wallets
-	wallets, err := uc.walletRepo. GetUserWallets(ctx, userID)
+	wallets, err := uc.walletRepo.GetUserWallets(ctx, userID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get wallets:  %w", err)
+		return nil, fmt.Errorf("failed to get wallets: %w", err)
 	}
-	
+
 	// Apply filters if provided
 	var filtered []*domain.CryptoWallet
 	for _, wallet := range wallets {
 		if chainFilter != nil && wallet.Chain != *chainFilter {
 			continue
 		}
-		if assetFilter != nil && wallet. Asset != *assetFilter {
+		if assetFilter != nil && wallet.Asset != *assetFilter {
 			continue
 		}
 		filtered = append(filtered, wallet)
 	}
-	
+
+	// If filtered wallets are empty AND createIfNotExists is true AND filters are provided
+	if len(filtered) == 0 && createIfNotExists && (chainFilter != nil || assetFilter != nil) {
+		uc.logger.Info("wallet not found, creating new wallet",
+			zap.String("user_id", userID),
+			zap.Any("chain_filter", chainFilter),
+			zap.Any("asset_filter", assetFilter))
+
+		// Create the missing wallet
+		newWallet, err := uc.createFilteredWallet(ctx, userID, chainFilter, assetFilter)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create wallet: %w", err)
+		}
+
+		filtered = append(filtered, newWallet)
+
+		uc.logger.Info("wallet created successfully",
+			zap.String("user_id", userID),
+			zap.String("wallet_id", newWallet.Address),
+			zap.String("chain", newWallet.Chain),
+			zap.String("asset", newWallet.Asset))
+	}
+
 	return filtered, nil
+}
+
+//  createFilteredWallet creates a wallet based on filters
+func (uc *WalletUsecase) createFilteredWallet(
+	ctx context.Context,
+	userID string,
+	chainFilter, assetFilter *string,
+) (*domain.CryptoWallet, error) {
+
+	// Validate filters are provided
+	if chainFilter == nil {
+		return nil, fmt.Errorf("chain filter is required to create wallet")
+	}
+	if assetFilter == nil {
+		return nil, fmt.Errorf("asset filter is required to create wallet")
+	}
+
+	chain, err := uc.chainRegistry.Get(*chainFilter)
+	if err != nil {
+		return nil, fmt.Errorf("unsupported chain: %w", err)
+	}
+
+
+	// Create wallet using existing CreateWallet method
+	wallet, err := uc.CreateWallet(ctx, userID, chain.Name(), *assetFilter, fmt.Sprintf("%s %s Wallet", *chainFilter, *assetFilter))
+	if err != nil {
+		return nil, err
+	}
+
+	return wallet, nil
 }
 
 // GetWalletBalance gets current balance (cached or fresh from blockchain)
