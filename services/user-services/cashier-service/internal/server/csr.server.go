@@ -76,7 +76,7 @@ func NewServer(cfg config.AppConfig) *http. Server {
 	otpSvc := otpclient.NewOTPService()
 	accountClient := accountclient.NewAccountClient()
 
-	cryptoClient := cryptoclient.NewCryptoClient()
+	cryptoClient := cryptoclient.NewCryptoClientOrNil()
 	if cryptoClient == nil {
 		log.Println("⚠️  Crypto service unavailable - wallets will not be created")
 	}
