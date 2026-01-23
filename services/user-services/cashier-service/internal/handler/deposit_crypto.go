@@ -186,7 +186,7 @@ func (h *PaymentHandler) getCryptoDepositInstructions(chain, asset string) []str
 
 // generateQRCodeURL generates a QR code URL for the deposit
 func (h *PaymentHandler) generateQRCodeURL(address string, amount float64, asset string) string {
-	baseURL := "https://chart.googleapis.com/chart?chs=300x300&cht=qr&chl="
+	baseURL := "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data="
 	
 	// Format based on asset
 	var qrData string
