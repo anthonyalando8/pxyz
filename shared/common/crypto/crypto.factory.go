@@ -51,7 +51,7 @@ func NewCryptoClient() *CryptoClient {
 func NewCryptoClientOrNil() *CryptoClient {
 	cryptoServiceAddr := getEnv("CRYPTO_SERVICE_ADDR", "crypto-service:8028")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	conn, err := grpc.DialContext(ctx, cryptoServiceAddr, 
