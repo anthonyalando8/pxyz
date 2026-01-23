@@ -47,6 +47,8 @@ func NewTransactionUsecase(
 // ============================================================================
 
 // EstimateNetworkFee estimates blockchain network fee for accounting
+
+// EstimateNetworkFee estimates blockchain network fee for accounting
 func (uc *TransactionUsecase) EstimateNetworkFee(
 	ctx context.Context,
 	chainName, assetCode, amount string,
@@ -64,11 +66,23 @@ func (uc *TransactionUsecase) EstimateNetworkFee(
 		return nil, fmt.Errorf("system wallet not found: %w", err)
 	}
 	
-	// Parse amount
-	amountBig, ok := new(big.Int).SetString(amount, 10)
-	if !ok {
-		return nil, fmt.Errorf("invalid amount format")
+	//  Get decimals for this asset
+	decimals := getAssetDecimals(assetCode)
+	
+	//  Parse amount using parseAmount (handles decimals)
+	amountBig, err := parseAmount(amount, decimals)
+	if err != nil {
+		uc.logger.Error("Failed to parse amount",
+			zap.String("amount", amount),
+			zap.Int("decimals", decimals),
+			zap.Error(err))
+		return nil, fmt.Errorf("invalid amount format: %w", err)
 	}
+	
+	uc.logger.Info("Amount parsed successfully",
+		zap.String("amount_input", amount),
+		zap.String("amount_parsed", amountBig.String()),
+		zap.Int("decimals", decimals))
 	
 	// Get blockchain implementation
 	chain, err := uc.chainRegistry.Get(chainName)
@@ -88,15 +102,15 @@ func (uc *TransactionUsecase) EstimateNetworkFee(
 	
 	// Estimate network fee from blockchain
 	feeEstimate, err := chain.EstimateFee(ctx, &domain.TransactionRequest{
-		From:   systemWallet.Address, // ✅ From system wallet
-		To:     toAddress,
-		Asset:  assetFromCode(assetCode),
-		Amount: amountBig,
+		From:     systemWallet.Address, //  From system wallet
+		To:       toAddress,
+		Asset:    assetFromCode(assetCode),
+		Amount:   amountBig,
 		Priority: domain.TxPriorityNormal,
 	})
 	
 	if err != nil {
-		uc.logger. Warn("Failed to estimate fee from chain, using defaults",
+		uc.logger.Warn("Failed to estimate fee from chain, using defaults",
 			zap.Error(err),
 			zap.String("chain", chainName))
 		
@@ -105,21 +119,22 @@ func (uc *TransactionUsecase) EstimateNetworkFee(
 	}
 	
 	estimate := &NetworkFeeEstimate{
-		Chain:          chainName,
-		Asset:          assetCode,
-		FeeAmount:      feeEstimate.Amount,
-		FeeCurrency:    feeEstimate.Currency,
-		FeeFormatted:   formatAmount(feeEstimate.Amount, feeEstimate.Currency),
-		EstimatedAt:    time.Now(),
-		ValidFor:       5 * time.Minute,
+		Chain:        chainName,
+		Asset:        assetCode,
+		FeeAmount:    feeEstimate.Amount,
+		FeeCurrency:  feeEstimate.Currency,
+		FeeFormatted: formatAmount(feeEstimate.Amount, feeEstimate.Currency),
+		EstimatedAt:  time.Now(),
+		ValidFor:     5 * time.Minute,
 	}
 	
-	uc. logger.Info("Network fee estimated",
+	uc.logger.Info("Network fee estimated",
 		zap.String("fee", estimate.FeeFormatted),
 		zap.String("currency", estimate.FeeCurrency))
 	
 	return estimate, nil
 }
+
 
 // GetWithdrawalQuote provides fee estimate (for accounting to show users)
 func (uc *TransactionUsecase) GetWithdrawalQuote(
@@ -216,7 +231,7 @@ func (uc *TransactionUsecase) Withdraw(
 		Chain:                  chainName,
 		Asset:                  assetCode,
 		FromWalletID:           &systemWallet.ID,
-		FromAddress:            systemWallet. Address, // ✅ From system wallet
+		FromAddress:            systemWallet. Address, //  From system wallet
 		ToAddress:              toAddress,            // To external address
 		IsInternal:             false,
 		Amount:                 amountBig,
@@ -253,7 +268,7 @@ func (uc *TransactionUsecase) Withdraw(
 	uc.transactionRepo.UpdateStatus(ctx, tx.ID, domain.TransactionStatusBroadcasting, nil)
 	
 	txResult, err := chain.Send(ctx, &domain.TransactionRequest{
-		From:       systemWallet.Address, // ✅ System wallet signs
+		From:       systemWallet.Address, //  System wallet signs
 		To:         toAddress,
 		Asset:      assetFromCode(assetCode),
 		Amount:     amountBig,
@@ -391,8 +406,8 @@ func (uc *TransactionUsecase) SweepUserWallet(
 	uc.transactionRepo.UpdateStatus(ctx, tx.ID, domain.TransactionStatusBroadcasting, nil)
 	
 	txResult, err := chain. Send(ctx, &domain.TransactionRequest{
-		From:       userWallet.Address, // ✅ From user's deposit address
-		To:         systemWallet.Address, // ✅ To system wallet
+		From:       userWallet.Address, //  From user's deposit address
+		To:         systemWallet.Address, //  To system wallet
 		Asset:      assetFromCode(assetCode),
 		Amount:     sweepAmount,
 		PrivateKey: privateKey,
