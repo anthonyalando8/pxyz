@@ -31,15 +31,15 @@ func (dm *DepositMonitor) Start(ctx context.Context) {
 	dm.logger.Info("Starting deposit monitor worker")
 	
 	// Monitor TRON deposits every 30 minutes
-	tronTicker := time.NewTicker(30 * time.Second)
+	tronTicker := time.NewTicker(5 * time.Minute)
 	defer tronTicker.Stop()
 	
 	// Process pending deposits every 1 minute
-	processTicker := time.NewTicker(30 * time.Second)
+	processTicker := time.NewTicker(5 * time.Minute)
 	defer processTicker.Stop()
 	
 	// Send notifications every 2 minutes
-	notifyTicker := time.NewTicker(2 * time.Minute)
+	notifyTicker := time.NewTicker(5 * time.Minute)
 	defer notifyTicker.Stop()
 	
 	for {
