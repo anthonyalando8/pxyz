@@ -198,9 +198,14 @@ func (h *PaymentHandler) executeCryptoWithdrawal(withdrawal *domain.WithdrawalRe
 	//  Step 2: Convert amount to smallest unit for blockchain
 	amountInSmallestUnit := h.convertToSmallestUnit(withdrawal.Amount, withdrawal.Currency)
 
+	accountingTxID := transferResp.ReceiptCode
+	if accountingTxID == "" {
+		accountingTxID = withdrawal.RequestRef
+	}
+
 	//  Step 3: Call crypto service to execute withdrawal
 	cryptoResp, err := h.cryptoClient.TransactionClient.Withdraw(ctx, &cryptopb.WithdrawRequest{
-		AccountingTxId: withdrawal.RequestRef,              //  Idempotency key from accounting
+		AccountingTxId: accountingTxID,              //  Idempotency key from accounting
 		UserId:         fmt.Sprintf("%d", withdrawal.UserID),
 		Chain:          mapChainToProto(wctx.CryptoChain),
 		Asset:          wctx.CryptoAsset,
