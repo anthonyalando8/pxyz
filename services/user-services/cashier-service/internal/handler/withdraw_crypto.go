@@ -195,9 +195,17 @@ func (h *PaymentHandler) executeCryptoWithdrawal(withdrawal *domain.WithdrawalRe
 		zap.String("receipt_code", transferResp.ReceiptCode),
 		zap.Int64("journal_id", transferResp.JournalId))
 
-	//  Step 2: Convert amount to smallest unit for blockchain
-	amountInSmallestUnit := h.convertToSmallestUnit(withdrawal.Amount, withdrawal.Currency)
+	payableAmount := transferResp.PayableAmount
+	if payableAmount != 0 {
+		h.logger.Info("Transfer payable amount",
+			zap.Float64("payable_amount", payableAmount))
+	}else{
+		h.logger.Info("No payable amount in transfer response")
+		payableAmount = withdrawal.Amount
+	}
 
+	//  Step 2: Convert amount to smallest unit for blockchain
+	amountInSmallestUnit := h.convertToSmallestUnit(payableAmount, withdrawal.Currency)
 	accountingTxID := transferResp.ReceiptCode
 	if accountingTxID == "" {
 		accountingTxID = withdrawal.RequestRef
