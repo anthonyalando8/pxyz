@@ -149,6 +149,9 @@ CREATE TABLE crypto_transactions (
     CONSTRAINT chk_confirmations CHECK (confirmations >= 0)
 );
 
+ALTER TABLE crypto_transactions
+DROP CONSTRAINT chk_internal_no_txhash;
+
 -- Indexes
 CREATE INDEX idx_crypto_tx_user_id ON crypto_transactions(user_id);
 CREATE INDEX idx_crypto_tx_type ON crypto_transactions(type);

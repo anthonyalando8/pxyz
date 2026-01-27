@@ -333,8 +333,118 @@ func (uc *TransactionUsecase) Withdraw(
 		zap.String("new_system_balance", newSystemBalance.String()))
 	
 	// TODO: Notify accounting module of success
+	//  13. Start monitoring transaction confirmations in background
+	go uc.monitorTransactionConfirmations(tx.TransactionID, tx.Chain, *tx.TxHash)
 	
 	return tx, nil
+}
+
+func (uc *TransactionUsecase) monitorTransactionConfirmations(
+	transactionID, chainName, txHash string,
+) {
+	ctx := context.Background()
+	
+	uc.logger.Info("Starting confirmation monitoring",
+		zap.String("tx_id", transactionID),
+		zap.String("chain", chainName),
+		zap.String("tx_hash", txHash))
+	
+	// Get blockchain implementation
+	chain, err := uc.chainRegistry.Get(chainName)
+	if err != nil {
+		uc.logger.Error("Failed to get chain for monitoring",
+			zap.String("chain", chainName),
+			zap.Error(err))
+		return
+	}
+	
+	// Get required confirmations
+	tx, err := uc.transactionRepo.GetByTransactionID(ctx, transactionID)
+	if err != nil {
+		uc.logger.Error("Failed to get transaction",
+			zap.String("tx_id", transactionID),
+			zap.Error(err))
+		return
+	}
+	
+	requiredConfs := tx.RequiredConfirmations
+	ticker := time.NewTicker(30 * time.Second) // Check every 30 seconds
+	defer ticker.Stop()
+	
+	timeout := time.After(2 * time.Hour) // Timeout after 2 hours
+	
+	for {
+		select {
+		case <-timeout:
+			uc.logger.Warn("Transaction monitoring timeout",
+				zap.String("tx_id", transactionID),
+				zap.String("tx_hash", txHash))
+			
+			uc.transactionRepo.UpdateStatus(ctx, tx.ID, 
+				domain.TransactionStatusPending, 
+				utils.StringPtr("Confirmation monitoring timeout - requires manual review"))
+			return
+			
+		case <-ticker.C:
+			// Check transaction status on blockchain
+			txStatus, err := chain.GetTransaction(ctx, txHash)
+			if err != nil {
+				uc.logger.Warn("Failed to get transaction status",
+					zap.String("tx_hash", txHash),
+					zap.Error(err))
+				continue
+			}
+			
+			uc.logger.Info("Transaction status checked",
+				zap.String("tx_hash", txHash),
+				zap.Int("confirmations", txStatus.Confirmations),
+				zap.Int("required", requiredConfs),
+				zap.String("status", string(txStatus.Status)))
+			
+			// Update confirmations count
+			uc.transactionRepo.UpdateConfirmations(ctx, tx.ID, txStatus.Confirmations)
+			
+			// Check if transaction is confirmed
+			if txStatus.Confirmations >= requiredConfs {
+				//  Transaction confirmed!
+				uc.logger.Info("Transaction confirmed on blockchain",
+					zap.String("tx_id", transactionID),
+					zap.String("tx_hash", txHash),
+					zap.Int("confirmations", txStatus.Confirmations))
+				
+				// Update status to confirmed
+				uc.transactionRepo.MarkAsConfirmed(ctx, tx.ID,
+					*txStatus.BlockNumber,*tx.BlockTimestamp)
+				
+				// TODO: Notify accounting module that withdrawal is confirmed
+				// uc.notifyAccountingConfirmed(ctx, tx)
+				
+				return // Stop monitoring
+			}
+			
+			// Check if transaction failed
+			if txStatus.Status == "failed" || txStatus.Status == "reverted" {
+				uc.logger.Error("Transaction failed on blockchain",
+					zap.String("tx_id", transactionID),
+					zap.String("tx_hash", txHash),
+					zap.String("reason", "unknown"))
+				
+				uc.transactionRepo.MarkAsFailed(ctx, tx.ID, 
+					fmt.Sprintf("Blockchain transaction failed: %s", "unkwnown reason"))
+				
+				// TODO: Notify accounting module of failure
+				// uc.notifyAccountingFailed(ctx, tx)
+				
+				return // Stop monitoring
+			}
+			
+			// Update status to confirming if we have at least 1 confirmation
+			if txStatus.Confirmations > 0 && tx.Status == domain.TransactionStatusBroadcasted {
+				uc.transactionRepo.UpdateStatus(ctx, tx.ID, 
+					domain.TransactionStatusConfirming, nil)
+			}
+		}
+	}
 }
 
 // ============================================================================
