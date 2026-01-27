@@ -4,6 +4,8 @@ package usecase
 import (
 	"context"
 	registry "crypto-service/internal/chains/registry"
+		"crypto-service/pkg/utils"
+
 	"crypto-service/internal/domain"
 	"crypto-service/internal/repository"
 	"crypto-service/internal/security"
@@ -67,10 +69,10 @@ func (uc *TransactionUsecase) EstimateNetworkFee(
 	}
 	
 	//  Get decimals for this asset
-	decimals := getAssetDecimals(assetCode)
+	decimals := utils.GetAssetDecimals(assetCode)
 	
 	//  Parse amount using parseAmount (handles decimals)
-	amountBig, err := parseAmount(amount, decimals)
+	amountBig, err := utils.ParseAmount(amount, decimals)
 	if err != nil {
 		uc.logger.Error("Failed to parse amount",
 			zap.String("amount", amount),
@@ -104,7 +106,7 @@ func (uc *TransactionUsecase) EstimateNetworkFee(
 	feeEstimate, err := chain.EstimateFee(ctx, &domain.TransactionRequest{
 		From:     systemWallet.Address, //  From system wallet
 		To:       toAddress,
-		Asset:    assetFromCode(assetCode),
+		Asset:    utils.AssetFromCode(assetCode),
 		Amount:   amountBig,
 		Priority: domain.TxPriorityNormal,
 	})
@@ -123,7 +125,7 @@ func (uc *TransactionUsecase) EstimateNetworkFee(
 		Asset:        assetCode,
 		FeeAmount:    feeEstimate.Amount,
 		FeeCurrency:  feeEstimate.Currency,
-		FeeFormatted: formatAmount(feeEstimate.Amount, feeEstimate.Currency),
+		FeeFormatted: utils.FormatAmount(feeEstimate.Amount, feeEstimate.Currency),
 		EstimatedAt:  time.Now(),
 		ValidFor:     5 * time.Minute,
 	}
@@ -148,7 +150,18 @@ func (uc *TransactionUsecase) GetWithdrawalQuote(
 		return nil, err
 	}
 	
-	amountBig, _ := new(big.Int).SetString(amount, 10)
+	//  Get decimals for this asset
+	decimals := utils.GetAssetDecimals(assetCode)
+	
+	//  Parse amount using parseAmount (handles decimals)
+	amountBig, err := utils.ParseAmount(amount, decimals)
+	if err != nil {
+		uc.logger.Error("Failed to parse amount",
+			zap.String("amount", amount),
+			zap.Int("decimals", decimals),
+			zap.Error(err))
+		return nil, fmt.Errorf("invalid amount format: %w", err)
+	}
 	
 	quote := &WithdrawalQuote{
 		QuoteID:            uuid.New().String(),
@@ -203,9 +216,17 @@ func (uc *TransactionUsecase) Withdraw(
 	}
 	
 	// 3. Parse amount
-	amountBig, ok := new(big.Int).SetString(amount, 10)
-	if !ok {
-		return nil, fmt.Errorf("invalid amount format")
+	//  Get decimals for this asset
+	decimals := utils.GetAssetDecimals(assetCode)
+	
+	//  Parse amount using parseAmount (handles decimals)
+	amountBig, err := utils.ParseAmount(amount, decimals)
+	if err != nil {
+		uc.logger.Error("Failed to parse amount",
+			zap.String("amount", amount),
+			zap.Int("decimals", decimals),
+			zap.Error(err))
+		return nil, fmt.Errorf("invalid amount format: %w", err)
 	}
 	
 	// 4. Estimate network fee
@@ -218,8 +239,8 @@ func (uc *TransactionUsecase) Withdraw(
 	totalNeeded := new(big.Int).Add(amountBig, feeEstimate.FeeAmount)
 	if systemWallet.Balance.Cmp(totalNeeded) < 0 {
 		return nil, fmt.Errorf("insufficient system wallet balance:  have %s, need %s",
-			formatAmount(systemWallet.Balance, assetCode),
-			formatAmount(totalNeeded, assetCode))
+			utils.FormatAmount(systemWallet.Balance, assetCode),
+			utils.FormatAmount(totalNeeded, assetCode))
 	}
 	
 	// 6. Create transaction record
@@ -240,7 +261,7 @@ func (uc *TransactionUsecase) Withdraw(
 		PlatformFee:            big.NewInt(0), // Handled by accounting
 		TotalFee:               feeEstimate.FeeAmount,
 		Status:                 domain.TransactionStatusPending,
-		RequiredConfirmations:  getRequiredConfirmations(chainName),
+		RequiredConfirmations:  utils.GetRequiredConfirmations(chainName),
 		Memo:                   &memo,
 		InitiatedAt:            time.Now(),
 	}
@@ -270,7 +291,7 @@ func (uc *TransactionUsecase) Withdraw(
 	txResult, err := chain.Send(ctx, &domain.TransactionRequest{
 		From:       systemWallet.Address, //  System wallet signs
 		To:         toAddress,
-		Asset:      assetFromCode(assetCode),
+		Asset:      utils.AssetFromCode(assetCode),
 		Amount:     amountBig,
 		PrivateKey: privateKey,
 		Memo:       &memo,
@@ -379,7 +400,7 @@ func (uc *TransactionUsecase) SweepUserWallet(
 		PlatformFee:            big. NewInt(0),
 		TotalFee:               feeEstimate.FeeAmount,
 		Status:                 domain.TransactionStatusPending,
-		RequiredConfirmations:  getRequiredConfirmations(chainName),
+		RequiredConfirmations:  utils.GetRequiredConfirmations(chainName),
 		InitiatedAt:            time.Now(),
 	}
 	
@@ -408,7 +429,7 @@ func (uc *TransactionUsecase) SweepUserWallet(
 	txResult, err := chain. Send(ctx, &domain.TransactionRequest{
 		From:       userWallet.Address, //  From user's deposit address
 		To:         systemWallet.Address, //  To system wallet
-		Asset:      assetFromCode(assetCode),
+		Asset:      utils.AssetFromCode(assetCode),
 		Amount:     sweepAmount,
 		PrivateKey: privateKey,
 		Priority:   domain.TxPriorityLow, // Low priority for sweeps

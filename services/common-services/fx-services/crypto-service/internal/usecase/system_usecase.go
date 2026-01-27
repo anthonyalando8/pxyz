@@ -4,6 +4,8 @@ package usecase
 import (
 	"context"
 	registry "crypto-service/internal/chains/registry"
+		"crypto-service/pkg/utils"
+
 	"crypto-service/internal/domain"
 	"crypto-service/internal/repository"
 	"crypto-service/internal/security"
@@ -177,7 +179,7 @@ func (uc *SystemUsecase) GetSystemBalance(
 	}
 
 	// Get fresh balance from blockchain
-	asset := assetFromCode(assetCode)
+	asset := utils.AssetFromCode(assetCode)
 	balance, err := chain.GetBalance(ctx, wallet.Address, asset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get balance: %w", err)
@@ -193,7 +195,7 @@ func (uc *SystemUsecase) GetSystemBalance(
 		Asset:            wallet.Asset,
 		Balance:          balance.Amount,
 		Decimals:         asset.Decimals,
-		BalanceFormatted: formatBalance(balance.Amount, asset.Decimals, assetCode),
+		BalanceFormatted: utils.FormatBalance(balance.Amount, asset.Decimals, assetCode),
 		UpdatedAt:        time.Now(),
 	}, nil
 }

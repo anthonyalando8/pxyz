@@ -5,6 +5,8 @@ import (
 	"context"
 	registry "crypto-service/internal/chains/registry"
 	"crypto-service/internal/domain"
+		"crypto-service/pkg/utils"
+
 	"crypto-service/internal/repository"
 	"crypto-service/internal/security"
 	"fmt"
@@ -241,7 +243,7 @@ func (uc *WalletUsecase) GetWalletBalance(
 	}
 	
 	// Get asset configuration
-	asset := assetFromCode(assetCode)
+	asset := utils.AssetFromCode(assetCode)
 	if asset == nil {
 		return nil, fmt.Errorf("unsupported asset:  %s", assetCode)
 	}
@@ -281,7 +283,7 @@ func (uc *WalletUsecase) GetWalletBalance(
 		Asset:            wallet.Asset,
 		Balance:          wallet.Balance,
 		Decimals:         asset.Decimals,
-		BalanceFormatted: formatBalance(wallet. Balance, asset.Decimals, assetCode),
+		BalanceFormatted: utils.FormatBalance(wallet. Balance, asset.Decimals, assetCode),
 		UpdatedAt:        time.Now(),
 	}, nil
 }
@@ -305,7 +307,7 @@ func (uc *WalletUsecase) RefreshBalance(
 	}
 	
 	// Get asset configuration
-	asset := assetFromCode(wallet.Asset)
+	asset := utils.AssetFromCode(wallet.Asset)
 	if asset == nil {
 		return nil, nil, fmt.Errorf("unsupported asset: %s", wallet.Asset)
 	}

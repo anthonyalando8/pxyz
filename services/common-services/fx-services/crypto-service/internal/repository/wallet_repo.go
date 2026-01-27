@@ -4,6 +4,7 @@ package repository
 import (
 	"context"
 	"crypto-service/internal/domain"
+	"crypto-service/pkg/utils"
 	"database/sql"
 	"fmt"
 	"math/big"
@@ -112,7 +113,15 @@ func (r *CryptoWalletRepository) GetByID(ctx context.Context, id int64) (*domain
 	}
 	
 	// Parse balance
-	wallet.Balance, _ = new(big.Int).SetString(balanceStr, 10)
+	//  Get decimals for this asset
+	decimals := utils.GetAssetDecimals(wallet.Asset)
+	
+	//  Parse amount using parseAmount (handles decimals)
+	amountBig, err := utils.ParseAmount(balanceStr, decimals)
+	if err != nil {
+		fmt.Printf("failed to parse wallet balance: %v", err)
+	}
+	wallet.Balance = amountBig
 	if wallet.Balance == nil {
 		wallet.Balance = big.NewInt(0)
 	}
@@ -163,7 +172,16 @@ func (r *CryptoWalletRepository) GetByAddress(ctx context.Context, address strin
 		return nil, fmt.Errorf("failed to get wallet: %w", err)
 	}
 	
-	wallet.Balance, _ = new(big.Int).SetString(balanceStr, 10)
+	// Parse balance
+	//  Get decimals for this asset
+	decimals := utils.GetAssetDecimals(wallet.Asset)
+	
+	//  Parse amount using parseAmount (handles decimals)
+	amountBig, err := utils.ParseAmount(balanceStr, decimals)
+	if err != nil {
+		fmt.Printf("failed to parse wallet balance: %v", err)
+	}
+	wallet.Balance = amountBig
 	if wallet.Balance == nil {
 		wallet.Balance = big.NewInt(0)
 	}
@@ -322,7 +340,16 @@ func (r *CryptoWalletRepository) GetUserWalletByChainAsset(
 		return nil, fmt.Errorf("failed to get wallet: %w", err)
 	}
 	
-	wallet.Balance, _ = new(big.Int).SetString(balanceStr, 10)
+	// Parse balance
+	//  Get decimals for this asset
+	decimals := utils.GetAssetDecimals(wallet.Asset)
+	
+	//  Parse amount using parseAmount (handles decimals)
+	amountBig, err := utils.ParseAmount(balanceStr, decimals)
+	if err != nil {
+		fmt.Printf("failed to parse wallet balance: %v", err)
+	}
+	wallet.Balance = amountBig
 	if wallet.Balance == nil {
 		wallet.Balance = big.NewInt(0)
 	}
@@ -380,7 +407,16 @@ func (r *CryptoWalletRepository) GetUserPrimaryWallet(
 		return nil, fmt.Errorf("failed to get primary wallet: %w", err)
 	}
 	
-	wallet.Balance, _ = new(big.Int).SetString(balanceStr, 10)
+	// Parse balance
+	//  Get decimals for this asset
+	decimals := utils.GetAssetDecimals(wallet.Asset)
+	
+	//  Parse amount using parseAmount (handles decimals)
+	amountBig, err := utils.ParseAmount(balanceStr, decimals)
+	if err != nil {
+		fmt.Printf("failed to parse wallet balance: %v", err)
+	}
+	wallet.Balance = amountBig
 	if wallet.Balance == nil {
 		wallet.Balance = big.NewInt(0)
 	}
@@ -756,7 +792,16 @@ func scanWallet(scanner Scanner) (*domain.CryptoWallet, error) {
 	}
 	
 	// Parse balance
-	wallet.Balance, _ = new(big.Int).SetString(balanceStr, 10)
+	// Parse balance
+	//  Get decimals for this asset
+	decimals := utils.GetAssetDecimals(wallet.Asset)
+	
+	//  Parse amount using parseAmount (handles decimals)
+	amountBig, err := utils.ParseAmount(balanceStr, decimals)
+	if err != nil {
+		fmt.Printf("failed to parse wallet balance: %v", err)
+	}
+	wallet.Balance = amountBig
 	if wallet.Balance == nil {
 		wallet.Balance = big.NewInt(0)
 	}

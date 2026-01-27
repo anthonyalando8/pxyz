@@ -4,6 +4,7 @@ package usecase
 import (
 	"context"
 	registry "crypto-service/internal/chains/registry"
+	"crypto-service/pkg/utils"
 	"crypto-service/internal/domain"
 	"crypto-service/internal/repository"
 	"fmt"
@@ -93,7 +94,7 @@ func (uc *DepositUsecase) checkWalletDeposits(
 ) error {
 	
 	// Get asset configuration
-	asset := assetFromCode(wallet.Asset)
+	asset := utils.AssetFromCode(wallet.Asset)
 	if asset == nil {
 		return fmt.Errorf("unsupported asset: %s", wallet.Asset)
 	}
@@ -131,7 +132,7 @@ func (uc *DepositUsecase) checkWalletDeposits(
 			TxHash:                 "pending_lookup", // Would get from blockchain
 			BlockNumber:            0,                 // Would get from blockchain
 			Confirmations:          0,
-			RequiredConfirmations:   getRequiredConfirmations(wallet. Chain),
+			RequiredConfirmations:   utils.GetRequiredConfirmations(wallet. Chain),
 			Status:                 domain. DepositStatusDetected,
 			UserNotified:           false,
 			NotificationSent:       false,
@@ -449,7 +450,7 @@ func (uc *DepositUsecase) NotifyPendingDeposits(ctx context. Context) error {
 			DepositID:     deposit. DepositID,
 			Chain:         deposit.Chain,
 			Asset:         deposit.Asset,
-			Amount:        formatAmount(deposit.Amount, deposit.Asset),
+			Amount:        utils.FormatAmount(deposit.Amount, deposit.Asset),
 			TxHash:        deposit.TxHash,
 			Confirmations: deposit.Confirmations,
 			Required:      deposit.RequiredConfirmations,
