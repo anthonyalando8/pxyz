@@ -693,22 +693,27 @@ func (r *CryptoTransactionRepository) GetTransactionVolume(
 // ============================================================================
 
 // scanTransaction scans a row into CryptoTransaction
-func (r *CryptoTransactionRepository) scanTransaction(row pgx.Row, tx *domain. CryptoTransaction) error {
+// scanTransaction scans a row into CryptoTransaction
+func (r *CryptoTransactionRepository) scanTransaction(row pgx.Row, tx *domain.CryptoTransaction) error {
 	var (
-		amountStr, networkFeeStr, platformFeeStr, totalFeeStr, gasPriceStr string
-		metadataJSON                                                       []byte
+		amountStr        string
+		networkFeeStr    string
+		platformFeeStr   string
+		totalFeeStr      string
+		gasPriceStr      sql.NullString //  Nullable
+		metadataJSON     []byte
 	)
 
 	err := row.Scan(
 		&tx.ID,
 		&tx.TransactionID,
-		&tx. UserID,
-		&tx. Type,
+		&tx.UserID,
+		&tx.Type,
 		&tx.Chain,
 		&tx.Asset,
 		&tx.FromWalletID,
-		&tx. FromAddress,
-		&tx. ToWalletID,
+		&tx.FromAddress,
+		&tx.ToWalletID,
 		&tx.ToAddress,
 		&tx.IsInternal,
 		&amountStr,
@@ -720,15 +725,15 @@ func (r *CryptoTransactionRepository) scanTransaction(row pgx.Row, tx *domain. C
 		&tx.TxHash,
 		&tx.BlockNumber,
 		&tx.BlockTimestamp,
-		&tx. Confirmations,
-		&tx. RequiredConfirmations,
+		&tx.Confirmations,
+		&tx.RequiredConfirmations,
 		&tx.GasUsed,
 		&gasPriceStr,
 		&tx.EnergyUsed,
 		&tx.BandwidthUsed,
 		&tx.Status,
-		&tx. StatusMessage,
-		&tx. AccountingTxID,
+		&tx.StatusMessage,
+		&tx.AccountingTxID,
 		&tx.Memo,
 		&metadataJSON,
 		&tx.InitiatedAt,
@@ -736,7 +741,7 @@ func (r *CryptoTransactionRepository) scanTransaction(row pgx.Row, tx *domain. C
 		&tx.ConfirmedAt,
 		&tx.CompletedAt,
 		&tx.FailedAt,
-		&tx. CreatedAt,
+		&tx.CreatedAt,
 		&tx.UpdatedAt,
 	)
 
@@ -744,15 +749,14 @@ func (r *CryptoTransactionRepository) scanTransaction(row pgx.Row, tx *domain. C
 		return fmt.Errorf("failed to scan transaction: %w", err)
 	}
 
-	// Parse big. Int fields
-	tx.Amount, _ = new(big.Int).SetString(amountStr, 10)
-	tx.NetworkFee, _ = new(big.Int).SetString(networkFeeStr, 10)
-	tx.PlatformFee, _ = new(big. Int).SetString(platformFeeStr, 10)
-	tx.TotalFee, _ = new(big.Int).SetString(totalFeeStr, 10)
+	// Parse big.Int fields (required fields)
+	tx.Amount = parseBigInt(amountStr)
+	tx.NetworkFee = parseBigInt(networkFeeStr)
+	tx.PlatformFee = parseBigInt(platformFeeStr)
+	tx.TotalFee = parseBigInt(totalFeeStr)
 
-	if gasPriceStr != "" {
-		tx.GasPrice, _ = new(big.Int).SetString(gasPriceStr, 10)
-	}
+	// Parse optional big.Int fields
+	tx.GasPrice = parseNullBigInt(gasPriceStr)
 
 	// Parse metadata JSON
 	if len(metadataJSON) > 0 {
@@ -760,4 +764,28 @@ func (r *CryptoTransactionRepository) scanTransaction(row pgx.Row, tx *domain. C
 	}
 
 	return nil
+}
+
+// Helper: Parse big.Int from string (required field)
+func parseBigInt(s string) *big.Int {
+	if s == "" {
+		return big.NewInt(0)
+	}
+	val, ok := new(big.Int).SetString(s, 10)
+	if !ok {
+		return big.NewInt(0)
+	}
+	return val
+}
+
+//  Helper: Parse big.Int from sql.NullString (optional field)
+func parseNullBigInt(ns sql.NullString) *big.Int {
+	if !ns.Valid || ns.String == "" {
+		return nil
+	}
+	val, ok := new(big.Int).SetString(ns.String, 10)
+	if !ok {
+		return nil
+	}
+	return val
 }
