@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"crypto-service/internal/chains/bitcoin"
+	"crypto-service/internal/chains/ethereum"
 	registry "crypto-service/internal/chains/registry"
 	"crypto-service/internal/chains/tron"
 	"crypto-service/internal/config"
@@ -90,22 +91,35 @@ func main() {
 	}
 	chainRegistry.Register(bitcoinChain)
 
-	// TODO: Register Ethereum chain
-	// ethereumChain, err := ethereum. NewEthereumChain(cfg.Ethereum, logger)
-	// if err != nil {
-	//     logger.Fatal("Failed to initialize Ethereum chain", zap.Error(err))
-	// }
-	// chainRegistry.Register(ethereumChain)
+	// Register Ethereum chain
+	if cfg.Ethereum.Enabled {
+		logger.Info("Initializing Ethereum chain",
+			zap.String("network", cfg.Ethereum.Network),
+			zap.String("rpc_url", cfg.Ethereum.RPCURL),
+			zap.Int64("chain_id", cfg.Ethereum.ChainID),
+		)
+
+		ethereumChain, err := ethereum.NewEthereumChain(cfg.Ethereum.RPCURL, logger)
+		if err != nil {
+			logger.Fatal("Failed to initialize Ethereum chain", zap.Error(err))
+		}
+		chainRegistry.Register(ethereumChain)
+		logger.Info("Ethereum chain registered successfully",
+			zap.String("usdc_address", cfg.Ethereum.USDCAddress),
+		)
+	} else {
+		logger.Info("Ethereum chain disabled")
+	}
 
 	registeredChains := chainRegistry.List()
 	logger.Info("Registered blockchain chains",
 		zap.Int("count", len(registeredChains)),
 		zap. Strings("chains", registeredChains),
 	)
-	// ✅ Initialize system usecase
+	//  Initialize system usecase
 	systemUsecase := usecase.NewSystemUsecase(walletRepo, chainRegistry, encryption, logger)
 
-	// ✅ Initialize system wallets (create if not exist)
+	//  Initialize system wallets (create if not exist)
 	ctx := context.Background()
 	if err := systemUsecase.InitializeSystemWallets(ctx); err != nil {
 		logger. Error("Failed to initialize system wallets", zap.Error(err))

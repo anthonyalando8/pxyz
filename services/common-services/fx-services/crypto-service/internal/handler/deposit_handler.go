@@ -238,6 +238,7 @@ func getAssetDecimals(asset string) int {
 		"USDT": 6,
 		"BTC":  8,
 		"ETH":  18,
+		"USDC": 6,
 	}
 	
 	if d, ok := decimals[asset]; ok {

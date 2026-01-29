@@ -32,6 +32,22 @@ func AssetFromCode(code string) *domain.Asset {
 			Type:     domain.AssetTypeNative,
 			Decimals: 8,
 		}
+	case "ETH":
+		return &domain.Asset{
+				Chain:    "ETHEREUM",
+				Symbol:   "ETH",
+				Decimals: 18,
+				Type:     domain.AssetTypeNative,
+			}
+
+	case "USDC":
+		return &domain.Asset{
+				Chain:        "ETHEREUM",
+				Symbol:       "USDC",
+				ContractAddr: StringPtr("0x07865c6E87B9F70255377e024ace6630C1Eaa37F"), // Goerli testnet
+				Decimals:     6,
+				Type:         domain.AssetTypeToken,
+			}
 	default: 
 		return nil
 	}

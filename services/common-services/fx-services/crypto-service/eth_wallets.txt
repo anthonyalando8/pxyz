@@ -1,0 +1,15 @@
+ETHEREUM SEPOLIA WALLETS
+==========================
+
+SENDER WALLET:
+Address:     0x2aBBD3aD9Ec61a5Cc618bF45CbC91C722bcA9acF
+Private Key: 82fe0970ae60c5c6e0ac990d9af1547a94baec64767b36fbfb58c9a0dfaac172
+
+RECIPIENT WALLET:
+Address:     0xf843c18bA767Fa00ba055e26626674f88D94da16
+Private Key: b1ee62a0d3910ce4a1089b01f3fa670bfd5f82f57dd70f4a2468b8f546afef18
+
+
+Get Sepolia testnet ETH:
+  - https://sepoliafaucet.com/
+  - https://faucets.chain.link/sepolia

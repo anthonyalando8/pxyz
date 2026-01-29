@@ -50,7 +50,7 @@ func (uc *SystemUsecase) InitializeSystemWallets(ctx context.Context) error {
 		"TRON": {"TRX", "USDT"},
 		// Future chains
 		"BITCOIN": {"BTC"},
-		// "ETHEREUM": {"ETH", "USDT", "USDC"},
+		"ETHEREUM": {"ETH", "USDC"},
 	}
 
 	createdCount := 0
