@@ -1,25 +1,19 @@
-Here's a comprehensive WebSocket API documentation for the UI team:
-
-```markdown
-# WebSocket API Documentation
+# Cashier Module - WebSocket API Documentation
 
 ## Table of Contents
 1. [Connection](#connection)
 2. [Message Format](#message-format)
-3. [Authentication](#authentication)
-4. [Request Types](#request-types)
-   - [Verification Operations](#verification-operations)
-   - [Partner Operations](#partner-operations)
-   - [Account Operations](#account-operations)
-   - [Deposit Operations](#deposit-operations)
-   - [Withdrawal Operations](#withdrawal-operations)
-   - [Transfer Operations](#transfer-operations)
-   - [Transaction History](#transaction-history)
-   - [Statements & Reports](#statements--reports)
-   - [Fee Calculation](#fee-calculation)
-5. [Server-Sent Events (Push Notifications)](#server-sent-events-push-notifications)
-6. [Error Handling](#error-handling)
-7. [Examples](#examples)
+3. [Verification & Authentication](#verification--authentication)
+4. [Account Operations](#account-operations)
+5. [Deposit Operations](#deposit-operations)
+6. [Withdrawal Operations](#withdrawal-operations)
+7. [Transfer Operations](#transfer-operations)
+8. [Transaction History](#transaction-history)
+9. [Statements & Reports](#statements--reports)
+10. [Fee Calculation](#fee-calculation)
+11. [Currency Conversion](#currency-conversion)
+12. [Partner Operations](#partner-operations)
+13. [Event Notifications](#event-notifications)
 
 ---
 
@@ -27,196 +21,134 @@ Here's a comprehensive WebSocket API documentation for the UI team:
 
 ### WebSocket Endpoint
 ```
-ws://{{appURL}}/cashier/svc/ws
+wss://api.safarigari.com/api/v1/cashier/svc/ws
 ```
 
-### Connection Headers
-```
-Authorization: Bearer <your_jwt_token>
-```
+### Authentication
+Connection requires authentication via JWT token in request context.
 
-### Connection Lifecycle
-
-**On Connect:**
+### Connection Response
 ```json
 {
   "type": "connected",
   "data": {
-    "user_id": "123",
-    "timestamp": 1702000000
+    "user_id": "12345",
+    "timestamp": 1706400000
   },
-  "timestamp": 1702000000
+  "timestamp": 1706400000
 }
 ```
-
-**On Disconnect:**
-Connection is closed.  Client should implement reconnection logic with exponential backoff.
 
 ---
 
 ## Message Format
 
-### Request Format
-All client messages follow this structure:
-
+### Request Structure
+All client messages follow this format:
 ```json
 {
   "type": "message_type",
   "data": {
-    // Request-specific data
+    // request-specific data
   }
 }
 ```
 
-### Response Format
-
-**Success Response:**
+### Response Structure
+All server responses follow this format:
 ```json
 {
-  "type": "success",
+  "type": "success" | "error",
   "data": {
-    "message": "Operation successful",
+    "message": "Operation result message",
     "data": {
-      // Response data
+      // response-specific data
     }
   },
-  "timestamp": 1702000000
+  "timestamp": 1706400000
 }
 ```
 
-**Error Response:**
+### Error Response
 ```json
 {
   "type": "error",
   "data": {
     "message": "Error description"
   },
-  "timestamp": 1702000000
+  "timestamp": 1706400000
 }
 ```
 
 ---
 
-## Authentication
+## Verification & Authentication
 
-Authentication is handled via JWT token in the WebSocket connection headers.  No additional authentication is required for individual messages.
+### 1. Request Verification
 
----
+#### Message Type: `verification_request`
 
-## Request Types
+**Purpose**: Initiate verification process for sensitive operations (withdrawal, transfer, etc.)
 
-### Verification Operations
-
-#### 1. Request Verification
-
-Used before sensitive operations like withdrawals. 
-
-**Request:**
+**Request**:
 ```json
 {
   "type": "verification_request",
   "data": {
-    "method": "otp_email",  // Options: "totp", "otp_email", "otp_sms", "otp_whatsapp"
-    "purpose": "withdrawal"
+    "method": "totp" | "otp_email" | "otp_sms" | "otp_whatsapp" | "auto or empty" ,
+    "purpose": "withdrawal" | "transfer" | "sensitive_operation" | "for now just withdrawal"
   }
 }
 ```
 
-**Response (OTP):**
+**Response (TOTP)**:
 ```json
 {
   "type": "success",
   "data": {
-    "message": "OTP sent to us***@example.com via email",
-    "data": {
-      "method": "otp_email",
-      "channel": "email",
-      "recipient": "us***@example.com",
-      "purpose": "withdrawal",
-      "next_step": "verify_otp",
-      "expires_in": 180
-    }
-  },
-  "timestamp": 1702000000
-}
-```
-
-**Response (TOTP - 2FA):**
-```json
-{
-  "type": "success",
-  "data": {
-    "message": "2FA enabled.  Please provide your TOTP code",
+    "message": "2FA enabled. Please provide your TOTP code",
     "data": {
       "method": "totp",
       "purpose": "withdrawal",
       "next_step": "verify_totp"
     }
   },
-  "timestamp": 1702000000
+  "timestamp": 1706400000
 }
 ```
 
-**Error (2FA Not Enabled):**
-```json
-{
-  "type": "error",
-  "data": {
-    "message": "2FA is not enabled for your account.  Please use OTP verification instead."
-  },
-  "timestamp": 1702000000
-}
-```
-
----
-
-#### 2.  Verify OTP
-
-**Request:**
-```json
-{
-  "type": "verify_otp",
-  "data": {
-    "code": "123456",
-    "purpose": "withdrawal"
-  }
-}
-```
-
-**Success Response:**
+**Response (OTP)**:
 ```json
 {
   "type": "success",
   "data": {
-    "message": "verification successful",
+    "message": "OTP sent successfully",
     "data": {
-      "verification_token": "a1b2c3d4e5f6789.. .",
+      "method": "otp_sms",
+      "channel": "sms",
       "purpose": "withdrawal",
-      "method": "otp_email",
-      "expires_in": 300,
-      "message": "Use this token for your next withdrawal request"
+      "masked_recipient": "***1234",
+      "next_step": "verify_otp",
+      "expires_in": 180
     }
   },
-  "timestamp": 1702000000
+  "timestamp": 1706400000
 }
 ```
 
-**Error Response:**
-```json
-{
-  "type": "error",
-  "data": {
-    "message": "invalid OTP code"
-  },
-  "timestamp": 1702000000
-}
-```
+**Auto-Selection Logic**:
+1. Check if 2FA/TOTP is enabled → use TOTP
+2. Check if phone number exists → use SMS
+3. Check if email exists → use Email
+4. If none available → return error
 
 ---
 
-#### 3. Verify TOTP (2FA)
+### 2. Verify TOTP
 
-**Request:**
+#### Message Type: `verify_totp`
+
+**Request**:
 ```json
 {
   "type": "verify_totp",
@@ -227,70 +159,79 @@ Used before sensitive operations like withdrawals.
 }
 ```
 
-**Success Response:**
+**Success Response**:
 ```json
 {
   "type": "success",
   "data": {
     "message": "verification successful",
     "data": {
-      "verification_token": "a1b2c3d4e5f6789...",
+      "verification_token": "a1b2c3d4e5f6...",
       "purpose": "withdrawal",
       "method": "totp",
       "expires_in": 300,
       "message": "Use this token for your next withdrawal request"
     }
   },
-  "timestamp": 1702000000
+  "timestamp": 1706400000
+}
+```
+
+**Error Response**:
+```json
+{
+  "type": "error",
+  "data": {
+    "message": "invalid TOTP code"
+  },
+  "timestamp": 1706400000
 }
 ```
 
 ---
 
-### Partner Operations
+### 3. Verify OTP
 
-#### 1. Get Partners by Service
+#### Message Type: `verify_otp`
 
-**Request:**
+**Request**:
 ```json
 {
-  "type": "get_partners",
+  "type": "verify_otp",
   "data": {
-    "service": "mpesa"  // Options: mpesa, paypal, bank_transfer, etc.
+    "code": "123456",
+    "purpose": "withdrawal"
   }
 }
 ```
 
-**Response:**
+**Success Response**:
 ```json
 {
   "type": "success",
   "data": {
-    "message": "partners retrieved",
+    "message": "verification successful",
     "data": {
-      "partners": [
-        {
-          "id": "PTN-123",
-          "name": "Partner Name",
-          "country": "KE",
-          "service": "mpesa",
-          "status": "active"
-        }
-      ],
-      "count": 1
+      "verification_token": "a1b2c3d4e5f6...",
+      "purpose": "withdrawal",
+      "method": "otp_sms",
+      "expires_in": 300,
+      "message": "Use this token for your next withdrawal request"
     }
   },
-  "timestamp": 1702000000
+  "timestamp": 1706400000
 }
 ```
 
 ---
 
-### Account Operations
+## Account Operations
 
-#### 1. Get User Accounts
+### 1. Get Accounts
 
-**Request:**
+#### Message Type: `get_accounts`
+
+**Request**:
 ```json
 {
   "type": "get_accounts",
@@ -298,7 +239,7 @@ Used before sensitive operations like withdrawals.
 }
 ```
 
-**Response:**
+**Response**:
 ```json
 {
   "type": "success",
@@ -307,74 +248,66 @@ Used before sensitive operations like withdrawals.
     "data": {
       "accounts": [
         {
-          "id": 1,
-          "account_number": "ACC-USER-USD-123",
+          "id": 123,
+          "account_number": "ACC-USD-12345",
           "currency": "USD",
-          "purpose": "ACCOUNT_PURPOSE_WALLET",
-          "account_type": "ACCOUNT_TYPE_REAL",
+          "purpose": "WALLET",
+          "account_type": "REAL",
           "is_active": true,
           "is_locked": false,
-          "created_at": "2025-01-01T00:00:00Z"
-        },
-        {
-          "id": 2,
-          "account_number": "ACC-USER-EUR-124",
-          "currency": "EUR",
-          "purpose": "ACCOUNT_PURPOSE_WALLET",
-          "account_type": "ACCOUNT_TYPE_REAL",
-          "is_active": true,
-          "is_locked": false,
-          "created_at": "2025-01-01T00:00:00Z"
+          "created_at": "2024-01-01T00:00:00Z"
         }
       ],
-      "count": 2
+      "count": 1
     }
   },
-  "timestamp": 1702000000
+  "timestamp": 1706400000
 }
 ```
 
 ---
 
-#### 2. Get Account Balance
+### 2. Get Account Balance
 
-**Request:**
+#### Message Type: `get_account_balance`
+
+**Request**:
 ```json
 {
   "type": "get_account_balance",
   "data": {
-    "account_number": "ACC-USER-USD-123"
+    "account_number": "ACC-USD-12345"
   }
 }
 ```
 
-**Response:**
+**Response**:
 ```json
 {
   "type": "success",
   "data": {
     "message": "balance retrieved",
     "data": {
-      "account_number": "ACC-USER-USD-123",
-      "balance": 1000. 50,
-      "available_balance": 950.00,
-      "pending_debit": 50.50,
+      "account_number": "ACC-USD-12345",
+      "balance": 1000.50,
+      "available_balance": 950.50,
+      "pending_debit": 50.00,
       "pending_credit": 0.00,
       "currency": "USD",
-      "last_transaction": "2025-12-07T10:30:00Z"
+      "last_transaction": "2024-01-15T10:30:00Z"
     }
   },
-  "timestamp": 1702000000
+  "timestamp": 1706400000
 }
 ```
 
 ---
 
-#### 3. Get Owner Summary
+### 3. Get Owner Summary
 
-Get consolidated balance across all accounts. 
+#### Message Type: `get_owner_summary`
 
-**Request:**
+**Request**:
 ```json
 {
   "type": "get_owner_summary",
@@ -382,7 +315,7 @@ Get consolidated balance across all accounts.
 }
 ```
 
-**Response:**
+**Response**:
 ```json
 {
   "type": "success",
@@ -391,323 +324,581 @@ Get consolidated balance across all accounts.
     "data": {
       "account_balances": [
         {
-          "account_number": "ACC-USER-USD-123",
+          "account_number": "ACC-USD-12345",
           "currency": "USD",
           "balance": 1000.50,
-          "available_balance": 950.00
+          "available_balance": 950.50
         },
         {
-          "account_number": "ACC-USER-EUR-124",
-          "currency": "EUR",
-          "balance": 500.00,
-          "available_balance": 500.00
+          "account_number": "ACC-BTC-12345",
+          "currency": "BTC",
+          "balance": 0.05,
+          "available_balance": 0.05
         }
       ],
-      "total_balance_usd": 1550.75,
+      "total_balance_usd": 3500.75,
       "total_accounts": 2
     }
   },
-  "timestamp": 1702000000
+  "timestamp": 1706400000
 }
 ```
 
 ---
 
-### Deposit Operations
+### 4. Create Account
 
-#### 1. Create Deposit Request
+#### Message Type: `create_account`
 
-**Request:**
+**Request**:
 ```json
 {
-  "type": "deposit_request",
+  "type": "create_account",
   "data": {
-    "amount": 100.00,
-    "currency": "USD",
-    "service": "mpesa",
-    "partner_id": "PTN-123",  // Optional: will auto-select if not provided
-    "payment_method": "mobile_money"  // Optional
+    "currency": "BTC",
+    "account_type": "real" | "demo"
   }
 }
 ```
 
-**Response:**
+**Response**:
+```json
+{
+  "type": "success",
+  "data": {
+    "message": "account created successfully",
+    "data": {
+      "account": {
+        "id": 456,
+        "account_number": "ACC-BTC-67890",
+        "currency": "BTC",
+        "purpose": "WALLET",
+        "account_type": "REAL",
+        "is_active": true,
+        "is_locked": false,
+        "created_at": "2024-01-27T12:00:00Z"
+      },
+      "message": "BTC REAL wallet account created"
+    }
+  },
+  "timestamp": 1706400000
+}
+```
+
+**Error Response**:
+```json
+{
+  "type": "error",
+  "data": {
+    "message": "BTC REAL wallet account already exists: ACC-BTC-67890"
+  },
+  "timestamp": 1706400000
+}
+```
+
+---
+
+### 5. Get Supported Currencies
+
+#### Message Type: `get_supported_currencies`
+
+**Request**:
+```json
+{
+  "type": "get_supported_currencies",
+  "data": {}
+}
+```
+
+**Response**:
+```json
+{
+  "type": "success",
+  "data": {
+    "message": "supported currencies",
+    "data": {
+      "currencies": [
+        {
+          "code": "USD",
+          "name": "US Dollar",
+          "symbol": "$",
+          "type": "fiat"
+        },
+        {
+          "code": "BTC",
+          "name": "Bitcoin",
+          "symbol": "₿",
+          "type": "crypto"
+        },
+        {
+          "code": "USDT",
+          "name": "Tether",
+          "symbol": "₮",
+          "type": "crypto"
+        }
+      ],
+      "count": 3
+    }
+  },
+  "timestamp": 1706400000
+}
+```
+
+---
+
+## Deposit Operations
+
+### Deposit Flow Overview
+
+```
+1. User initiates deposit → deposit_request
+2. System determines deposit type (partner/agent/crypto)
+3. Partner: STK push sent → awaiting confirmation
+4. Agent: Request created → agent fulfills via transfer
+5. Crypto: Wallet address returned → awaiting blockchain confirmation
+6. Deposit completed → deposit_completed notification
+```
+
+### Message Type: `deposit_request`
+
+**Partner Deposit Request (M-Pesa)**:
+```json
+{
+  "type": "deposit_request",
+  "data": {
+    "amount": 1000,
+    "local_currency": "KES",
+    "target_currency": "USD",
+    "service": "mpesa",
+    "partner_id": "safaricom_mpesa"
+  }
+}
+```
+
+**Partner Deposit Response**:
 ```json
 {
   "type": "success",
   "data": {
     "message": "deposit request created",
     "data": {
-      "request_ref": "DEP-REQ-20251207-001",
-      "partner_id": "PTN-123",
-      "partner_name": "Partner Name",
-      "amount": 100.00,
-      "currency": "USD",
-      "status": "sent_to_partner",
-      "expires_at": "2025-12-07T11:00:00Z"
+      "request_ref": "DEP-KES-20240127-001",
+      "amount_local": 1000.00,
+      "local_currency": "KES",
+      "amount_usd": 7.50,
+      "exchange_rate": 133.33,
+      "status": "pending_stk_push",
+      "partner": {
+        "id": "safaricom_mpesa",
+        "name": "Safaricom M-Pesa"
+      },
+      "phone_number": "254712***890",
+      "instructions": "Please enter your M-Pesa PIN to complete the deposit"
     }
   },
-  "timestamp": 1702000000
+  "timestamp": 1706400000
+}
+```
+
+**Agent Deposit Request**:
+```json
+{
+  "type": "deposit_request",
+  "data": {
+    "amount": 100,
+    "local_currency": "USD",
+    "service": "agent",
+    "agent_id": "AGT-001"
+  }
+}
+```
+
+**Agent Deposit Response**:
+```json
+{
+  "type": "success",
+  "data": {
+    "message": "deposit request created",
+    "data": {
+      "request_ref": "DEP-USD-20240127-002",
+      "amount": 100.00,
+      "currency": "USD",
+      "status": "sent_to_agent",
+      "agent": {
+        "id": "AGT-001",
+        "name": "Agent John Doe",
+        "phone": "***1234"
+      },
+      "instructions": "Visit the agent with this reference code to complete your deposit"
+    }
+  },
+  "timestamp": 1706400000
+}
+```
+
+**Crypto Deposit Request**:
+```json
+{
+  "type": "deposit_request",
+  "data": {
+    "amount": 100,
+    "local_currency": "USDT",
+    "service": "crypto"
+  }
+}
+```
+
+**Crypto Deposit Response**:
+```json
+{
+  "type": "success",
+  "data": {
+    "message": "crypto deposit address generated",
+    "data": {
+      "request_ref": "DEP-USDT-20240127-003",
+      "amount": 100.00,
+      "currency": "USDT",
+      "chain": "TRC20",
+      "wallet_address": "TYzK7gD3K4VwY8uP...",
+      "qr_code_url": "https://api.qrserver.com/v1/create-qr-code/?data=TYzK7gD3K4VwY8uP...",
+      "status": "awaiting_deposit",
+      "instructions": "Send exactly 100.00 USDT to the address above",
+      "minimum_confirmations": 1
+    }
+  },
+  "timestamp": 1706400000
 }
 ```
 
 ---
 
-#### 2. Get Deposit Status
+### Get Deposit Status
 
-**Request:**
+#### Message Type: `get_deposit_status`
+
+**Request**:
 ```json
 {
   "type": "get_deposit_status",
   "data": {
-    "request_ref": "DEP-REQ-20251207-001"
+    "request_ref": "DEP-KES-20240127-001"
   }
 }
 ```
 
-**Response:**
+**Response**:
 ```json
 {
   "type": "success",
   "data": {
     "message": "deposit status",
     "data": {
-      "request_ref": "DEP-REQ-20251207-001",
+      "request_ref": "DEP-KES-20240127-001",
       "status": "completed",
-      "amount": 100.00,
-      "currency": "USD",
-      "receipt_code": "RCP-2025-388065207815057408",
-      "journal_id": 10,
-      "created_at": "2025-12-07T10:30:00Z",
-      "completed_at": "2025-12-07T10:35:00Z"
+      "amount_local": 1000.00,
+      "local_currency": "KES",
+      "amount_usd": 7.50,
+      "receipt_code": "RCP-123456",
+      "completed_at": "2024-01-27T12:30:00Z"
     }
   },
-  "timestamp": 1702000000
+  "timestamp": 1706400000
 }
 ```
 
 ---
 
-#### 3. Cancel Deposit
+### Cancel Deposit
 
-**Request:**
+#### Message Type: `cancel_deposit`
+
+**Request**:
 ```json
 {
   "type": "cancel_deposit",
   "data": {
-    "request_ref": "DEP-REQ-20251207-001"
+    "request_ref": "DEP-KES-20240127-001"
   }
 }
 ```
 
-**Response:**
+**Response**:
 ```json
 {
   "type": "success",
   "data": {
     "message": "deposit cancelled",
-    "data": null
+    "data": {
+      "request_ref": "DEP-KES-20240127-001",
+      "status": "cancelled"
+    }
   },
-  "timestamp": 1702000000
+  "timestamp": 1706400000
 }
 ```
 
 ---
 
-### Withdrawal Operations
+## Withdrawal Operations
 
-#### 1. Create Withdrawal Request
+### Withdrawal Flow Overview
 
-**⚠️ Requires verification token from verification flow**
+```
+1. User requests verification → verification_request
+2. User verifies (TOTP/OTP) → verify_totp/verify_otp
+3. System returns verification_token (5 min TTL)
+4. User submits withdrawal with token → withdraw_request
+5. System validates token & processes withdrawal
+6. Withdrawal completed → withdraw_completed notification
+```
 
-**Request:**
+### Message Type: `withdraw_request`
+
+**Partner Withdrawal Request (M-Pesa)**:
+```json
+{
+  "type": "withdraw_request",
+  "data": {
+    "amount": 5.00,
+    "local_currency": "KES",
+    "service": "mpesa",
+    "destination": "254712345678",
+    "verification_token": "a1b2c3d4e5f6...",
+    "consent": true
+  }
+}
+```
+
+**Partner Withdrawal Response**:
+```json
+{
+  "type": "success",
+  "data": {
+    "message": "withdrawal initiated",
+    "data": {
+      "request_ref": "WTH-KES-20240127-001",
+      "receipt_code": "RCP-789012",
+      "amount_usd": 5.00,
+      "amount_local": 666.67,
+      "local_currency": "KES",
+      "exchange_rate": 133.33,
+      "fee": 0.50,
+      "destination": "254712***678",
+      "partner": {
+        "id": "safaricom_mpesa",
+        "name": "Safaricom M-Pesa"
+      },
+      "status": "processing",
+      "estimated_completion": "2024-01-27T12:35:00Z"
+    }
+  },
+  "timestamp": 1706400000
+}
+```
+
+**Agent Withdrawal Request**:
 ```json
 {
   "type": "withdraw_request",
   "data": {
     "amount": 50.00,
-    "currency": "USD",
-    "destination": "+254712345678",
-    "service": "mpesa",  // Optional
-    "agent_id": "AGT-123",  // Optional: for agent-assisted withdrawals
-    "verification_token": "a1b2c3d4e5f6789..."  // Required: from verification flow
+    "local_currency": "USD",
+    "agent_id": "AGT-001",
+    "destination": "agent_cash",
+    "verification_token": "a1b2c3d4e5f6...",
+    "consent": true
   }
 }
 ```
 
-**Response (Success):**
+**Agent Withdrawal Response**:
 ```json
 {
   "type": "success",
   "data": {
-    "message": "withdrawal request created and being processed",
+    "message": "withdrawal request created",
     "data": {
-      "request_ref": "WDL-REQ-20251207-001",
+      "request_ref": "WTH-USD-20240127-002",
+      "receipt_code": "RCP-789013",
       "amount": 50.00,
       "currency": "USD",
-      "destination": "+254712345678",
-      "status": "processing",
-      "withdrawal_type": "direct",  // or "agent_assisted"
-      "created_at": 1702000000
+      "fee": 1.00,
+      "agent": {
+        "id": "AGT-001",
+        "name": "Agent John Doe",
+        "phone": "***1234"
+      },
+      "status": "pending_agent",
+      "instructions": "Visit Agent John Doe with reference WTH-USD-20240127-002 to collect your cash"
     }
   },
-  "timestamp": 1702000000
+  "timestamp": 1706400000
 }
 ```
 
-**Response (With Agent):**
+**Crypto Withdrawal Request**:
+```json
+{
+  "type": "withdraw_request",
+  "data": {
+    "amount": 100.00,
+    "local_currency": "USDT",
+    "service": "crypto",
+    "destination": "TYzK7gD3K4VwY8uP...",
+    "verification_token": "a1b2c3d4e5f6...",
+    "consent": true
+  }
+}
+```
+
+**Crypto Withdrawal Response**:
 ```json
 {
   "type": "success",
   "data": {
-    "message": "withdrawal request created and being processed",
+    "message": "crypto withdrawal initiated",
     "data": {
-      "request_ref": "WDL-REQ-20251207-002",
-      "amount": 50.00,
-      "currency": "USD",
-      "destination": "+254712345678",
+      "request_ref": "WTH-USDT-20240127-003",
+      "receipt_code": "RCP-789014",
+      "amount": 100.00,
+      "currency": "USDT",
+      "chain": "TRC20",
+      "destination_address": "TYzK7gD3K4VwY8uP...",
+      "network_fee": 1.50,
+      "platform_fee": 0.50,
+      "total_fee": 2.00,
+      "amount_to_receive": 98.00,
       "status": "processing",
-      "agent_id": "AGT-123",
-      "agent_name": "John's Agent Shop",
-      "agent_account": "ACC-AGENT-USD-789",
-      "withdrawal_type": "agent_assisted",
-      "created_at": 1702000000
+      "tx_hash": null,
+      "estimated_completion": "2024-01-27T12:40:00Z"
     }
   },
-  "timestamp": 1702000000
-}
-```
-
-**Error (No Verification Token):**
-```json
-{
-  "type": "error",
-  "data": {
-    "message": "verification_token is required.  Please complete verification first."
-  },
-  "timestamp": 1702000000
-}
-```
-
-**Error (Invalid Token):**
-```json
-{
-  "type": "error",
-  "data": {
-    "message": "invalid or expired verification token.  Please verify again."
-  },
-  "timestamp": 1702000000
-}
-```
-
-**Error (Insufficient Balance):**
-```json
-{
-  "type": "error",
-  "data": {
-    "message": "insufficient balance: available 30.00 USD"
-  },
-  "timestamp": 1702000000
+  "timestamp": 1706400000
 }
 ```
 
 ---
 
-### Transfer Operations
+## Transfer Operations
 
-#### 1.  Peer-to-Peer Transfer
+### Transfer Flow Overview
 
-**Request:**
+```
+1. P2P Transfer: User → User
+2. Agent Deposit Fulfillment: Agent → User (with deposit_request_ref)
+```
+
+### Message Type: `transfer`
+
+**P2P Transfer Request**:
 ```json
 {
   "type": "transfer",
   "data": {
-    "to_user_id": "456",
+    "to_user_id": "67890",
     "amount": 25.00,
     "currency": "USD",
-    "description": "Payment for lunch"
+    "description": "Payment for services"
   }
 }
 ```
 
-**Response:**
+**P2P Transfer Response**:
 ```json
 {
   "type": "success",
   "data": {
     "message": "transfer completed",
     "data": {
-      "receipt_code": "RCP-2025-388065207815057409",
-      "journal_id": 11,
+      "receipt_code": "RCP-345678",
+      "journal_id": 12345,
       "amount": 25.00,
-      "fee": 0.50,
-      "agent_commission": 0.00,
-      "created_at": "2025-12-07T10:40:00Z"
+      "currency": "USD",
+      "fee": 0.00,
+      "to_user_id": "67890",
+      "transfer_type": "p2p",
+      "created_at": "2024-01-27T13:00:00Z"
     }
   },
-  "timestamp": 1702000000
+  "timestamp": 1706400000
 }
 ```
 
----
-
-#### 2. Currency Conversion & Transfer
-
-**Request:**
+**Agent Deposit Fulfillment Request**:
 ```json
 {
-  "type": "convert_and_transfer",
+  "type": "transfer",
   "data": {
-    "from_currency": "USD",
-    "to_currency": "EUR",
-    "amount": 100. 00,
-    "description": "Convert USD to EUR"
+    "to_user_id": "12345",
+    "amount": 100.00,
+    "currency": "USD",
+    "deposit_request_ref": "DEP-USD-20240127-002",
+    "description": "Deposit fulfillment"
   }
 }
 ```
 
-**Response:**
+**Agent Deposit Fulfillment Response**:
 ```json
 {
   "type": "success",
   "data": {
-    "message": "conversion completed",
+    "message": "deposit fulfilled successfully",
     "data": {
-      "receipt_code": "RCP-2025-388065207815057410",
-      "journal_id": 12,
-      "source_currency": "USD",
-      "dest_currency": "EUR",
-      "source_amount": 100.00,
-      "converted_amount": 92.50,
-      "fx_rate": "0.925",
-      "fx_rate_id": 5,
-      "fee": 1.00,
-      "created_at": "2025-12-07T10:45:00Z"
+      "receipt_code": "RCP-345679",
+      "journal_id": 12346,
+      "amount": 100.00,
+      "currency": "USD",
+      "fee": 0.00,
+      "to_user_id": "12345",
+      "transfer_type": "agent_deposit",
+      "agent_id": "AGT-001",
+      "agent_name": "Agent John Doe",
+      "agent_commission": 2.00,
+      "deposit_request_ref": "DEP-USD-20240127-002",
+      "deposit_completed": true,
+      "created_at": "2024-01-27T13:05:00Z"
     }
   },
-  "timestamp": 1702000000
+  "timestamp": 1706400000
+}
+```
+
+**Transfer Recipient Notification**:
+```json
+{
+  "type": "transfer_received",
+  "data": {
+    "from_user_id": "12345",
+    "amount": 25.00,
+    "currency": "USD",
+    "description": "Payment for services",
+    "receipt_code": "RCP-345678",
+    "transfer_type": "p2p"
+  },
+  "timestamp": 1706400000
 }
 ```
 
 ---
 
-### Transaction History
+## Transaction History
 
-#### 1. Get Transaction History
+### Message Type: `get_history`
 
-**Request:**
+**Request**:
 ```json
 {
   "type": "get_history",
   "data": {
-    "type": "all",  // Options: "deposits", "withdrawals", "all"
+    "type": "deposits" | "withdrawals" | "all",
     "limit": 20,
     "offset": 0
   }
 }
 ```
 
-**Response:**
+**Response**:
 ```json
 {
   "type": "success",
@@ -716,50 +907,45 @@ Get consolidated balance across all accounts.
     "data": {
       "deposits": [
         {
-          "id": 1,
-          "request_ref": "DEP-REQ-20251207-001",
-          "amount": 100.00,
+          "request_ref": "DEP-KES-20240127-001",
+          "amount": 7.50,
           "currency": "USD",
           "status": "completed",
-          "receipt_code": "RCP-2025-388065207815057408",
-          "created_at": "2025-12-07T10:30:00Z",
-          "completed_at": "2025-12-07T10:35:00Z"
+          "created_at": "2024-01-27T12:00:00Z"
         }
       ],
       "withdrawals": [
         {
-          "id": 2,
-          "request_ref": "WDL-REQ-20251207-001",
-          "amount": 50.00,
+          "request_ref": "WTH-KES-20240127-001",
+          "amount": 5.00,
           "currency": "USD",
-          "destination": "+254712345678",
           "status": "completed",
-          "receipt_code": "RCP-2025-388065207815057411",
-          "created_at": "2025-12-07T11:00:00Z",
-          "completed_at": "2025-12-07T11:05:00Z"
+          "created_at": "2024-01-27T12:30:00Z"
         }
       ]
     }
   },
-  "timestamp": 1702000000
+  "timestamp": 1706400000
 }
 ```
 
 ---
 
-#### 2. Get Transaction by Receipt
+### Get Transaction by Receipt
 
-**Request:**
+#### Message Type: `get_transaction_by_receipt`
+
+**Request**:
 ```json
 {
   "type": "get_transaction_by_receipt",
   "data": {
-    "receipt_code": "RCP-2025-388065207815057408"
+    "receipt_code": "RCP-123456"
   }
 }
 ```
 
-**Response:**
+**Response**:
 ```json
 {
   "type": "success",
@@ -767,119 +953,104 @@ Get consolidated balance across all accounts.
     "message": "transaction details",
     "data": {
       "journal": {
-        "id": 10,
-        "transaction_type": "TRANSACTION_TYPE_DEPOSIT",
-        "description": "Deposit from Partner Name",
-        "created_at": "2025-12-07T10:35:00Z"
+        "id": 12345,
+        "transaction_type": "DEPOSIT",
+        "description": "M-Pesa deposit from 254712345678",
+        "created_at": "2024-01-27T12:30:00Z"
       },
       "ledgers": [
         {
-          "account_number": "ACC-PARTNER-USD-999",
-          "amount": 100.00,
-          "type": "DR_CR_DEBIT",
-          "balance_after": 900.00,
-          "description": "Deposit to user"
-        },
-        {
-          "account_number": "ACC-USER-USD-123",
-          "amount": 99.00,
-          "type": "DR_CR_CREDIT",
-          "balance_after": 1099.00,
-          "description": "Deposit received"
+          "account_number": "ACC-USD-12345",
+          "amount": 7.50,
+          "type": "CREDIT",
+          "balance_after": 107.50,
+          "description": "Deposit credited"
         }
       ],
       "fees": [
         {
-          "type": "FEE_TYPE_PLATFORM",
-          "amount": 1.00,
+          "type": "PLATFORM_FEE",
+          "amount": 0.50,
           "currency": "USD"
         }
       ]
     }
   },
-  "timestamp": 1702000000
+  "timestamp": 1706400000
 }
 ```
 
 ---
 
-### Statements & Reports
+## Statements & Reports
 
-#### 1. Get Account Statement
+### 1. Get Account Statement
 
-**Request:**
+#### Message Type: `get_account_statement`
+
+**Request**:
 ```json
 {
   "type": "get_account_statement",
   "data": {
-    "account_number": "ACC-USER-USD-123",
-    "from": "2025-12-01T00:00:00Z",
-    "to": "2025-12-07T23:59:59Z"
+    "account_number": "ACC-USD-12345",
+    "from": "2024-01-01T00:00:00Z",
+    "to": "2024-01-31T23:59:59Z"
   }
 }
 ```
 
-**Response:**
+**Response**:
 ```json
 {
   "type": "success",
   "data": {
     "message": "account statement",
     "data": {
-      "account_number": "ACC-USER-USD-123",
-      "opening_balance": 1000.00,
-      "closing_balance": 1099.00,
+      "account_number": "ACC-USD-12345",
+      "opening_balance": 100.00,
+      "closing_balance": 107.50,
       "total_debits": 50.00,
-      "total_credits": 149.00,
-      "period_start": "2025-12-01T00:00:00Z",
-      "period_end": "2025-12-07T23:59:59Z",
+      "total_credits": 57.50,
+      "period_start": "2024-01-01T00:00:00Z",
+      "period_end": "2024-01-31T23:59:59Z",
       "ledgers": [
         {
           "id": 1,
-          "amount": 100.00,
-          "type": "DR_CR_CREDIT",
+          "amount": 7.50,
+          "type": "CREDIT",
           "currency": "USD",
-          "balance_after": 1100.00,
-          "description": "Deposit received",
-          "receipt_code": "RCP-2025-388065207815057408",
-          "created_at": "2025-12-07T10:35:00Z"
-        },
-        {
-          "id": 2,
-          "amount": 50.00,
-          "type": "DR_CR_DEBIT",
-          "currency": "USD",
-          "balance_after": 1050.00,
-          "description": "Withdrawal",
-          "receipt_code": "RCP-2025-388065207815057411",
-          "created_at": "2025-12-07T11:05:00Z"
+          "balance_after": 107.50,
+          "description": "Deposit",
+          "receipt_code": "RCP-123456",
+          "created_at": "2024-01-27T12:30:00Z"
         }
       ],
-      "transaction_count": 2
+      "transaction_count": 1
     }
   },
-  "timestamp": 1702000000
+  "timestamp": 1706400000
 }
 ```
 
 ---
 
-#### 2. Get Owner Statement
+### 2. Get Owner Statement
 
-Get statement for all accounts. 
+#### Message Type: `get_owner_statement`
 
-**Request:**
+**Request**:
 ```json
 {
   "type": "get_owner_statement",
   "data": {
-    "from": "2025-12-01T00:00:00Z",
-    "to": "2025-12-07T23:59:59Z"
+    "from": "2024-01-01T00:00:00Z",
+    "to": "2024-01-31T23:59:59Z"
   }
 }
 ```
 
-**Response:**
+**Response**:
 ```json
 {
   "type": "success",
@@ -888,50 +1059,52 @@ Get statement for all accounts.
     "data": {
       "statements": [
         {
-          "account_number": "ACC-USER-USD-123",
-          "opening_balance": 1000.00,
-          "closing_balance": 1099.00,
+          "account_number": "ACC-USD-12345",
+          "opening_balance": 100.00,
+          "closing_balance": 107.50,
           "total_debits": 50.00,
-          "total_credits": 149.00,
+          "total_credits": 57.50,
           "ledgers": [...]
         },
         {
-          "account_number": "ACC-USER-EUR-124",
-          "opening_balance": 500. 00,
-          "closing_balance": 500.00,
-          "total_debits": 0.00,
-          "total_credits": 0.00,
-          "ledgers": []
+          "account_number": "ACC-BTC-12345",
+          "opening_balance": 0.05,
+          "closing_balance": 0.06,
+          "total_debits": 0.01,
+          "total_credits": 0.02,
+          "ledgers": [...]
         }
       ],
       "count": 2,
-      "period_start": "2025-12-01T00:00:00Z",
-      "period_end": "2025-12-07T23:59:59Z"
+      "period_start": "2024-01-01T00:00:00Z",
+      "period_end": "2024-01-31T23:59:59Z"
     }
   },
-  "timestamp": 1702000000
+  "timestamp": 1706400000
 }
 ```
 
 ---
 
-#### 3. Get Ledgers
+### 3. Get Ledgers
 
-**Request:**
+#### Message Type: `get_ledgers`
+
+**Request**:
 ```json
 {
   "type": "get_ledgers",
   "data": {
-    "account_number": "ACC-USER-USD-123",
-    "from": "2025-12-01T00:00:00Z",  // Optional
-    "to": "2025-12-07T23:59:59Z",  // Optional
+    "account_number": "ACC-USD-12345",
+    "from": "2024-01-01T00:00:00Z",
+    "to": "2024-01-31T23:59:59Z",
     "limit": 50,
     "offset": 0
   }
 }
 ```
 
-**Response:**
+**Response**:
 ```json
 {
   "type": "success",
@@ -941,14 +1114,14 @@ Get statement for all accounts.
       "ledgers": [
         {
           "id": 1,
-          "journal_id": 10,
-          "amount": 100.00,
-          "type": "DR_CR_CREDIT",
+          "journal_id": 12345,
+          "amount": 7.50,
+          "type": "CREDIT",
           "currency": "USD",
-          "balance_after": 1100.00,
-          "description": "Deposit received",
-          "receipt_code": "RCP-2025-388065207815057408",
-          "created_at": "2025-12-07T10:35:00Z"
+          "balance_after": 107.50,
+          "description": "Deposit",
+          "receipt_code": "RCP-123456",
+          "created_at": "2024-01-27T12:30:00Z"
         }
       ],
       "total": 1,
@@ -956,416 +1129,381 @@ Get statement for all accounts.
       "offset": 0
     }
   },
-  "timestamp": 1702000000
+  "timestamp": 1706400000
 }
 ```
 
 ---
 
-### Fee Calculation
+## Fee Calculation
 
-#### Calculate Transaction Fee
+### Message Type: `calculate_fee`
 
-**Request:**
+**Request**:
 ```json
 {
   "type": "calculate_fee",
   "data": {
-    "transaction_type": "withdrawal",  // Options: transfer, withdrawal, conversion
+    "transaction_type": "transfer" | "withdrawal" | "conversion",
     "amount": 100.00,
     "source_currency": "USD",
-    "target_currency": "EUR"  // Required for conversion
+    "target_currency": "BTC",
+    "to_address": "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh"
   }
 }
 ```
 
-**Response:**
+**Response**:
 ```json
 {
   "type": "success",
   "data": {
     "message": "fee calculated",
     "data": {
-      "fee_type": "FEE_TYPE_PLATFORM",
-      "amount": 2.00,
-      "currency": "USD",
-      "applied_rate": "0.02"
+      "platform_fee": 0.50,
+      "network_fee": 1.50,
+      "total_fee": 2.00,
+      "fee_percentage": 2.0,
+      "amount_after_fee": 98.00,
+      "currency": "USD"
     }
   },
-  "timestamp": 1702000000
+  "timestamp": 1706400000
 }
 ```
 
 ---
 
-## Server-Sent Events (Push Notifications)
+## Currency Conversion
 
-These are events pushed from the server to connected clients without a request. 
+### Message Type: `convert_and_transfer`
 
-### 1.  Deposit Completed
+**Request**:
+```json
+{
+  "type": "convert_and_transfer",
+  "data": {
+    "from_currency": "USD",
+    "to_currency": "BTC",
+    "amount": 1000.00,
+    "description": "Converting USD to BTC"
+  }
+}
+```
 
-Sent when a deposit is completed by the partner service.
+**Response**:
+```json
+{
+  "type": "success",
+  "data": {
+    "message": "conversion completed",
+    "data": {
+      "receipt_code": "RCP-567890",
+      "journal_id": 12347,
+      "source_currency": "USD",
+      "dest_currency": "BTC",
+      "source_amount": 1000.00,
+      "converted_amount": 0.02345678,
+      "fx_rate": "42650.50",
+      "fx_rate_id": 789,
+      "fee": 5.00,
+      "created_at": "2024-01-27T14:00:00Z"
+    }
+  },
+  "timestamp": 1706400000
+}
+```
+
+---
+
+## Partner Operations
+
+### Message Type: `get_partners`
+
+**Request**:
+```json
+{
+  "type": "get_partners",
+  "data": {
+    "service": "mpesa" | "bank_transfer" | "crypto"
+  }
+}
+```
+
+**Response**:
+```json
+{
+  "type": "success",
+  "data": {
+    "message": "partners retrieved",
+    "data": {
+      "partners": [
+        {
+          "id": "safaricom_mpesa",
+          "name": "Safaricom M-Pesa",
+          "service": "mpesa",
+          "currency": "KES",
+          "is_active": true,
+          "fees": {
+            "deposit": 0.5,
+            "withdrawal": 1.0
+          }
+        }
+      ],
+      "count": 1
+    }
+  },
+  "timestamp": 1706400000
+}
+```
+
+---
+
+## Event Notifications
+
+These are server-initiated messages sent to clients when events occur.
+
+### 1. Deposit Completed
 
 ```json
 {
   "type": "deposit_completed",
   "data": {
-    "transaction_ref": "DEP-REQ-20251207-001",
-    "receipt_code": "RCP-2025-388065207815057408",
-    "journal_id": 10,
-    "amount": 100.00,
+    "request_ref": "DEP-KES-20240127-001",
+    "amount": 7.50,
     "currency": "USD",
-    "user_balance": 1100.00,
-    "fee_amount": 1.00,
-    "payment_method": "mpesa",
-    "completed_at": 1702000000,
-    "timestamp": 1702000000
-  }
+    "receipt_code": "RCP-123456",
+    "status": "completed",
+    "completed_at": "2024-01-27T12:30:00Z"
+  },
+  "timestamp": 1706400000
 }
 ```
 
----
-
-### 2. Deposit Failed
-
-Sent when a deposit fails. 
+### 2. Withdrawal Completed
 
 ```json
 {
-  "type": "deposit_failed",
+  "type": "withdraw_completed",
   "data": {
-    "transaction_ref": "DEP-REQ-20251207-001",
-    "amount": 100.00,
+    "request_ref": "WTH-KES-20240127-001",
+    "amount": 5.00,
     "currency": "USD",
-    "error_message": "Payment timeout",
-    "failed_at": 1702000000,
-    "timestamp": 1702000000
-  }
+    "receipt_code": "RCP-789012",
+    "status": "completed",
+    "completed_at": "2024-01-27T12:35:00Z"
+  },
+  "timestamp": 1706400000
 }
 ```
 
----
-
-### 3. Withdrawal Completed
-
-Sent when a withdrawal is completed. 
+### 3. Transfer Received
 
 ```json
 {
-  "type": "withdrawal_completed",
+  "type": "transfer_received",
   "data": {
-    "request_ref": "WDL-REQ-20251207-001",
-    "receipt_code": "RCP-2025-388065207815057411",
-    "balance_after": 1050.00
-  }
-}
-```
-
-**With Agent:**
-```json
-{
-  "type": "withdrawal_completed",
-  "data": {
-    "request_ref": "WDL-REQ-20251207-002",
-    "receipt_code": "RCP-2025-388065207815057412",
-    "agent_id": "AGT-123",
-    "agent_name": "John's Agent Shop",
-    "fee_amount": 2.00,
-    "agent_commission": 1.50
-  }
-}
-```
-
----
-
-### 4. Withdrawal Failed
-
-```json
-{
-  "type": "withdrawal_failed",
-  "data": {
-    "request_ref": "WDL-REQ-20251207-001",
-    "error": "Destination account invalid"
-  }
-}
-```
-
----
-
-### 5. Transfer Completed
-
-Sent when a P2P transfer completes.
-
-```json
-{
-  "type": "transfer_completed",
-  "data": {
-    "receipt_code": "RCP-2025-388065207815057409",
-    "transaction_id": 11,
+    "from_user_id": "12345",
     "amount": 25.00,
     "currency": "USD",
-    "from_account": "ACC-USER-USD-123",
-    "to_account": "ACC-USER-USD-456",
-    "fee": 0.50,
-    "timestamp": 1702000000
-  }
+    "description": "Payment for services",
+    "receipt_code": "RCP-345678",
+    "transfer_type": "p2p"
+  },
+  "timestamp": 1706400000
 }
 ```
 
----
-
-### 6. Transaction Completed
-
-Generic transaction completion event.
+### 4. Deposit Completed (Agent)
 
 ```json
-{
-  "type": "transaction_completed",
-  "data": {
-    "receipt_code": "RCP-2025-388065207815057408",
-    "transaction_id": 10,
-    "transaction_type": "deposit",
-    "amount": 100.00,
-    "currency": "USD",
-    "balance_after": 1100.00,
-    "fee": 1.00,
-    "timestamp": 1702000000
-  }
-}
-```
-
----
-
-### 7. Transaction Failed
-
-Generic transaction failure event.
-
-```json
-{
-  "type": "transaction_failed",
-  "data": {
-    "receipt_code": "RCP-2025-388065207815057408",
-    "transaction_id": 10,
-    "transaction_type": "deposit",
-    "amount": 100.00,
-    "currency": "USD",
-    "error": "Transaction timeout",
-    "timestamp": 1702000000
-  }
-}
-```
-
----
-
-## Error Handling
-
-### Common Error Codes
-
-| Error Message | Meaning | Action |
-|--------------|---------|--------|
-| `invalid request format` | JSON parsing failed | Check request format |
-| `unauthorized` | Not authorized for this action | Check authentication |
-| `invalid API credentials` | API key/secret invalid | Re-authenticate |
-| `verification_token is required` | Missing verification token | Complete verification flow first |
-| `invalid or expired verification token` | Token invalid/expired | Request new verification |
-| `insufficient balance` | Not enough funds | Add funds or reduce amount |
-| `account not found` | Account doesn't exist | Check account number |
-| `user has no accounts` | No accounts created yet | Create account first |
-| `transaction not found` | Invalid receipt/ref | Check transaction reference |
-| `amount must be greater than zero` | Invalid amount | Provide valid amount |
-
----
-
-## Examples
-
-### Complete Withdrawal Flow
-
-**Step 1: Request Verification**
-```json
-// Client sends:
-{
-  "type": "verification_request",
-  "data": {
-    "method": "otp_email",
-    "purpose": "withdrawal"
-  }
-}
-
-// Server responds:
-{
-  "type": "success",
-  "data": {
-    "message": "OTP sent to us***@example.com via email",
-    "data": {
-      "method": "otp_email",
-      "next_step": "verify_otp",
-      "expires_in": 180
-    }
-  }
-}
-```
-
-**Step 2: Verify OTP**
-```json
-// Client sends:
-{
-  "type": "verify_otp",
-  "data": {
-    "code": "123456",
-    "purpose": "withdrawal"
-  }
-}
-
-// Server responds:
-{
-  "type": "success",
-  "data": {
-    "message": "verification successful",
-    "data": {
-      "verification_token": "abc123xyz.. .",
-      "expires_in": 300
-    }
-  }
-}
-```
-
-**Step 3: Submit Withdrawal**
-```json
-// Client sends:
-{
-  "type": "withdraw_request",
-  "data": {
-    "amount": 50.00,
-    "currency": "USD",
-    "destination": "+254712345678",
-    "verification_token": "abc123xyz..."
-  }
-}
-
-// Server responds:
-{
-  "type": "success",
-  "data": {
-    "message": "withdrawal request created and being processed",
-    "data": {
-      "request_ref": "WDL-REQ-20251207-001",
-      "status": "processing"
-    }
-  }
-}
-```
-
-**Step 4: Server Pushes Completion**
-```json
-// Server pushes (no request):
-{
-  "type": "withdrawal_completed",
-  "data": {
-    "request_ref": "WDL-REQ-20251207-001",
-    "receipt_code": "RCP-2025-388065207815057411",
-    "balance_after": 1050.00
-  }
-}
-```
-
----
-
-### Complete Deposit Flow
-
-**Step 1: Request Deposit**
-```json
-// Client sends:
-{
-  "type": "deposit_request",
-  "data": {
-    "amount": 100.00,
-    "currency": "USD",
-    "service": "mpesa"
-  }
-}
-
-// Server responds:
-{
-  "type": "success",
-  "data": {
-    "message": "deposit request created",
-    "data": {
-      "request_ref": "DEP-REQ-20251207-001",
-      "partner_id": "PTN-123",
-      "status": "sent_to_partner",
-      "expires_at": "2025-12-07T11:00:00Z"
-    }
-  }
-}
-```
-
-**Step 2: Server Pushes Completion (When Partner Confirms)**
-```json
-// Server pushes (no request):
 {
   "type": "deposit_completed",
   "data": {
-    "transaction_ref": "DEP-REQ-20251207-001",
-    "receipt_code": "RCP-2025-388065207815057408",
+    "from_user_id": "AGT-001",
     "amount": 100.00,
     "currency": "USD",
-    "user_balance": 1100.00,
-    "completed_at": 1702000000
-  }
+    "description": "Deposit fulfillment via agent AGT-001",
+    "receipt_code": "RCP-345679",
+    "deposit_request_ref": "DEP-USD-20240127-002",
+    "is_deposit": true,
+    "agent_id": "AGT-001",
+    "agent_name": "Agent John Doe"
+  },
+  "timestamp": 1706400000
 }
 ```
+
+---
+
+## Complete Flow Examples
+
+### Withdrawal Flow (with TOTP)
+
+```
+Step 1: Request Verification
+→ type: "verification_request"
+  data: { method: "totp", purpose: "withdrawal" }
+
+← type: "success"
+  data: { method: "totp", next_step: "verify_totp" }
+
+Step 2: Verify TOTP
+→ type: "verify_totp"
+  data: { code: "123456", purpose: "withdrawal" }
+
+← type: "success"
+  data: { verification_token: "a1b2c3...", expires_in: 300 }
+
+Step 3: Submit Withdrawal
+→ type: "withdraw_request"
+  data: {
+    amount: 5.00,
+    local_currency: "KES",
+    service: "mpesa",
+    destination: "254712345678",
+    verification_token: "a1b2c3...",
+    consent: true
+  }
+
+← type: "success"
+  data: {
+    request_ref: "WTH-KES-20240127-001",
+    receipt_code: "RCP-789012",
+    status: "processing"
+  }
+
+Step 4: Withdrawal Completed (Notification)
+← type: "withdraw_completed"
+  data: {
+    request_ref: "WTH-KES-20240127-001",
+    status: "completed"
+  }
+```
+
+### Agent Deposit Flow
+
+```
+Step 1: User Creates Deposit Request
+→ type: "deposit_request"
+  data: {
+    amount: 100,
+    local_currency: "USD",
+    service: "agent",
+    agent_id: "AGT-001"
+  }
+
+← type: "success"
+  data: {
+    request_ref: "DEP-USD-20240127-002",
+    status: "sent_to_agent",
+    agent: { id: "AGT-001", name: "Agent John Doe" }
+  }
+
+Step 2: Agent Fulfills Deposit (Transfer)
+→ type: "transfer"
+  data: {
+    to_user_id: "12345",
+    amount: 100.00,
+    currency: "USD",
+    deposit_request_ref: "DEP-USD-20240127-002"
+  }
+
+← type: "success"
+  data: {
+    receipt_code: "RCP-345679",
+    transfer_type: "agent_deposit",
+    deposit_completed: true
+  }
+
+Step 3: User Receives Notification
+← type: "deposit_completed"
+  data: {
+    deposit_request_ref: "DEP-USD-20240127-002",
+    amount: 100.00,
+    is_deposit: true,
+    agent_id: "AGT-001"
+  }
+```
+
+---
+
+## Error Codes & Messages
+
+| Error Message | Cause | Solution |
+|---------------|-------|----------|
+| `verification token is required` | No verification token provided | Complete verification flow first |
+| `invalid or expired verification token` | Token expired or invalid | Request new verification |
+| `insufficient balance` | Account balance too low | Deposit funds |
+| `account not found` | Account doesn't exist | Create account first |
+| `unauthorized` | Not account owner | Check account ownership |
+| `2FA not enabled` | TOTP requested but not enabled | Use OTP instead or enable 2FA |
+| `invalid TOTP code` | Wrong 2FA code | Enter correct code |
+| `invalid OTP code` | Wrong OTP code | Request new OTP |
+| `currency not supported` | Invalid currency code | Use supported currency |
+| `amount must be greater than zero` | Zero or negative amount | Use positive amount |
+| `only agents can fulfill deposits` | Non-agent trying to fulfill | Must be agent user |
+| `deposit request not found` | Invalid deposit reference | Check reference code |
+
+---
+
+## Rate Limits & Timeouts
+
+- **Verification Token TTL**: 5 minutes (300 seconds)
+- **OTP Session TTL**: 3 minutes (180 seconds)
+- **WebSocket Ping Interval**: 54 seconds
+- **WebSocket Read Timeout**: 60 seconds
+- **WebSocket Write Timeout**: 10 seconds
 
 ---
 
 ## Best Practices
 
-### Client Implementation
-
-1. **Reconnection Strategy**
-   - Implement exponential backoff for reconnection
-   - Start with 1s, then 2s, 4s, 8s, max 30s
-   - Reset backoff on successful connection
-
-2. **Message Handling**
-   - Always check `type` field first
-   - Handle both request/response and push events
-   - Store verification tokens securely in memory (not localStorage)
-   - Clear verification tokens after use or on expiry
-
-3. **Error Handling**
-   - Display user-friendly error messages
-   - Log errors for debugging
-   - Retry failed operations with user confirmation
-
-4. **State Management**
-   - Track connection state (connecting, connected, disconnected)
-   - Queue messages while disconnected
-   - Update UI based on push events
-
-5. **Security**
-   - Never log sensitive data (tokens, passwords)
-   - Verify SSL/TLS connection
-   - Clear sensitive data on logout
+1. **Always verify before sensitive operations**: Withdrawals and transfers require verification
+2. **Store verification tokens securely**: Never log or expose tokens
+3. **Handle token expiration**: Request new verification if token expires
+4. **Listen for event notifications**: Important updates sent via WebSocket
+5. **Validate amounts client-side**: Prevent invalid requests
+6. **Handle network errors gracefully**: Implement reconnection logic
+7. **Cache account balances carefully**: Refresh after transactions
+8. **Use idempotency**: Check request_ref before retrying
 
 ---
 
-## Rate Limits
+## Supported Currencies
 
-- Maximum 100 requests per minute per user
-- WebSocket connection timeout: 60 seconds of inactivity
-- Ping/pong every 54 seconds to keep connection alive
+- **Fiat**: USD
+- **Crypto**: BTC, USDT, USDC, TRX
+
+(Check `get_supported_currencies` for current list)
 
 ---
 
-**Last Updated:** December 7, 2025  
-**API Version:** 1.0
-```
+## Supported Services
 
-This documentation provides:
-- ✅ Complete request/response formats for all operations
-- ✅ Push notification formats for real-time events
-- ✅ Complete verification flow documentation
-- ✅ Error handling guide
-- ✅ Practical examples
-- ✅ Best practices for client implementation
-- ✅ Focus on UI team needs (message formats, not backend implementation)
+- **Partner**: mpesa, bank_transfer
+- **Agent**: agent
+- **Crypto**: crypto
+
+---
+
+## WebSocket Connection States
+
+1. **Connecting**: Establishing WebSocket connection
+2. **Connected**: Connection established, received welcome message
+3. **Authenticated**: User authenticated, can send requests
+4. **Disconnected**: Connection lost, should attempt reconnection
+
+---
+
+## Notes
+
+- All amounts are in decimal format (float64)
+- All timestamps are Unix timestamps (seconds since epoch)
+- All dates in ISO 8601 format when returned as strings
+- Phone numbers are masked in responses (***1234)
+- Email addresses are masked in responses (ab***@example.com)
+- Verification tokens are single-use and expire after 5 minutes
+- OTP codes expire after 3 minutes
+- WebSocket messages are JSON-encoded
+- All monetary values support up to 8 decimal places

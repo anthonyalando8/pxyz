@@ -108,7 +108,7 @@ func (h *PaymentHandler) validateUserProfileForWithdrawal(ctx context.Context, u
 		service = *req.Service
 	}
 
-	// ✅ Crypto doesn't need phone/bank validation
+	//  Crypto doesn't need phone/bank validation
 	if service == "crypto" {
 		return "", "", nil
 	}
@@ -176,7 +176,7 @@ var (
 
 	servicesRequiringBank = map[string]bool{
 		"bank_transfer": true,
-		"bank":   true,
+		"bank":          true,
 		"ach":           true,
 		"wire":          true,
 	}

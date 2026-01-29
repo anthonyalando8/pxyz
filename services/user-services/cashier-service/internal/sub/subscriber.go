@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"cashier-service/internal/handler"
+
 	"github.com/redis/go-redis/v9"
 )
 
@@ -17,8 +18,8 @@ const (
 )
 
 type TransactionEventSubscriber struct {
-	rdb  *redis.Client
-	hub  *handler.Hub
+	rdb    *redis.Client
+	hub    *handler.Hub
 	pubsub *redis.PubSub
 }
 
@@ -36,13 +37,13 @@ type TransactionEvent struct {
 	TransactionID   int64                  `json:"transaction_id"`
 	TransactionType string                 `json:"transaction_type"`
 	Status          string                 `json:"status"`
-	Amount          float64                  `json:"amount"`
+	Amount          float64                `json:"amount"`
 	Currency        string                 `json:"currency"`
 	AccountNumber   string                 `json:"account_number,omitempty"`
 	FromAccount     string                 `json:"from_account,omitempty"`
 	ToAccount       string                 `json:"to_account,omitempty"`
-	BalanceAfter    float64                  `json:"balance_after,omitempty"`
-	Fee             float64                  `json:"fee,omitempty"`
+	BalanceAfter    float64                `json:"balance_after,omitempty"`
+	Fee             float64                `json:"fee,omitempty"`
 	ErrorMessage    string                 `json:"error_message,omitempty"`
 	Metadata        map[string]interface{} `json:"metadata,omitempty"`
 	Timestamp       time.Time              `json:"timestamp"`
@@ -51,14 +52,14 @@ type TransactionEvent struct {
 // Start subscribes to transaction events and forwards them to WebSocket clients
 func (s *TransactionEventSubscriber) Start(ctx context.Context) error {
 	s.pubsub = s.rdb.Subscribe(ctx, TransactionEventsChannel)
-	
+
 	// Wait for confirmation that subscription is created
-	_, err := s.pubsub. Receive(ctx)
+	_, err := s.pubsub.Receive(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to subscribe: %w", err)
 	}
 
-	log.Printf("[TransactionSubscriber] ✅ Subscribed to channel: %s", TransactionEventsChannel)
+	log.Printf("[TransactionSubscriber]  Subscribed to channel: %s", TransactionEventsChannel)
 
 	// Start listening for messages
 	go s.listen(ctx)
@@ -73,7 +74,7 @@ func (s *TransactionEventSubscriber) listen(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			log. Println("[TransactionSubscriber] Stopping subscriber...")
+			log.Println("[TransactionSubscriber] Stopping subscriber...")
 			s.pubsub.Close()
 			return
 
@@ -112,13 +113,13 @@ func (s *TransactionEventSubscriber) processEvent(event *TransactionEvent) {
 		wsMessage = map[string]interface{}{
 			"type": "deposit_completed",
 			"data": map[string]interface{}{
-				"receipt_code":    event.ReceiptCode,
-				"transaction_id":  event.TransactionID,
-				"amount":          amount,
-				"currency":        event.Currency,
-				"account_number":  event.AccountNumber,
-				"balance_after":   balanceAfter,
-				"timestamp":       event.Timestamp. Unix(),
+				"receipt_code":   event.ReceiptCode,
+				"transaction_id": event.TransactionID,
+				"amount":         amount,
+				"currency":       event.Currency,
+				"account_number": event.AccountNumber,
+				"balance_after":  balanceAfter,
+				"timestamp":      event.Timestamp.Unix(),
 			},
 		}
 
@@ -126,13 +127,13 @@ func (s *TransactionEventSubscriber) processEvent(event *TransactionEvent) {
 		wsMessage = map[string]interface{}{
 			"type": "withdrawal_completed",
 			"data": map[string]interface{}{
-				"receipt_code":    event.ReceiptCode,
-				"transaction_id":  event.TransactionID,
-				"amount":          amount,
-				"currency":        event.Currency,
-				"account_number":  event.AccountNumber,
-				"balance_after":   balanceAfter,
-				"timestamp":       event.Timestamp.Unix(),
+				"receipt_code":   event.ReceiptCode,
+				"transaction_id": event.TransactionID,
+				"amount":         amount,
+				"currency":       event.Currency,
+				"account_number": event.AccountNumber,
+				"balance_after":  balanceAfter,
+				"timestamp":      event.Timestamp.Unix(),
 			},
 		}
 
@@ -140,14 +141,14 @@ func (s *TransactionEventSubscriber) processEvent(event *TransactionEvent) {
 		wsMessage = map[string]interface{}{
 			"type": "transfer_completed",
 			"data": map[string]interface{}{
-				"receipt_code":  event.ReceiptCode,
-				"transaction_id": event. TransactionID,
-				"amount":        amount,
-				"currency":      event.Currency,
-				"from_account":  event.FromAccount,
-				"to_account":    event.ToAccount,
-				"fee":           fee,
-				"timestamp":     event.Timestamp.Unix(),
+				"receipt_code":   event.ReceiptCode,
+				"transaction_id": event.TransactionID,
+				"amount":         amount,
+				"currency":       event.Currency,
+				"from_account":   event.FromAccount,
+				"to_account":     event.ToAccount,
+				"fee":            fee,
+				"timestamp":      event.Timestamp.Unix(),
 			},
 		}
 
@@ -170,11 +171,11 @@ func (s *TransactionEventSubscriber) processEvent(event *TransactionEvent) {
 		wsMessage = map[string]interface{}{
 			"type": "transaction_failed",
 			"data": map[string]interface{}{
-				"receipt_code":     event. ReceiptCode,
+				"receipt_code":     event.ReceiptCode,
 				"transaction_id":   event.TransactionID,
 				"transaction_type": event.TransactionType,
 				"amount":           amount,
-				"currency":         event. Currency,
+				"currency":         event.Currency,
 				"error":            event.ErrorMessage,
 				"timestamp":        event.Timestamp.Unix(),
 			},
@@ -194,7 +195,7 @@ func (s *TransactionEventSubscriber) processEvent(event *TransactionEvent) {
 
 	// Send to user's WebSocket connection
 	s.hub.SendToUser(event.UserID, messageBytes)
-	log.Printf("[TransactionSubscriber] ✅ Sent %s notification to user=%s", event.EventType, event.UserID)
+	log.Printf("[TransactionSubscriber]  Sent %s notification to user=%s", event.EventType, event.UserID)
 }
 
 // Stop gracefully stops the subscriber

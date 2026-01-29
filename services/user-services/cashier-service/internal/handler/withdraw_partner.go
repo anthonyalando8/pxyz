@@ -9,8 +9,8 @@ import (
 
 	"cashier-service/internal/domain"
 	convsvc "cashier-service/internal/service"
-	accountingpb "x/shared/genproto/shared/accounting/v1"
 	partnersvcpb "x/shared/genproto/partner/svcpb"
+	accountingpb "x/shared/genproto/shared/accounting/v1"
 	"x/shared/utils/id"
 
 	"go.uber.org/zap"
@@ -40,13 +40,13 @@ func (h *PaymentHandler) buildPartnerWithdrawalContext(ctx context.Context, wctx
 
 	selectedPartner := SelectRandomPartner(partners)
 
-	// ✅ Extract local currency from partner
+	//  Extract local currency from partner
 	localCurrency := selectedPartner.LocalCurrency
 	if localCurrency == "" {
 		return nil, fmt.Errorf("partner has no local currency configured")
 	}
 
-	// ✅ Convert to USD using partner's currency
+	//  Convert to USD using partner's currency
 	currencyService := convsvc.NewCurrencyService(h.partnerClient)
 	amountInUSD, exchangeRate, err := currencyService.ConvertToUSDWithValidation(ctx, selectedPartner, req.Amount)
 	if err != nil {
@@ -64,11 +64,11 @@ func (h *PaymentHandler) buildPartnerWithdrawalContext(ctx context.Context, wctx
 	wctx.PhoneNumber = phone
 	wctx.BankAccount = bank
 
-	// ✅ Update request with partner's currency
+	//  Update request with partner's currency
 	req.LocalCurrency = localCurrency
 
 	// Get user USD account
-	userAccount, err := h.GetAccountByCurrency(ctx, wctx.UserID, "user", "USD",nil)
+	userAccount, err := h.GetAccountByCurrency(ctx, wctx.UserID, "user", "USD", nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user account: %v", err)
 	}
@@ -168,7 +168,7 @@ func (h *PaymentHandler) executePartnerWithdrawal(withdrawal *domain.WithdrawalR
 	}
 
 	// Step 1: Get partner's USD account
-	partnerAccount, err := h.GetAccountByCurrency(ctx, wctx.Partner.Id, "partner", "USD",nil)
+	partnerAccount, err := h.GetAccountByCurrency(ctx, wctx.Partner.Id, "partner", "USD", nil)
 	if err != nil {
 		errMsg := fmt.Sprintf("partner account not found: %v", err)
 		h.userUc.FailWithdrawal(ctx, withdrawal.RequestRef, errMsg)
@@ -185,11 +185,11 @@ func (h *PaymentHandler) executePartnerWithdrawal(withdrawal *domain.WithdrawalR
 
 	// Step 2: Transfer from user to partner (in USD)
 	transferReq := &accountingpb.TransferRequest{
-		FromAccountNumber:   wctx.UserAccount,
-		ToAccountNumber:     partnerAccount,
-		Amount:              withdrawal.Amount, // USD amount
-		AccountType:         accountingpb.AccountType_ACCOUNT_TYPE_REAL,
-		Description:         fmt.Sprintf("Withdrawal %.2f %s to %s via partner %s",
+		FromAccountNumber: wctx.UserAccount,
+		ToAccountNumber:   partnerAccount,
+		Amount:            withdrawal.Amount, // USD amount
+		AccountType:       accountingpb.AccountType_ACCOUNT_TYPE_REAL,
+		Description: fmt.Sprintf("Withdrawal %.2f %s to %s via partner %s",
 			wctx.Request.Amount, wctx.Request.LocalCurrency, withdrawal.Destination, wctx.Partner.Name),
 		ExternalRef:         &withdrawal.RequestRef,
 		CreatedByExternalId: fmt.Sprintf("%d", withdrawal.UserID),

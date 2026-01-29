@@ -11,20 +11,21 @@ import (
 	"strings"
 	"time"
 
-	"github.com/redis/go-redis/v9"
-	"go.uber.org/zap"
 	"x/shared/genproto/accountpb"
 	"x/shared/genproto/otppb"
+
+	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 )
 
 const (
 	// Cache prefixes
 	VerificationTokenPrefix = "verify:token:"
 	OTPVerificationPrefix   = "verify:otp:"
-	
+
 	// Expiration times
 	VerificationTokenTTL = 5 * time.Minute
-	OTPSessionTTL        = 3 * time. Minute
+	OTPSessionTTL        = 3 * time.Minute
 )
 
 // VerificationMethod types
@@ -33,7 +34,7 @@ const (
 	VerificationMethodOTPEmail    = "otp_email"
 	VerificationMethodOTPSMS      = "otp_sms"
 	VerificationMethodOTPWhatsApp = "otp_whatsapp"
-	VerificationMethodAuto        = "auto" // ✅ NEW - auto-select based on user profile
+	VerificationMethodAuto        = "auto" //  NEW - auto-select based on user profile
 )
 
 // Verification purposes
@@ -46,8 +47,8 @@ const (
 // handleVerificationRequest initiates verification process
 func (h *PaymentHandler) handleVerificationRequest(ctx context.Context, client *Client, data json.RawMessage) {
 	var req struct {
-		Method  string `json:"method,omitempty"`  // totp, otp_email, otp_sms, otp_whatsapp, auto (or empty)
-		Purpose string `json:"purpose"`           // withdrawal, transfer, etc.
+		Method  string `json:"method,omitempty"` // totp, otp_email, otp_sms, otp_whatsapp, auto (or empty)
+		Purpose string `json:"purpose"`          // withdrawal, transfer, etc.
 	}
 
 	if err := json.Unmarshal(data, &req); err != nil {
@@ -63,46 +64,46 @@ func (h *PaymentHandler) handleVerificationRequest(ctx context.Context, client *
 
 	userID := client.UserID
 
-	// ✅ If no method provided or "auto", determine best available method
+	//  If no method provided or "auto", determine best available method
 	if req.Method == "" || req.Method == VerificationMethodAuto {
 		h.logger.Info("auto-selecting verification method",
 			zap.String("user_id", userID),
 			zap.String("purpose", req.Purpose))
-		
+
 		h.handleAutoVerificationRequest(ctx, client, userID, req.Purpose)
 		return
 	}
 
 	// Validate method
-	if ! isValidVerificationMethod(req. Method) {
-		client.SendError(fmt.Sprintf("invalid verification method: %s", req. Method))
+	if !isValidVerificationMethod(req.Method) {
+		client.SendError(fmt.Sprintf("invalid verification method: %s", req.Method))
 		return
 	}
 
 	// Handle based on method
 	switch req.Method {
 	case VerificationMethodTOTP:
-		h.handleTOTPVerificationRequest(ctx, client, userID, req. Purpose)
-	
+		h.handleTOTPVerificationRequest(ctx, client, userID, req.Purpose)
+
 	case VerificationMethodOTPEmail, VerificationMethodOTPSMS, VerificationMethodOTPWhatsApp:
 		h.handleOTPVerificationRequest(ctx, client, userID, req.Method, req.Purpose)
-	
+
 	default:
 		client.SendError("unsupported verification method")
 	}
 }
 
-// ✅ handleAutoVerificationRequest auto-selects best verification method
+// handleAutoVerificationRequest auto-selects best verification method
 func (h *PaymentHandler) handleAutoVerificationRequest(ctx context.Context, client *Client, userID, purpose string) {
 	h.logger.Info("determining best verification method",
 		zap.String("user_id", userID),
 		zap.String("purpose", purpose))
 
 	// Priority 1: Check if TOTP/2FA is enabled
-	statusResp, err := h.accountClient. Client.GetTwoFAStatus(ctx, &accountpb. GetTwoFAStatusRequest{
+	statusResp, err := h.accountClient.Client.GetTwoFAStatus(ctx, &accountpb.GetTwoFAStatusRequest{
 		UserId: userID,
 	})
-	
+
 	if err == nil && statusResp.IsEnabled {
 		h.logger.Info("2FA enabled, using TOTP",
 			zap.String("user_id", userID))
@@ -122,7 +123,7 @@ func (h *PaymentHandler) handleAutoVerificationRequest(ctx context.Context, clie
 
 	// Priority 3: Try SMS (most common for financial transactions)
 	if user.Phone != "" {
-		h.logger. Info("auto-selected SMS verification",
+		h.logger.Info("auto-selected SMS verification",
 			zap.String("user_id", userID),
 			zap.String("phone", maskPhone(user.Phone)))
 		h.handleOTPVerificationRequest(ctx, client, userID, VerificationMethodOTPSMS, purpose)
@@ -130,8 +131,8 @@ func (h *PaymentHandler) handleAutoVerificationRequest(ctx context.Context, clie
 	}
 
 	// Priority 4: Fall back to email
-	if user. Email != "" {
-		h. logger.Info("auto-selected email verification",
+	if user.Email != "" {
+		h.logger.Info("auto-selected email verification",
 			zap.String("user_id", userID),
 			zap.String("email", maskEmail(user.Email)))
 		h.handleOTPVerificationRequest(ctx, client, userID, VerificationMethodOTPEmail, purpose)
@@ -139,7 +140,7 @@ func (h *PaymentHandler) handleAutoVerificationRequest(ctx context.Context, clie
 	}
 
 	// No verification method available
-	h.logger. Warn("no verification method available",
+	h.logger.Warn("no verification method available",
 		zap.String("user_id", userID))
 	client.SendError("no verification method available.  Please add a phone number or email to your profile")
 }
@@ -151,11 +152,11 @@ func (h *PaymentHandler) handleTOTPVerificationRequest(ctx context.Context, clie
 		zap.String("purpose", purpose))
 
 	// Check if 2FA is enabled
-	statusResp, err := h. accountClient.Client.GetTwoFAStatus(ctx, &accountpb.GetTwoFAStatusRequest{
-		UserId:  userID,
+	statusResp, err := h.accountClient.Client.GetTwoFAStatus(ctx, &accountpb.GetTwoFAStatusRequest{
+		UserId: userID,
 	})
 	if err != nil {
-		h.logger. Error("failed to check 2FA status",
+		h.logger.Error("failed to check 2FA status",
 			zap.String("user_id", userID),
 			zap.Error(err))
 		client.SendError("failed to check 2FA status")
@@ -163,7 +164,7 @@ func (h *PaymentHandler) handleTOTPVerificationRequest(ctx context.Context, clie
 	}
 
 	if !statusResp.IsEnabled {
-		h.logger. Warn("2FA not enabled, suggesting OTP",
+		h.logger.Warn("2FA not enabled, suggesting OTP",
 			zap.String("user_id", userID))
 		client.SendError("2FA is not enabled for your account.  Please use OTP verification instead or enable 2FA")
 		return
@@ -200,17 +201,17 @@ func (h *PaymentHandler) handleOTPVerificationRequest(ctx context.Context, clien
 	// Determine channel and recipient
 	var channel, recipient string
 	switch method {
-	case VerificationMethodOTPEmail: 
+	case VerificationMethodOTPEmail:
 		channel = "email"
 		recipient = user.Email
 		if recipient == "" {
-			h.logger. Warn("email not configured for user",
+			h.logger.Warn("email not configured for user",
 				zap.String("user_id", userID))
 			client.SendError("email not configured.  Please add an email to your profile")
 			return
 		}
-	
-	case VerificationMethodOTPSMS: 
+
+	case VerificationMethodOTPSMS:
 		channel = "sms"
 		recipient = user.Phone
 		if recipient == "" {
@@ -219,7 +220,7 @@ func (h *PaymentHandler) handleOTPVerificationRequest(ctx context.Context, clien
 			client.SendError("phone number not configured. Please add a phone number to your profile")
 			return
 		}
-	
+
 	case VerificationMethodOTPWhatsApp:
 		channel = "whatsapp"
 		recipient = user.Phone
@@ -237,18 +238,18 @@ func (h *PaymentHandler) handleOTPVerificationRequest(ctx context.Context, clien
 		zap.String("recipient", maskRecipient(channel, recipient)))
 
 	// Generate OTP
-	otpResp, err := h.otp. Client.GenerateOTP(ctx, &otppb.GenerateOTPRequest{
+	otpResp, err := h.otp.Client.GenerateOTP(ctx, &otppb.GenerateOTPRequest{
 		UserId:    userID,
 		Channel:   channel,
-		Purpose:    purpose,
-		Recipient:  recipient,
+		Purpose:   purpose,
+		Recipient: recipient,
 	})
 	if err != nil || !otpResp.Ok {
 		errMsg := "failed to generate OTP"
-		if otpResp != nil && otpResp. Error != "" {
+		if otpResp != nil && otpResp.Error != "" {
 			errMsg = otpResp.Error
 		}
-		h.logger. Error("OTP generation failed",
+		h.logger.Error("OTP generation failed",
 			zap.String("user_id", userID),
 			zap.String("channel", channel),
 			zap.String("error", errMsg))
@@ -258,12 +259,12 @@ func (h *PaymentHandler) handleOTPVerificationRequest(ctx context.Context, clien
 
 	h.logger.Info("OTP generated successfully",
 		zap.String("user_id", userID),
-		zap.String("channel", channel),)
+		zap.String("channel", channel))
 
 	// Store OTP session in cache
 	sessionKey := fmt.Sprintf("%s%s:%s", OTPVerificationPrefix, userID, purpose)
 	if err := h.cacheOTPSession(ctx, sessionKey, method, channel); err != nil {
-		h.logger. Error("failed to cache OTP session",
+		h.logger.Error("failed to cache OTP session",
 			zap.String("user_id", userID),
 			zap.Error(err))
 		client.SendError("failed to create verification session")
@@ -272,19 +273,19 @@ func (h *PaymentHandler) handleOTPVerificationRequest(ctx context.Context, clien
 
 	// Send success response
 	masked := maskRecipient(channel, recipient)
-	
+
 	h.logger.Info("OTP sent successfully",
 		zap.String("user_id", userID),
 		zap.String("channel", channel),
 		zap.String("masked_recipient", masked))
 
-	client.SendSuccess(fmt. Sprintf("OTP sent to %s via %s", masked, channel), map[string]interface{}{
+	client.SendSuccess(fmt.Sprintf("OTP sent to %s via %s", masked, channel), map[string]interface{}{
 		"method":     method,
 		"channel":    channel,
 		"recipient":  masked,
 		"purpose":    purpose,
 		"next_step":  "verify_otp",
-		"expires_in": int(OTPSessionTTL. Seconds()),
+		"expires_in": int(OTPSessionTTL.Seconds()),
 	})
 }
 
@@ -293,7 +294,7 @@ func (h *PaymentHandler) cacheOTPSession(ctx context.Context, sessionKey, method
 	sessionData := map[string]interface{}{
 		"method":     method,
 		"channel":    channel,
-		"created_at":  time.Now().Unix(),
+		"created_at": time.Now().Unix(),
 	}
 
 	data, err := json.Marshal(sessionData)
@@ -324,7 +325,7 @@ func maskRecipient(channel, recipient string) string {
 	}
 
 	switch channel {
-	case "email": 
+	case "email":
 		return maskEmail(recipient)
 	case "sms", "whatsapp":
 		return maskPhone(recipient)
@@ -338,19 +339,19 @@ func maskEmail(email string) string {
 	if email == "" {
 		return "***@***"
 	}
-	
+
 	parts := strings.Split(email, "@")
 	if len(parts) != 2 {
 		return "***@***"
 	}
-	
+
 	local := parts[0]
 	domain := parts[1]
-	
+
 	if len(local) <= 2 {
 		return "**@" + domain
 	}
-	
+
 	return local[:2] + "***@" + domain
 }
 
@@ -359,11 +360,11 @@ func maskPhone(phone string) string {
 	if phone == "" {
 		return "***"
 	}
-	
+
 	if len(phone) <= 4 {
 		return "***"
 	}
-	
+
 	return "***" + phone[len(phone)-4:]
 }
 
@@ -374,7 +375,7 @@ func (h *PaymentHandler) handleVerifyTOTP(ctx context.Context, client *Client, d
 		Purpose string `json:"purpose"`
 	}
 
-	if err := json. Unmarshal(data, &req); err != nil {
+	if err := json.Unmarshal(data, &req); err != nil {
 		client.SendError("invalid request format")
 		return
 	}
@@ -402,7 +403,7 @@ func (h *PaymentHandler) handleVerifyTOTP(ctx context.Context, client *Client, d
 		return
 	}
 
-	if ! verifyResp.Success {
+	if !verifyResp.Success {
 		client.SendError("invalid TOTP code")
 		return
 	}
@@ -425,13 +426,13 @@ func (h *PaymentHandler) handleVerifyTOTP(ctx context.Context, client *Client, d
 }
 
 // handleVerifyOTP verifies OTP code and generates verification token
-func (h *PaymentHandler) handleVerifyOTP(ctx context.Context, client *Client, data json.  RawMessage) {
+func (h *PaymentHandler) handleVerifyOTP(ctx context.Context, client *Client, data json.RawMessage) {
 	var req struct {
 		Code    string `json:"code"`
 		Purpose string `json:"purpose"`
 	}
 
-	if err := json. Unmarshal(data, &req); err != nil {
+	if err := json.Unmarshal(data, &req); err != nil {
 		client.SendError("invalid request format")
 		return
 	}
@@ -441,15 +442,15 @@ func (h *PaymentHandler) handleVerifyOTP(ctx context.Context, client *Client, da
 		return
 	}
 
-	if req. Purpose == "" {
-		client. SendError("purpose is required")
+	if req.Purpose == "" {
+		client.SendError("purpose is required")
 		return
 	}
 
 	userID := client.UserID
 
 	// Check OTP session exists
-	sessionKey := fmt. Sprintf("%s%s:%s", OTPVerificationPrefix, userID, req.Purpose)
+	sessionKey := fmt.Sprintf("%s%s:%s", OTPVerificationPrefix, userID, req.Purpose)
 	exists, err := h.checkOTPSession(ctx, sessionKey)
 	if err != nil || !exists {
 		client.SendError("no active OTP session found.  Please request a new OTP.")
@@ -464,7 +465,7 @@ func (h *PaymentHandler) handleVerifyOTP(ctx context.Context, client *Client, da
 	}
 	verifyResp, err := h.otp.Client.VerifyOTP(ctx, &otppb.VerifyOTPRequest{
 		UserId:  userIDInt,
-		Code: req.Code,
+		Code:    req.Code,
 		Purpose: req.Purpose,
 	})
 	if err != nil || !verifyResp.Valid {
@@ -494,7 +495,7 @@ func (h *PaymentHandler) handleVerifyOTP(ctx context.Context, client *Client, da
 		"verification_token": token,
 		"purpose":            req.Purpose,
 		"method":             method,
-		"expires_in":         int(VerificationTokenTTL. Seconds()),
+		"expires_in":         int(VerificationTokenTTL.Seconds()),
 		"message":            "Use this token for your next withdrawal request",
 	})
 }
@@ -518,10 +519,10 @@ func (h *PaymentHandler) generateVerificationToken(ctx context.Context, userID, 
 	}
 
 	tokenJSON, _ := json.Marshal(tokenData)
-	
+
 	// Use Redis client from payment handler (assuming it has rdb field)
 	// If not, you'll need to pass it through constructor
-	err := h.rdb.Set(ctx, tokenKey, tokenJSON, VerificationTokenTTL). Err()
+	err := h.rdb.Set(ctx, tokenKey, tokenJSON, VerificationTokenTTL).Err()
 	if err != nil {
 		return "", err
 	}
@@ -536,23 +537,23 @@ func (h *PaymentHandler) validateVerificationToken(ctx context.Context, token, e
 	}
 
 	tokenKey := fmt.Sprintf("%s%s", VerificationTokenPrefix, token)
-	
-	tokenJSON, err := h.rdb. Get(ctx, tokenKey).Result()
+
+	tokenJSON, err := h.rdb.Get(ctx, tokenKey).Result()
 	if err == redis.Nil {
 		return "", fmt.Errorf("invalid or expired verification token")
 	}
 	if err != nil {
-		return "", fmt.  Errorf("failed to validate token: %w", err)
+		return "", fmt.Errorf("failed to validate token: %w", err)
 	}
 
 	var tokenData map[string]interface{}
-	if err := json. Unmarshal([]byte(tokenJSON), &tokenData); err != nil {
+	if err := json.Unmarshal([]byte(tokenJSON), &tokenData); err != nil {
 		return "", fmt.Errorf("invalid token data")
 	}
 
 	userID, ok := tokenData["user_id"].(string)
 	if !ok {
-		return "", fmt. Errorf("invalid token format")
+		return "", fmt.Errorf("invalid token format")
 	}
 
 	purpose, ok := tokenData["purpose"].(string)
@@ -577,18 +578,18 @@ func (h *PaymentHandler) validateVerificationToken(ctx context.Context, token, e
 // }
 
 func (h *PaymentHandler) checkOTPSession(ctx context.Context, key string) (bool, error) {
-	exists, err := h.rdb. Exists(ctx, key).Result()
+	exists, err := h.rdb.Exists(ctx, key).Result()
 	return exists > 0, err
 }
 
 func (h *PaymentHandler) getOTPSessionMethod(ctx context.Context, key string) (string, error) {
-	sessionJSON, err := h.rdb. Get(ctx, key).Result()
+	sessionJSON, err := h.rdb.Get(ctx, key).Result()
 	if err != nil {
 		return "", err
 	}
 
 	var sessionData map[string]string
-	if err := json. Unmarshal([]byte(sessionJSON), &sessionData); err != nil {
+	if err := json.Unmarshal([]byte(sessionJSON), &sessionData); err != nil {
 		return "", err
 	}
 
@@ -598,7 +599,6 @@ func (h *PaymentHandler) getOTPSessionMethod(ctx context.Context, key string) (s
 func (h *PaymentHandler) deleteOTPSession(ctx context.Context, key string) {
 	h.rdb.Del(ctx, key)
 }
-
 
 // func maskRecipient(channel, recipient string) string {
 // 	if len(recipient) == 0 {

@@ -9,15 +9,15 @@ func (h *PaymentHandler) HandleWSMessage(client *Client, msg *WSMessage) {
 	ctx := context.Background()
 
 	switch msg.Type {
-		// ========== Verification Operations ==========
+	// ========== Verification Operations ==========
 	case "verification_request":
-		h.handleVerificationRequest(ctx, client, msg. Data)
+		h.handleVerificationRequest(ctx, client, msg.Data)
 
 	case "verify_totp":
-		h. handleVerifyTOTP(ctx, client, msg.Data)
+		h.handleVerifyTOTP(ctx, client, msg.Data)
 
 	case "verify_otp":
-		h.handleVerifyOTP(ctx, client, msg. Data)
+		h.handleVerifyOTP(ctx, client, msg.Data)
 	// ========== Partner Operations ==========
 	case "get_partners":
 		h.handleGetPartners(ctx, client, msg.Data)
@@ -32,10 +32,10 @@ func (h *PaymentHandler) HandleWSMessage(client *Client, msg *WSMessage) {
 	case "get_owner_summary":
 		h.handleGetOwnerSummary(ctx, client)
 
-	case "create_account":  // ✅ NEW
+	case "create_account": //  NEW
 		h.handleCreateAccount(ctx, client, msg.Data)
 
-	case "get_supported_currencies":  // ✅ NEW
+	case "get_supported_currencies": //  NEW
 		h.handleGetSupportedCurrencies(ctx, client)
 
 	// ========== Deposit/Withdrawal Operations ==========
@@ -83,4 +83,3 @@ func (h *PaymentHandler) HandleWSMessage(client *Client, msg *WSMessage) {
 		client.SendError(fmt.Sprintf("unknown message type: %s", msg.Type))
 	}
 }
-
