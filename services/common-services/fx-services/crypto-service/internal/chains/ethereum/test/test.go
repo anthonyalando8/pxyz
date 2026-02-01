@@ -65,12 +65,18 @@ func initialize() error {
 	}
 
 	// Initialize Ethereum chain
-	ethChain, err = ethereum.NewEthereumChain(cfg.Ethereum.RPCURL, logger)
+	ethChain, err = ethereum.NewEthereumChain(
+			cfg.Ethereum.RPCURL,
+			cfg.Circle.APIKey,      //  Circle API key
+			cfg.Circle.Environment, //  Circle environment
+			logger,
+	)
+	// ethChain, err = ethereum.NewEthereumChain(cfg.Ethereum.RPCURL, logger)
 	if err != nil {
 		return fmt.Errorf("Ethereum init failed: %w", err)
 	}
 
-	fmt.Printf("✅ Connected to Ethereum %s network\n", cfg.Ethereum.Network)
+	fmt.Printf(" Connected to Ethereum %s network\n", cfg.Ethereum.Network)
 	fmt.Printf("   Chain ID: %d\n", cfg.Ethereum.ChainID)
 	fmt.Printf("   USDC Address: %s\n\n", cfg.Ethereum.USDCAddress)
 
@@ -111,7 +117,7 @@ func runInteractiveTest() {
 	step4CheckFinalBalances()
 
 	fmt.Println("\n╔═══════════════════════════════════════════════════════════════╗")
-	fmt.Println("║                    ✅ TEST COMPLETED!                         ║")
+	fmt.Println("║                     TEST COMPLETED!                         ║")
 	fmt.Println("╚═══════════════════════════════════════════════════════════════╝")
 }
 
@@ -155,7 +161,7 @@ func step1SetupWallets() {
 		fmt.Printf("❌ Invalid recipient address: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Println("✅ Both addresses are valid!")
+	fmt.Println(" Both addresses are valid!")
 	fmt.Println()
 }
 
@@ -168,7 +174,7 @@ func generateNewWallets() {
 		os.Exit(1)
 	}
 
-	fmt.Println("✅ Sender wallet created!")
+	fmt.Println(" Sender wallet created!")
 	fmt.Printf("   Address:     %s\n", senderWallet.Address)
 	fmt.Printf("   Private Key: %s\n", senderWallet.PrivateKey)
 	fmt.Println()
@@ -180,7 +186,7 @@ func generateNewWallets() {
 		os.Exit(1)
 	}
 
-	fmt.Println("✅ Recipient wallet created!")
+	fmt.Println(" Recipient wallet created!")
 	fmt.Printf("   Address:     %s\n", recipientWallet.Address)
 	fmt.Printf("   Private Key: %s\n", recipientWallet.PrivateKey)
 	fmt.Println()
@@ -214,7 +220,7 @@ func enterWalletsManually() {
 		CreatedAt: time.Now(),
 	}
 
-	fmt.Println("\n✅ Wallets configured!")
+	fmt.Println("\n Wallets configured!")
 	fmt.Printf("   From: %s\n", senderWallet.Address)
 	fmt.Printf("   To:   %s\n", recipientWallet.Address)
 }
@@ -266,7 +272,7 @@ func loadWalletsFromFile() {
 		CreatedAt: time.Now(),
 	}
 
-	fmt.Println("✅ Wallets loaded successfully!")
+	fmt.Println(" Wallets loaded successfully!")
 	fmt.Printf("   Sender:     %s\n", senderWallet.Address)
 	fmt.Printf("   Recipient: %s\n", recipientWallet.Address)
 }
@@ -311,7 +317,7 @@ func step2CheckBalances() {
 		fmt.Printf("\n   Paste address: %s\n", senderWallet.Address)
 		fmt.Println()
 	} else {
-		fmt.Println("\n✅ Sender has sufficient ETH balance!")
+		fmt.Println("\n Sender has sufficient ETH balance!")
 	}
 
 	if senderUSDC.Cmp(big.NewInt(0)) == 0 {
@@ -602,7 +608,7 @@ func checkBalances(address string) (*big.Int, *big.Int) {
 }
 
 func printTransactionResult(result *domain.TransactionResult, asset string, amount float64) {
-	fmt.Println("\n✅ Transaction sent successfully!")
+	fmt.Println("\n Transaction sent successfully!")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Printf("   TX Hash:   %s\n", result.TxHash)
 	fmt.Printf("   Status:    %s\n", result.Status)

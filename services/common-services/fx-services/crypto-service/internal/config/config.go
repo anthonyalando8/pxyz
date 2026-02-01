@@ -13,6 +13,7 @@ type Config struct {
 	Tron     TronConfig
 	Bitcoin  BitcoinConfig
 	Ethereum EthereumConfig
+	Circle   CircleConfig
 }
 
 type SecurityConfig struct {
@@ -44,6 +45,16 @@ type EthereumConfig struct {
 	ChainID     int64
 	USDCAddress string
 	MaxGasPrice int64 // in Gwei
+}
+
+
+type CircleConfig struct {
+	Enabled         bool   `env:"CIRCLE_ENABLED" envDefault:"true"`
+	APIKey          string `env:"CIRCLE_API_KEY"`
+	Environment     string `env:"CIRCLE_ENVIRONMENT" envDefault:"sandbox"` // sandbox or production
+	EntityID        string `env:"CIRCLE_ENTITY_ID"`
+	WalletSetID     string `env:"CIRCLE_WALLET_SET_ID"`
+	USDCImplementation string `env:"USDC_IMPLEMENTATION" envDefault:"circle"` // circle or erc20
 }
 
 func Load(logger *zap.Logger) (*Config, error) {
@@ -133,6 +144,20 @@ func Load(logger *zap.Logger) (*Config, error) {
 	// Max gas price in Gwei (default 100 Gwei)
 	ethMaxGasPrice := getEnvAsInt64("ETHEREUM_MAX_GAS_PRICE", 100)
 
+	circleEnabled := getEnvAsBool("CIRCLE_ENABLED", true)
+	circleAPIKey := getEnv("CIRCLE_API_KEY", "")
+	circleEnv := getEnv("CIRCLE_ENVIRONMENT", "sandbox")
+	circleEntityID := getEnv("CIRCLE_ENTITY_ID", "")
+	circleWalletSetID := getEnv("CIRCLE_WALLET_SET_ID", "")
+	usdcImpl := getEnv("USDC_IMPLEMENTATION", "circle")
+
+	if circleEnabled && circleAPIKey == "" {
+		logger.Warn("Circle enabled but no API key provided, falling back to ERC-20",
+			zap.String("usdc_implementation", "erc20"))
+		usdcImpl = "erc20"
+		circleEnabled = false
+	}
+
 	// ============================================================================
 	// Security Configuration
 	// ============================================================================
@@ -163,6 +188,14 @@ func Load(logger *zap.Logger) (*Config, error) {
 			VaultToken:    os.Getenv("VAULT_TOKEN"),
 			FileVaultDir:  getEnv("FILE_VAULT_DIR", "./vault"),
 			FileVaultKey:  os.Getenv("FILE_VAULT_KEY"),
+		},
+		Circle: CircleConfig{
+			Enabled:            circleEnabled,
+			APIKey:             circleAPIKey,
+			Environment:        circleEnv,
+			EntityID:           circleEntityID,
+			WalletSetID:        circleWalletSetID,
+			USDCImplementation: usdcImpl,
 		},
 	}, nil
 }

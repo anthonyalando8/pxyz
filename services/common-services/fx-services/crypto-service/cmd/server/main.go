@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"crypto-service/internal/chains/bitcoin"
+	//"crypto-service/internal/chains/ethereum/circle"
 	"crypto-service/internal/chains/ethereum"
 	registry "crypto-service/internal/chains/registry"
 	"crypto-service/internal/chains/tron"
@@ -91,24 +92,34 @@ func main() {
 	}
 	chainRegistry.Register(bitcoinChain)
 
-	// Register Ethereum chain
+	// cmd/server/main.go
+
+	// Register Ethereum chain with Circle support
 	if cfg.Ethereum.Enabled {
 		logger.Info("Initializing Ethereum chain",
 			zap.String("network", cfg.Ethereum.Network),
 			zap.String("rpc_url", cfg.Ethereum.RPCURL),
 			zap.Int64("chain_id", cfg.Ethereum.ChainID),
-		)
+			zap.Bool("circle_enabled", cfg.Circle.Enabled))
 
-		ethereumChain, err := ethereum.NewEthereumChain(cfg.Ethereum.RPCURL, logger)
+		//  Pass Circle credentials to Ethereum chain
+		ethereumChain, err := ethereum.NewEthereumChain(
+			cfg.Ethereum.RPCURL,
+			cfg.Circle.APIKey,      //  Circle API key
+			cfg.Circle.Environment, //  Circle environment
+			logger,
+		)
 		if err != nil {
 			logger.Fatal("Failed to initialize Ethereum chain", zap.Error(err))
 		}
+
 		chainRegistry.Register(ethereumChain)
-		logger.Info("Ethereum chain registered successfully",
-			zap.String("usdc_address", cfg.Ethereum.USDCAddress),
-		)
-	} else {
-		logger.Info("Ethereum chain disabled")
+		
+		if cfg.Circle.Enabled && cfg.Circle.APIKey != "" {
+			logger.Info("Ethereum chain registered with Circle USDC support")
+		} else {
+			logger.Info("Ethereum chain registered with ERC-20 USDC support")
+		}
 	}
 
 	registeredChains := chainRegistry.List()

@@ -106,7 +106,7 @@ func (uc *TransactionUsecase) EstimateNetworkFee(
 	feeEstimate, err := chain.EstimateFee(ctx, &domain.TransactionRequest{
 		From:     systemWallet.Address, //  From system wallet
 		To:       toAddress,
-		Asset:    utils.AssetFromCode(assetCode),
+		Asset:    utils.AssetFromChainAndCode(chainName, assetCode),
 		Amount:   amountBig,
 		Priority: domain.TxPriorityNormal,
 	})
@@ -236,7 +236,8 @@ func (uc *TransactionUsecase) Withdraw(
 	}
 	
 	// 5. Check system wallet has enough (amount + network fee)
-	totalNeeded := new(big.Int).Add(amountBig, feeEstimate.FeeAmount)
+	var totalNeeded *big.Int
+	totalNeeded = new(big.Int).Add(amountBig, feeEstimate.FeeAmount)
 	if systemWallet.Balance.Cmp(totalNeeded) < 0 {
 		return nil, fmt.Errorf("insufficient system wallet balance:  have %s, need %s",
 			utils.FormatAmount(systemWallet.Balance, assetCode),
@@ -279,21 +280,24 @@ func (uc *TransactionUsecase) Withdraw(
 	}
 	
 	// 9. Decrypt system wallet private key
-	privateKey, err := uc.encryption.Decrypt(systemWallet.EncryptedPrivateKey)
+	var privateKey string
+	
+	privateKey, err = uc.encryption.Decrypt(systemWallet.EncryptedPrivateKey)
 	if err != nil {
 		uc.transactionRepo.MarkAsFailed(ctx, tx. ID, "Failed to decrypt system wallet key")
-		return nil, fmt.Errorf("failed to decrypt key: %w", err)
+
+		return nil, fmt.Errorf("failed to decrypt private key: %w", err)
 	}
-	
+
 	// 10. Execute blockchain transaction
 	uc.transactionRepo.UpdateStatus(ctx, tx.ID, domain.TransactionStatusBroadcasting, nil)
 	
 	txResult, err := chain.Send(ctx, &domain.TransactionRequest{
 		From:       systemWallet.Address, //  System wallet signs
 		To:         toAddress,
-		Asset:      utils.AssetFromCode(assetCode),
+		Asset:      utils.AssetFromChainAndCode(chainName, assetCode),
 		Amount:     amountBig,
-		PrivateKey: privateKey,
+		PrivateKey: privateKey,//  For Circle, this is also Wallet ID
 		Memo:       &memo,
 		Priority:   domain.TxPriorityNormal,
 	})
@@ -322,8 +326,23 @@ func (uc *TransactionUsecase) Withdraw(
 	}
 	
 	// 12. Update system wallet balance
+	var newSystemBalance *big.Int
+	
+	// if chainName == "CIRCLE" {
+	// 	// Query Circle for accurate balance after transfer
+	// 	chain, _ := uc.chainRegistry.Get(chainName)
+	// 	balance, err := chain.GetBalance(ctx, systemWallet.Address, utils.AssetFromChainAndCode(chainName, assetCode))
+	// 	if err != nil {
+	// 		uc.logger.Warn("Failed to get Circle balance, using estimate", zap.Error(err))
+	// 		newSystemBalance = new(big.Int).Sub(systemWallet.Balance, amountBig)
+	// 	} else {
+	// 		newSystemBalance = balance.Amount
+	// 	}
+	// } else {
+		// Traditional chains: manual calculation
 	actualCost := new(big.Int).Add(amountBig, txResult.Fee)
-	newSystemBalance := new(big.Int).Sub(systemWallet.Balance, actualCost)
+	newSystemBalance = new(big.Int).Sub(systemWallet.Balance, actualCost)
+	
 	uc.walletRepo.UpdateBalance(ctx, systemWallet.ID, newSystemBalance)
 	
 	uc.logger.Info("Withdrawal broadcasted successfully",
@@ -539,7 +558,7 @@ func (uc *TransactionUsecase) SweepUserWallet(
 	txResult, err := chain. Send(ctx, &domain.TransactionRequest{
 		From:       userWallet.Address, //  From user's deposit address
 		To:         systemWallet.Address, //  To system wallet
-		Asset:      utils.AssetFromCode(assetCode),
+		Asset:      utils.AssetFromChainAndCode(chainName, assetCode),
 		Amount:     sweepAmount,
 		PrivateKey: privateKey,
 		Priority:   domain.TxPriorityLow, // Low priority for sweeps

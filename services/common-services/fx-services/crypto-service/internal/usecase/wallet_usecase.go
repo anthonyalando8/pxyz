@@ -38,6 +38,8 @@ func NewWalletUsecase(
 }
 
 // CreateWallet creates a new crypto wallet for user
+// internal/usecase/wallet_usecase.go
+
 func (uc *WalletUsecase) CreateWallet(
 	ctx context.Context,
 	userID, chainName, assetCode, label string,
@@ -62,8 +64,11 @@ func (uc *WalletUsecase) CreateWallet(
 		return nil, fmt.Errorf("unsupported chain %s: %w", chainName, err)
 	}
 	
-	// 3. Generate new wallet using chain interface
-	walletKeys, err := chain.GenerateWallet(ctx) // ✅ Updated to GenerateWallet
+	//  3. Prepare context with wallet generation metadata
+	walletCtx := uc.prepareWalletContext(ctx, chainName, assetCode, userID)
+	
+	// 4. Generate new wallet using chain interface with context
+	walletKeys, err := chain.GenerateWallet(walletCtx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate wallet: %w", err)
 	}
@@ -71,15 +76,16 @@ func (uc *WalletUsecase) CreateWallet(
 	uc.logger.Info("Generated new address",
 		zap.String("address", walletKeys.Address),
 		zap.String("chain", chainName),
+		zap.String("asset", assetCode),
 	)
 	
-	// 4. Encrypt private key
-	encryptedPrivateKey, err := uc. encryption.Encrypt(walletKeys.PrivateKey)
+	// 5. Encrypt private key (or Circle wallet ID)
+	encryptedPrivateKey, err := uc.encryption.Encrypt(walletKeys.PrivateKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encrypt private key: %w", err)
 	}
 	
-	// 5. Create wallet record
+	// 6. Create wallet record
 	wallet := &domain.CryptoWallet{
 		UserID:              userID,
 		Chain:               chainName,
@@ -91,20 +97,52 @@ func (uc *WalletUsecase) CreateWallet(
 		Label:               &label,
 		IsPrimary:           true,
 		IsActive:            true,
-		Balance:              big.NewInt(0),
+		Balance:             big.NewInt(0),
 	}
 	
-	// 6. Save to database
-	if err := uc. walletRepo.Create(ctx, wallet); err != nil {
-		return nil, fmt. Errorf("failed to save wallet: %w", err)
+	// 7. Save to database
+	if err := uc.walletRepo.Create(ctx, wallet); err != nil {
+		return nil, fmt.Errorf("failed to save wallet: %w", err)
 	}
 	
 	uc.logger.Info("Wallet created successfully",
-		zap. Int64("wallet_id", wallet.ID),
+		zap.Int64("wallet_id", wallet.ID),
 		zap.String("address", wallet.Address),
+		zap.String("chain", chainName),
+		zap.String("asset", assetCode),
 	)
 	
 	return wallet, nil
+}
+
+//  prepareWalletContext adds metadata to context for wallet generation
+func (uc *WalletUsecase) prepareWalletContext(
+	ctx context.Context,
+	chainName, assetCode, userID string,
+) context.Context {
+	// Add user ID to context
+	ctx = context.WithValue(ctx, domain.UserIDKey, userID)
+	
+	// Add asset to context
+	ctx = context.WithValue(ctx, domain.AssetKey, assetCode)
+	
+	// Add chain to context
+	ctx = context.WithValue(ctx, domain.ChainKey, chainName)
+	
+	//  Determine wallet type based on chain and asset
+	walletType := "standard" // Default
+	
+	// Use Circle for USDC on Ethereum
+	if chainName == "ETHEREUM" && assetCode == "USDC" {
+		walletType = "circle"
+		uc.logger.Info("Wallet type determined",
+			zap.String("type", walletType),
+			zap.String("reason", "USDC on Ethereum with Circle enabled"))
+	}
+	
+	ctx = context.WithValue(ctx, domain.WalletTypeKey, walletType)
+	
+	return ctx
 }
 
 // internal/usecase/wallet_usecase.go
@@ -243,7 +281,7 @@ func (uc *WalletUsecase) GetWalletBalance(
 	}
 	
 	// Get asset configuration
-	asset := utils.AssetFromCode(assetCode)
+	asset := utils.AssetFromChainAndCode(chainName, assetCode)
 	if asset == nil {
 		return nil, fmt.Errorf("unsupported asset:  %s", assetCode)
 	}
@@ -260,7 +298,7 @@ func (uc *WalletUsecase) GetWalletBalance(
 			return nil, err
 		}
 		
-		// ✅ Updated to match domain. Chain interface
+		//  Updated to match domain. Chain interface
 		balance, err := chain.GetBalance(ctx, wallet. Address, asset)
 		if err != nil {
 			uc.logger. Warn("Failed to fetch blockchain balance, using cached",
@@ -307,7 +345,7 @@ func (uc *WalletUsecase) RefreshBalance(
 	}
 	
 	// Get asset configuration
-	asset := utils.AssetFromCode(wallet.Asset)
+	asset := utils.AssetFromChainAndCode(wallet.Chain, wallet.Asset)
 	if asset == nil {
 		return nil, nil, fmt.Errorf("unsupported asset: %s", wallet.Asset)
 	}
@@ -320,7 +358,7 @@ func (uc *WalletUsecase) RefreshBalance(
 		return nil, nil, err
 	}
 	
-	// ✅ Fetch fresh balance using domain. Chain interface
+	//  Fetch fresh balance using domain. Chain interface
 	balanceResp, err := chain.GetBalance(ctx, wallet.Address, asset)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to fetch balance: %w", err)
@@ -359,7 +397,7 @@ func (uc *WalletUsecase) ValidateAddress(
 		return false, "", fmt.Errorf("unsupported chain: %w", err)
 	}
 	
-	// ✅ Updated to match domain. Chain interface (returns error)
+	//  Updated to match domain. Chain interface (returns error)
 	err = chain.ValidateAddress(address)
 	if err != nil {
 		return false, fmt.Sprintf("Invalid address: %s", err. Error()), nil

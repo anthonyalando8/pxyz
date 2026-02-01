@@ -94,7 +94,7 @@ func (uc *DepositUsecase) checkWalletDeposits(
 ) error {
 	
 	// Get asset configuration
-	asset := utils.AssetFromCode(wallet.Asset)
+	asset := utils.AssetFromChainAndCode(wallet.Chain, wallet.Asset)
 	if asset == nil {
 		return fmt.Errorf("unsupported asset: %s", wallet.Asset)
 	}

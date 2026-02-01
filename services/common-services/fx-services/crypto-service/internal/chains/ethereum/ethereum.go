@@ -3,6 +3,7 @@ package ethereum
 
 import (
 	"context"
+	"crypto-service/internal/chains/ethereum/circle"
 	"crypto-service/internal/domain"
 	"fmt"
 	"math/big"
@@ -16,27 +17,29 @@ import (
 )
 
 type EthereumChain struct {
-	client *ethclient.Client
-	logger *zap.Logger
-	config *Config
+	client       *ethclient.Client
+	circleClient *circle.Client
+	logger       *zap.Logger
+	config       *Config
 }
 
 type Config struct {
-	RPCURL          string
-	ChainID         *big.Int
-	GasLimitETH     uint64
-	GasLimitERC20   uint64
-	MaxGasPrice     *big.Int
-	Confirmations   int
+	RPCURL        string
+	ChainID       *big.Int
+	GasLimitETH   uint64
+	GasLimitERC20 uint64
+	MaxGasPrice   *big.Int
+	Confirmations int
+	// Circle config
+	CircleEnabled bool
 }
 
-func NewEthereumChain(rpcURL string, logger *zap.Logger) (*EthereumChain, error) {
+func NewEthereumChain(rpcURL string, circleAPIKey string, circleEnv string, logger *zap.Logger) (*EthereumChain, error) {
 	client, err := ethclient.Dial(rpcURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to Ethereum: %w", err)
 	}
 
-	// Get chain ID
 	chainID, err := client.ChainID(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain ID: %w", err)
@@ -45,68 +48,113 @@ func NewEthereumChain(rpcURL string, logger *zap.Logger) (*EthereumChain, error)
 	config := &Config{
 		RPCURL:        rpcURL,
 		ChainID:       chainID,
-		GasLimitETH:   21000,    // Standard ETH transfer
-		GasLimitERC20: 65000,    // ERC-20 transfer
-		MaxGasPrice:   big.NewInt(100e9), // 100 Gwei
-		Confirmations: 12,       // ~3 minutes
+		GasLimitETH:   21000,
+		GasLimitERC20: 65000,
+		MaxGasPrice:   big.NewInt(100e9),
+		Confirmations: 12,
+		CircleEnabled: false,
+	}
+
+	chain := &EthereumChain{
+		client: client,
+		logger: logger,
+		config: config,
+	}
+
+	// Initialize Circle if API key provided
+	if circleAPIKey != "" {
+		logger.Info("Initializing Circle for USDC operations",
+			zap.String("environment", circleEnv))
+
+		circleClient, err := circle.NewClient(circleAPIKey, circleEnv, logger)
+		if err != nil {
+			logger.Warn("Failed to initialize Circle, will use ERC-20 fallback", zap.Error(err))
+		} else {
+			chain.circleClient = circleClient
+			config.CircleEnabled = true
+			logger.Info("Circle initialized successfully for USDC")
+		}
+	} else {
+		logger.Info("Circle not configured, using ERC-20 for USDC")
 	}
 
 	logger.Info("Ethereum chain initialized",
 		zap.String("rpc", rpcURL),
-		zap.String("chain_id", chainID.String()))
+		zap.String("chain_id", chainID.String()),
+		zap.Bool("circle_enabled", config.CircleEnabled))
 
-	return &EthereumChain{
-		client: client,
-		logger: logger,
-		config: config,
-	}, nil
+	return chain, nil
 }
 
-// Name returns chain name
 func (c *EthereumChain) Name() string {
 	return "ETHEREUM"
 }
 
-// Symbol returns native coin symbol
 func (c *EthereumChain) Symbol() string {
 	return "ETH"
 }
 
-// GenerateWallet creates a new Ethereum wallet
+//  GenerateWallet - Circle-aware if enabled
 func (c *EthereumChain) GenerateWallet(ctx context.Context) (*domain.Wallet, error) {
-	return generateEthereumWallet()
+	// Check wallet type from context
+	walletType, ok := ctx.Value(domain.WalletTypeKey).(string)
+	if !ok {
+		walletType = domain.WalletTypeStandard // Default to standard
+	}
+
+	c.logger.Info("Generating wallet",
+		zap.String("type", walletType),
+		zap.Bool("circle_enabled", c.config.CircleEnabled))
+
+	switch walletType {
+	case domain.WalletTypeCircle:
+		// Generate Circle wallet if enabled
+		if !c.config.CircleEnabled {
+			c.logger.Warn("Circle wallet requested but Circle not enabled, generating standard wallet")
+			return generateEthereumWallet()
+		}
+
+		// Get user ID from context
+		userID, ok := ctx.Value(domain.UserIDKey).(string)
+		if !ok || userID == "" {
+			return nil, fmt.Errorf("user_id required for Circle wallet generation")
+		}
+
+		return c.CreateCircleWallet(ctx, userID)
+
+	case domain.WalletTypeStandard:
+		fallthrough
+	default:
+		// Generate standard Ethereum wallet
+		return generateEthereumWallet()
+	}
 }
 
-// ImportWallet imports wallet from private key
 func (c *EthereumChain) ImportWallet(ctx context.Context, privateKey string) (*domain.Wallet, error) {
 	return importEthereumWallet(privateKey)
 }
 
-// ValidateAddress validates Ethereum address
 func (c *EthereumChain) ValidateAddress(address string) error {
 	if !common.IsHexAddress(address) {
 		return fmt.Errorf("invalid Ethereum address format")
 	}
-	
-	// Validate checksum
+
 	addr := common.HexToAddress(address)
 	if addr.Hex() != address && !strings.EqualFold(addr.Hex(), address) {
 		return fmt.Errorf("invalid address checksum")
 	}
-	
+
 	return nil
 }
 
-// GetBalance gets balance for address and asset
 func (c *EthereumChain) GetBalance(ctx context.Context, address string, asset *domain.Asset) (*domain.Balance, error) {
 	if asset == nil {
 		return nil, fmt.Errorf("asset is required")
 	}
 
-	addr := common.HexToAddress(address)
-
 	// Native ETH balance
 	if asset.Type == domain.AssetTypeNative {
+		addr := common.HexToAddress(address)
 		balance, err := c.client.BalanceAt(ctx, addr, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get ETH balance: %w", err)
@@ -116,11 +164,16 @@ func (c *EthereumChain) GetBalance(ctx context.Context, address string, asset *d
 			Address:  address,
 			Asset:    asset,
 			Amount:   balance,
-			Decimals: 18, // ETH has 18 decimals
+			Decimals: 18,
 		}, nil
 	}
 
-	// ERC-20 token balance
+	// USDC via Circle (if enabled)
+	if asset.Type == domain.AssetTypeToken && asset.Symbol == "USDC" && c.config.CircleEnabled {
+		return c.getCircleUSDCBalance(ctx, address, asset)
+	}
+
+	// Other ERC-20 tokens (or USDC fallback)
 	if asset.Type == domain.AssetTypeToken {
 		balance, err := c.getERC20Balance(ctx, address, asset)
 		if err != nil {
@@ -138,24 +191,29 @@ func (c *EthereumChain) GetBalance(ctx context.Context, address string, asset *d
 	return nil, fmt.Errorf("unsupported asset type: %s", asset.Type)
 }
 
-// EstimateFee estimates transaction fee
 func (c *EthereumChain) EstimateFee(ctx context.Context, req *domain.TransactionRequest) (*domain.Fee, error) {
 	if req.Asset == nil {
 		return nil, fmt.Errorf("asset is required")
 	}
 
-	// Get current gas price
+	// USDC via Circle - no separate fee
+	if req.Asset.Symbol == "USDC" && c.config.CircleEnabled {
+		return &domain.Fee{
+			Amount:   big.NewInt(0),
+			Currency: "USDC",
+		}, nil
+	}
+
+	// ETH or ERC-20 - calculate gas fee
 	gasPrice, err := c.client.SuggestGasPrice(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get gas price: %w", err)
 	}
 
-	// Cap gas price
 	if gasPrice.Cmp(c.config.MaxGasPrice) > 0 {
 		gasPrice = c.config.MaxGasPrice
 	}
 
-	// Determine gas limit
 	var gasLimit uint64
 	if req.Asset.Type == domain.AssetTypeNative {
 		gasLimit = c.config.GasLimitETH
@@ -163,19 +221,17 @@ func (c *EthereumChain) EstimateFee(ctx context.Context, req *domain.Transaction
 		gasLimit = c.config.GasLimitERC20
 	}
 
-	// Calculate fee
 	fee := new(big.Int).Mul(gasPrice, big.NewInt(int64(gasLimit)))
 	gasLimitInt := int64(gasLimit)
 
 	return &domain.Fee{
 		Amount:   fee,
-		Currency: "ETH", // Always ETH for gas
+		Currency: "ETH",
 		GasLimit: &gasLimitInt,
 		GasPrice: gasPrice,
 	}, nil
 }
 
-// Send sends a transaction
 func (c *EthereumChain) Send(ctx context.Context, req *domain.TransactionRequest) (*domain.TransactionResult, error) {
 	if req.Asset == nil {
 		return nil, fmt.Errorf("asset is required")
@@ -192,7 +248,12 @@ func (c *EthereumChain) Send(ctx context.Context, req *domain.TransactionRequest
 		return c.sendETH(ctx, req)
 	}
 
-	// ERC-20 token transfer
+	// USDC via Circle (if enabled)
+	if req.Asset.Symbol == "USDC" && c.config.CircleEnabled {
+		return c.sendCircleUSDC(ctx, req)
+	}
+
+	// Other ERC-20 tokens (or USDC fallback)
 	if req.Asset.Type == domain.AssetTypeToken {
 		return c.sendERC20(ctx, req)
 	}
@@ -200,18 +261,14 @@ func (c *EthereumChain) Send(ctx context.Context, req *domain.TransactionRequest
 	return nil, fmt.Errorf("unsupported asset type: %s", req.Asset.Type)
 }
 
-// GetTransaction gets transaction status
-
 func (c *EthereumChain) GetTransaction(ctx context.Context, txHash string) (*domain.Transaction, error) {
 	hash := common.HexToHash(txHash)
 
-	// Get transaction
 	tx, isPending, err := c.client.TransactionByHash(ctx, hash)
 	if err != nil {
 		return nil, fmt.Errorf("transaction not found: %w", err)
 	}
 
-	// Build transaction object
 	transaction := &domain.Transaction{
 		Hash:   txHash,
 		Chain:  c.Name(),
@@ -219,46 +276,35 @@ func (c *EthereumChain) GetTransaction(ctx context.Context, txHash string) (*dom
 		Fee:    new(big.Int).Mul(tx.GasPrice(), big.NewInt(int64(tx.Gas()))),
 	}
 
-	// Set To address (might be nil for contract creation)
 	if tx.To() != nil {
 		transaction.To = tx.To().Hex()
 	}
 
-	//  Get sender using Sender() instead of AsMessage()
 	signer := types.LatestSignerForChainID(c.config.ChainID)
 	sender, err := types.Sender(signer, tx)
 	if err == nil {
 		transaction.From = sender.Hex()
-	} else {
-		c.logger.Warn("Failed to recover sender",
-			zap.String("tx_hash", txHash),
-			zap.Error(err))
 	}
 
-	// If still pending
 	if isPending {
 		transaction.Status = domain.TxStatusPending
 		transaction.Confirmations = 0
 		return transaction, nil
 	}
 
-	// Get receipt
 	receipt, err := c.client.TransactionReceipt(ctx, hash)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get receipt: %w", err)
 	}
 
-	// Set block details
 	blockNum := receipt.BlockNumber.Int64()
 	transaction.BlockNumber = &blockNum
 
-	// Get confirmations
 	currentBlock, err := c.client.BlockNumber(ctx)
 	if err == nil {
 		transaction.Confirmations = int(currentBlock - receipt.BlockNumber.Uint64())
 	}
 
-	// Set status based on receipt status and confirmations
 	if receipt.Status == types.ReceiptStatusSuccessful {
 		if transaction.Confirmations >= c.config.Confirmations {
 			transaction.Status = domain.TxStatusConfirmed
@@ -269,20 +315,11 @@ func (c *EthereumChain) GetTransaction(ctx context.Context, txHash string) (*dom
 		transaction.Status = domain.TxStatusFailed
 	}
 
-	// Get block timestamp
 	if block, err := c.client.BlockByNumber(ctx, receipt.BlockNumber); err == nil {
 		transaction.Timestamp = time.Unix(int64(block.Time()), 0)
 	}
 
-	// Update fee with actual gas used
 	transaction.Fee = new(big.Int).Mul(tx.GasPrice(), big.NewInt(int64(receipt.GasUsed)))
-
-	c.logger.Info("Transaction retrieved",
-		zap.String("tx_hash", txHash),
-		zap.String("from", transaction.From),
-		zap.String("to", transaction.To),
-		zap.String("status", string(transaction.Status)),
-		zap.Int("confirmations", transaction.Confirmations))
 
 	return transaction, nil
 }

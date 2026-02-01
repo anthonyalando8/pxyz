@@ -179,7 +179,7 @@ func (uc *SystemUsecase) GetSystemBalance(
 	}
 
 	// Get fresh balance from blockchain
-	asset := utils.AssetFromCode(assetCode)
+	asset := utils.AssetFromChainAndCode(chainName, assetCode)
 	balance, err := chain.GetBalance(ctx, wallet.Address, asset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get balance: %w", err)
