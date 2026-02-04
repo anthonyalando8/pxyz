@@ -1,4 +1,3 @@
-// cmd/test_eth/main.go
 package main
 
 import (
@@ -27,13 +26,12 @@ var (
 	ethAsset        *domain.Asset
 	usdcAsset       *domain.Asset
 	cfg             *config.Config
+	circleEnabled   bool
 )
 
 func main() {
-	// Load .env
 	_ = godotenv.Load()
 
-	// Setup logger
 	logger, _ = zap.NewDevelopment()
 	defer logger.Sync()
 
@@ -44,43 +42,42 @@ func main() {
 	fmt.Println("╚═══════════════════════════════════════════════════════════════╝")
 	fmt.Println()
 
-	// Initialize
 	if err := initialize(); err != nil {
 		fmt.Printf("❌ Initialization failed: %v\n", err)
 		return
 	}
 
-	// Run interactive test
 	runInteractiveTest()
 }
 
 func initialize() error {
 	fmt.Println("⏳ Initializing Ethereum service...")
 
-	// Load config
 	var err error
 	cfg, err = config.Load(logger)
 	if err != nil {
 		return fmt.Errorf("config load failed: %w", err)
 	}
 
-	// Initialize Ethereum chain
+	// Initialize Ethereum chain with Circle support
 	ethChain, err = ethereum.NewEthereumChain(
-			cfg.Ethereum.RPCURL,
-			cfg.Circle.APIKey,      //  Circle API key
-			cfg.Circle.Environment, //  Circle environment
-			logger,
+		cfg.Ethereum.RPCURL,
+		cfg.Circle.APIKey,
+		cfg.Circle.Environment,
+		logger,
 	)
-	// ethChain, err = ethereum.NewEthereumChain(cfg.Ethereum.RPCURL, logger)
 	if err != nil {
 		return fmt.Errorf("Ethereum init failed: %w", err)
 	}
 
-	fmt.Printf(" Connected to Ethereum %s network\n", cfg.Ethereum.Network)
-	fmt.Printf("   Chain ID: %d\n", cfg.Ethereum.ChainID)
-	fmt.Printf("   USDC Address: %s\n\n", cfg.Ethereum.USDCAddress)
+	// Check if Circle is enabled
+	circleEnabled = cfg.Circle.Enabled && cfg.Circle.APIKey != ""
 
-	// Setup ETH asset
+	fmt.Printf("✅ Connected to Ethereum %s network\n", cfg.Ethereum.Network)
+	fmt.Printf("   Chain ID: %d\n", cfg.Ethereum.ChainID)
+	fmt.Printf("   USDC Address: %s\n", cfg.Ethereum.USDCAddress)
+	fmt.Printf("   Circle Enabled: %v\n\n", circleEnabled)
+
 	ethAsset = &domain.Asset{
 		Chain:    "ETHEREUM",
 		Symbol:   "ETH",
@@ -88,7 +85,6 @@ func initialize() error {
 		Decimals: 18,
 	}
 
-	// Setup USDC asset
 	usdcAsset = &domain.Asset{
 		Chain:        "ETHEREUM",
 		Symbol:       "USDC",
@@ -101,23 +97,19 @@ func initialize() error {
 }
 
 func runInteractiveTest() {
-	// Step 1: Setup Wallets
 	step1SetupWallets()
 	waitForUser("Press ENTER to continue to balance check...")
 
-	// Step 2: Check Balances
 	step2CheckBalances()
 	waitForUser("If you need funds, get them now. Press ENTER when ready...")
 
-	// Step 3: Choose what to send
 	step3ChooseAssetAndSend()
 	waitForUser("Press ENTER to check final balances...")
 
-	// Step 4: Check Final Balances
 	step4CheckFinalBalances()
 
 	fmt.Println("\n╔═══════════════════════════════════════════════════════════════╗")
-	fmt.Println("║                     TEST COMPLETED!                         ║")
+	fmt.Println("║                    ✅ TEST COMPLETED!                         ║")
 	fmt.Println("╚═══════════════════════════════════════════════════════════════╝")
 }
 
@@ -132,19 +124,29 @@ func step1SetupWallets() {
 	fmt.Println()
 
 	fmt.Println("Choose an option:")
-	fmt.Println("  1. Generate new wallets")
-	fmt.Println("  2. Enter sender wallet manually")
-	fmt.Println("  3. Load from eth_wallets.txt (if exists)")
+	fmt.Println("  1. Generate new wallets (Standard Ethereum)")
+	if circleEnabled {
+		fmt.Println("  2. Generate new wallets (Circle USDC)")
+	}
+	fmt.Println("  3. Enter sender wallet manually")
+	fmt.Println("  4. Load from eth_wallets.txt (if exists)")
 	fmt.Println()
 
-	choice := readInput("Enter choice (1/2/3): ")
+	choice := readInput("Enter choice: ")
 
 	switch strings.TrimSpace(choice) {
 	case "1":
-		generateNewWallets()
+		generateNewWallets("standard")
 	case "2":
-		enterWalletsManually()
+		if circleEnabled {
+			generateNewWallets("circle")
+		} else {
+			fmt.Println("Circle not enabled, generating standard wallets...")
+			generateNewWallets("standard")
+		}
 	case "3":
+		enterWalletsManually()
+	case "4":
 		loadWalletsFromFile()
 	default:
 		fmt.Println("Invalid choice, using manual entry...")
@@ -161,37 +163,76 @@ func step1SetupWallets() {
 		fmt.Printf("❌ Invalid recipient address: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Println(" Both addresses are valid!")
+	fmt.Println("✅ Both addresses are valid!")
 	fmt.Println()
 }
 
-func generateNewWallets() {
-	fmt.Println("\n📝 Generating SENDER wallet...")
+func generateNewWallets(walletType string) {
 	var err error
-	senderWallet, err = ethChain.GenerateWallet(ctx)
+
+	// ✅ Prepare context based on wallet type
+	var senderCtx, recipientCtx context.Context
+
+	if walletType == "circle" && circleEnabled {
+		fmt.Println("\n📝 Generating Circle wallets for USDC...")
+		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+		
+		// Context for Circle wallets
+		senderCtx = context.WithValue(ctx, "wallet_type", "circle")
+		senderCtx = context.WithValue(senderCtx, "user_id", fmt.Sprintf("test-sender-%d", time.Now().Unix()))
+		senderCtx = context.WithValue(senderCtx, "asset", "USDC")
+
+		recipientCtx = context.WithValue(ctx, "wallet_type", "circle")
+		recipientCtx = context.WithValue(recipientCtx, "user_id", fmt.Sprintf("test-recipient-%d", time.Now().Unix()))
+		recipientCtx = context.WithValue(recipientCtx, "asset", "USDC")
+	} else {
+		fmt.Println("\n📝 Generating standard Ethereum wallets...")
+		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+		
+		// Context for standard wallets
+		senderCtx = context.WithValue(ctx, "wallet_type", "standard")
+		recipientCtx = context.WithValue(ctx, "wallet_type", "standard")
+	}
+
+	// Generate sender wallet
+	fmt.Println("Creating SENDER wallet...")
+	senderWallet, err = ethChain.GenerateWallet(senderCtx)
 	if err != nil {
 		fmt.Printf("❌ Error: %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Println(" Sender wallet created!")
+	fmt.Println("✅ Sender wallet created!")
 	fmt.Printf("   Address:     %s\n", senderWallet.Address)
-	fmt.Printf("   Private Key: %s\n", senderWallet.PrivateKey)
+	if walletType == "circle" {
+		fmt.Printf("   Wallet ID:   %s\n", senderWallet.PrivateKey)
+		fmt.Println("   Type:        Circle USDC Wallet")
+	} else {
+		fmt.Printf("   Private Key: %s\n", senderWallet.PrivateKey)
+		fmt.Println("   Type:        Standard Ethereum Wallet")
+	}
 	fmt.Println()
 
-	fmt.Println("📝 Generating RECIPIENT wallet...")
-	recipientWallet, err = ethChain.GenerateWallet(ctx)
+	// Generate recipient wallet
+	fmt.Println("Creating RECIPIENT wallet...")
+	recipientWallet, err = ethChain.GenerateWallet(recipientCtx)
 	if err != nil {
 		fmt.Printf("❌ Error: %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Println(" Recipient wallet created!")
+	fmt.Println("✅ Recipient wallet created!")
 	fmt.Printf("   Address:     %s\n", recipientWallet.Address)
-	fmt.Printf("   Private Key: %s\n", recipientWallet.PrivateKey)
+	if walletType == "circle" {
+		fmt.Printf("   Wallet ID:   %s\n", recipientWallet.PrivateKey)
+		fmt.Println("   Type:        Circle USDC Wallet")
+	} else {
+		fmt.Printf("   Private Key: %s\n", recipientWallet.PrivateKey)
+		fmt.Println("   Type:        Standard Ethereum Wallet")
+	}
 	fmt.Println()
 
-	saveWalletsToFile()
+	saveWalletsToFile(walletType)
 	fmt.Println("💾 Wallets saved to: eth_wallets.txt")
 }
 
@@ -200,7 +241,7 @@ func enterWalletsManually() {
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	
 	senderAddress := readInput("Sender Address (0x...): ")
-	senderPrivateKey := readInput("Sender Private Key (without 0x): ")
+	senderPrivateKey := readInput("Sender Private Key or Circle Wallet ID: ")
 
 	senderWallet = &domain.Wallet{
 		Address:    strings.TrimSpace(senderAddress),
@@ -220,7 +261,7 @@ func enterWalletsManually() {
 		CreatedAt: time.Now(),
 	}
 
-	fmt.Println("\n Wallets configured!")
+	fmt.Println("\n✅ Wallets configured!")
 	fmt.Printf("   From: %s\n", senderWallet.Address)
 	fmt.Printf("   To:   %s\n", recipientWallet.Address)
 }
@@ -245,8 +286,8 @@ func loadWalletsFromFile() {
 		
 		if strings.HasPrefix(line, "Address:") && senderAddr == "" {
 			senderAddr = strings.TrimSpace(strings.TrimPrefix(line, "Address:"))
-		} else if strings.HasPrefix(line, "Private Key:") && senderKey == "" {
-			senderKey = strings.TrimSpace(strings.TrimPrefix(line, "Private Key:"))
+		} else if (strings.HasPrefix(line, "Private Key:") || strings.HasPrefix(line, "Wallet ID:")) && senderKey == "" {
+			senderKey = strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(line, "Private Key:"), "Wallet ID:"))
 		} else if strings.HasPrefix(line, "Address:") && senderAddr != "" && recipientAddr == "" {
 			recipientAddr = strings.TrimSpace(strings.TrimPrefix(line, "Address:"))
 		}
@@ -269,10 +310,10 @@ func loadWalletsFromFile() {
 	recipientWallet = &domain.Wallet{
 		Address:   recipientAddr,
 		Chain:     "ETHEREUM",
-		CreatedAt: time.Now(),
+		CreatedAt:  time.Now(),
 	}
 
-	fmt.Println(" Wallets loaded successfully!")
+	fmt.Println("✅ Wallets loaded successfully!")
 	fmt.Printf("   Sender:     %s\n", senderWallet.Address)
 	fmt.Printf("   Recipient: %s\n", recipientWallet.Address)
 }
@@ -700,8 +741,7 @@ func askYesNo(question string) bool {
 	response = strings.TrimSpace(strings.ToLower(response))
 	return response == "y" || response == "yes"
 }
-
-func saveWalletsToFile() {
+func saveWalletsToFile(walletType string) {
 	file, err := os.Create("eth_wallets.txt")
 	if err != nil {
 		return
@@ -709,25 +749,51 @@ func saveWalletsToFile() {
 	defer file.Close()
 
 	fmt.Fprintf(file, "ETHEREUM %s WALLETS\n", strings.ToUpper(cfg.Ethereum.Network))
+	if walletType == "circle" {
+		fmt.Fprintf(file, "Type: Circle USDC Wallets\n")
+	} else {
+		fmt.Fprintf(file, "Type: Standard Ethereum Wallets\n")
+	}
 	fmt.Fprintf(file, "==========================\n\n")
+	
 	fmt.Fprintf(file, "SENDER WALLET:\n")
 	fmt.Fprintf(file, "Address:     %s\n", senderWallet.Address)
-	fmt.Fprintf(file, "Private Key: %s\n\n", senderWallet.PrivateKey)
+	if walletType == "circle" {
+		fmt.Fprintf(file, "Wallet ID:   %s\n", senderWallet.PrivateKey)
+		fmt.Fprintf(file, "Type:        Circle (USDC only)\n\n")
+	} else {
+		fmt.Fprintf(file, "Private Key: %s\n", senderWallet.PrivateKey)
+		fmt.Fprintf(file, "Type:        Standard (ETH + ERC-20)\n\n")
+	}
+	
 	fmt.Fprintf(file, "RECIPIENT WALLET:\n")
 	fmt.Fprintf(file, "Address:     %s\n", recipientWallet.Address)
 	if recipientWallet.PrivateKey != "" {
-		fmt.Fprintf(file, "Private Key: %s\n\n", recipientWallet.PrivateKey)
+		if walletType == "circle" {
+			fmt.Fprintf(file, "Wallet ID:   %s\n", recipientWallet.PrivateKey)
+			fmt.Fprintf(file, "Type:        Circle (USDC only)\n\n")
+		} else {
+			fmt.Fprintf(file, "Private Key: %s\n", recipientWallet.PrivateKey)
+			fmt.Fprintf(file, "Type:        Standard (ETH + ERC-20)\n\n")
+		}
 	}
 	
-	switch cfg.Ethereum.Network {
-	case "goerli":
+	if cfg.Ethereum.Network == "goerli" {
 		fmt.Fprintf(file, "\nGet Goerli testnet ETH:\n")
 		fmt.Fprintf(file, "  - https://goerlifaucet.com/\n")
 		fmt.Fprintf(file, "  - https://faucets.chain.link/goerli\n")
-	case "sepolia":
+	} else if cfg.Ethereum.Network == "sepolia" {
 		fmt.Fprintf(file, "\nGet Sepolia testnet ETH:\n")
 		fmt.Fprintf(file, "  - https://sepoliafaucet.com/\n")
 		fmt.Fprintf(file, "  - https://faucets.chain.link/sepolia\n")
+	}
+
+	if circleEnabled && walletType == "circle" {
+		fmt.Fprintf(file, "\n📝 Circle Wallet Notes:\n")
+		fmt.Fprintf(file, "  - These are Circle-managed wallets for USDC\n")
+		fmt.Fprintf(file, "  - No gas fees for USDC transfers\n")
+		fmt.Fprintf(file, "  - Can only send/receive USDC\n")
+		fmt.Fprintf(file, "  - For ETH, generate a standard wallet\n")
 	}
 }
 

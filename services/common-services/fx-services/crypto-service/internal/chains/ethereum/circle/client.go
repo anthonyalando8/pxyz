@@ -23,7 +23,8 @@ type Client struct {
 }
 
 func NewClient(apiKey, environment string, logger *zap.Logger) (*Client, error) {
-	baseURL := "https://api-sandbox.circle.com"
+	// baseURL := "https://api-sandbox.circle.com"
+	baseURL := "https://api.circle.com"
 	if environment == "production" {
 		baseURL = "https://api.circle.com"
 	}
@@ -36,88 +37,35 @@ func NewClient(apiKey, environment string, logger *zap.Logger) (*Client, error) 
 	}
 
 	//  Initialize entity and wallet set
+	// ctx := context.Background()
+	// if err := client.initialize(ctx); err != nil {
+	// 	return nil, fmt.Errorf("failed to initialize Circle: %w", err)
+	// }
+	//  Test the API key with a simple call
 	ctx := context.Background()
-	if err := client.initialize(ctx); err != nil {
-		return nil, fmt.Errorf("failed to initialize Circle: %w", err)
+	if err := client.testConnection(ctx); err != nil {
+		return nil, fmt.Errorf("failed to connect to Circle: %w", err)
 	}
 
 	return client, nil
 }
 
-//  Initialize creates entity and wallet set if they don't exist
-func (c *Client) initialize(ctx context.Context) error {
-	c.logger.Info("Initializing Circle configuration...")
+// Test connection with Circle API
+func (c *Client) testConnection(ctx context.Context) error {
+	c.logger.Info("Testing Circle API connection...")
 
-	// 1. Get or create entity
-	entity, err := c.getOrCreateEntity(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get/create entity: %w", err)
+	var result struct {
+		Data struct {
+			PublicKey string `json:"publicKey"`
+		} `json:"data"`
 	}
-	c.entityID = entity.ID
-	c.logger.Info("Entity initialized", zap.String("entity_id", c.entityID))
 
-	// 2. Get or create wallet set
-	walletSet, err := c.getOrCreateWalletSet(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get/create wallet set: %w", err)
+	if err := c.get(ctx, "/v1/w3s/config/entity/publicKey", &result); err != nil {
+		return err
 	}
-	c.walletSetID = walletSet.ID
-	c.logger.Info("Wallet set initialized", zap.String("wallet_set_id", c.walletSetID))
 
-	c.logger.Info("Circle initialization complete",
-		zap.String("entity_id", c.entityID),
-		zap.String("wallet_set_id", c.walletSetID))
-
+	c.logger.Info("Circle API connection successful")
 	return nil
-}
-
-// ============================================================================
-// ENTITY MANAGEMENT
-// ============================================================================
-
-// getOrCreateEntity gets existing entity or creates new one
-func (c *Client) getOrCreateEntity(ctx context.Context) (*Entity, error) {
-	// Try to get existing entity
-	entities, err := c.listEntities(ctx)
-	if err != nil {
-		c.logger.Warn("Failed to list entities, will try to create", zap.Error(err))
-	} else if len(entities) > 0 {
-		c.logger.Info("Using existing entity", zap.String("entity_id", entities[0].ID))
-		return &entities[0], nil
-	}
-
-	// Create new entity
-	c.logger.Info("Creating new Circle entity...")
-	return c.createEntity(ctx)
-}
-
-func (c *Client) listEntities(ctx context.Context) ([]Entity, error) {
-	var result struct {
-		Data []Entity `json:"data"`
-	}
-
-	if err := c.get(ctx, "/v1/w3s/config/entity", &result); err != nil {
-		return nil, err
-	}
-
-	return result.Data, nil
-}
-
-func (c *Client) createEntity(ctx context.Context) (*Entity, error) {
-	payload := map[string]interface{}{
-		"idempotencyKey": fmt.Sprintf("entity-%d", time.Now().Unix()),
-	}
-
-	var result struct {
-		Data Entity `json:"data"`
-	}
-
-	if err := c.post(ctx, "/v1/w3s/config/entity", payload, &result); err != nil {
-		return nil, err
-	}
-
-	c.logger.Info("Entity created successfully", zap.String("entity_id", result.Data.ID))
-	return &result.Data, nil
 }
 
 // ============================================================================
@@ -139,7 +87,7 @@ func (c *Client) getOrCreateWalletSet(ctx context.Context) (*WalletSet, error) {
 
 	// Create new wallet set
 	c.logger.Info("Creating new wallet set...")
-	return c.createWalletSet(ctx, "Crypto Service Wallets")
+	return c.createWalletSet(ctx, "pxyz Wallets")
 }
 
 func (c *Client) listWalletSets(ctx context.Context) ([]WalletSet, error) {
@@ -160,6 +108,7 @@ func (c *Client) createWalletSet(ctx context.Context, name string) (*WalletSet, 
 	payload := map[string]interface{}{
 		"idempotencyKey": fmt.Sprintf("walletset-%d", time.Now().Unix()),
 		"name":           name,
+		"blockchain":     "ETH-SEPOLIA", // Specify Ethereum Sepolia
 	}
 
 	var result struct {
@@ -194,7 +143,7 @@ func (c *Client) CreateWallet(ctx context.Context, userID string) (*CircleWallet
 		Data CircleWallet `json:"data"`
 	}
 
-	if err := c.post(ctx, "/v1/w3s/developer/wallets", payload, &result); err != nil {
+	if err := c.post(ctx, "/v1/w3s/wallets", payload, &result); err != nil {
 		return nil, err
 	}
 

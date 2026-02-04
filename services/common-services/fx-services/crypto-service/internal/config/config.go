@@ -4,6 +4,7 @@ package config
 import (
 	"os"
 	"strconv"
+	"strings"
 
 	"go.uber.org/zap"
 )
@@ -145,7 +146,8 @@ func Load(logger *zap.Logger) (*Config, error) {
 	ethMaxGasPrice := getEnvAsInt64("ETHEREUM_MAX_GAS_PRICE", 100)
 
 	circleEnabled := getEnvAsBool("CIRCLE_ENABLED", true)
-	circleAPIKey := getEnv("CIRCLE_API_KEY", "")
+	circleAPIKey := getEnv("CIRCLE_API_KEY", "TEST_API_KEY:e129ceb2d05124b97371b734a1742908:34325482ecfb0cd0b878043d8d5fd18b")
+	circleAPIKey = strings.TrimSpace(circleAPIKey)
 	circleEnv := getEnv("CIRCLE_ENVIRONMENT", "sandbox")
 	circleEntityID := getEnv("CIRCLE_ENTITY_ID", "")
 	circleWalletSetID := getEnv("CIRCLE_WALLET_SET_ID", "")
