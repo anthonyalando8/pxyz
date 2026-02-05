@@ -5,6 +5,8 @@ on:
     branches:
       - main
   pull_request:
+    branches:
+      - main
 
 jobs:
   build-and-push:
@@ -17,16 +19,18 @@ jobs:
 
       - name: Set image tag (short SHA)
         id: set-sha
-        run: echo "::set-output name=sha::${GITHUB_SHA::8}"
+        run: echo "sha=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GHCR_PAT }}
 
-      # Build & push each service (both sha and latest)
+      # ============================================
+      # AUTHENTICATION SERVICES
+      # ============================================
       - name: Build and push auth-service
         run: |
           docker build -t ghcr.io/${{ github.repository }}/auth-service:${{ steps.set-sha.outputs.sha }} -f services/common-services/authentication/auth-service/Dockerfile .
@@ -41,13 +45,6 @@ jobs:
           docker push ghcr.io/${{ github.repository }}/session-service:${{ steps.set-sha.outputs.sha }}
           docker push ghcr.io/${{ github.repository }}/session-service:latest
 
-      - name: Build and push email-service
-        run: |
-          docker build -t ghcr.io/${{ github.repository }}/email-service:${{ steps.set-sha.outputs.sha }} -f services/common-services/comms-services/email-service/Dockerfile .
-          docker tag ghcr.io/${{ github.repository }}/email-service:${{ steps.set-sha.outputs.sha }} ghcr.io/${{ github.repository }}/email-service:latest
-          docker push ghcr.io/${{ github.repository }}/email-service:${{ steps.set-sha.outputs.sha }}
-          docker push ghcr.io/${{ github.repository }}/email-service:latest
-
       - name: Build and push otp-service
         run: |
           docker build -t ghcr.io/${{ github.repository }}/otp-service:${{ steps.set-sha.outputs.sha }} -f services/common-services/authentication/otp-service/Dockerfile .
@@ -55,27 +52,235 @@ jobs:
           docker push ghcr.io/${{ github.repository }}/otp-service:${{ steps.set-sha.outputs.sha }}
           docker push ghcr.io/${{ github.repository }}/otp-service:latest
 
-      # add other services here if you want (core-service, u-access-service, etc.)
-      # follow the same pattern: build -> tag sha + latest -> push sha + latest
+      - name: Build and push audit-service
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/audit-service:${{ steps.set-sha.outputs.sha }} -f services/common-services/authentication/audit-service/Dockerfile .
+          docker tag ghcr.io/${{ github.repository }}/audit-service:${{ steps.set-sha.outputs.sha }} ghcr.io/${{ github.repository }}/audit-service:latest
+          docker push ghcr.io/${{ github.repository }}/audit-service:${{ steps.set-sha.outputs.sha }}
+          docker push ghcr.io/${{ github.repository }}/audit-service:latest
+
+      - name: Build and push u-access-service
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/u-access-service:${{ steps.set-sha.outputs.sha }} -f services/common-services/authentication/u-access-service/Dockerfile .
+          docker tag ghcr.io/${{ github.repository }}/u-access-service:${{ steps.set-sha.outputs.sha }} ghcr.io/${{ github.repository }}/u-access-service:latest
+          docker push ghcr.io/${{ github.repository }}/u-access-service:${{ steps.set-sha.outputs.sha }}
+          docker push ghcr.io/${{ github.repository }}/u-access-service:latest
+
+      # ============================================
+      # COMMUNICATION SERVICES
+      # ============================================
+      - name: Build and push email-service
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/email-service:${{ steps.set-sha.outputs.sha }} -f services/common-services/comms-services/email-service/Dockerfile .
+          docker tag ghcr.io/${{ github.repository }}/email-service:${{ steps.set-sha.outputs.sha }} ghcr.io/${{ github.repository }}/email-service:latest
+          docker push ghcr.io/${{ github.repository }}/email-service:${{ steps.set-sha.outputs.sha }}
+          docker push ghcr.io/${{ github.repository }}/email-service:latest
+
+      - name: Build and push sms-service
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/sms-service:${{ steps.set-sha.outputs.sha }} -f services/common-services/comms-services/sms-service/Dockerfile .
+          docker tag ghcr.io/${{ github.repository }}/sms-service:${{ steps.set-sha.outputs.sha }} ghcr.io/${{ github.repository }}/sms-service:latest
+          docker push ghcr.io/${{ github.repository }}/sms-service:${{ steps.set-sha.outputs.sha }}
+          docker push ghcr.io/${{ github.repository }}/sms-service:latest
+
+      - name: Build and push notification-service
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/notification-service:${{ steps.set-sha.outputs.sha }} -f services/common-services/comms-services/notification-service/Dockerfile .
+          docker tag ghcr.io/${{ github.repository }}/notification-service:${{ steps.set-sha.outputs.sha }} ghcr.io/${{ github.repository }}/notification-service:latest
+          docker push ghcr.io/${{ github.repository }}/notification-service:${{ steps.set-sha.outputs.sha }}
+          docker push ghcr.io/${{ github.repository }}/notification-service:latest
+
+      # ============================================
+      # CORE SERVICES
+      # ============================================
+      - name: Build and push core-service
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/core-service:${{ steps.set-sha.outputs.sha }} -f services/common-services/core-service/Dockerfile .
+          docker tag ghcr.io/${{ github.repository }}/core-service:${{ steps.set-sha.outputs.sha }} ghcr.io/${{ github.repository }}/core-service:latest
+          docker push ghcr.io/${{ github.repository }}/core-service:${{ steps.set-sha.outputs.sha }}
+          docker push ghcr.io/${{ github.repository }}/core-service:latest
+
+      # ============================================
+      # USER SERVICES
+      # ============================================
+      - name: Build and push account-service
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/account-service:${{ steps.set-sha.outputs.sha }} -f services/user-services/account-service/Dockerfile .
+          docker tag ghcr.io/${{ github.repository }}/account-service:${{ steps.set-sha.outputs.sha }} ghcr.io/${{ github.repository }}/account-service:latest
+          docker push ghcr.io/${{ github.repository }}/account-service:${{ steps.set-sha.outputs.sha }}
+          docker push ghcr.io/${{ github.repository }}/account-service:latest
+
+      - name: Build and push kyc-service
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/kyc-service:${{ steps.set-sha.outputs.sha }} -f services/user-services/kyc-service/Dockerfile .
+          docker tag ghcr.io/${{ github.repository }}/kyc-service:${{ steps.set-sha.outputs.sha }} ghcr.io/${{ github.repository }}/kyc-service:latest
+          docker push ghcr.io/${{ github.repository }}/kyc-service:${{ steps.set-sha.outputs.sha }}
+          docker push ghcr.io/${{ github.repository }}/kyc-service:latest
+
+      - name: Build and push cashier-service
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/cashier-service:${{ steps.set-sha.outputs.sha }} -f services/user-services/cashier-service/Dockerfile .
+          docker tag ghcr.io/${{ github.repository }}/cashier-service:${{ steps.set-sha.outputs.sha }} ghcr.io/${{ github.repository }}/cashier-service:latest
+          docker push ghcr.io/${{ github.repository }}/cashier-service:${{ steps.set-sha.outputs.sha }}
+          docker push ghcr.io/${{ github.repository }}/cashier-service:latest
+
+      # ============================================
+      # ADMIN SERVICES
+      # ============================================
+      - name: Build and push admin-auth-service
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/admin-auth-service:${{ steps.set-sha.outputs.sha }} -f services/admin-services/admin-auth-service/Dockerfile .
+          docker tag ghcr.io/${{ github.repository }}/admin-auth-service:${{ steps.set-sha.outputs.sha }} ghcr.io/${{ github.repository }}/admin-auth-service:latest
+          docker push ghcr.io/${{ github.repository }}/admin-auth-service:${{ steps.set-sha.outputs.sha }}
+          docker push ghcr.io/${{ github.repository }}/admin-auth-service:latest
+
+      - name: Build and push admin-session-service
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/admin-session-service:${{ steps.set-sha.outputs.sha }} -f services/admin-services/admin-session-mngt/Dockerfile .
+          docker tag ghcr.io/${{ github.repository }}/admin-session-service:${{ steps.set-sha.outputs.sha }} ghcr.io/${{ github.repository }}/admin-session-service:latest
+          docker push ghcr.io/${{ github.repository }}/admin-session-service:${{ steps.set-sha.outputs.sha }}
+          docker push ghcr.io/${{ github.repository }}/admin-session-service:latest
+
+      - name: Build and push admin-service
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/admin-service:${{ steps.set-sha.outputs.sha }} -f services/admin-services/admin-service/Dockerfile .
+          docker tag ghcr.io/${{ github.repository }}/admin-service:${{ steps.set-sha.outputs.sha }} ghcr.io/${{ github.repository }}/admin-service:latest
+          docker push ghcr.io/${{ github.repository }}/admin-service:${{ steps.set-sha.outputs.sha }}
+          docker push ghcr.io/${{ github.repository }}/admin-service:latest
+
+      - name: Build and push admin-access-service
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/admin-access-service:${{ steps.set-sha.outputs.sha }} -f services/admin-services/u-access-service/Dockerfile .
+          docker tag ghcr.io/${{ github.repository }}/admin-access-service:${{ steps.set-sha.outputs.sha }} ghcr.io/${{ github.repository }}/admin-access-service:latest
+          docker push ghcr.io/${{ github.repository }}/admin-access-service:${{ steps.set-sha.outputs.sha }}
+          docker push ghcr.io/${{ github.repository }}/admin-access-service:latest
+
+      # ============================================
+      # PARTNER SERVICES
+      # ============================================
+      - name: Build and push partner-service
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/partner-service:${{ steps.set-sha.outputs.sha }} -f services/partner-services/partner-service/Dockerfile .
+          docker tag ghcr.io/${{ github.repository }}/partner-service:${{ steps.set-sha.outputs.sha }} ghcr.io/${{ github.repository }}/partner-service:latest
+          docker push ghcr.io/${{ github.repository }}/partner-service:${{ steps.set-sha.outputs.sha }}
+          docker push ghcr.io/${{ github.repository }}/partner-service:latest
+
+      - name: Build and push ptn-auth-service
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/ptn-auth-service:${{ steps.set-sha.outputs.sha }} -f services/partner-services/ptn-auth-service/Dockerfile .
+          docker tag ghcr.io/${{ github.repository }}/ptn-auth-service:${{ steps.set-sha.outputs.sha }} ghcr.io/${{ github.repository }}/ptn-auth-service:latest
+          docker push ghcr.io/${{ github.repository }}/ptn-auth-service:${{ steps.set-sha.outputs.sha }}
+          docker push ghcr.io/${{ github.repository }}/ptn-auth-service:latest
+
+      - name: Build and push ptn-session-service
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/ptn-session-service:${{ steps.set-sha.outputs.sha }} -f services/partner-services/ptn-session-mngt/Dockerfile .
+          docker tag ghcr.io/${{ github.repository }}/ptn-session-service:${{ steps.set-sha.outputs.sha }} ghcr.io/${{ github.repository }}/ptn-session-service:latest
+          docker push ghcr.io/${{ github.repository }}/ptn-session-service:${{ steps.set-sha.outputs.sha }}
+          docker push ghcr.io/${{ github.repository }}/ptn-session-service:latest
+
+      - name: Build and push ptn-access-service
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/ptn-access-service:${{ steps.set-sha.outputs.sha }} -f services/partner-services/u-access-service/Dockerfile .
+          docker tag ghcr.io/${{ github.repository }}/ptn-access-service:${{ steps.set-sha.outputs.sha }} ghcr.io/${{ github.repository }}/ptn-access-service:latest
+          docker push ghcr.io/${{ github.repository }}/ptn-access-service:${{ steps.set-sha.outputs.sha }}
+          docker push ghcr.io/${{ github.repository }}/ptn-access-service:latest
+
+      # ============================================
+      # FX/FINANCIAL SERVICES
+      # ============================================
+      - name: Build and push receipt-service
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/receipt-service:${{ steps.set-sha.outputs.sha }} -f services/common-services/fx-services/receipt-service/Dockerfile .
+          docker tag ghcr.io/${{ github.repository }}/receipt-service:${{ steps.set-sha.outputs.sha }} ghcr.io/${{ github.repository }}/receipt-service:latest
+          docker push ghcr.io/${{ github.repository }}/receipt-service:${{ steps.set-sha.outputs.sha }}
+          docker push ghcr.io/${{ github.repository }}/receipt-service:latest
+
+      - name: Build and push accounting-service
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/accounting-service:${{ steps.set-sha.outputs.sha }} -f services/common-services/fx-services/accounting-service/Dockerfile .
+          docker tag ghcr.io/${{ github.repository }}/accounting-service:${{ steps.set-sha.outputs.sha }} ghcr.io/${{ github.repository }}/accounting-service:latest
+          docker push ghcr.io/${{ github.repository }}/accounting-service:${{ steps.set-sha.outputs.sha }}
+          docker push ghcr.io/${{ github.repository }}/accounting-service:latest
+
+      - name: Build and push payment-service
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/payment-service:${{ steps.set-sha.outputs.sha }} -f services/common-services/fx-services/payment-service/Dockerfile .
+          docker tag ghcr.io/${{ github.repository }}/payment-service:${{ steps.set-sha.outputs.sha }} ghcr.io/${{ github.repository }}/payment-service:latest
+          docker push ghcr.io/${{ github.repository }}/payment-service:${{ steps.set-sha.outputs.sha }}
+          docker push ghcr.io/${{ github.repository }}/payment-service:latest
+
+      - name: Build and push crypto-service
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/crypto-service:${{ steps.set-sha.outputs.sha }} -f services/common-services/fx-services/crypto-service/Dockerfile .
+          docker tag ghcr.io/${{ github.repository }}/crypto-service:${{ steps.set-sha.outputs.sha }} ghcr.io/${{ github.repository }}/crypto-service:latest
+          docker push ghcr.io/${{ github.repository }}/crypto-service:${{ steps.set-sha.outputs.sha }}
+          docker push ghcr.io/${{ github.repository }}/crypto-service:latest
 
   deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to dedicated server
-        uses: appleboy/ssh-action@v0.1.7
+        uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.DEPLOY_KEY }}
           script: |
             set -eux
-            cd /var/www/user.safarigari.com
-            # Make sure docker-compose file is present as docker-compose.prod.yml
-            docker-compose -f docker-compose.prod.yml pull
-            docker-compose -f docker-compose.prod.yml up -d --remove-orphans
-            # Optional cleanup
-            docker image prune -af
-            docker system prune -af --volumes || true
-            # show running containers
+            cd /var/www/x/pxyz
+            
+            # Pull latest images
+            docker-compose -f docker-compose.prod.yaml pull
+            
+            # Stop and remove containers
+            docker-compose -f docker-compose.prod.yaml down
+            
+            # Start services
+            docker-compose -f docker-compose.prod.yaml up -d --remove-orphans
+            
+            # Wait for services to be healthy
+            sleep 10
+            
+            # Show running containers
             docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}"
+            
+            # Optional: Cleanup old images
+            docker image prune -af --filter "until=24h"
+            
+            # Show service health
+            docker-compose -f docker-compose.prod.yaml ps
+
+      - name: Verify deployment
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          script: |
+            cd /var/www/x/pxyz
+            
+            # Check if all services are running
+            EXPECTED_SERVICES=24
+            RUNNING_SERVICES=$(docker-compose -f docker-compose.prod.yaml ps -q | wc -l)
+            
+            echo "Expected services: $EXPECTED_SERVICES"
+            echo "Running services: $RUNNING_SERVICES"
+            
+            if [ $RUNNING_SERVICES -lt $EXPECTED_SERVICES ]; then
+              echo "⚠️ Warning: Not all services are running!"
+              docker-compose -f docker-compose.prod.yaml ps
+              exit 1
+            fi
+            
+            echo "✅ All services are running successfully!"
+
+      - name: Send deployment notification
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Deployment successful!"
+          else
+            echo "❌ Deployment failed!"
+          fi

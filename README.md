@@ -1056,3 +1056,645 @@ Install these from the **Extensions panel** (`Ctrl+Shift+X`):
 | Proto3 Language Support | Syntax highlight for .proto     |
 
 ---
+
+**CI/CD Implementation**
+
+---
+# 🚀 **Complete GitHub CI/CD Setup Guide**
+
+## **Step 1: Create GitHub Personal Access Token (PAT)**
+
+### 1.1 Generate PAT for GHCR
+1. Go to GitHub → **Settings** → **Developer settings** → **Personal access tokens** → **Tokens (classic)**
+2. Click **Generate new token (classic)**
+3. Name it: `GHCR_PAT`
+4. Select scopes:
+   - ✅ `write:packages` (upload packages)
+   - ✅ `read:packages` (download packages)
+   - ✅ `delete:packages` (optional - cleanup old images)
+   - ✅ `repo` (access private repos if needed)
+5. Click **Generate token**
+6. **⚠️ COPY THE TOKEN NOW** - you won't see it again!
+
+---
+
+## **Step 2: Generate SSH Deploy Key**
+
+### 2.1 On Your Local Machine
+```bash
+# Generate SSH key pair
+ssh-keygen -t ed25519 -C "deploy@safarigari.com" -f ~/.ssh/deploy_key
+
+# This creates two files:
+# - deploy_key (private key) - goes to GitHub Secrets
+# - deploy_key.pub (public key) - goes to your server
+```
+
+### 2.2 Add Public Key to Server
+```bash
+# Copy public key to server
+ssh-copy-id -i ~/.ssh/deploy_key.pub your_user@212.95.35.81
+
+# OR manually:
+ssh your_user@212.95.35.81
+mkdir -p ~/.ssh
+echo "your_public_key_content" >> ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
+chmod 700 ~/.ssh
+```
+
+### 2.3 Test SSH Connection
+```bash
+ssh -i ~/.ssh/deploy_key your_user@212.95.35.81
+```
+
+---
+
+## **Step 3: Configure GitHub Repository Secrets**
+
+### 3.1 Go to Repository Settings
+1. Navigate to your GitHub repository
+2. Click **Settings** → **Secrets and variables** → **Actions**
+3. Click **New repository secret**
+
+### 3.2 Add Required Secrets
+
+#### **Infrastructure Secrets:**
+| Secret Name | Value | Description |
+|-------------|-------|-------------|
+| `GHCR_PAT` | `ghp_xxxxxxxxxxxx` | GitHub token from Step 1.1 |
+| `SERVER_IP` | `212.95.35.81` | Your server IP |
+| `SERVER_USER` | `your_username` | SSH username on server |
+| `DEPLOY_KEY` | `-----BEGIN OPENSSH PRIVATE KEY-----...` | Private key content from Step 2.1 |
+
+#### **Database Secrets:**
+| Secret Name | Value |
+|-------------|-------|
+| `DB_HOST` | `212.95.35.81` |
+| `DB_PORT` | `5432` |
+| `DB_USER` | `sam` |
+| `DB_PASSWORD` | `your_db_password` |
+| `REDIS_PASS` | `your_redis_password` (or empty) |
+
+#### **Application Secrets:**
+| Secret Name | Value |
+|-------------|-------|
+| `SYSTEM_ADMIN_PASSWORD` | `your_admin_password` |
+| `SYSTEM_ADMIN_EMAIL` | `admin@example.com` |
+| `JWT_SECRET` | `your_jwt_secret` |
+
+#### **Email/SMS Secrets:**
+| Secret Name | Value |
+|-------------|-------|
+| `SMTP_HOST` | `mail.derinance.com` |
+| `SMTP_USER` | `no_reply@derinance.com` |
+| `SMTP_PASS` | `your_smtp_password` |
+| `SMTP_PORT` | `465` |
+| `SMS_KEY` | `your_sms_key` |
+| `WA_KEY` | `your_whatsapp_key` |
+
+#### **Payment Gateway Secrets:**
+| Secret Name | Value |
+|-------------|-------|
+| `MPESA_CONSUMER_KEY` | `your_mpesa_key` |
+| `MPESA_CONSUMER_SECRET` | `your_mpesa_secret` |
+| `MPESA_PASSKEY` | `your_mpesa_passkey` |
+| `MPESA_SHORT_CODE` | `174379` |
+| `B2C_CONSUMER_KEY` | `your_b2c_key` |
+| `B2C_CONSUMER_SECRET` | `your_b2c_secret` |
+
+#### **Monitoring Secrets:**
+| Secret Name | Value |
+|-------------|-------|
+| `GRAFANA_PASSWORD` | `your_grafana_password` |
+
+---
+
+## **Step 4: Configure GitHub Repository Variables (Optional)**
+
+For non-sensitive configuration that you want visible in logs:
+
+1. Go to **Settings** → **Secrets and variables** → **Actions** → **Variables**
+2. Click **New repository variable**
+
+| Variable Name | Value |
+|---------------|-------|
+| `DOCKER_REGISTRY` | `ghcr.io` |
+| `ENVIRONMENT` | `production` |
+| `LOG_LEVEL` | `info` |
+
+---
+
+## **Step 5: Prepare Server**
+
+### 5.1 SSH into Server
+```bash
+ssh your_user@212.95.35.81
+```
+
+### 5.2 Install Docker & Docker Compose
+```bash
+# Update system
+sudo apt update && sudo apt upgrade -y
+
+# Install Docker
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+
+# Add user to docker group
+sudo usermod -aG docker $USER
+
+# Install Docker Compose
+sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+
+# Verify installations
+docker --version
+docker-compose --version
+
+# Log out and back in for group changes to take effect
+exit
+ssh your_user@212.95.35.81
+```
+
+### 5.3 Create Project Directory
+```bash
+# Create deployment directory
+sudo mkdir -p /var/www/user.safarigari.com
+sudo chown -R $USER:$USER /var/www/user.safarigari.com
+cd /var/www/user.safarigari.com
+```
+
+### 5.4 Create Production Docker Compose File
+```bash
+nano docker-compose.prod.yml
+```
+
+Paste this content:
+```yaml
+version: '3.9'
+
+services:
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik
+    # ... (use the optimized compose from previous response)
+
+  # ... all other services
+```
+
+### 5.5 Create Environment File
+```bash
+nano .env
+```
+
+Add:
+```bash
+# Docker Registry
+DOCKER_REGISTRY=ghcr.io
+GITHUB_REPOSITORY=your-username/your-repo
+IMAGE_TAG=latest
+
+# Database
+DB_HOST=212.95.35.81
+DB_PORT=5432
+DB_USER=sam
+DB_PASSWORD=your_password
+DB_NAME=pxyz_user
+
+# Redis
+REDIS_PASS=
+
+# ... other variables
+```
+
+### 5.6 Create Required Directories
+```bash
+mkdir -p uploads
+mkdir -p services/common-services/authentication/auth-service/secrets
+mkdir -p services/common-services/authentication/session-mngt/secrets
+# ... create all secrets directories
+
+# Create shared volumes
+mkdir -p data/redis
+mkdir -p data/kafka
+mkdir -p data/prometheus
+mkdir -p data/grafana
+```
+
+### 5.7 Copy JWT Keys
+```bash
+# Generate JWT keys if you don't have them
+openssl genrsa -out jwt_private.pem 4096
+openssl rsa -in jwt_private.pem -pubout -out jwt_public.pem
+
+# Copy to all services that need them
+cp jwt_*.pem services/common-services/authentication/auth-service/secrets/
+cp jwt_*.pem services/common-services/authentication/session-mngt/secrets/
+# ... copy to other services
+```
+
+---
+
+## **Step 6: Configure GitHub Actions Workflow**
+
+### 6.1 Create Workflow File
+In your repository, create:
+```
+.github/workflows/deploy.yml
+```
+
+Use the workflow from my previous response.
+
+### 6.2 Update Workflow Environment Variables
+Add this to the top of your workflow:
+```yaml
+env:
+  DOCKER_REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository }}
+```
+
+---
+
+## **Step 7: Configure Package Permissions**
+
+### 7.1 Enable Package Visibility
+1. Go to your repository
+2. Click on **Packages** (in right sidebar)
+3. Select each package
+4. Click **Package settings**
+5. Set visibility to **Public** or **Private**
+6. Add repository access under **Manage Actions access**
+
+### 7.2 Link Packages to Repository
+After first build, link packages:
+1. Go to **Packages** → Select package
+2. Click **Connect repository**
+3. Select your repository
+
+---
+
+## **Step 8: Create Pre-Deployment Checklist**
+
+### 8.1 Server Checklist
+```bash
+# On server, create checklist script
+nano ~/pre-deploy-check.sh
+```
+
+```bash
+#!/bin/bash
+
+echo "🔍 Pre-deployment Checklist"
+echo "================================"
+
+# Check Docker
+if docker --version &> /dev/null; then
+    echo "✅ Docker installed"
+else
+    echo "❌ Docker not installed"
+    exit 1
+fi
+
+# Check Docker Compose
+if docker-compose --version &> /dev/null; then
+    echo "✅ Docker Compose installed"
+else
+    echo "❌ Docker Compose not installed"
+    exit 1
+fi
+
+# Check directory
+if [ -d "/var/www/user.safarigari.com" ]; then
+    echo "✅ Deployment directory exists"
+else
+    echo "❌ Deployment directory missing"
+    exit 1
+fi
+
+# Check docker-compose.prod.yml
+if [ -f "/var/www/user.safarigari.com/docker-compose.prod.yml" ]; then
+    echo "✅ docker-compose.prod.yml exists"
+else
+    echo "❌ docker-compose.prod.yml missing"
+    exit 1
+fi
+
+# Check .env
+if [ -f "/var/www/user.safarigari.com/.env" ]; then
+    echo "✅ .env file exists"
+else
+    echo "⚠️  .env file missing (optional)"
+fi
+
+# Check disk space
+DISK_USAGE=$(df -h / | awk 'NR==2 {print $5}' | sed 's/%//')
+if [ $DISK_USAGE -lt 80 ]; then
+    echo "✅ Sufficient disk space ($DISK_USAGE% used)"
+else
+    echo "⚠️  Low disk space ($DISK_USAGE% used)"
+fi
+
+# Check memory
+FREE_MEM=$(free -m | awk 'NR==2 {printf "%.0f", $7}')
+if [ $FREE_MEM -gt 1000 ]; then
+    echo "✅ Sufficient memory (${FREE_MEM}MB free)"
+else
+    echo "⚠️  Low memory (${FREE_MEM}MB free)"
+fi
+
+echo "================================"
+echo "✅ Server ready for deployment"
+```
+
+```bash
+chmod +x ~/pre-deploy-check.sh
+./pre-deploy-check.sh
+```
+
+---
+
+## **Step 9: Test Deployment**
+
+### 9.1 Local Test (Optional)
+```bash
+# Build and test locally first
+docker-compose -f docker-compose.prod.yml build
+docker-compose -f docker-compose.prod.yml up -d
+docker-compose -f docker-compose.prod.yml ps
+
+# Check logs
+docker-compose -f docker-compose.prod.yml logs -f auth-service
+
+# Stop
+docker-compose -f docker-compose.prod.yml down
+```
+
+### 9.2 Push to GitHub
+```bash
+git add .
+git commit -m "feat: add CI/CD pipeline"
+git push origin main
+```
+
+### 9.3 Monitor Workflow
+1. Go to GitHub repository
+2. Click **Actions** tab
+3. Watch the workflow run
+4. Check each step for errors
+
+### 9.4 Verify Deployment
+```bash
+# SSH into server
+ssh your_user@212.95.35.81
+
+# Check running containers
+docker ps
+
+# Check specific service
+docker logs -f auth-service
+
+# Test endpoints
+curl http://localhost/api/v1/auth/health
+curl http://localhost:8080  # Traefik dashboard
+```
+
+---
+
+## **Step 10: Setup Secrets Management Script**
+
+### 10.1 Create Secrets Helper
+```bash
+# On your local machine
+nano setup-github-secrets.sh
+```
+
+```bash
+#!/bin/bash
+
+REPO="your-username/your-repo"
+
+# Function to add secret
+add_secret() {
+    local name=$1
+    local value=$2
+    
+    gh secret set "$name" --body "$value" --repo "$REPO"
+    echo "✅ Added secret: $name"
+}
+
+echo "🔐 Setting up GitHub Secrets for $REPO"
+echo "========================================"
+
+# Read secrets from user input
+read -sp "Enter GHCR_PAT: " GHCR_PAT && echo
+read -p "Enter SERVER_IP: " SERVER_IP
+read -p "Enter SERVER_USER: " SERVER_USER
+read -sp "Enter DB_PASSWORD: " DB_PASSWORD && echo
+read -sp "Enter SYSTEM_ADMIN_PASSWORD: " SYSTEM_ADMIN_PASSWORD && echo
+
+# Add secrets
+add_secret "GHCR_PAT" "$GHCR_PAT"
+add_secret "SERVER_IP" "$SERVER_IP"
+add_secret "SERVER_USER" "$SERVER_USER"
+add_secret "DB_PASSWORD" "$DB_PASSWORD"
+add_secret "SYSTEM_ADMIN_PASSWORD" "$SYSTEM_ADMIN_PASSWORD"
+
+# Read deploy key from file
+if [ -f ~/.ssh/deploy_key ]; then
+    DEPLOY_KEY=$(cat ~/.ssh/deploy_key)
+    add_secret "DEPLOY_KEY" "$DEPLOY_KEY"
+else
+    echo "⚠️  Deploy key not found at ~/.ssh/deploy_key"
+fi
+
+echo "========================================"
+echo "✅ Secrets setup complete!"
+```
+
+```bash
+chmod +x setup-github-secrets.sh
+
+# Install GitHub CLI if not installed
+# For Ubuntu/Debian:
+curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+sudo apt update
+sudo apt install gh
+
+# Login to GitHub CLI
+gh auth login
+
+# Run the script
+./setup-github-secrets.sh
+```
+
+---
+
+## **Step 11: Create Monitoring & Alerts**
+
+### 11.1 Setup Health Check Script (On Server)
+```bash
+nano /var/www/user.safarigari.com/health-check.sh
+```
+
+```bash
+#!/bin/bash
+
+SERVICES=(
+    "traefik"
+    "redis"
+    "kafka"
+    "auth-service"
+    "session-service"
+    "email-service"
+    "core-service"
+    "payment-service"
+    "crypto-service"
+)
+
+echo "🏥 Health Check - $(date)"
+echo "================================"
+
+FAILED=0
+
+for SERVICE in "${SERVICES[@]}"; do
+    if docker ps | grep -q "$SERVICE"; then
+        STATUS=$(docker inspect --format='{{.State.Health.Status}}' $SERVICE 2>/dev/null || echo "running")
+        if [ "$STATUS" == "healthy" ] || [ "$STATUS" == "running" ]; then
+            echo "✅ $SERVICE: $STATUS"
+        else
+            echo "❌ $SERVICE: $STATUS"
+            FAILED=$((FAILED + 1))
+        fi
+    else
+        echo "❌ $SERVICE: not running"
+        FAILED=$((FAILED + 1))
+    fi
+done
+
+echo "================================"
+if [ $FAILED -eq 0 ]; then
+    echo "✅ All services healthy"
+    exit 0
+else
+    echo "❌ $FAILED service(s) unhealthy"
+    exit 1
+fi
+```
+
+```bash
+chmod +x /var/www/user.safarigari.com/health-check.sh
+
+# Add to crontab (run every 5 minutes)
+crontab -e
+
+# Add this line:
+*/5 * * * * /var/www/user.safarigari.com/health-check.sh >> /var/log/health-check.log 2>&1
+```
+
+---
+
+## **Step 12: Create Rollback Script**
+
+```bash
+nano /var/www/user.safarigari.com/rollback.sh
+```
+
+```bash
+#!/bin/bash
+
+echo "🔄 Rolling back to previous version..."
+
+cd /var/www/user.safarigari.com
+
+# Stop current containers
+docker-compose -f docker-compose.prod.yml down
+
+# Pull previous image version
+# This assumes you tagged previous version
+docker-compose -f docker-compose.prod.yml pull
+
+# Start with previous images
+docker-compose -f docker-compose.prod.yml up -d
+
+echo "✅ Rollback complete"
+```
+
+```bash
+chmod +x /var/www/user.safarigari.com/rollback.sh
+```
+
+---
+
+## **Step 13: Documentation**
+
+### 13.1 Create DEPLOYMENT.md
+```markdown
+# Deployment Guide
+
+## Prerequisites
+- Docker & Docker Compose installed
+- GitHub secrets configured
+- Server prepared
+
+## Manual Deployment
+```bash
+cd /var/www/user.safarigari.com
+docker-compose -f docker-compose.prod.yml pull
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+## Rollback
+```bash
+./rollback.sh
+```
+
+## Health Check
+```bash
+./health-check.sh
+```
+
+## Logs
+```bash
+# All services
+docker-compose -f docker-compose.prod.yml logs -f
+
+# Specific service
+docker logs -f auth-service
+```
+```
+
+---
+
+## **✅ Final Checklist**
+
+- [ ] GitHub PAT created and added to secrets
+- [ ] SSH deploy key generated and added
+- [ ] All required secrets added to GitHub
+- [ ] Server has Docker & Docker Compose installed
+- [ ] Project directory created on server
+- [ ] docker-compose.prod.yml on server
+- [ ] .env file configured on server
+- [ ] JWT keys generated and distributed
+- [ ] Secrets directories created
+- [ ] Workflow file committed to repository
+- [ ] Package permissions configured
+- [ ] Health check script setup
+- [ ] Rollback script ready
+- [ ] First deployment tested
+
+---
+
+## **🚀 Deploy!**
+
+```bash
+git add .
+git commit -m "feat: complete CI/CD setup"
+git push origin main
+```
+
+Monitor the deployment at:
+```
+https://github.com/your-username/your-repo/actions
+```

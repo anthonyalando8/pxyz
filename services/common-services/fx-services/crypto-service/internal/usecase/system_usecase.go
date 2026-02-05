@@ -48,9 +48,9 @@ func (uc *SystemUsecase) InitializeSystemWallets(ctx context.Context) error {
 	// Define supported assets per chain
 	supportedAssets := map[string][]string{
 		"TRON": {"TRX", "USDT"},
-		// Future chains
 		"BITCOIN": {"BTC"},
 		"ETHEREUM": {"ETH", "USDC"},
+		// Future chains
 	}
 
 	createdCount := 0
@@ -89,7 +89,9 @@ func (uc *SystemUsecase) InitializeSystemWallets(ctx context.Context) error {
 				zap.String("chain", chainName),
 				zap.String("asset", assetCode))
 
-			wallet, err := chain.GenerateWallet(ctx)
+			walletCtx := uc.prepareWalletContext(ctx, chainName, assetCode, "SYSTEM")
+
+			wallet, err := chain.GenerateWallet(walletCtx)
 			if err != nil {
 				uc.logger.Error("Failed to generate system wallet",
 					zap.String("chain", chainName),
@@ -147,6 +149,35 @@ func (uc *SystemUsecase) InitializeSystemWallets(ctx context.Context) error {
 		zap.Int("total", createdCount+existingCount))
 
 	return nil
+}
+
+func (uc *SystemUsecase) prepareWalletContext(
+	ctx context.Context,
+	chainName, assetCode, userID string,
+) context.Context {
+	// Add user ID to context
+	ctx = context.WithValue(ctx, domain.UserIDKey, userID)
+	
+	// Add asset to context
+	ctx = context.WithValue(ctx, domain.AssetKey, assetCode)
+	
+	// Add chain to context
+	ctx = context.WithValue(ctx, domain.ChainKey, chainName)
+	
+	//  Determine wallet type based on chain and asset
+	walletType := "standard" // Default
+	
+	// Use Circle for USDC on Ethereum
+	if chainName == "ETHEREUM" && assetCode == "USDC" {
+		walletType = "circle"
+		uc.logger.Info("Wallet type determined",
+			zap.String("type", walletType),
+			zap.String("reason", "USDC on Ethereum with Circle enabled"))
+	}
+	
+	ctx = context.WithValue(ctx, domain.WalletTypeKey, walletType)
+	
+	return ctx
 }
 
 // GetSystemWallet retrieves system wallet for chain/asset

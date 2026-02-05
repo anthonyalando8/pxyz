@@ -1,0 +1,1357 @@
+version: '3.9'
+
+services:
+  # ============================================
+  # INFRASTRUCTURE SERVICES
+  # ============================================
+  
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik
+    command:
+      - "--api.dashboard=true"
+      - "--api.insecure=false"  #  Secure in production
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"  #  HTTPS support
+      - "--log.level=INFO"  #  Changed from DEBUG
+      - "--accesslog=true"
+      - "--accesslog.format=json"
+      - "--accesslog.filepath=/var/log/traefik/access.log"
+    ports:
+      - "80:80"
+      - "443:443"  #  HTTPS
+      - "8080:8080"  # Dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro  #  Read-only
+      - ./traefik/logs:/var/log/traefik  #  Persistent logs
+    networks:
+      - micro_net
+    restart: unless-stopped  #  Added restart policy
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine  #  Smaller image
+    container_name: redis
+    restart: unless-stopped
+    command: 
+      - redis-server
+      - --appendonly yes
+      - --maxmemory 512mb  #  Memory limit
+      - --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data  #  Persistent data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - micro_net
+    deploy:  #  Resource limits
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data  #  Persistent
+      - zookeeper_logs:/var/lib/zookeeper/log
+    networks:
+      - micro_net
+    restart: unless-stopped
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"  #  Auto-create topics
+    ports:
+      - "9093:9093"
+    volumes:
+      - kafka_data:/var/lib/kafka/data  #  Persistent
+    networks:
+      - micro_net
+    depends_on:
+      - zookeeper
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server=localhost:9092", "--list"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"  #  Standard port
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--storage.tsdb.retention.time=15d'  #  Data retention
+    networks:
+      - micro_net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}  #  Use env var
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_INSTALL_PLUGINS: grafana-piechart-panel
+      GF_SERVER_ROOT_URL: ${GRAFANA_URL:-http://localhost:3000}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    networks:
+      - micro_net
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+  # ============================================
+  # AUTHENTICATION SERVICES
+  # ============================================
+
+  audit-service:
+    image: ${DOCKER_REGISTRY:-ghcr.io}/${GITHUB_REPOSITORY}/audit-service:${IMAGE_TAG:-latest}  #  Use env vars
+    container_name: audit-service
+    build:  #  Keep for local development
+      context: .
+      dockerfile: services/common-services/authentication/audit-service/Dockerfile
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.audit.rule=PathPrefix(`/api/v1/audit`)"
+      - "traefik.http.routers.audit.entrypoints=web"
+      - "traefik.http.services.audit.loadbalancer.server.port=8008"
+      - "traefik.http.services.audit.loadbalancer.healthcheck.path=/health"  #  Health check
+      - "traefik.http.services.audit.loadbalancer.healthcheck.interval=10s"
+    env_file:
+      - ./services/common-services/authentication/audit-service/.env
+    environment:
+      # Database
+      DB_HOST: ${DB_HOST:-212.95.35.81}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-sam}
+      DB_PASSWORD: ${DB_PASSWORD}  #  No default for passwords
+      DB_NAME: ${DB_NAME:-pxyz_user}
+      
+      # Server
+      HTTP_ADDR: :8008
+      GRPC_ADDR: :8007
+      
+      # Redis
+      REDIS_ADDR: redis:6379
+      REDIS_PASS: ${REDIS_PASS:-}
+      
+      # JWT
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+      JWT_AUDIENCE: pxyz-clients
+      JWT_ISSUER: audit-service
+      JWT_ACCESS_TTL: 24h
+      
+      # Kafka
+      KAFKA_BROKERS: kafka:9092
+      
+    volumes:
+      - ./services/common-services/authentication/audit-service/secrets:/app/secrets:ro
+    networks:
+      - micro_net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  #  Better than hardcoded IP
+    depends_on:
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8008/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    logging:  #  Log rotation
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  auth-service:
+    image: ${DOCKER_REGISTRY:-ghcr.io}/${GITHUB_REPOSITORY}/auth-service:${IMAGE_TAG:-latest}
+    container_name: auth-service
+    build:
+      context: .
+      dockerfile: services/common-services/authentication/auth-service/Dockerfile
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.auth.rule=PathPrefix(`/api/v1/auth`) || PathPrefix(`/api/v1/oauth2`)"
+      - "traefik.http.routers.auth.entrypoints=web"
+      - "traefik.http.services.auth.loadbalancer.server.port=8001"
+      - "traefik.http.services.auth.loadbalancer.healthcheck.path=/health"
+      - "traefik.http.services.auth.loadbalancer.healthcheck.interval=10s"
+    env_file:
+      - ./services/common-services/authentication/auth-service/.env
+    environment:
+      DB_HOST: ${DB_HOST:-212.95.35.81}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-sam}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME:-pxyz_user}
+      KAFKA_BROKERS: kafka:9092
+      REDIS_ADDR: redis:6379
+      REDIS_PASS: ${REDIS_PASS:-}
+      SYSTEM_ADMIN_PASSWORD: ${SYSTEM_ADMIN_PASSWORD}  #  Must be in secrets
+      SYSTEM_ADMIN_EMAIL: ${SYSTEM_ADMIN_EMAIL:-admin@example.com}
+    volumes:
+      - ./services/common-services/authentication/auth-service/secrets:/app/secrets:ro
+      - ./services/common-services/authentication/auth-service/ui:/app/ui:ro
+      - uploads:/app/uploads  #  Named volume
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - micro_net
+    depends_on:
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      core-service:
+        condition: service_started
+      session-service:
+        condition: service_started
+      email-service:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  session-service:
+    image: ${DOCKER_REGISTRY:-ghcr.io}/${GITHUB_REPOSITORY}/session-service:${IMAGE_TAG:-latest}
+    container_name: session-service
+    build:
+      context: .
+      dockerfile: services/common-services/authentication/session-mngt/Dockerfile
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.session.rule=PathPrefix(`/api/v1/session`)"
+      - "traefik.http.routers.session.entrypoints=web"
+      - "traefik.http.services.session.loadbalancer.server.port=8002"
+    env_file:
+      - ./services/common-services/authentication/session-mngt/.env
+    environment:
+      DB_HOST: ${DB_HOST:-212.95.35.81}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-sam}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME:-pxyz_user}
+      REDIS_ADDR: redis:6379
+      REDIS_PASS: ${REDIS_PASS:-}
+      KAFKA_BROKERS: kafka:9092
+      JWT_PRIVATE_KEY_PATH: /app/secrets/jwt_private.pem
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    volumes:
+      - ./services/common-services/authentication/session-mngt/secrets:/app/secrets:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - micro_net
+    depends_on:
+      redis:
+        condition: service_healthy
+      u-access-service:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  otp-service:
+    image: ${DOCKER_REGISTRY:-ghcr.io}/${GITHUB_REPOSITORY}/otp-service:${IMAGE_TAG:-latest}
+    container_name: otp-service
+    build:
+      context: .
+      dockerfile: services/common-services/authentication/otp-service/Dockerfile
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.otp.rule=PathPrefix(`/api/v1/otp`)"
+      - "traefik.http.routers.otp.entrypoints=web"
+      - "traefik.http.services.otp.loadbalancer.server.port=8003"
+    env_file:
+      - ./services/common-services/authentication/otp-service/.env
+    environment:
+      DB_CONN: postgresql://${DB_USER:-sam}:${DB_PASSWORD}@${DB_HOST:-212.95.35.81}:${DB_PORT:-5432}/${DB_NAME:-pxyz_user}
+      REDIS_ADDR: redis:6379
+      REDIS_PASS: ${REDIS_PASS:-}
+      KAFKA_BROKERS: kafka:9092
+      EMAIL_SVC_ADDR: email-service:8011
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - micro_net
+    depends_on:
+      redis:
+        condition: service_healthy
+      email-service:
+        condition: service_started
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  u-access-service:
+    image: ${DOCKER_REGISTRY:-ghcr.io}/${GITHUB_REPOSITORY}/u-access-service:${IMAGE_TAG:-latest}
+    container_name: u-access-service
+    build:
+      context: .
+      dockerfile: services/common-services/authentication/u-access-service/Dockerfile
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.uaccess.rule=PathPrefix(`/api/v1/urbac`)"
+      - "traefik.http.routers.uaccess.entrypoints=web"
+      - "traefik.http.services.uaccess.loadbalancer.server.port=8031"
+    env_file:
+      - ./services/common-services/authentication/u-access-service/.env
+    environment:
+      DB_HOST: ${DB_HOST:-212.95.35.81}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-sam}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME:-pxyz_user}
+      KAFKA_BROKERS: kafka:9092
+      REDIS_ADDR: redis:6379
+      REDIS_PASS: ${REDIS_PASS:-}
+      HTTP_ADDR: :8031
+      GRPC_ADDR: :8032
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    volumes:
+      - ./services/common-services/authentication/u-access-service/secrets:/app/secrets:ro
+      - uploads:/app/uploads
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - micro_net
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # ============================================
+  # COMMUNICATION SERVICES
+  # ============================================
+
+  email-service:
+    image: ${DOCKER_REGISTRY:-ghcr.io}/${GITHUB_REPOSITORY}/email-service:${IMAGE_TAG:-latest}
+    container_name: email-service
+    build:
+      context: .
+      dockerfile: services/common-services/comms-services/email-service/Dockerfile
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.email.rule=PathPrefix(`/api/v1/email`)"
+      - "traefik.http.routers.email.entrypoints=web"
+      - "traefik.http.services.email.loadbalancer.server.port=8011"
+    env_file:
+      - ./services/common-services/comms-services/email-service/.env
+    environment:
+      DB_HOST: ${DB_HOST:-212.95.35.81}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-sam}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME:-pxyz_user}
+      KAFKA_BROKERS: kafka:9092
+      REDIS_ADDR: redis:6379
+      REDIS_PASS: ${REDIS_PASS:-}
+      GRPC_PORT: :8011
+      SMTP_HOST: ${SMTP_HOST:-mail.example.com}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      SMTP_PASS: ${SMTP_PASS}
+      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Support}
+      EMAIL_REPLY_TO: ${EMAIL_REPLY_TO:-support@example.com}
+      EMAIL_DOMAIN: ${EMAIL_DOMAIN:-example.com}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - micro_net
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  sms-service:
+    image: ${DOCKER_REGISTRY:-ghcr.io}/${GITHUB_REPOSITORY}/sms-service:${IMAGE_TAG:-latest}
+    container_name: sms-service
+    build:
+      context: .
+      dockerfile: services/common-services/comms-services/sms-service/Dockerfile
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.sms.rule=PathPrefix(`/api/v1/sms`)"
+      - "traefik.http.routers.sms.entrypoints=web"
+      - "traefik.http.services.sms.loadbalancer.server.port=8012"
+    env_file:
+      - ./services/common-services/comms-services/sms-service/.env
+    environment:
+      GRPC_ADDR: :8012
+      REDIS_ADDR: redis:6379
+      REDIS_PASS: ${REDIS_PASS:-}
+      KAFKA_BROKERS: kafka:9092
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+      WA_KEY: ${WA_KEY}
+      WA_URL: ${WA_URL:-https://www.whatsupsender.co.ke}
+      WA_SENDER: ${WA_SENDER}
+      SMS_URL: ${SMS_URL}
+      SMS_KEY: ${SMS_KEY}
+      SENDER: ${SMS_SENDER:-COMPANY}
+      USER_ID: ${SMS_USER_ID}
+      PASSWORD: ${SMS_PASSWORD}
+    volumes:
+      - ./services/common-services/comms-services/sms-service/secrets:/app/secrets:ro
+    networks:
+      - micro_net
+    depends_on:
+      redis:
+        condition: service_healthy
+      email-service:
+        condition: service_started
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  notification-service:
+    image: ${DOCKER_REGISTRY:-ghcr.io}/${GITHUB_REPOSITORY}/notification-service:${IMAGE_TAG:-latest}
+    container_name: notification-service
+    build:
+      context: .
+      dockerfile: services/common-services/comms-services/notification-service/Dockerfile
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.notification.rule=PathPrefix(`/api/v1/user/notifications`)"
+      - "traefik.http.routers.notification.entrypoints=web"
+      - "traefik.http.services.notification.loadbalancer.server.port=8013"
+    env_file:
+      - ./services/common-services/comms-services/notification-service/.env
+    environment:
+      DB_HOST: ${DB_HOST:-212.95.35.81}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-sam}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME:-pxyz_user}
+      KAFKA_BROKERS: kafka:9092
+      REDIS_ADDR: redis:6379
+      REDIS_PASS: ${REDIS_PASS:-}
+      HTTP_ADDR: :8013
+      GRPC_ADDR: :8014
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    volumes:
+      - ./services/common-services/comms-services/notification-service/secrets:/app/secrets:ro
+      - ./services/common-services/comms-services/notification-service/templates:/app/templates:ro
+      - uploads:/app/uploads
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - micro_net
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # ============================================
+  # CORE SERVICE
+  # ============================================
+
+  core-service:
+    image: ${DOCKER_REGISTRY:-ghcr.io}/${GITHUB_REPOSITORY}/core-service:${IMAGE_TAG:-latest}
+    container_name: core-service
+    build:
+      context: .
+      dockerfile: services/common-services/core-service/Dockerfile
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.core.rule=PathPrefix(`/api/v1/core`)"
+      - "traefik.http.routers.core.entrypoints=web"
+      - "traefik.http.services.core.loadbalancer.server.port=8051"
+    env_file:
+      - ./services/common-services/core-service/.env
+    environment:
+      DB_HOST: ${DB_HOST:-212.95.35.81}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-sam}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME:-pxyz_user}
+      REDIS_ADDR: redis:6379
+      REDIS_PASS: ${REDIS_PASS:-}
+      KAFKA_BROKERS: kafka:9092
+      HTTP_ADDR: :8051
+      GRPC_ADDR: :8052
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    volumes:
+      - ./services/common-services/core-service/secrets:/app/secrets:ro
+      - uploads:/app/uploads
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - micro_net
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # ============================================
+  # USER SERVICES
+  # ============================================
+
+  account-service:
+    image: ${DOCKER_REGISTRY:-ghcr.io}/${GITHUB_REPOSITORY}/account-service:${IMAGE_TAG:-latest}
+    container_name: account-service
+    build:
+      context: .
+      dockerfile: services/user-services/account-service/Dockerfile
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.account.rule=PathPrefix(`/api/v1/account`)"
+      - "traefik.http.routers.account.entrypoints=web"
+      - "traefik.http.services.account.loadbalancer.server.port=8004"
+    env_file:
+      - ./services/user-services/account-service/.env
+    environment:
+      DB_CONN: postgresql://${DB_USER:-sam}:${DB_PASSWORD}@${DB_HOST:-212.95.35.81}:${DB_PORT:-5432}/${DB_NAME:-pxyz_user}
+      REDIS_ADDR: redis:6379
+      REDIS_PASS: ${REDIS_PASS:-}
+      EMAIL_SVC_ADDR: email-service:8011
+      GRPC_ADDR: :8004
+    networks:
+      - micro_net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      redis:
+        condition: service_healthy
+      email-service:
+        condition: service_started
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  kyc-service:
+    image: ${DOCKER_REGISTRY:-ghcr.io}/${GITHUB_REPOSITORY}/kyc-service:${IMAGE_TAG:-latest}
+    container_name: kyc-service
+    build:
+      context: .
+      dockerfile: services/user-services/kyc-service/Dockerfile
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.kyc.rule=PathPrefix(`/api/v1/kyc`)"
+      - "traefik.http.routers.kyc.entrypoints=web"
+      - "traefik.http.services.kyc.loadbalancer.server.port=8005"
+    env_file:
+      - ./services/user-services/kyc-service/.env
+    environment:
+      HTTP_ADDR: :8005
+      DB_CONN: postgresql://${DB_USER:-sam}:${DB_PASSWORD}@${DB_HOST:-212.95.35.81}:${DB_PORT:-5432}/${DB_NAME:-pxyz_user}
+      REDIS_ADDR: redis:6379
+      REDIS_PASS: ${REDIS_PASS:-}
+      EMAIL_SVC_ADDR: email-service:8011
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    volumes:
+      - ./services/user-services/kyc-service/secrets:/app/secrets:ro
+      - uploads:/app/uploads
+    networks:
+      - micro_net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      redis:
+        condition: service_healthy
+      email-service:
+        condition: service_started
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  cashier-service:
+    image: ${DOCKER_REGISTRY:-ghcr.io}/${GITHUB_REPOSITORY}/cashier-service:${IMAGE_TAG:-latest}
+    container_name: cashier-service
+    build:
+      context: .
+      dockerfile: services/user-services/cashier-service/Dockerfile
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.cashier.rule=PathPrefix(`/api/v1/cashier`)"
+      - "traefik.http.routers.cashier.entrypoints=web"
+      - "traefik.http.services.cashier.loadbalancer.server.port=8021"
+    env_file:
+      - ./services/user-services/cashier-service/.env
+    environment:
+      HTTP_ADDR: :8021
+      DB_HOST: ${DB_HOST:-212.95.35.81}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-sam}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: pxyz_fx  #  Different database
+      REDIS_ADDR: redis:6379
+      REDIS_PASS: ${REDIS_PASS:-}
+      JWT_PRIVATE_KEY_PATH: /app/secrets/jwt_private.pem
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+      JWT_AUDIENCE: pxyz-clients
+      JWT_ISSUER: auth-service
+      JWT_ACCESS_TTL: 5h
+      MPESA_CONSUMER_KEY: ${MPESA_CONSUMER_KEY}
+      MPESA_CONSUMER_SECRET: ${MPESA_CONSUMER_SECRET}
+      MPESA_PASSKEY: ${MPESA_PASSKEY}
+      MPESA_SHORT_CODE: ${MPESA_SHORT_CODE:-174379}
+      MPESA_TILL_NUMBER: ${MPESA_TILL_NUMBER:-174379}
+    volumes:
+      - ./services/user-services/cashier-service/secrets:/app/secrets:ro
+    networks:
+      - micro_net
+    depends_on:
+      redis:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+
+  # ============================================
+  # ADMIN SERVICES
+  # ============================================
+
+  admin-auth-service:
+    image: ${DOCKER_REGISTRY:-ghcr.io}/${GITHUB_REPOSITORY}/admin-auth-service:${IMAGE_TAG:-latest}
+    container_name: admin-auth-service
+    build:
+      context: .
+      dockerfile: services/admin-services/admin-auth-service/Dockerfile
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.admin-auth.rule=PathPrefix(`/api/v1/admin/auth`)"
+      - "traefik.http.routers.admin-auth.entrypoints=web"
+      - "traefik.http.services.admin-auth.loadbalancer.server.port=7000"
+      - "traefik.http.middlewares.admin-auth-stripprefix.stripprefix.prefixes=/api/v1"
+      - "traefik.http.routers.admin-auth.middlewares=admin-auth-stripprefix"
+    env_file:
+      - ./services/admin-services/admin-auth-service/.env
+    environment:
+      DB_HOST: ${DB_HOST:-212.95.35.81}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-sam}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: pxyz_admin  #  Different database
+      REDIS_ADDR: redis:6379
+      REDIS_PASS: ${REDIS_PASS:-}
+      SYSTEM_ADMIN_PASSWORD: ${SYSTEM_ADMIN_PASSWORD}
+      SYSTEM_ADMIN_EMAIL: ${SYSTEM_ADMIN_EMAIL:-admin@example.com}
+    volumes:
+      - ./services/admin-services/admin-auth-service/secrets:/app/secrets:ro
+      - uploads:/app/uploads
+    networks:
+      - micro_net
+    depends_on:
+      redis:
+        condition: service_healthy
+      core-service:
+        condition: service_started
+      admin-session-service:
+        condition: service_started
+      email-service:
+        condition: service_started
+      otp-service:
+        condition: service_started
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  admin-session-service:
+    image: ${DOCKER_REGISTRY:-ghcr.io}/${GITHUB_REPOSITORY}/admin-session-service:${IMAGE_TAG:-latest}
+    container_name: admin-session-service
+    build:
+      context: .
+      dockerfile: services/admin-services/admin-session-mngt/Dockerfile
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.admin-session.rule=PathPrefix(`/api/v1/admin/session`)"
+      - "traefik.http.routers.admin-session.entrypoints=web"
+      - "traefik.http.services.admin-session.loadbalancer.server.port=7003"
+      - "traefik.http.middlewares.admin-session-stripprefix.stripprefix.prefixes=/api/v1"
+      - "traefik.http.routers.admin-session.middlewares=admin-session-stripprefix"
+    env_file:
+      - ./services/admin-services/admin-session-mngt/.env
+    environment:
+      DB_HOST: ${DB_HOST:-212.95.35.81}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-sam}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: pxyz_admin
+      REDIS_ADDR: redis:6379
+      REDIS_PASS: ${REDIS_PASS:-}
+      JWT_PRIVATE_KEY_PATH: /app/secrets/jwt_private.pem
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    volumes:
+      - ./services/admin-services/admin-session-mngt/secrets:/app/secrets:ro
+    networks:
+      - micro_net
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  admin-service:
+    image: ${DOCKER_REGISTRY:-ghcr.io}/${GITHUB_REPOSITORY}/admin-service:${IMAGE_TAG:-latest}
+    container_name: admin-service
+    build:
+      context: .
+      dockerfile: services/admin-services/admin-service/Dockerfile
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.admin-svc.rule=PathPrefix(`/api/v1/admin/svc`)"
+      - "traefik.http.routers.admin-svc.entrypoints=web"
+      - "traefik.http.services.admin-svc.loadbalancer.server.port=7010"
+      - "traefik.http.middlewares.admin-svc-stripprefix.stripprefix.prefixes=/api/v1"
+      - "traefik.http.routers.admin-svc.middlewares=admin-svc-stripprefix"
+    env_file:
+      - ./services/admin-services/admin-service/.env
+    environment:
+      DB_HOST: ${DB_HOST:-212.95.35.81}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-sam}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: pxyz_admin
+      REDIS_ADDR: redis:6379
+      REDIS_PASS: ${REDIS_PASS:-}
+    volumes:
+      - ./services/admin-services/admin-service/secrets:/app/secrets:ro
+      - uploads:/app/uploads
+    networks:
+      - micro_net
+    depends_on:
+      redis:
+        condition: service_healthy
+      core-service:
+        condition: service_started
+      admin-session-service:
+        condition: service_started
+      email-service:
+        condition: service_started
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  admin-access-service:
+    image: ${DOCKER_REGISTRY:-ghcr.io}/${GITHUB_REPOSITORY}/admin-access-service:${IMAGE_TAG:-latest}
+    container_name: admin-access-service
+    build:
+      context: .
+      dockerfile: services/admin-services/u-access-service/Dockerfile
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.adminaccess.rule=PathPrefix(`/api/v1/admin/urbac`)"
+      - "traefik.http.routers.adminaccess.entrypoints=web"
+      - "traefik.http.services.adminaccess.loadbalancer.server.port=7004"
+      - "traefik.http.middlewares.adminaccess-stripprefix.stripprefix.prefixes=/api/v1"
+      - "traefik.http.routers.adminaccess.middlewares=adminaccess-stripprefix"
+    env_file:
+      - ./services/admin-services/u-access-service/.env
+    environment:
+      DB_HOST: ${DB_HOST:-212.95.35.81}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-sam}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: pxyz_admin
+      KAFKA_BROKERS: kafka:9092
+      REDIS_ADDR: redis:6379
+      REDIS_PASS: ${REDIS_PASS:-}
+      HTTP_ADDR: :7004
+      GRPC_ADDR: :7005
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    volumes:
+      - ./services/admin-services/u-access-service/secrets:/app/secrets:ro
+      - uploads:/app/uploads
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - micro_net
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # ============================================
+  # PARTNER SERVICES
+  # ============================================
+
+  partner-service:
+    image: ${DOCKER_REGISTRY:-ghcr.io}/${GITHUB_REPOSITORY}/partner-service:${IMAGE_TAG:-latest}
+    container_name: partner-service
+    build:
+      context: .
+      dockerfile: services/partner-services/partner-service/Dockerfile
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.partner-svc.rule=PathPrefix(`/api/v1/partner/svc`) || PathPrefix(`/api/v1/partner/api`)"
+      - "traefik.http.routers.partner-svc.entrypoints=web"
+      - "traefik.http.services.partner-svc.loadbalancer.server.port=7510"
+      - "traefik.http.middlewares.partner-svc-stripprefix.stripprefix.prefixes=/api/v1"
+      - "traefik.http.routers.partner-svc.middlewares=partner-svc-stripprefix"
+    env_file:
+      - ./services/partner-services/partner-service/.env
+    environment:
+      DB_HOST: ${DB_HOST:-212.95.35.81}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-sam}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: pxyz_partner  #  Different database
+      HTTP_ADDR: :7510
+      GRPC_ADDR: :7511
+      REDIS_ADDR: redis:6379
+      REDIS_PASS: ${REDIS_PASS:-}
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    volumes:
+      - ./services/partner-services/partner-service/secrets:/app/secrets:ro
+    networks:
+      - micro_net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  ptn-auth-service:
+    image: ${DOCKER_REGISTRY:-ghcr.io}/${GITHUB_REPOSITORY}/ptn-auth-service:${IMAGE_TAG:-latest}
+    container_name: ptn-auth-service
+    build:
+      context: .
+      dockerfile: services/partner-services/ptn-auth-service/Dockerfile
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.partner-auth.rule=PathPrefix(`/api/v1/partner/auth`)"
+      - "traefik.http.routers.partner-auth.entrypoints=web"
+      - "traefik.http.services.partner-auth.loadbalancer.server.port=7500"
+      - "traefik.http.middlewares.partner-auth-stripprefix.stripprefix.prefixes=/api/v1"
+      - "traefik.http.routers.partner-auth.middlewares=partner-auth-stripprefix"
+    env_file:
+      - ./services/partner-services/ptn-auth-service/.env
+    environment:
+      DB_NAME: pxyz_partner
+      DB_HOST: ${DB_HOST:-212.95.35.81}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-sam}
+      DB_PASSWORD: ${DB_PASSWORD}
+      REDIS_ADDR: redis:6379
+      REDIS_PASS: ${REDIS_PASS:-}
+      HTTP_ADDR: :7500
+      GRPC_ADDR: :7501
+      JWT_ISSUER: ptn-auth-service
+      JWT_AUDIENCE: pxyz-ptn-clients
+      JWT_ACCESS_TTL: 5h
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+      JWT_PRIVATE_KEY_PATH: /app/secrets/jwt_private.pem
+    volumes:
+      - ./services/partner-services/ptn-auth-service/secrets:/app/secrets:ro
+      - uploads:/app/uploads
+    networks:
+      - micro_net
+    depends_on:
+      otp-service:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      core-service:
+        condition: service_started
+      ptn-session-service:
+        condition: service_started
+      email-service:
+        condition: service_started
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  ptn-session-service:
+    image: ${DOCKER_REGISTRY:-ghcr.io}/${GITHUB_REPOSITORY}/ptn-session-service:${IMAGE_TAG:-latest}
+    container_name: ptn-session-service
+    build:
+      context: .
+      dockerfile: services/partner-services/ptn-session-mngt/Dockerfile
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.partner-session.rule=PathPrefix(`/api/v1/partner/session`)"
+      - "traefik.http.routers.partner-session.entrypoints=web"
+      - "traefik.http.services.partner-session.loadbalancer.server.port=7503"
+      - "traefik.http.middlewares.partner-session-stripprefix.stripprefix.prefixes=/api/v1"
+      - "traefik.http.routers.partner-session.middlewares=partner-session-stripprefix"
+    env_file:
+      - ./services/partner-services/ptn-session-mngt/.env
+    environment:
+      DB_HOST: ${DB_HOST:-212.95.35.81}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-sam}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: pxyz_partner
+      REDIS_ADDR: redis:6379
+      REDIS_PASS: ${REDIS_PASS:-}
+      JWT_PRIVATE_KEY_PATH: /app/secrets/jwt_private.pem
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    volumes:
+      - ./services/partner-services/ptn-session-mngt/secrets:/app/secrets:ro
+    networks:
+      - micro_net
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  ptn-access-service:
+    image: ${DOCKER_REGISTRY:-ghcr.io}/${GITHUB_REPOSITORY}/ptn-access-service:${IMAGE_TAG:-latest}
+    container_name: ptn-access-service
+    build:
+      context: .
+      dockerfile: services/partner-services/u-access-service/Dockerfile
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ptnaccess.rule=PathPrefix(`/api/v1/partner/urbac`)"
+      - "traefik.http.routers.ptnaccess.entrypoints=web"
+      - "traefik.http.services.ptnaccess.loadbalancer.server.port=7504"
+      - "traefik.http.middlewares.ptnaccess-stripprefix.stripprefix.prefixes=/api/v1"
+      - "traefik.http.routers.ptnaccess.middlewares=ptnaccess-stripprefix"
+    env_file:
+      - ./services/partner-services/u-access-service/.env
+    environment:
+      DB_HOST: ${DB_HOST:-212.95.35.81}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-sam}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: pxyz_partner
+      KAFKA_BROKERS: kafka:9092
+      REDIS_ADDR: redis:6379
+      REDIS_PASS: ${REDIS_PASS:-}
+      HTTP_ADDR: :7504
+      GRPC_ADDR: :7505
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    volumes:
+      - ./services/partner-services/u-access-service/secrets:/app/secrets:ro
+      - uploads:/app/uploads
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - micro_net
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # ============================================
+  # FX/FINANCIAL SERVICES
+  # ============================================
+
+  receipt-service:
+    image: ${DOCKER_REGISTRY:-ghcr.io}/${GITHUB_REPOSITORY}/receipt-service:${IMAGE_TAG:-latest}
+    container_name: receipt-service
+    build:
+      context: .
+      dockerfile: services/common-services/fx-services/receipt-service/Dockerfile
+    ports:
+      - "8026:8026"  # gRPC
+      - "9090:9090"  # Metrics
+    env_file:
+      - ./services/common-services/fx-services/receipt-service/.env
+    environment:
+      DB_HOST: ${DB_HOST:-212.95.35.81}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-sam}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: pxyz_fx
+      DB_MAX_CONNS: ${DB_MAX_CONNS:-100}
+      DB_MIN_CONNS: ${DB_MIN_CONNS:-20}
+      DB_MAX_CONN_LIFETIME: ${DB_MAX_CONN_LIFETIME:-30m}
+      DB_MAX_CONN_IDLE_TIME: ${DB_MAX_CONN_IDLE_TIME:-5m}
+      REDIS_ADDR: redis:6379
+      REDIS_PASS: ${REDIS_PASS:-}
+      REDIS_DB: 0
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_TOPIC: receipt
+      GRPC_ADDR: :8026
+      METRICS_PORT: 9090
+      MACHINE_ID: ${MACHINE_ID:-1}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - uploads:/app/uploads
+    networks:
+      - micro_net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "grpc_health_probe", "-addr=:8026"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  accounting-service:
+    image: ${DOCKER_REGISTRY:-ghcr.io}/${GITHUB_REPOSITORY}/accounting-service:${IMAGE_TAG:-latest}
+    container_name: accounting-service
+    build:
+      context: .
+      dockerfile: services/common-services/fx-services/accounting-service/Dockerfile
+    ports:
+      - "8024:8024"  # gRPC
+    env_file:
+      - ./services/common-services/fx-services/accounting-service/.env
+    environment:
+      DB_HOST: ${DB_HOST:-212.95.35.81}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-sam}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: pxyz_fx
+      REDIS_ADDR: redis:6379
+      REDIS_PASS: ${REDIS_PASS:-}
+      GRPC_ADDR: :8024
+      JWT_PUBLIC_KEY_PATH: /app/secrets/jwt_public.pem
+    volumes:
+      - ./services/common-services/fx-services/accounting-service/secrets:/app/secrets:ro
+      - uploads:/app/uploads
+    networks:
+      - micro_net
+    depends_on:
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+
+  payment-service:
+    image: ${DOCKER_REGISTRY:-ghcr.io}/${GITHUB_REPOSITORY}/payment-service:${IMAGE_TAG:-latest}
+    container_name: payment-service
+    build:
+      context: .
+      dockerfile: services/common-services/fx-services/payment-service/Dockerfile
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.payment.rule=PathPrefix(`/api/v1/payments`) || PathPrefix(`/api/v1/webhooks`) || PathPrefix(`/api/v1/callbacks`)"
+      - "traefik.http.routers.payment.entrypoints=web"
+      - "traefik.http.services.payment.loadbalancer.server.port=8027"
+    env_file:
+      - ./services/common-services/fx-services/payment-service/.env
+    ports:
+      - "8027:8027"
+    environment:
+      # Server
+      SERVER_PORT: 8027
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      
+      # Database
+      DB_HOST: ${DB_HOST:-212.95.35.81}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-sam}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: pxyz_fx
+      DB_SSL_MODE: disable
+      
+      # M-Pesa STK
+      MPESA_ENVIRONMENT: ${MPESA_ENVIRONMENT:-production}
+      MPESA_CERT_PATH: /app/certs/cert.cer
+      MPESA_CONSUMER_KEY: ${MPESA_CONSUMER_KEY}
+      MPESA_CONSUMER_SECRET: ${MPESA_CONSUMER_SECRET}
+      MPESA_PASSKEY: ${MPESA_PASSKEY}
+      MPESA_SHORT_CODE: ${MPESA_SHORT_CODE}
+      MPESA_INITIATOR_NAME: ${MPESA_INITIATOR_NAME}
+      MPESA_INITIATOR_PASSWORD: ${MPESA_INITIATOR_PASSWORD}
+      MPESA_SECURITY_CREDENTIAL: ${MPESA_SECURITY_CREDENTIAL}
+      
+      # M-Pesa B2C
+      B2C_SHORT_CODE: ${B2C_SHORT_CODE}
+      B2C_INITIATOR_NAME: ${B2C_INITIATOR_NAME}
+      B2C_PASSWORD: ${B2C_PASSWORD}
+      B2C_SECURITY_CREDENTIAL: ${B2C_SECURITY_CREDENTIAL}
+      B2C_PASSKEY: ${B2C_PASSKEY}
+      B2C_CONSUMER_KEY: ${B2C_CONSUMER_KEY}
+      B2C_CONSUMER_SECRET: ${B2C_CONSUMER_SECRET}
+      
+      # M-Pesa B2B
+      B2B_CONSUMER_KEY: ${B2B_CONSUMER_KEY}
+      B2B_CONSUMER_SECRET: ${B2B_CONSUMER_SECRET}
+      B2B_SHORTCODE: ${B2B_SHORTCODE}
+      B2B_INITIATOR_NAME: ${B2B_INITIATOR_NAME}
+      B2B_INITIATOR_PASSWORD: ${B2B_INITIATOR_PASSWORD}
+      B2B_SECURITY_CREDENTIAL: ${B2B_SECURITY_CREDENTIAL}
+      
+      # Partners
+      PARTNER_API_KEY: ${PARTNER_API_KEY}
+      PARTNER_API_SECRET: ${PARTNER_API_SECRET}
+      PARTNER_WEBHOOK_URL: ${PARTNER_WEBHOOK_URL:-https://api.safarigari.com}
+      CALLBACK_BASE_URL: ${CALLBACK_BASE_URL:-https://api.safarigari.com}
+      PARTNER_IDS: ${PARTNER_IDS:-MPESA,airtel,BANK_KE,orangemoney}
+      
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASS:-}
+      REDIS_DB: 0
+    volumes:
+      - ./services/common-services/fx-services/payment-service/certs:/app/certs:ro
+    networks:
+      - micro_net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8027/api/v1/payments/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    depends_on:
+      redis:
+        condition: service_healthy
+      accounting-service:
+        condition: service_started
+      partner-service:
+        condition: service_started
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  crypto-service:
+    image: ${DOCKER_REGISTRY:-ghcr.io}/${GITHUB_REPOSITORY}/crypto-service:${IMAGE_TAG:-latest}
+    container_name: crypto-service
+    build:
+      context: .
+      dockerfile: services/common-services/fx-services/crypto-service/Dockerfile
+    ports:
+      - "8028:8028"  # gRPC
+    env_file:
+      - ./services/common-services/fx-services/crypto-service/.env
+    volumes:
+      - ./services/common-services/fx-services/crypto-service/secrets:/app/secrets:ro
+      - crypto_vault:/app/vault  #  Named volume for vault
+    networks:
+      - micro_net
+    depends_on:
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "grpc_health_probe", "-addr=:8028"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# ============================================
+# VOLUMES
+# ============================================
+volumes:
+  redis_data:
+    driver: local
+  zookeeper_data:
+    driver: local
+  zookeeper_logs:
+    driver: local
+  kafka_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  uploads:
+    driver: local
+  crypto_vault:
+    driver: local
+
+# ============================================
+# NETWORKS
+# ============================================
+networks:
+  micro_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
