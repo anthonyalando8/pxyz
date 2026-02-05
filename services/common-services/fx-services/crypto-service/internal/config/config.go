@@ -56,6 +56,7 @@ type CircleConfig struct {
 	EntityID        string `env:"CIRCLE_ENTITY_ID"`
 	WalletSetID     string `env:"CIRCLE_WALLET_SET_ID"`
 	USDCImplementation string `env:"USDC_IMPLEMENTATION" envDefault:"circle"` // circle or erc20
+	EntitySecretCiphertext string `env:"CIRCLE_ENTITY_SECRET_CIPHERTEXT"`
 }
 
 func Load(logger *zap.Logger) (*Config, error) {
@@ -151,6 +152,7 @@ func Load(logger *zap.Logger) (*Config, error) {
 	circleEnv := getEnv("CIRCLE_ENVIRONMENT", "sandbox")
 	circleEntityID := getEnv("CIRCLE_ENTITY_ID", "")
 	circleWalletSetID := getEnv("CIRCLE_WALLET_SET_ID", "")
+	circleEntityCipherSecret := getEnv("CIRCLE_ENTITY_SECRET_CIPHERTEXT", "")
 	usdcImpl := getEnv("USDC_IMPLEMENTATION", "circle")
 
 	if circleEnabled && circleAPIKey == "" {
@@ -197,6 +199,7 @@ func Load(logger *zap.Logger) (*Config, error) {
 			Environment:        circleEnv,
 			EntityID:           circleEntityID,
 			WalletSetID:        circleWalletSetID,
+			EntitySecretCiphertext: circleEntityCipherSecret,
 			USDCImplementation: usdcImpl,
 		},
 	}, nil

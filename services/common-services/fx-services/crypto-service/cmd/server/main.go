@@ -107,6 +107,7 @@ func main() {
 			cfg.Ethereum.RPCURL,
 			cfg.Circle.APIKey,      //  Circle API key
 			cfg.Circle.Environment, //  Circle environment
+			cfg.Circle.EntitySecretCiphertext, // Circle entity secret ciphertext
 			logger,
 		)
 		if err != nil {
@@ -140,7 +141,7 @@ func main() {
 	// Initialize use cases
 	walletUsecase := usecase.NewWalletUsecase(walletRepo, chainRegistry, encryption, logger)
 	transactionUsecase := usecase.NewTransactionUsecase(transactionRepo, walletRepo, chainRegistry, encryption, systemUsecase, logger)
-	depositUsecase := usecase.NewDepositUsecase(depositRepo, walletRepo, transactionRepo, chainRegistry, logger)
+	depositUsecase := usecase.NewDepositUsecase(depositRepo, walletRepo, transactionRepo, chainRegistry, encryption, logger)
 
 	// Initialize handlers
 	walletHandler := handler. NewWalletHandler(walletUsecase, systemUsecase, logger)

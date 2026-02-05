@@ -327,7 +327,7 @@ func step3SendTransaction() {
 
 	// Get current sender balance first
 	fmt. Println("📊 Checking current sender balance...")
-	trxBalance, err := tronChain.GetBalance(ctx, senderWallet.Address, trxAsset)
+	trxBalance, err := tronChain.GetBalance(ctx, senderWallet.Address, senderWallet.PrivateKey, trxAsset)
 	if err != nil {
 		fmt.Printf("❌ Failed to get balance: %v\n", err)
 		return
@@ -483,7 +483,7 @@ func checkBalance(address string) *big.Int {
 	fmt. Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	
 	// Check TRX
-	trxBalance, err := tronChain.GetBalance(ctx, address, trxAsset)
+	trxBalance, err := tronChain.GetBalance(ctx, address, "", trxAsset)
 	if err != nil {
 		fmt.Printf("   ❌ TRX:    Error - %v\n", err)
 		return big.NewInt(0)
@@ -496,7 +496,7 @@ func checkBalance(address string) *big.Int {
 	fmt.Printf("   TRX:  %s TRX\n", humanTRX.String())
 
 	// Check USDT
-	usdtBalance, err := tronChain. GetBalance(ctx, address, usdtAsset)
+	usdtBalance, err := tronChain. GetBalance(ctx, address, "", usdtAsset)
 	if err == nil {
 		humanUSDT := new(big. Float).Quo(
 			new(big.Float).SetInt(usdtBalance.Amount),

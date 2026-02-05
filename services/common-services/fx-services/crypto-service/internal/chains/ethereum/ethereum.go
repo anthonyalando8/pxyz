@@ -34,7 +34,7 @@ type Config struct {
 	CircleEnabled bool
 }
 
-func NewEthereumChain(rpcURL string, circleAPIKey string, circleEnv string, logger *zap.Logger) (*EthereumChain, error) {
+func NewEthereumChain(rpcURL string, circleAPIKey string, circleEnv string, circleEntitySecretCiphertext string, logger *zap.Logger) (*EthereumChain, error) {
 	client, err := ethclient.Dial(rpcURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to Ethereum: %w", err)
@@ -66,7 +66,7 @@ func NewEthereumChain(rpcURL string, circleAPIKey string, circleEnv string, logg
 		logger.Info("Initializing Circle for USDC operations",
 			zap.String("environment", circleEnv))
 
-		circleClient, err := circle.NewClient(circleAPIKey, circleEnv, logger)
+		circleClient, err := circle.NewClient(circleAPIKey, circleEnv, circleEntitySecretCiphertext, logger)
 		if err != nil {
 			logger.Warn("Failed to initialize Circle, will use ERC-20 fallback", zap.Error(err))
 		} else {
@@ -120,7 +120,7 @@ func (c *EthereumChain) GenerateWallet(ctx context.Context) (*domain.Wallet, err
 			return nil, fmt.Errorf("user_id required for Circle wallet generation")
 		}
 
-		return c.CreateCircleWallet(ctx, userID)
+		return c.createCircleWallet(ctx, userID)
 
 	case domain.WalletTypeStandard:
 		fallthrough
@@ -147,7 +147,7 @@ func (c *EthereumChain) ValidateAddress(address string) error {
 	return nil
 }
 
-func (c *EthereumChain) GetBalance(ctx context.Context, address string, asset *domain.Asset) (*domain.Balance, error) {
+func (c *EthereumChain) GetBalance(ctx context.Context, address string, walletID string, asset *domain.Asset) (*domain.Balance, error) {
 	if asset == nil {
 		return nil, fmt.Errorf("asset is required")
 	}
@@ -170,7 +170,7 @@ func (c *EthereumChain) GetBalance(ctx context.Context, address string, asset *d
 
 	// USDC via Circle (if enabled)
 	if asset.Type == domain.AssetTypeToken && asset.Symbol == "USDC" && c.config.CircleEnabled {
-		return c.getCircleUSDCBalance(ctx, address, asset)
+		return c.getCircleUSDCBalance(ctx, walletID, asset)
 	}
 
 	// Other ERC-20 tokens (or USDC fallback)

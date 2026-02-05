@@ -297,9 +297,12 @@ func (uc *WalletUsecase) GetWalletBalance(
 		if err != nil {
 			return nil, err
 		}
-		
-		//  Updated to match domain. Chain interface
-		balance, err := chain.GetBalance(ctx, wallet. Address, asset)
+		privateKey, err := uc.encryption.Decrypt(wallet.EncryptedPrivateKey)
+		if err != nil {
+			return nil,  fmt.Errorf("failed to decrypt private key: %w", err)
+		}
+			//  Updated to match domain. Chain interface
+		balance, err := chain.GetBalance(ctx, wallet. Address, privateKey, asset)
 		if err != nil {
 			uc.logger. Warn("Failed to fetch blockchain balance, using cached",
 				zap.Error(err),
@@ -357,9 +360,14 @@ func (uc *WalletUsecase) RefreshBalance(
 	if err != nil {
 		return nil, nil, err
 	}
+	privateKey, err := uc.encryption.Decrypt(wallet.EncryptedPrivateKey)
+	if err != nil {
+
+		return nil, nil, fmt.Errorf("failed to decrypt private key: %w", err)
+	}
 	
 	//  Fetch fresh balance using domain. Chain interface
-	balanceResp, err := chain.GetBalance(ctx, wallet.Address, asset)
+	balanceResp, err := chain.GetBalance(ctx, wallet.Address, privateKey, asset)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to fetch balance: %w", err)
 	}

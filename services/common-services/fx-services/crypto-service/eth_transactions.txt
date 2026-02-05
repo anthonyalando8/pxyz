@@ -1,0 +1,10 @@
+═══════════════════════════════════════════════════════════════
+Transaction Hash: b24d0634-dff5-5194-81b4-4d53f24905e3
+Network:          sepolia
+From:             0x9af5537ccc409a227194c1e20d5c6a05cd7e43d9
+To:               0xc4d1bf4444aa426c0dd439e0f895cafc286311ed
+Amount:           5.000000 USDC
+Time:             2026-02-05T11:23:35+03:00
+Explorer:         https://sepolia.etherscan.io/tx/b24d0634-dff5-5194-81b4-4d53f24905e3
+═══════════════════════════════════════════════════════════════
+

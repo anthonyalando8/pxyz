@@ -64,6 +64,7 @@ func initialize() error {
 		cfg.Ethereum.RPCURL,
 		cfg.Circle.APIKey,
 		cfg.Circle.Environment,
+		cfg.Circle.EntitySecretCiphertext,
 		logger,
 	)
 	if err != nil {
@@ -178,20 +179,20 @@ func generateNewWallets(walletType string) {
 		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 		
 		// Context for Circle wallets
-		senderCtx = context.WithValue(ctx, "wallet_type", "circle")
-		senderCtx = context.WithValue(senderCtx, "user_id", fmt.Sprintf("test-sender-%d", time.Now().Unix()))
-		senderCtx = context.WithValue(senderCtx, "asset", "USDC")
+		senderCtx = context.WithValue(ctx, domain.WalletTypeKey, "circle")
+		senderCtx = context.WithValue(senderCtx, domain.UserIDKey, fmt.Sprintf("test-sender-%d", time.Now().Unix()))
+		senderCtx = context.WithValue(senderCtx, domain.AssetKey, "USDC")
 
-		recipientCtx = context.WithValue(ctx, "wallet_type", "circle")
-		recipientCtx = context.WithValue(recipientCtx, "user_id", fmt.Sprintf("test-recipient-%d", time.Now().Unix()))
-		recipientCtx = context.WithValue(recipientCtx, "asset", "USDC")
+		recipientCtx = context.WithValue(ctx, domain.WalletTypeKey, "circle")
+		recipientCtx = context.WithValue(recipientCtx, domain.UserIDKey, fmt.Sprintf("test-recipient-%d", time.Now().Unix()))
+		recipientCtx = context.WithValue(recipientCtx, domain.AssetKey, "USDC")
 	} else {
 		fmt.Println("\n📝 Generating standard Ethereum wallets...")
 		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 		
 		// Context for standard wallets
-		senderCtx = context.WithValue(ctx, "wallet_type", "standard")
-		recipientCtx = context.WithValue(ctx, "wallet_type", "standard")
+		senderCtx = context.WithValue(ctx, domain.WalletTypeKey, "standard")
+		recipientCtx = context.WithValue(ctx, domain.WalletTypeKey, "standard")
 	}
 
 	// Generate sender wallet
@@ -279,22 +280,56 @@ func loadWalletsFromFile() {
 
 	lines := strings.Split(string(data), "\n")
 	
-	var senderAddr, senderKey, recipientAddr string
+	var senderAddr, senderKey, recipientAddr, recipientKey string
+	var inSenderSection, inRecipientSection bool
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		
-		if strings.HasPrefix(line, "Address:") && senderAddr == "" {
-			senderAddr = strings.TrimSpace(strings.TrimPrefix(line, "Address:"))
-		} else if (strings.HasPrefix(line, "Private Key:") || strings.HasPrefix(line, "Wallet ID:")) && senderKey == "" {
-			senderKey = strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(line, "Private Key:"), "Wallet ID:"))
-		} else if strings.HasPrefix(line, "Address:") && senderAddr != "" && recipientAddr == "" {
-			recipientAddr = strings.TrimSpace(strings.TrimPrefix(line, "Address:"))
+		// Detect sections
+		if strings.Contains(line, "SENDER WALLET:") {
+			inSenderSection = true
+			inRecipientSection = false
+			continue
+		} else if strings.Contains(line, "RECIPIENT WALLET:") {
+			inSenderSection = false
+			inRecipientSection = true
+			continue
+		}
+
+		// Parse sender section
+		if inSenderSection {
+			if strings.HasPrefix(line, "Address:") {
+				senderAddr = strings.TrimSpace(strings.TrimPrefix(line, "Address:"))
+			} else if strings.HasPrefix(line, "Private Key:") {
+				senderKey = strings.TrimSpace(strings.TrimPrefix(line, "Private Key:"))
+			} else if strings.HasPrefix(line, "Wallet ID:") {
+				senderKey = strings.TrimSpace(strings.TrimPrefix(line, "Wallet ID:"))
+			}
+		}
+
+		// Parse recipient section
+		if inRecipientSection {
+			if strings.HasPrefix(line, "Address:") {
+				recipientAddr = strings.TrimSpace(strings.TrimPrefix(line, "Address:"))
+			} else if strings.HasPrefix(line, "Private Key:") {
+				recipientKey = strings.TrimSpace(strings.TrimPrefix(line, "Private Key:"))
+			} else if strings.HasPrefix(line, "Wallet ID:") {
+				recipientKey = strings.TrimSpace(strings.TrimPrefix(line, "Wallet ID:"))
+			}
 		}
 	}
 
-	if senderAddr == "" || senderKey == "" || recipientAddr == "" {
-		fmt.Println("❌ Could not parse eth_wallets.txt properly")
+	// Validate required fields
+	if senderAddr == "" || senderKey == "" {
+		fmt.Println("❌ Could not parse sender wallet from eth_wallets.txt")
+		fmt.Println("Falling back to manual entry...")
+		enterWalletsManually()
+		return
+	}
+
+	if recipientAddr == "" {
+		fmt.Println("❌ Could not parse recipient address from eth_wallets.txt")
 		fmt.Println("Falling back to manual entry...")
 		enterWalletsManually()
 		return
@@ -308,14 +343,30 @@ func loadWalletsFromFile() {
 	}
 
 	recipientWallet = &domain.Wallet{
-		Address:   recipientAddr,
-		Chain:     "ETHEREUM",
+		Address:    recipientAddr,
+		PrivateKey: recipientKey, // ✅ Now includes wallet ID/private key
+		Chain:      "ETHEREUM",
 		CreatedAt:  time.Now(),
 	}
 
 	fmt.Println("✅ Wallets loaded successfully!")
 	fmt.Printf("   Sender:     %s\n", senderWallet.Address)
-	fmt.Printf("   Recipient: %s\n", recipientWallet.Address)
+	if senderKey != "" {
+		// Check if it's a Circle wallet ID (UUID format)
+		if len(senderKey) == 36 && strings.Contains(senderKey, "-") {
+			fmt.Printf("   Type:       Circle USDC Wallet\n")
+		} else {
+			fmt.Printf("   Type:       Standard Ethereum Wallet\n")
+		}
+	}
+	fmt.Printf("   Recipient:  %s\n", recipientWallet.Address)
+	if recipientKey != "" {
+		if len(recipientKey) == 36 && strings.Contains(recipientKey, "-") {
+			fmt.Printf("   Type:       Circle USDC Wallet\n")
+		} else {
+			fmt.Printf("   Type:       Standard Ethereum Wallet\n")
+		}
+	}
 }
 
 // ============================================================================
@@ -329,11 +380,11 @@ func step2CheckBalances() {
 	fmt.Println()
 
 	fmt.Println("📊 Sender Balances:")
-	senderETH, senderUSDC := checkBalances(senderWallet.Address)
+	senderETH, senderUSDC := checkBalances(senderWallet.Address, senderWallet.PrivateKey)
 
 	fmt.Println()
 	fmt.Println("📊 Recipient Balances:")
-	checkBalances(recipientWallet.Address)
+	checkBalances(recipientWallet.Address, recipientWallet.PrivateKey)
 
 	// Check if we need funds
 	minETH := big.NewInt(10000000000000000) // 0.01 ETH in wei
@@ -401,7 +452,7 @@ func sendETH() {
 
 	// Get current balance
 	fmt.Println("\n📊 Checking current balance...")
-	ethBalance, err := ethChain.GetBalance(ctx, senderWallet.Address, ethAsset)
+	ethBalance, err := ethChain.GetBalance(ctx, senderWallet.Address, senderWallet.PrivateKey, ethAsset)
 	if err != nil {
 		fmt.Printf("❌ Failed to get balance: %v\n", err)
 		return
@@ -503,7 +554,7 @@ func sendUSDC() {
 
 	// Check USDC balance
 	fmt.Println("\n📊 Checking USDC balance...")
-	usdcBalance, err := ethChain.GetBalance(ctx, senderWallet.Address, usdcAsset)
+	usdcBalance, err := ethChain.GetBalance(ctx, senderWallet.Address, senderWallet.PrivateKey, usdcAsset)
 	if err != nil {
 		fmt.Printf("❌ Failed to get USDC balance: %v\n", err)
 		return
@@ -608,11 +659,11 @@ func step4CheckFinalBalances() {
 	fmt.Println()
 
 	fmt.Println("📊 Sender Balances:")
-	checkBalances(senderWallet.Address)
+	checkBalances(senderWallet.Address, senderWallet.PrivateKey)
 
 	fmt.Println()
 	fmt.Println("📊 Recipient Balances:")
-	checkBalances(recipientWallet.Address)
+	checkBalances(recipientWallet.Address, recipientWallet.PrivateKey)
 	
 	fmt.Println()
 	fmt.Println("⏰ Note: Balance updates may take 12-30 seconds.")
@@ -622,11 +673,11 @@ func step4CheckFinalBalances() {
 // HELPER FUNCTIONS
 // ============================================================================
 
-func checkBalances(address string) (*big.Int, *big.Int) {
+func checkBalances(address string, walletID string) (*big.Int, *big.Int) {
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━���━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	
 	// Check ETH
-	ethBalance, err := ethChain.GetBalance(ctx, address, ethAsset)
+	ethBalance, err := ethChain.GetBalance(ctx, address,walletID, ethAsset)
 	if err != nil {
 		fmt.Printf("   ❌ ETH:    Error - %v\n", err)
 		ethBalance = &domain.Balance{Amount: big.NewInt(0)}
@@ -635,7 +686,7 @@ func checkBalances(address string) (*big.Int, *big.Int) {
 	}
 
 	// Check USDC
-	usdcBalance, err := ethChain.GetBalance(ctx, address, usdcAsset)
+	usdcBalance, err := ethChain.GetBalance(ctx, address, walletID, usdcAsset)
 	if err != nil {
 		fmt.Printf("   ❌ USDC:   Error - %v\n", err)
 		usdcBalance = &domain.Balance{Amount: big.NewInt(0)}

@@ -4,9 +4,10 @@ package usecase
 import (
 	"context"
 	registry "crypto-service/internal/chains/registry"
-	"crypto-service/pkg/utils"
 	"crypto-service/internal/domain"
 	"crypto-service/internal/repository"
+	"crypto-service/internal/security"
+	"crypto-service/pkg/utils"
 	"fmt"
 	"math/big"
 	"time"
@@ -20,6 +21,7 @@ type DepositUsecase struct {
 	walletRepo      *repository.CryptoWalletRepository
 	transactionRepo *repository.CryptoTransactionRepository
 	chainRegistry   *registry.Registry
+	encryption      *security. Encryption
 	logger          *zap. Logger
 }
 
@@ -28,6 +30,7 @@ func NewDepositUsecase(
 	walletRepo *repository.CryptoWalletRepository,
 	transactionRepo *repository.CryptoTransactionRepository,
 	chainRegistry *registry. Registry,
+	encryption *security.Encryption,
 	logger *zap.Logger,
 ) *DepositUsecase {
 	return &DepositUsecase{
@@ -35,6 +38,7 @@ func NewDepositUsecase(
 		walletRepo:      walletRepo,
 		transactionRepo: transactionRepo,
 		chainRegistry:   chainRegistry,
+		encryption:      encryption,
 		logger:          logger,
 	}
 }
@@ -98,9 +102,13 @@ func (uc *DepositUsecase) checkWalletDeposits(
 	if asset == nil {
 		return fmt.Errorf("unsupported asset: %s", wallet.Asset)
 	}
-	
+	privateKey, err := uc.encryption.Decrypt(wallet.EncryptedPrivateKey)
+	if err != nil {
+
+		return  fmt.Errorf("failed to decrypt private key: %w", err)
+	}
 	// Get current balance from blockchain
-	balance, err := chain.GetBalance(ctx, wallet. Address, asset)
+	balance, err := chain.GetBalance(ctx, wallet. Address, privateKey, asset)
 	if err != nil {
 		return fmt. Errorf("failed to get balance: %w", err)
 	}

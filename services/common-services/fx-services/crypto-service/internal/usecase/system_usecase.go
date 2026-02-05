@@ -180,7 +180,12 @@ func (uc *SystemUsecase) GetSystemBalance(
 
 	// Get fresh balance from blockchain
 	asset := utils.AssetFromChainAndCode(chainName, assetCode)
-	balance, err := chain.GetBalance(ctx, wallet.Address, asset)
+	privateKey, err := uc.encryption.Decrypt(wallet.EncryptedPrivateKey)
+	if err != nil {
+
+		return nil, fmt.Errorf("failed to decrypt private key: %w", err)
+	}
+	balance, err := chain.GetBalance(ctx, wallet.Address, privateKey, asset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get balance: %w", err)
 	}

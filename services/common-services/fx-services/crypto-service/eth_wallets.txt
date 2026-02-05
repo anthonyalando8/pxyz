@@ -3,13 +3,13 @@ Type: Circle USDC Wallets
 ==========================
 
 SENDER WALLET:
-Address:     0x32500D7C764C70ab3eC8A56C000a04F9E1945769
-Wallet ID:   3846d052a836c659e14e7b623a133ec3e42805043956e9dc89143763ab2b23ef
+Address:     0x9af5537ccc409a227194c1e20d5c6a05cd7e43d9
+Wallet ID:   27bc14e5-559c-5d80-9882-86118e574b04
 Type:        Circle (USDC only)
 
 RECIPIENT WALLET:
-Address:     0x2254c4E30d273A0f2B5C1f3ef0cA79b099E856EB
-Wallet ID:   2554a19057b5e5facd577a9f1f8d1d5caa8ce935ee0d5dfabc82d4b857a9949a
+Address:     0xc4d1bf4444aa426c0dd439e0f895cafc286311ed
+Wallet ID:   7cbdb715-b3a0-54e0-aa92-4b3336b6e93c
 Type:        Circle (USDC only)
 
 

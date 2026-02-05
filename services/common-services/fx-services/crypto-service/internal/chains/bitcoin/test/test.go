@@ -312,7 +312,7 @@ func step3SendTransaction() {
 
 	// Get current sender balance first
 	fmt.Println("📊 Checking current sender balance...")
-	btcBalance, err := bitcoinChain.GetBalance(ctx, senderWallet.Address, btcAsset)
+	btcBalance, err := bitcoinChain.GetBalance(ctx, senderWallet.Address,"", btcAsset)
 	if err != nil {
 		fmt. Printf("❌ Failed to get balance: %v\n", err)
 		return
@@ -484,7 +484,7 @@ func checkBalance(address string) *big.Int {
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	
 	// Check BTC balance
-	btcBalance, err := bitcoinChain.GetBalance(ctx, address, btcAsset)
+	btcBalance, err := bitcoinChain.GetBalance(ctx, address,"", btcAsset)
 	if err != nil {
 		fmt.Printf("   ❌ BTC:    Error - %v\n", err)
 		return big.NewInt(0)

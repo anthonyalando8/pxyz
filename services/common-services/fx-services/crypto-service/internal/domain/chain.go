@@ -22,7 +22,7 @@ type Chain interface {
 	ImportWallet(ctx context.Context, privateKey string) (*Wallet, error)
 	
 	// GetBalance gets balance for address
-	GetBalance(ctx context.Context, address string, asset *Asset) (*Balance, error)
+	GetBalance(ctx context.Context, address string, walletID string, asset *Asset) (*Balance, error)
 	
 	// EstimateFee estimates transaction fee
 	EstimateFee(ctx context.Context, req *TransactionRequest) (*Fee, error)

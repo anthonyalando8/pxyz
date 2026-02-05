@@ -110,7 +110,7 @@ func (t *TronChain) GenerateWallet(ctx context.Context) (*domain.Wallet, error) 
 }
 
 // GetBalance implementation with TRC20 support
-func (t *TronChain) GetBalance(ctx context.Context, address string, asset *domain.Asset) (*domain.Balance, error) {
+func (t *TronChain) GetBalance(ctx context.Context, address string, walletID string, asset *domain.Asset) (*domain.Balance, error) {
 	// Validate address
 	if err := t.ValidateAddress(address); err != nil {
 		return nil, err

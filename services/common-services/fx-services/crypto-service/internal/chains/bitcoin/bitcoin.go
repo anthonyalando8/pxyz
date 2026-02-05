@@ -85,7 +85,7 @@ func (b *BitcoinChain) ImportWallet(ctx context.Context, privateKey string) (*do
 }
 
 // GetBalance gets balance for address
-func (b *BitcoinChain) GetBalance(ctx context.Context, address string, asset *domain.Asset) (*domain.Balance, error) {
+func (b *BitcoinChain) GetBalance(ctx context.Context, address string, walletID string, asset *domain.Asset) (*domain.Balance, error) {
 	// Validate address
 	if err := b.ValidateAddress(address); err != nil {
 		return nil, err

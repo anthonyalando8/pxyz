@@ -98,3 +98,5 @@
 /services/common-services/fx-services/crypto-service/.env
 /services/common-services/fx-services/crypto-service/secrets/
 /services/common-services/fx-services/crypto-service/secrets/*
+
+/recovery_file_2026-02-05.dat
