@@ -60,6 +60,10 @@ type WithdrawalContext struct {
 	// Accounts
 	UserAccount   string
 	SystemAccount string
+
+	IsInternalTransfer  bool
+	InternalAddressInfo *InternalAddressInfo
+	RecipientAccount    string
 }
 
 // Main handler - orchestrates withdrawal flow

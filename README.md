@@ -1057,10 +1057,7 @@ Install these from the **Extensions panel** (`Ctrl+Shift+X`):
 
 ---
 
-**CI/CD Implementation**
-
----
-# 🚀 **Complete GitHub CI/CD Setup Guide**
+# **Complete GitHub CI/CD Setup Guide**
 
 ## **Step 1: Create GitHub Personal Access Token (PAT)**
 
