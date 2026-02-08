@@ -789,3 +789,345 @@ func parseNullBigInt(ns sql.NullString) *big.Int {
 	}
 	return val
 }
+
+// ============================================================================
+// RISK ASSESSMENT & APPROVAL OPERATIONS
+// ============================================================================
+
+// GetUserTransactionToAddress checks if user has sent to this address before
+func (r *CryptoTransactionRepository) GetUserTransactionToAddress(
+	ctx context.Context, userID, chain, toAddress string,
+) (*domain.CryptoTransaction, error) {
+	query := `
+		SELECT 
+			id, transaction_id, user_id, type, chain, asset,
+			from_wallet_id, from_address, to_wallet_id, to_address, is_internal,
+			amount, network_fee, network_fee_currency, platform_fee, platform_fee_currency, total_fee,
+			tx_hash, block_number, block_timestamp, confirmations, required_confirmations,
+			gas_used, gas_price, energy_used, bandwidth_used,
+			status, status_message, accounting_tx_id, memo, metadata,
+			initiated_at, broadcasted_at, confirmed_at, completed_at, failed_at,
+			created_at, updated_at
+		FROM crypto_transactions
+		WHERE user_id = $1 
+		  AND chain = $2 
+		  AND to_address = $3
+		  AND type = $4
+		  AND status = $5
+		ORDER BY created_at DESC
+		LIMIT 1
+	`
+
+	tx := &domain.CryptoTransaction{}
+	err := r.scanTransaction(
+		r.pool.QueryRow(
+			ctx, query, 
+			userID, 
+			chain, 
+			toAddress, 
+			domain.TransactionTypeWithdrawal,
+			domain.TransactionStatusConfirmed,
+		), 
+		tx,
+	)
+
+	if err == pgx.ErrNoRows {
+		return nil, nil // No previous transaction found (not an error)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get transaction to address: %w", err)
+	}
+
+	return tx, nil
+}
+
+// GetUserWithdrawalCount counts user's successful withdrawals
+func (r *CryptoTransactionRepository) GetUserWithdrawalCount(
+	ctx context.Context, userID, chain, asset string,
+) (int, error) {
+	query := `
+		SELECT COUNT(*)
+		FROM crypto_transactions
+		WHERE user_id = $1 
+		  AND chain = $2 
+		  AND asset = $3
+		  AND type = $4
+		  AND status = $5
+	`
+
+	var count int
+	err := r.pool.QueryRow(
+		ctx, query,
+		userID,
+		chain,
+		asset,
+		domain.TransactionTypeWithdrawal,
+		domain.TransactionStatusConfirmed,
+	).Scan(&count)
+
+	if err != nil {
+		return 0, fmt.Errorf("failed to count withdrawals: %w", err)
+	}
+
+	return count, nil
+}
+
+// GetUserWithdrawalsSince counts recent withdrawals since a specific time
+func (r *CryptoTransactionRepository) GetUserWithdrawalsSince(
+	ctx context.Context, userID, chain, asset string, since time.Time,
+) (int, error) {
+	query := `
+		SELECT COUNT(*)
+		FROM crypto_transactions
+		WHERE user_id = $1 
+		  AND chain = $2 
+		  AND asset = $3
+		  AND type = $4
+		  AND created_at >= $5
+	`
+
+	var count int
+	err := r.pool.QueryRow(
+		ctx, query,
+		userID,
+		chain,
+		asset,
+		domain.TransactionTypeWithdrawal,
+		since,
+	).Scan(&count)
+
+	if err != nil {
+		return 0, fmt.Errorf("failed to count recent withdrawals: %w", err)
+	}
+
+	return count, nil
+}
+
+// MarkAsCancelled marks transaction as cancelled
+func (r *CryptoTransactionRepository) MarkAsCancelled(
+	ctx context.Context, txID int64, reason string,
+) error {
+	query := `
+		UPDATE crypto_transactions
+		SET 
+			status = $1,
+			status_message = $2,
+			failed_at = NOW(),
+			updated_at = NOW()
+		WHERE id = $3
+		  AND status IN ($4, $5)
+	`
+
+	result, err := r.pool.Exec(
+		ctx, query,
+		domain.TransactionStatusCancelled,
+		reason,
+		txID,
+		domain.TransactionStatusPending,
+		domain.TransactionStatusBroadcasting,
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to cancel transaction: %w", err)
+	}
+
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("transaction not found or cannot be cancelled (already processed)")
+	}
+
+	return nil
+}
+
+// GetUserTransactionsByType gets transactions filtered by type
+func (r *CryptoTransactionRepository) GetUserTransactionsByType(
+	ctx context.Context,
+	userID, chain, asset string,
+	txType domain.TransactionType,
+	limit, offset int,
+) ([]*domain.CryptoTransaction, error) {
+	query := `
+		SELECT 
+			id, transaction_id, user_id, type, chain, asset,
+			from_wallet_id, from_address, to_wallet_id, to_address, is_internal,
+			amount, network_fee, network_fee_currency, platform_fee, platform_fee_currency, total_fee,
+			tx_hash, block_number, block_timestamp, confirmations, required_confirmations,
+			gas_used, gas_price, energy_used, bandwidth_used,
+			status, status_message, accounting_tx_id, memo, metadata,
+			initiated_at, broadcasted_at, confirmed_at, completed_at, failed_at,
+			created_at, updated_at
+		FROM crypto_transactions
+		WHERE user_id = $1 
+		  AND chain = $2 
+		  AND asset = $3
+		  AND type = $4
+		ORDER BY created_at DESC
+		LIMIT $5 OFFSET $6
+	`
+
+	rows, err := r.pool.Query(ctx, query, userID, chain, asset, txType, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query transactions by type: %w", err)
+	}
+	defer rows.Close()
+
+	var transactions []*domain.CryptoTransaction
+	for rows.Next() {
+		tx := &domain.CryptoTransaction{}
+		if err := r.scanTransaction(rows, tx); err != nil {
+			return nil, err
+		}
+		transactions = append(transactions, tx)
+	}
+
+	return transactions, nil
+}
+
+// GetTotalWithdrawalAmount calculates total withdrawal amount in a period
+func (r *CryptoTransactionRepository) GetTotalWithdrawalAmount(
+	ctx context.Context,
+	userID, chain, asset string,
+	since time.Time,
+) (*big.Int, error) {
+	query := `
+		SELECT COALESCE(SUM(amount::numeric), 0)
+		FROM crypto_transactions
+		WHERE user_id = $1 
+		  AND chain = $2 
+		  AND asset = $3
+		  AND type = $4
+		  AND created_at >= $5
+		  AND status IN ($6, $7, $8)
+	`
+
+	var amountStr string
+	err := r.pool.QueryRow(
+		ctx, query,
+		userID,
+		chain,
+		asset,
+		domain.TransactionTypeWithdrawal,
+		since,
+		domain.TransactionStatusConfirmed,
+		domain.TransactionStatusBroadcasted,
+		domain.TransactionStatusConfirming,
+	).Scan(&amountStr)
+
+	if err != nil {
+		return big.NewInt(0), fmt.Errorf("failed to get withdrawal amount: %w", err)
+	}
+
+	amount, ok := new(big.Int).SetString(amountStr, 10)
+	if !ok {
+		return big.NewInt(0), nil
+	}
+
+	return amount, nil
+}
+
+// GetPendingWithdrawals gets all pending withdrawals (for admin dashboard)
+func (r *CryptoTransactionRepository) GetPendingWithdrawals(
+	ctx context.Context,
+	limit, offset int,
+) ([]*domain.CryptoTransaction, error) {
+	query := `
+		SELECT 
+			id, transaction_id, user_id, type, chain, asset,
+			from_wallet_id, from_address, to_wallet_id, to_address, is_internal,
+			amount, network_fee, network_fee_currency, platform_fee, platform_fee_currency, total_fee,
+			tx_hash, block_number, block_timestamp, confirmations, required_confirmations,
+			gas_used, gas_price, energy_used, bandwidth_used,
+			status, status_message, accounting_tx_id, memo, metadata,
+			initiated_at, broadcasted_at, confirmed_at, completed_at, failed_at,
+			created_at, updated_at
+		FROM crypto_transactions
+		WHERE type = $1
+		  AND status = $2
+		ORDER BY created_at ASC
+		LIMIT $3 OFFSET $4
+	`
+
+	rows, err := r.pool.Query(
+		ctx, query,
+		domain.TransactionTypeWithdrawal,
+		domain.TransactionStatusPending,
+		limit,
+		offset,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query pending withdrawals: %w", err)
+	}
+	defer rows.Close()
+
+	var transactions []*domain.CryptoTransaction
+	for rows.Next() {
+		tx := &domain.CryptoTransaction{}
+		if err := r.scanTransaction(rows, tx); err != nil {
+			return nil, err
+		}
+		transactions = append(transactions, tx)
+	}
+
+	return transactions, nil
+}
+
+// GetUserWithdrawalStats gets withdrawal statistics for risk assessment
+func (r *CryptoTransactionRepository) GetUserWithdrawalStats(
+	ctx context.Context,
+	userID, chain, asset string,
+) (*WithdrawalStats, error) {
+	query := `
+		SELECT 
+			COUNT(*) as total_count,
+			COUNT(*) FILTER (WHERE status = $4) as successful_count,
+			COALESCE(SUM(amount::numeric) FILTER (WHERE status = $4), 0) as total_amount,
+			COALESCE(AVG(amount::numeric) FILTER (WHERE status = $4), 0) as avg_amount,
+			MAX(created_at) as last_withdrawal_at,
+			COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '24 hours') as last_24h_count,
+			COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days') as last_7d_count
+		FROM crypto_transactions
+		WHERE user_id = $1 
+		  AND chain = $2 
+		  AND asset = $3
+		  AND type = $5
+	`
+
+	stats := &WithdrawalStats{}
+	var totalAmountStr, avgAmountStr string
+
+	err := r.pool.QueryRow(
+		ctx, query,
+		userID,
+		chain,
+		asset,
+		domain.TransactionStatusConfirmed,
+		domain.TransactionTypeWithdrawal,
+	).Scan(
+		&stats.TotalCount,
+		&stats.SuccessfulCount,
+		&totalAmountStr,
+		&avgAmountStr,
+		&stats.LastWithdrawalAt,
+		&stats.Last24HCount,
+		&stats.Last7DCount,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get withdrawal stats: %w", err)
+	}
+
+	stats.TotalAmount = parseBigInt(totalAmountStr)
+	stats.AvgAmount = parseBigInt(avgAmountStr)
+
+	return stats, nil
+}
+
+// WithdrawalStats for risk assessment
+type WithdrawalStats struct {
+	TotalCount       int
+	SuccessfulCount  int
+	TotalAmount      *big.Int
+	AvgAmount        *big.Int
+	LastWithdrawalAt *time.Time
+	Last24HCount     int
+	Last7DCount      int
+}

@@ -2,10 +2,11 @@
 package utils
 
 import (
-	"crypto-service/internal/domain"
 	"fmt"
 	"math/big"
 	"strings"
+	"crypto-service/internal/domain"
+
 )
 
 //  AssetFromChainAndCode - Explicitly specify chain

@@ -33,6 +33,15 @@ service TransactionService {
 
     // Get transaction status by transaction ID
     rpc GetTransactionStatus(GetTransactionStatusRequest) returns (GetTransactionStatusResponse);
+
+    // --- Admin operations for pending withdrawals ---
+    rpc GetPendingWithdrawals(GetPendingWithdrawalsRequest) returns (GetPendingWithdrawalsResponse);
+    // Approve pending withdrawals (called by admin interface)
+    rpc ApproveWithdrawal(ApproveWithdrawalRequest) returns (ApproveWithdrawalResponse);
+     // Reject pending withdrawals (called by admin interface)
+    rpc RejectWithdrawal(RejectWithdrawalRequest) returns (RejectWithdrawalResponse);
+    // Get details of a pending withdrawal (for admin review)
+    rpc GetWithdrawalApproval(GetWithdrawalApprovalRequest) returns (GetWithdrawalApprovalResponse);
 }
 
 // ============================================================================
@@ -205,4 +214,89 @@ message GetTransactionStatusResponse {
     string tx_hash = 4;
     string status_message = 5;
     google.protobuf.Timestamp updated_at = 6;
+}
+
+message GetPendingWithdrawalsRequest {
+    int32 limit = 1;
+    int32 offset = 2;
+    string chain = 3;     // Optional filter
+    string asset = 4;     // Optional filter
+    int32 min_risk_score = 5; // Filter by risk score
+}
+
+message GetPendingWithdrawalsResponse {
+    repeated WithdrawalApprovalInfo approvals = 1;
+    int32 total = 2;
+}
+
+message WithdrawalApprovalInfo {
+    int64 id = 1;
+    int64 transaction_id = 2;
+    string user_id = 3;
+    
+    // Withdrawal details
+    Money amount = 4;
+    string asset = 5;
+    Chain chain = 6;
+    string to_address = 7;
+    
+    // Risk assessment
+    int32 risk_score = 8;
+    repeated RiskFactor risk_factors = 9;
+    bool requires_approval = 10;
+    
+    // Status
+    WithdrawalApprovalStatus status = 11;
+    
+    // Timestamps
+    google.protobuf.Timestamp created_at = 12;
+}
+
+message RiskFactor {
+    string factor = 1;
+    string description = 2;
+    int32 score = 3; // Contribution to total risk score
+}
+
+message ApproveWithdrawalRequest {
+    int64 approval_id = 1;
+    string approved_by = 2; // Admin user ID
+    string notes = 3;       // Optional approval notes
+}
+
+message ApproveWithdrawalResponse {
+    bool success = 1;
+    string message = 2;
+    Transaction transaction = 3; // Updated transaction
+}
+
+message RejectWithdrawalRequest {
+    int64 approval_id = 1;
+    string rejected_by = 2;      // Admin user ID
+    string rejection_reason = 3; // Required
+}
+
+message RejectWithdrawalResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message GetWithdrawalApprovalRequest {
+    int64 approval_id = 1;
+}
+
+message GetWithdrawalApprovalResponse {
+    WithdrawalApprovalInfo approval = 1;
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum WithdrawalApprovalStatus {
+    WITHDRAWAL_APPROVAL_STATUS_UNSPECIFIED = 0;
+    WITHDRAWAL_APPROVAL_STATUS_PENDING_REVIEW = 1;
+    WITHDRAWAL_APPROVAL_STATUS_APPROVED = 2;
+    WITHDRAWAL_APPROVAL_STATUS_REJECTED = 3;
+    WITHDRAWAL_APPROVAL_STATUS_AUTO_APPROVED = 4;
 }

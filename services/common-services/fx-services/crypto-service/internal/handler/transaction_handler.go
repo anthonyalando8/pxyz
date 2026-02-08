@@ -5,7 +5,7 @@ import (
 	"context"
 	"crypto-service/internal/domain"
 	"crypto-service/internal/usecase"
-	//"math/big"
+	//"fmt"
 
 	pb "x/shared/genproto/shared/accounting/cryptopb"
 
@@ -18,37 +18,36 @@ import (
 type TransactionHandler struct {
 	pb.UnimplementedTransactionServiceServer
 	transactionUsecase *usecase.TransactionUsecase
-	logger             *zap. Logger
+	logger             *zap.Logger
 }
 
 func NewTransactionHandler(
-	transactionUsecase *usecase. TransactionUsecase,
+	transactionUsecase *usecase.TransactionUsecase,
 	logger *zap.Logger,
 ) *TransactionHandler {
 	return &TransactionHandler{
 		transactionUsecase: transactionUsecase,
-		logger:              logger,
+		logger:             logger,
 	}
 }
 
 // ============================================================================
-// NETWORK FEE ESTIMATION (for accounting module)
+// NETWORK FEE ESTIMATION
 // ============================================================================
 
 // EstimateNetworkFee estimates blockchain network fee
-// This is called by accounting module to calculate total withdrawal cost
 func (h *TransactionHandler) EstimateNetworkFee(
 	ctx context.Context,
 	req *pb.EstimateNetworkFeeRequest,
 ) (*pb.EstimateNetworkFeeResponse, error) {
 	
 	h.logger.Info("EstimateNetworkFee request",
-		zap.String("chain", req.Chain. String()),
+		zap.String("chain", req.Chain.String()),
 		zap.String("asset", req.Asset),
 		zap.String("amount", req.Amount))
 	
 	// Validate
-	if req.Chain == pb.Chain_CHAIN_UNSPECIFIED || req.Asset == "" || req. Amount == "" {
+	if req.Chain == pb.Chain_CHAIN_UNSPECIFIED || req.Asset == "" || req.Amount == "" {
 		return nil, status.Error(codes.InvalidArgument, "chain, asset, and amount required")
 	}
 	
@@ -60,7 +59,7 @@ func (h *TransactionHandler) EstimateNetworkFee(
 		chainName,
 		req.Asset,
 		req.Amount,
-		req.ToAddress, // Optional
+		req.ToAddress,
 	)
 	if err != nil {
 		h.logger.Error("Failed to estimate network fee", zap.Error(err))
@@ -70,19 +69,19 @@ func (h *TransactionHandler) EstimateNetworkFee(
 	return &pb.EstimateNetworkFeeResponse{
 		Chain:        req.Chain,
 		Asset:        req.Asset,
-		FeeAmount:    estimate.FeeAmount. String(),
+		FeeAmount:    estimate.FeeAmount.String(),
 		FeeCurrency:  estimate.FeeCurrency,
 		FeeFormatted: estimate.FeeFormatted,
 		EstimatedAt:  timestamppb.New(estimate.EstimatedAt),
-		ValidFor:     int32(estimate.ValidFor. Seconds()),
+		ValidFor:     int32(estimate.ValidFor.Seconds()),
 		Explanation:  "Estimated blockchain network fee",
 	}, nil
 }
 
-// GetWithdrawalQuote gets complete withdrawal quote (for display to user)
+// GetWithdrawalQuote gets complete withdrawal quote
 func (h *TransactionHandler) GetWithdrawalQuote(
-	ctx context. Context,
-	req *pb. GetWithdrawalQuoteRequest,
+	ctx context.Context,
+	req *pb.GetWithdrawalQuoteRequest,
 ) (*pb.GetWithdrawalQuoteResponse, error) {
 	
 	h.logger.Info("GetWithdrawalQuote request",
@@ -91,14 +90,14 @@ func (h *TransactionHandler) GetWithdrawalQuote(
 		zap.String("amount", req.Amount))
 	
 	// Validate
-	if req.Chain == pb. Chain_CHAIN_UNSPECIFIED || req.Asset == "" || req.Amount == "" || req.ToAddress == "" {
+	if req.Chain == pb.Chain_CHAIN_UNSPECIFIED || req.Asset == "" || req.Amount == "" || req.ToAddress == "" {
 		return nil, status.Error(codes.InvalidArgument, "missing required fields")
 	}
 	
 	chainName := chainEnumToString(req.Chain)
 	
-	// Get quote (only network fee - platform fee from accounting)
-	quote, err := h. transactionUsecase.GetWithdrawalQuote(
+	// Get quote
+	quote, err := h.transactionUsecase.GetWithdrawalQuote(
 		ctx,
 		chainName,
 		req.Asset,
@@ -106,15 +105,15 @@ func (h *TransactionHandler) GetWithdrawalQuote(
 		req.ToAddress,
 	)
 	if err != nil {
-		h. logger.Error("Failed to get quote", zap.Error(err))
-		return nil, status. Errorf(codes.Internal, "failed to get quote: %v", err)
+		h.logger.Error("Failed to get quote", zap.Error(err))
+		return nil, status.Errorf(codes.Internal, "failed to get quote: %v", err)
 	}
 	
 	return &pb.GetWithdrawalQuoteResponse{
-		QuoteId:  quote.QuoteID,
+		QuoteId: quote.QuoteID,
 		Chain:   req.Chain,
 		Asset:   req.Asset,
-		Amount:  &pb.Money{
+		Amount: &pb.Money{
 			Amount:   quote.Amount.String(),
 			Currency: req.Asset,
 		},
@@ -129,14 +128,10 @@ func (h *TransactionHandler) GetWithdrawalQuote(
 }
 
 // ============================================================================
-// WITHDRAWAL (called by accounting after balance deduction)
+// WITHDRAWAL
 // ============================================================================
 
 // Withdraw executes withdrawal from system hot wallet to external address
-// NOTE: This should be called by accounting module AFTER: 
-//   1. User virtual balance has been debited
-//   2. Platform fee has been collected
-//   3. Network fee has been reserved
 func (h *TransactionHandler) Withdraw(
 	ctx context.Context,
 	req *pb.WithdrawRequest,
@@ -163,30 +158,30 @@ func (h *TransactionHandler) Withdraw(
 	
 	chainName := chainEnumToString(req.Chain)
 	
-	// Execute withdrawal from system wallet
+	// Execute withdrawal
 	tx, err := h.transactionUsecase.Withdraw(
 		ctx,
-		req.AccountingTxId, // For idempotency
+		req.AccountingTxId,
 		chainName,
 		req.Asset,
 		req.Amount,
 		req.ToAddress,
-		req. Memo,
-		req.UserId, // For tracking
+		req.Memo,
+		req.UserId,
 	)
 	if err != nil {
-		h.logger. Error("Withdrawal failed", zap.Error(err))
-		return nil, status. Errorf(codes.Internal, "withdrawal failed: %v", err)
+		h.logger.Error("Withdrawal failed", zap.Error(err))
+		return nil, status.Errorf(codes.Internal, "withdrawal failed: %v", err)
 	}
 	
 	return &pb.WithdrawResponse{
-		Transaction: transactionToProto(tx),
+		Transaction: h.transactionToProto(tx),
 		Message:     "Withdrawal initiated successfully",
 	}, nil
 }
 
 // ============================================================================
-// SWEEP OPERATIONS (internal use)
+// SWEEP OPERATIONS
 // ============================================================================
 
 // SweepUserWallet sweeps funds from user's deposit address to system wallet
@@ -215,12 +210,12 @@ func (h *TransactionHandler) SweepUserWallet(
 	}
 	
 	return &pb.SweepUserWalletResponse{
-		Transaction: transactionToProto(tx),
+		Transaction: h.transactionToProto(tx),
 		Message:     "Wallet swept successfully",
 	}, nil
 }
 
-// SweepAllUsers sweeps all user wallets for a chain/asset (batch operation)
+// SweepAllUsers sweeps all user wallets for a chain/asset
 func (h *TransactionHandler) SweepAllUsers(
 	ctx context.Context,
 	req *pb.SweepAllUsersRequest,
@@ -238,7 +233,7 @@ func (h *TransactionHandler) SweepAllUsers(
 	chainName := chainEnumToString(req.Chain)
 	
 	// Execute batch sweep
-	transactions, err := h.transactionUsecase.SweepAllUsers(ctx, chainName, req. Asset)
+	transactions, err := h.transactionUsecase.SweepAllUsers(ctx, chainName, req.Asset)
 	if err != nil {
 		h.logger.Error("Batch sweep failed", zap.Error(err))
 		return nil, status.Errorf(codes.Internal, "batch sweep failed: %v", err)
@@ -247,13 +242,14 @@ func (h *TransactionHandler) SweepAllUsers(
 	// Convert to proto
 	pbTransactions := make([]*pb.Transaction, len(transactions))
 	for i, tx := range transactions {
-		pbTransactions[i] = transactionToProto(tx)
+		pbTransactions[i] = h.transactionToProto(tx)
 	}
 	
 	return &pb.SweepAllUsersResponse{
 		Transactions:  pbTransactions,
-		SuccessCount: int32(len(transactions)),
-		Message:      "Batch sweep completed",
+		SuccessCount:  int32(len(transactions)),
+		FailedCount:   0,
+		Message:       "Batch sweep completed",
 	}, nil
 }
 
@@ -271,13 +267,13 @@ func (h *TransactionHandler) GetTransaction(
 		return nil, status.Error(codes.InvalidArgument, "transaction_id required")
 	}
 	
-	tx, err := h.transactionUsecase. GetTransaction(ctx, req.TransactionId)
+	tx, err := h.transactionUsecase.GetTransaction(ctx, req.TransactionId)
 	if err != nil {
 		return nil, status.Errorf(codes.NotFound, "transaction not found: %v", err)
 	}
 	
 	return &pb.GetTransactionResponse{
-		Transaction: transactionToProto(tx),
+		Transaction: h.transactionToProto(tx),
 	}, nil
 }
 
@@ -293,7 +289,7 @@ func (h *TransactionHandler) GetUserTransactions(
 	
 	// Set defaults
 	limit := int(req.Pagination.PageSize)
-	if limit == 0 {
+	if limit == 0 || limit > 100 {
 		limit = 20
 	}
 	
@@ -305,22 +301,22 @@ func (h *TransactionHandler) GetUserTransactions(
 	offset := (page - 1) * limit
 	
 	// Get transactions
-	transactions, err := h.transactionUsecase. GetUserTransactions(ctx, req.UserId, limit, offset)
+	transactions, err := h.transactionUsecase.GetUserTransactions(ctx, req.UserId, limit, offset)
 	if err != nil {
 		h.logger.Error("Failed to get transactions", zap.Error(err))
-		return nil, status. Errorf(codes.Internal, "failed to get transactions: %v", err)
+		return nil, status.Errorf(codes.Internal, "failed to get transactions: %v", err)
 	}
 	
 	// Convert to summaries
 	summaries := make([]*pb.TransactionSummary, len(transactions))
 	for i, tx := range transactions {
-		summaries[i] = transactionToSummaryProto(tx)
+		summaries[i] = h.transactionToSummaryProto(tx)
 	}
 	
-	return &pb. GetUserTransactionsResponse{
+	return &pb.GetUserTransactionsResponse{
 		Transactions: summaries,
 		Pagination: &pb.PaginationResponse{
-			Page:        int32(page),
+			Page:       int32(page),
 			PageSize:   int32(limit),
 			Total:      int64(len(summaries)),
 			TotalPages: int32((len(summaries) + limit - 1) / limit),
@@ -334,128 +330,328 @@ func (h *TransactionHandler) GetTransactionStatus(
 	req *pb.GetTransactionStatusRequest,
 ) (*pb.GetTransactionStatusResponse, error) {
 	
-	if req. TransactionId == "" {
+	if req.TransactionId == "" {
 		return nil, status.Error(codes.InvalidArgument, "transaction_id required")
 	}
 	
-	tx, err := h. transactionUsecase.GetTransaction(ctx, req.TransactionId)
+	tx, err := h.transactionUsecase.GetTransaction(ctx, req.TransactionId)
 	if err != nil {
-		return nil, status. Errorf(codes.NotFound, "transaction not found: %v", err)
-	}
-	
-	var txHash string
-	if tx. TxHash != nil {
-		txHash = *tx.TxHash
-	}
-	
-	var statusMsg string
-	if tx.StatusMessage != nil {
-		statusMsg = *tx.StatusMessage
+		return nil, status.Errorf(codes.NotFound, "transaction not found: %v", err)
 	}
 	
 	return &pb.GetTransactionStatusResponse{
-		Status:                transactionStatusToProto(tx. Status),
+		Status:                transactionStatusToProto(tx.Status),
 		Confirmations:         int32(tx.Confirmations),
 		RequiredConfirmations: int32(tx.RequiredConfirmations),
-		TxHash:                txHash,
-		StatusMessage:          statusMsg,
+		TxHash:                getStringValue(tx.TxHash),
+		StatusMessage:         getStringValue(tx.StatusMessage),
 		UpdatedAt:             timestamppb.New(tx.UpdatedAt),
 	}, nil
 }
 
 // ============================================================================
-// HELPER FUNCTIONS
+// APPROVAL METHODS
 // ============================================================================
 
-func transactionToProto(tx *domain.CryptoTransaction) *pb.Transaction {
+// GetPendingWithdrawals retrieves pending withdrawal approvals
+func (h *TransactionHandler) GetPendingWithdrawals(
+	ctx context.Context,
+	req *pb.GetPendingWithdrawalsRequest,
+) (*pb.GetPendingWithdrawalsResponse, error) {
+	
+	h.logger.Info("Getting pending withdrawal approvals",
+		zap.Int32("limit", req.Limit),
+		zap.Int32("offset", req.Offset))
+
+	// Set defaults
+	limit := int(req.Limit)
+	offset := int(req.Offset)
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+
+	// Get pending approvals
+	approvals, err := h.transactionUsecase.GetPendingApprovals(ctx, limit, offset)
+	if err != nil {
+		h.logger.Error("Failed to get pending approvals", zap.Error(err))
+		return nil, status.Errorf(codes.Internal, "failed to get pending approvals: %v", err)
+	}
+
+	// Get total count
+	stats, err := h.transactionUsecase.GetApprovalStats(ctx)
+	totalCount := int32(len(approvals))
+	if err == nil && stats != nil {
+		totalCount = int32(stats.Pending)
+	}
+
+	// Convert to protobuf
+	pbApprovals := make([]*pb.WithdrawalApprovalInfo, len(approvals))
+	for i, approval := range approvals {
+		pbApprovals[i] = h.approvalToProto(approval)
+	}
+
+	h.logger.Info("Retrieved pending approvals", zap.Int("count", len(approvals)))
+
+	return &pb.GetPendingWithdrawalsResponse{
+		Approvals: pbApprovals,
+		Total:     totalCount,
+	}, nil
+}
+
+// ApproveWithdrawal approves a pending withdrawal
+func (h *TransactionHandler) ApproveWithdrawal(
+	ctx context.Context,
+	req *pb.ApproveWithdrawalRequest,
+) (*pb.ApproveWithdrawalResponse, error) {
+
+	h.logger.Info("Approving withdrawal",
+		zap.Int64("approval_id", req.ApprovalId),
+		zap.String("approved_by", req.ApprovedBy))
+
+	// Validate request
+	if req.ApprovalId <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "invalid approval_id")
+	}
+	if req.ApprovedBy == "" {
+		return nil, status.Error(codes.InvalidArgument, "approved_by is required")
+	}
+
+	// Approve withdrawal
+	tx, err := h.transactionUsecase.ApproveWithdrawal(
+		ctx,
+		req.ApprovalId,
+		req.ApprovedBy,
+		req.Notes,
+	)
+	if err != nil {
+		h.logger.Error("Failed to approve withdrawal",
+			zap.Int64("approval_id", req.ApprovalId),
+			zap.Error(err))
+		return nil, status.Errorf(codes.Internal, "failed to approve withdrawal: %v", err)
+	}
+
+	h.logger.Info("Withdrawal approved successfully",
+		zap.Int64("approval_id", req.ApprovalId),
+		zap.String("tx_id", tx.TransactionID))
+
+	return &pb.ApproveWithdrawalResponse{
+		Success:     true,
+		Message:     "Withdrawal approved and executing on blockchain",
+		Transaction: h.transactionToProto(tx),
+	}, nil
+}
+
+// RejectWithdrawal rejects a pending withdrawal
+func (h *TransactionHandler) RejectWithdrawal(
+	ctx context.Context,
+	req *pb.RejectWithdrawalRequest,
+) (*pb.RejectWithdrawalResponse, error) {
+
+	h.logger.Info("Rejecting withdrawal",
+		zap.Int64("approval_id", req.ApprovalId),
+		zap.String("rejected_by", req.RejectedBy))
+
+	// Validate request
+	if req.ApprovalId <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "invalid approval_id")
+	}
+	if req.RejectedBy == "" {
+		return nil, status.Error(codes.InvalidArgument, "rejected_by is required")
+	}
+	if req.RejectionReason == "" {
+		return nil, status.Error(codes.InvalidArgument, "rejection_reason is required")
+	}
+
+	// Reject withdrawal
+	err := h.transactionUsecase.RejectWithdrawal(
+		ctx,
+		req.ApprovalId,
+		req.RejectedBy,
+		req.RejectionReason,
+	)
+	if err != nil {
+		h.logger.Error("Failed to reject withdrawal",
+			zap.Int64("approval_id", req.ApprovalId),
+			zap.Error(err))
+		return nil, status.Errorf(codes.Internal, "failed to reject withdrawal: %v", err)
+	}
+
+	h.logger.Info("Withdrawal rejected successfully",
+		zap.Int64("approval_id", req.ApprovalId),
+		zap.String("reason", req.RejectionReason))
+
+	return &pb.RejectWithdrawalResponse{
+		Success: true,
+		Message: "Withdrawal rejected successfully",
+	}, nil
+}
+
+// GetWithdrawalApproval gets a specific approval by ID
+func (h *TransactionHandler) GetWithdrawalApproval(
+	ctx context.Context,
+	req *pb.GetWithdrawalApprovalRequest,
+) (*pb.GetWithdrawalApprovalResponse, error) {
+
+	h.logger.Debug("Getting withdrawal approval",
+		zap.Int64("approval_id", req.ApprovalId))
+
+	if req.ApprovalId <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "invalid approval_id")
+	}
+
+	// Get approval
+	approval, err := h.transactionUsecase.GetApprovalByID(ctx, req.ApprovalId)
+	if err != nil {
+		h.logger.Error("Failed to get approval",
+			zap.Int64("approval_id", req.ApprovalId),
+			zap.Error(err))
+		return nil, status.Errorf(codes.NotFound, "approval not found: %v", err)
+	}
+
+	return &pb.GetWithdrawalApprovalResponse{
+		Approval: h.approvalToProto(approval),
+	}, nil
+}
+
+// ============================================================================
+// CONVERSION HELPERS
+// ============================================================================
+
+// transactionToProto converts domain.CryptoTransaction to protobuf
+func (h *TransactionHandler) transactionToProto(tx *domain.CryptoTransaction) *pb.Transaction {
+	if tx == nil {
+		return nil
+	}
+
 	pbTx := &pb.Transaction{
-		Id:            tx.ID,
-		TransactionId: tx.TransactionID,
-		UserId:        tx.UserID,
-		Type:          transactionTypeToProto(tx. Type),
-		Chain:         stringToChainEnum(tx.Chain),
-		Asset:         tx.Asset,
-		FromAddress:   tx.FromAddress,
-		ToAddress:     tx. ToAddress,
-		IsInternal:    tx.IsInternal,
-		Amount:  &pb.Money{
-			Amount:   tx.Amount.String(),
-			Currency: tx.Asset,
-		},
-		Status:                 transactionStatusToProto(tx. Status),
+		Id:                    tx.ID,
+		TransactionId:         tx.TransactionID,
+		UserId:                tx.UserID,
+		Type:                  transactionTypeToProto(tx.Type),
+		Chain:                 stringToChainEnum(tx.Chain),
+		Asset:                 tx.Asset,
+		FromAddress:           tx.FromAddress,
+		ToAddress:             tx.ToAddress,
+		IsInternal:            tx.IsInternal,
+		Amount:                &pb.Money{Amount: tx.Amount.String(), Currency: tx.Asset},
 		Confirmations:         int32(tx.Confirmations),
 		RequiredConfirmations: int32(tx.RequiredConfirmations),
+		Status:                transactionStatusToProto(tx.Status),
 		InitiatedAt:           timestamppb.New(tx.InitiatedAt),
 		CreatedAt:             timestamppb.New(tx.CreatedAt),
 	}
-	
+
 	// Network fee
 	if tx.NetworkFee != nil {
-		currency := tx.Asset
-		if tx.NetworkFeeCurrency != nil {
-			currency = *tx.NetworkFeeCurrency
+		currency := getStringValue(tx.NetworkFeeCurrency)
+		if currency == "" {
+			currency = tx.Asset
 		}
 		pbTx.NetworkFee = &pb.Money{
 			Amount:   tx.NetworkFee.String(),
 			Currency: currency,
 		}
 	}
-	
+
 	// Optional fields
+	if tx.AccountingTxID != nil {
+		pbTx.AccountingTxId = *tx.AccountingTxID
+	}
 	if tx.TxHash != nil {
 		pbTx.TxHash = *tx.TxHash
 	}
-	
 	if tx.BlockNumber != nil {
 		pbTx.BlockNumber = *tx.BlockNumber
 	}
-	
-	if tx.BroadcastedAt != nil {
-		pbTx.BroadcastedAt = timestamppb.New(*tx. BroadcastedAt)
-	}
-	
-	if tx. ConfirmedAt != nil {
-		pbTx.ConfirmedAt = timestamppb. New(*tx.ConfirmedAt)
-	}
-	
 	if tx.StatusMessage != nil {
 		pbTx.StatusMessage = *tx.StatusMessage
 	}
-	
-	if tx.AccountingTxID  != nil {
-		pbTx.AccountingTxId = *tx.AccountingTxID
+	if tx.BroadcastedAt != nil {
+		pbTx.BroadcastedAt = timestamppb.New(*tx.BroadcastedAt)
 	}
-	
+	if tx.ConfirmedAt != nil {
+		pbTx.ConfirmedAt = timestamppb.New(*tx.ConfirmedAt)
+	}
+
 	return pbTx
 }
 
-func transactionToSummaryProto(tx *domain.CryptoTransaction) *pb.TransactionSummary {
+// transactionToSummaryProto converts to summary
+func (h *TransactionHandler) transactionToSummaryProto(tx *domain.CryptoTransaction) *pb.TransactionSummary {
 	summary := &pb.TransactionSummary{
 		TransactionId: tx.TransactionID,
 		Type:          transactionTypeToProto(tx.Type),
 		Chain:         stringToChainEnum(tx.Chain),
 		Asset:         tx.Asset,
-		Amount:         tx.Amount.String(),
+		Amount:        tx.Amount.String(),
 		Status:        transactionStatusToProto(tx.Status),
 		IsInternal:    tx.IsInternal,
 		CreatedAt:     timestamppb.New(tx.CreatedAt),
 	}
-	
-	if tx. TxHash != nil {
-		summary.TxHash = *tx. TxHash
+
+	if tx.TxHash != nil {
+		summary.TxHash = *tx.TxHash
 	}
-	
 	if tx.NetworkFee != nil {
 		summary.NetworkFee = tx.NetworkFee.String()
 	}
-	
+
 	return summary
 }
+
+// approvalToProto converts domain.WithdrawalApproval to protobuf
+func (h *TransactionHandler) approvalToProto(approval *domain.WithdrawalApproval) *pb.WithdrawalApprovalInfo {
+	if approval == nil {
+		return nil
+	}
+
+	// Convert risk factors
+	riskFactors := make([]*pb.RiskFactor, len(approval.RiskFactors))
+	for i, factor := range approval.RiskFactors {
+		riskFactors[i] = &pb.RiskFactor{
+			Factor:      factor.Factor,
+			Description: factor.Description,
+			Score:       int32(factor.Score),
+		}
+	}
+
+	// Convert status
+	status := pb.WithdrawalApprovalStatus_WITHDRAWAL_APPROVAL_STATUS_UNSPECIFIED
+	switch approval.Status {
+	case domain.ApprovalStatusPendingReview:
+		status = pb.WithdrawalApprovalStatus_WITHDRAWAL_APPROVAL_STATUS_PENDING_REVIEW
+	case domain.ApprovalStatusApproved:
+		status = pb.WithdrawalApprovalStatus_WITHDRAWAL_APPROVAL_STATUS_APPROVED
+	case domain.ApprovalStatusRejected:
+		status = pb.WithdrawalApprovalStatus_WITHDRAWAL_APPROVAL_STATUS_REJECTED
+	case domain.ApprovalStatusAutoApproved:
+		status = pb.WithdrawalApprovalStatus_WITHDRAWAL_APPROVAL_STATUS_AUTO_APPROVED
+	}
+
+	return &pb.WithdrawalApprovalInfo{
+		Id:               approval.ID,
+		TransactionId:    approval.TransactionID,
+		UserId:           approval.UserID,
+		Amount:           &pb.Money{Amount: approval.Amount.String(), Currency: approval.Asset},
+		Asset:            approval.Asset,
+		Chain:            pb.Chain_CHAIN_UNSPECIFIED, // TODO: Add chain to approval domain
+		ToAddress:        approval.ToAddress,
+		RiskScore:        int32(approval.RiskScore),
+		RiskFactors:      riskFactors,
+		RequiresApproval: approval.RequiresApproval,
+		Status:           status,
+		CreatedAt:        timestamppb.New(approval.CreatedAt),
+	}
+}
+
+// ============================================================================
+// ENUM CONVERSION HELPERS
+// ============================================================================
 
 func transactionTypeToProto(txType domain.TransactionType) pb.TransactionType {
 	switch txType {
 	case domain.TransactionTypeDeposit:
-		return pb. TransactionType_TRANSACTION_TYPE_DEPOSIT
+		return pb.TransactionType_TRANSACTION_TYPE_DEPOSIT
 	case domain.TransactionTypeWithdrawal:
 		return pb.TransactionType_TRANSACTION_TYPE_WITHDRAWAL
 	case domain.TransactionTypeSweep:
@@ -477,7 +673,7 @@ func transactionStatusToProto(status domain.TransactionStatus) pb.TransactionSta
 		return pb.TransactionStatus_TRANSACTION_STATUS_PENDING
 	case domain.TransactionStatusBroadcasting:
 		return pb.TransactionStatus_TRANSACTION_STATUS_BROADCASTING
-	case domain.TransactionStatusBroadcasted: 
+	case domain.TransactionStatusBroadcasted:
 		return pb.TransactionStatus_TRANSACTION_STATUS_BROADCASTED
 	case domain.TransactionStatusConfirming:
 		return pb.TransactionStatus_TRANSACTION_STATUS_CONFIRMING
@@ -492,4 +688,12 @@ func transactionStatusToProto(status domain.TransactionStatus) pb.TransactionSta
 	default:
 		return pb.TransactionStatus_TRANSACTION_STATUS_UNSPECIFIED
 	}
+}
+
+// getStringValue safely dereferences string pointer
+func getStringValue(ptr *string) string {
+	if ptr != nil {
+		return *ptr
+	}
+	return ""
 }

@@ -21,14 +21,18 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	TransactionService_EstimateNetworkFee_FullMethodName   = "/crypto.v1.TransactionService/EstimateNetworkFee"
-	TransactionService_GetWithdrawalQuote_FullMethodName   = "/crypto.v1.TransactionService/GetWithdrawalQuote"
-	TransactionService_Withdraw_FullMethodName             = "/crypto.v1.TransactionService/Withdraw"
-	TransactionService_SweepUserWallet_FullMethodName      = "/crypto.v1.TransactionService/SweepUserWallet"
-	TransactionService_SweepAllUsers_FullMethodName        = "/crypto.v1.TransactionService/SweepAllUsers"
-	TransactionService_GetTransaction_FullMethodName       = "/crypto.v1.TransactionService/GetTransaction"
-	TransactionService_GetUserTransactions_FullMethodName  = "/crypto.v1.TransactionService/GetUserTransactions"
-	TransactionService_GetTransactionStatus_FullMethodName = "/crypto.v1.TransactionService/GetTransactionStatus"
+	TransactionService_EstimateNetworkFee_FullMethodName    = "/crypto.v1.TransactionService/EstimateNetworkFee"
+	TransactionService_GetWithdrawalQuote_FullMethodName    = "/crypto.v1.TransactionService/GetWithdrawalQuote"
+	TransactionService_Withdraw_FullMethodName              = "/crypto.v1.TransactionService/Withdraw"
+	TransactionService_SweepUserWallet_FullMethodName       = "/crypto.v1.TransactionService/SweepUserWallet"
+	TransactionService_SweepAllUsers_FullMethodName         = "/crypto.v1.TransactionService/SweepAllUsers"
+	TransactionService_GetTransaction_FullMethodName        = "/crypto.v1.TransactionService/GetTransaction"
+	TransactionService_GetUserTransactions_FullMethodName   = "/crypto.v1.TransactionService/GetUserTransactions"
+	TransactionService_GetTransactionStatus_FullMethodName  = "/crypto.v1.TransactionService/GetTransactionStatus"
+	TransactionService_GetPendingWithdrawals_FullMethodName = "/crypto.v1.TransactionService/GetPendingWithdrawals"
+	TransactionService_ApproveWithdrawal_FullMethodName     = "/crypto.v1.TransactionService/ApproveWithdrawal"
+	TransactionService_RejectWithdrawal_FullMethodName      = "/crypto.v1.TransactionService/RejectWithdrawal"
+	TransactionService_GetWithdrawalApproval_FullMethodName = "/crypto.v1.TransactionService/GetWithdrawalApproval"
 )
 
 // TransactionServiceClient is the client API for TransactionService service.
@@ -53,6 +57,14 @@ type TransactionServiceClient interface {
 	GetUserTransactions(ctx context.Context, in *GetUserTransactionsRequest, opts ...grpc.CallOption) (*GetUserTransactionsResponse, error)
 	// Get transaction status by transaction ID
 	GetTransactionStatus(ctx context.Context, in *GetTransactionStatusRequest, opts ...grpc.CallOption) (*GetTransactionStatusResponse, error)
+	// --- Admin operations for pending withdrawals ---
+	GetPendingWithdrawals(ctx context.Context, in *GetPendingWithdrawalsRequest, opts ...grpc.CallOption) (*GetPendingWithdrawalsResponse, error)
+	// Approve pending withdrawals (called by admin interface)
+	ApproveWithdrawal(ctx context.Context, in *ApproveWithdrawalRequest, opts ...grpc.CallOption) (*ApproveWithdrawalResponse, error)
+	// Reject pending withdrawals (called by admin interface)
+	RejectWithdrawal(ctx context.Context, in *RejectWithdrawalRequest, opts ...grpc.CallOption) (*RejectWithdrawalResponse, error)
+	// Get details of a pending withdrawal (for admin review)
+	GetWithdrawalApproval(ctx context.Context, in *GetWithdrawalApprovalRequest, opts ...grpc.CallOption) (*GetWithdrawalApprovalResponse, error)
 }
 
 type transactionServiceClient struct {
@@ -143,6 +155,46 @@ func (c *transactionServiceClient) GetTransactionStatus(ctx context.Context, in 
 	return out, nil
 }
 
+func (c *transactionServiceClient) GetPendingWithdrawals(ctx context.Context, in *GetPendingWithdrawalsRequest, opts ...grpc.CallOption) (*GetPendingWithdrawalsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetPendingWithdrawalsResponse)
+	err := c.cc.Invoke(ctx, TransactionService_GetPendingWithdrawals_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *transactionServiceClient) ApproveWithdrawal(ctx context.Context, in *ApproveWithdrawalRequest, opts ...grpc.CallOption) (*ApproveWithdrawalResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ApproveWithdrawalResponse)
+	err := c.cc.Invoke(ctx, TransactionService_ApproveWithdrawal_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *transactionServiceClient) RejectWithdrawal(ctx context.Context, in *RejectWithdrawalRequest, opts ...grpc.CallOption) (*RejectWithdrawalResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RejectWithdrawalResponse)
+	err := c.cc.Invoke(ctx, TransactionService_RejectWithdrawal_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *transactionServiceClient) GetWithdrawalApproval(ctx context.Context, in *GetWithdrawalApprovalRequest, opts ...grpc.CallOption) (*GetWithdrawalApprovalResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetWithdrawalApprovalResponse)
+	err := c.cc.Invoke(ctx, TransactionService_GetWithdrawalApproval_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // TransactionServiceServer is the server API for TransactionService service.
 // All implementations must embed UnimplementedTransactionServiceServer
 // for forward compatibility.
@@ -165,6 +217,14 @@ type TransactionServiceServer interface {
 	GetUserTransactions(context.Context, *GetUserTransactionsRequest) (*GetUserTransactionsResponse, error)
 	// Get transaction status by transaction ID
 	GetTransactionStatus(context.Context, *GetTransactionStatusRequest) (*GetTransactionStatusResponse, error)
+	// --- Admin operations for pending withdrawals ---
+	GetPendingWithdrawals(context.Context, *GetPendingWithdrawalsRequest) (*GetPendingWithdrawalsResponse, error)
+	// Approve pending withdrawals (called by admin interface)
+	ApproveWithdrawal(context.Context, *ApproveWithdrawalRequest) (*ApproveWithdrawalResponse, error)
+	// Reject pending withdrawals (called by admin interface)
+	RejectWithdrawal(context.Context, *RejectWithdrawalRequest) (*RejectWithdrawalResponse, error)
+	// Get details of a pending withdrawal (for admin review)
+	GetWithdrawalApproval(context.Context, *GetWithdrawalApprovalRequest) (*GetWithdrawalApprovalResponse, error)
 	mustEmbedUnimplementedTransactionServiceServer()
 }
 
@@ -198,6 +258,18 @@ func (UnimplementedTransactionServiceServer) GetUserTransactions(context.Context
 }
 func (UnimplementedTransactionServiceServer) GetTransactionStatus(context.Context, *GetTransactionStatusRequest) (*GetTransactionStatusResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetTransactionStatus not implemented")
+}
+func (UnimplementedTransactionServiceServer) GetPendingWithdrawals(context.Context, *GetPendingWithdrawalsRequest) (*GetPendingWithdrawalsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetPendingWithdrawals not implemented")
+}
+func (UnimplementedTransactionServiceServer) ApproveWithdrawal(context.Context, *ApproveWithdrawalRequest) (*ApproveWithdrawalResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ApproveWithdrawal not implemented")
+}
+func (UnimplementedTransactionServiceServer) RejectWithdrawal(context.Context, *RejectWithdrawalRequest) (*RejectWithdrawalResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RejectWithdrawal not implemented")
+}
+func (UnimplementedTransactionServiceServer) GetWithdrawalApproval(context.Context, *GetWithdrawalApprovalRequest) (*GetWithdrawalApprovalResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetWithdrawalApproval not implemented")
 }
 func (UnimplementedTransactionServiceServer) mustEmbedUnimplementedTransactionServiceServer() {}
 func (UnimplementedTransactionServiceServer) testEmbeddedByValue()                            {}
@@ -364,6 +436,78 @@ func _TransactionService_GetTransactionStatus_Handler(srv interface{}, ctx conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _TransactionService_GetPendingWithdrawals_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetPendingWithdrawalsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TransactionServiceServer).GetPendingWithdrawals(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TransactionService_GetPendingWithdrawals_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TransactionServiceServer).GetPendingWithdrawals(ctx, req.(*GetPendingWithdrawalsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TransactionService_ApproveWithdrawal_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ApproveWithdrawalRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TransactionServiceServer).ApproveWithdrawal(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TransactionService_ApproveWithdrawal_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TransactionServiceServer).ApproveWithdrawal(ctx, req.(*ApproveWithdrawalRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TransactionService_RejectWithdrawal_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RejectWithdrawalRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TransactionServiceServer).RejectWithdrawal(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TransactionService_RejectWithdrawal_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TransactionServiceServer).RejectWithdrawal(ctx, req.(*RejectWithdrawalRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TransactionService_GetWithdrawalApproval_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetWithdrawalApprovalRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TransactionServiceServer).GetWithdrawalApproval(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TransactionService_GetWithdrawalApproval_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TransactionServiceServer).GetWithdrawalApproval(ctx, req.(*GetWithdrawalApprovalRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // TransactionService_ServiceDesc is the grpc.ServiceDesc for TransactionService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -402,6 +546,22 @@ var TransactionService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetTransactionStatus",
 			Handler:    _TransactionService_GetTransactionStatus_Handler,
+		},
+		{
+			MethodName: "GetPendingWithdrawals",
+			Handler:    _TransactionService_GetPendingWithdrawals_Handler,
+		},
+		{
+			MethodName: "ApproveWithdrawal",
+			Handler:    _TransactionService_ApproveWithdrawal_Handler,
+		},
+		{
+			MethodName: "RejectWithdrawal",
+			Handler:    _TransactionService_RejectWithdrawal_Handler,
+		},
+		{
+			MethodName: "GetWithdrawalApproval",
+			Handler:    _TransactionService_GetWithdrawalApproval_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

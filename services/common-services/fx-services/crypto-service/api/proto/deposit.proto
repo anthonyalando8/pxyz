@@ -44,10 +44,10 @@ message Deposit {
     DepositStatus status = 13;
     bool user_notified = 14;
     
-    google.protobuf. Timestamp detected_at = 15;
+    google.protobuf.Timestamp detected_at = 15;
     google.protobuf.Timestamp confirmed_at = 16;
-    google.protobuf. Timestamp credited_at = 17;
-    google.protobuf. Timestamp block_timestamp = 18;
+    google.protobuf.Timestamp credited_at = 17;
+    google.protobuf.Timestamp block_timestamp = 18;
 }
 
 // GetUserDeposits

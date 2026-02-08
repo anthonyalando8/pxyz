@@ -282,6 +282,7 @@ CREATE TYPE withdrawal_approval_status AS ENUM (
     'pending_review',
     'approved',
     'rejected',
+    'cancelled',
     'auto_approved'
 );
 

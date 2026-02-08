@@ -4,6 +4,8 @@ package main
 import (
 	"context"
 	"crypto-service/internal/chains/bitcoin"
+	"crypto-service/internal/risk"
+
 	//"crypto-service/internal/chains/ethereum/circle"
 	"crypto-service/internal/chains/ethereum"
 	registry "crypto-service/internal/chains/registry"
@@ -58,6 +60,9 @@ func main() {
 	walletRepo := repository.NewCryptoWalletRepository(dbPool)
 	transactionRepo := repository.NewCryptoTransactionRepository(dbPool)
 	depositRepo := repository.NewCryptoDepositRepository(dbPool)
+	withdrawalApprovalRepo := repository.NewWithdrawalApprovalRepository(dbPool, logger)
+
+	riskAssessor := risk.NewRiskAssessor(transactionRepo, walletRepo, logger)
 
 	// Initialize blockchain registry
 	chainRegistry := registry.NewRegistry()
@@ -140,7 +145,7 @@ func main() {
 
 	// Initialize use cases
 	walletUsecase := usecase.NewWalletUsecase(walletRepo, chainRegistry, encryption, logger)
-	transactionUsecase := usecase.NewTransactionUsecase(transactionRepo, walletRepo, chainRegistry, encryption, systemUsecase, logger)
+	transactionUsecase := usecase.NewTransactionUsecase(transactionRepo, walletRepo, withdrawalApprovalRepo, chainRegistry, encryption, systemUsecase, riskAssessor, logger)
 	depositUsecase := usecase.NewDepositUsecase(depositRepo, walletRepo, transactionRepo, chainRegistry, encryption, logger)
 
 	// Initialize handlers

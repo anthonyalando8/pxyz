@@ -24,6 +24,61 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type WithdrawalApprovalStatus int32
+
+const (
+	WithdrawalApprovalStatus_WITHDRAWAL_APPROVAL_STATUS_UNSPECIFIED    WithdrawalApprovalStatus = 0
+	WithdrawalApprovalStatus_WITHDRAWAL_APPROVAL_STATUS_PENDING_REVIEW WithdrawalApprovalStatus = 1
+	WithdrawalApprovalStatus_WITHDRAWAL_APPROVAL_STATUS_APPROVED       WithdrawalApprovalStatus = 2
+	WithdrawalApprovalStatus_WITHDRAWAL_APPROVAL_STATUS_REJECTED       WithdrawalApprovalStatus = 3
+	WithdrawalApprovalStatus_WITHDRAWAL_APPROVAL_STATUS_AUTO_APPROVED  WithdrawalApprovalStatus = 4
+)
+
+// Enum value maps for WithdrawalApprovalStatus.
+var (
+	WithdrawalApprovalStatus_name = map[int32]string{
+		0: "WITHDRAWAL_APPROVAL_STATUS_UNSPECIFIED",
+		1: "WITHDRAWAL_APPROVAL_STATUS_PENDING_REVIEW",
+		2: "WITHDRAWAL_APPROVAL_STATUS_APPROVED",
+		3: "WITHDRAWAL_APPROVAL_STATUS_REJECTED",
+		4: "WITHDRAWAL_APPROVAL_STATUS_AUTO_APPROVED",
+	}
+	WithdrawalApprovalStatus_value = map[string]int32{
+		"WITHDRAWAL_APPROVAL_STATUS_UNSPECIFIED":    0,
+		"WITHDRAWAL_APPROVAL_STATUS_PENDING_REVIEW": 1,
+		"WITHDRAWAL_APPROVAL_STATUS_APPROVED":       2,
+		"WITHDRAWAL_APPROVAL_STATUS_REJECTED":       3,
+		"WITHDRAWAL_APPROVAL_STATUS_AUTO_APPROVED":  4,
+	}
+)
+
+func (x WithdrawalApprovalStatus) Enum() *WithdrawalApprovalStatus {
+	p := new(WithdrawalApprovalStatus)
+	*p = x
+	return p
+}
+
+func (x WithdrawalApprovalStatus) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (WithdrawalApprovalStatus) Descriptor() protoreflect.EnumDescriptor {
+	return file_transaction_proto_enumTypes[0].Descriptor()
+}
+
+func (WithdrawalApprovalStatus) Type() protoreflect.EnumType {
+	return &file_transaction_proto_enumTypes[0]
+}
+
+func (x WithdrawalApprovalStatus) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use WithdrawalApprovalStatus.Descriptor instead.
+func (WithdrawalApprovalStatus) EnumDescriptor() ([]byte, []int) {
+	return file_transaction_proto_rawDescGZIP(), []int{0}
+}
+
 type EstimateNetworkFeeRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Chain         Chain                  `protobuf:"varint,1,opt,name=chain,proto3,enum=crypto.v1.Chain" json:"chain,omitempty"`
@@ -1416,6 +1471,650 @@ func (x *GetTransactionStatusResponse) GetUpdatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+type GetPendingWithdrawalsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Limit         int32                  `protobuf:"varint,1,opt,name=limit,proto3" json:"limit,omitempty"`
+	Offset        int32                  `protobuf:"varint,2,opt,name=offset,proto3" json:"offset,omitempty"`
+	Chain         string                 `protobuf:"bytes,3,opt,name=chain,proto3" json:"chain,omitempty"`                                      // Optional filter
+	Asset         string                 `protobuf:"bytes,4,opt,name=asset,proto3" json:"asset,omitempty"`                                      // Optional filter
+	MinRiskScore  int32                  `protobuf:"varint,5,opt,name=min_risk_score,json=minRiskScore,proto3" json:"min_risk_score,omitempty"` // Filter by risk score
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetPendingWithdrawalsRequest) Reset() {
+	*x = GetPendingWithdrawalsRequest{}
+	mi := &file_transaction_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPendingWithdrawalsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPendingWithdrawalsRequest) ProtoMessage() {}
+
+func (x *GetPendingWithdrawalsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_transaction_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPendingWithdrawalsRequest.ProtoReflect.Descriptor instead.
+func (*GetPendingWithdrawalsRequest) Descriptor() ([]byte, []int) {
+	return file_transaction_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *GetPendingWithdrawalsRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+func (x *GetPendingWithdrawalsRequest) GetOffset() int32 {
+	if x != nil {
+		return x.Offset
+	}
+	return 0
+}
+
+func (x *GetPendingWithdrawalsRequest) GetChain() string {
+	if x != nil {
+		return x.Chain
+	}
+	return ""
+}
+
+func (x *GetPendingWithdrawalsRequest) GetAsset() string {
+	if x != nil {
+		return x.Asset
+	}
+	return ""
+}
+
+func (x *GetPendingWithdrawalsRequest) GetMinRiskScore() int32 {
+	if x != nil {
+		return x.MinRiskScore
+	}
+	return 0
+}
+
+type GetPendingWithdrawalsResponse struct {
+	state         protoimpl.MessageState    `protogen:"open.v1"`
+	Approvals     []*WithdrawalApprovalInfo `protobuf:"bytes,1,rep,name=approvals,proto3" json:"approvals,omitempty"`
+	Total         int32                     `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetPendingWithdrawalsResponse) Reset() {
+	*x = GetPendingWithdrawalsResponse{}
+	mi := &file_transaction_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPendingWithdrawalsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPendingWithdrawalsResponse) ProtoMessage() {}
+
+func (x *GetPendingWithdrawalsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_transaction_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPendingWithdrawalsResponse.ProtoReflect.Descriptor instead.
+func (*GetPendingWithdrawalsResponse) Descriptor() ([]byte, []int) {
+	return file_transaction_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *GetPendingWithdrawalsResponse) GetApprovals() []*WithdrawalApprovalInfo {
+	if x != nil {
+		return x.Approvals
+	}
+	return nil
+}
+
+func (x *GetPendingWithdrawalsResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+type WithdrawalApprovalInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	TransactionId int64                  `protobuf:"varint,2,opt,name=transaction_id,json=transactionId,proto3" json:"transaction_id,omitempty"`
+	UserId        string                 `protobuf:"bytes,3,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	// Withdrawal details
+	Amount    *Money `protobuf:"bytes,4,opt,name=amount,proto3" json:"amount,omitempty"`
+	Asset     string `protobuf:"bytes,5,opt,name=asset,proto3" json:"asset,omitempty"`
+	Chain     Chain  `protobuf:"varint,6,opt,name=chain,proto3,enum=crypto.v1.Chain" json:"chain,omitempty"`
+	ToAddress string `protobuf:"bytes,7,opt,name=to_address,json=toAddress,proto3" json:"to_address,omitempty"`
+	// Risk assessment
+	RiskScore        int32         `protobuf:"varint,8,opt,name=risk_score,json=riskScore,proto3" json:"risk_score,omitempty"`
+	RiskFactors      []*RiskFactor `protobuf:"bytes,9,rep,name=risk_factors,json=riskFactors,proto3" json:"risk_factors,omitempty"`
+	RequiresApproval bool          `protobuf:"varint,10,opt,name=requires_approval,json=requiresApproval,proto3" json:"requires_approval,omitempty"`
+	// Status
+	Status WithdrawalApprovalStatus `protobuf:"varint,11,opt,name=status,proto3,enum=crypto.v1.WithdrawalApprovalStatus" json:"status,omitempty"`
+	// Timestamps
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WithdrawalApprovalInfo) Reset() {
+	*x = WithdrawalApprovalInfo{}
+	mi := &file_transaction_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WithdrawalApprovalInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WithdrawalApprovalInfo) ProtoMessage() {}
+
+func (x *WithdrawalApprovalInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_transaction_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WithdrawalApprovalInfo.ProtoReflect.Descriptor instead.
+func (*WithdrawalApprovalInfo) Descriptor() ([]byte, []int) {
+	return file_transaction_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *WithdrawalApprovalInfo) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *WithdrawalApprovalInfo) GetTransactionId() int64 {
+	if x != nil {
+		return x.TransactionId
+	}
+	return 0
+}
+
+func (x *WithdrawalApprovalInfo) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *WithdrawalApprovalInfo) GetAmount() *Money {
+	if x != nil {
+		return x.Amount
+	}
+	return nil
+}
+
+func (x *WithdrawalApprovalInfo) GetAsset() string {
+	if x != nil {
+		return x.Asset
+	}
+	return ""
+}
+
+func (x *WithdrawalApprovalInfo) GetChain() Chain {
+	if x != nil {
+		return x.Chain
+	}
+	return Chain_CHAIN_UNSPECIFIED
+}
+
+func (x *WithdrawalApprovalInfo) GetToAddress() string {
+	if x != nil {
+		return x.ToAddress
+	}
+	return ""
+}
+
+func (x *WithdrawalApprovalInfo) GetRiskScore() int32 {
+	if x != nil {
+		return x.RiskScore
+	}
+	return 0
+}
+
+func (x *WithdrawalApprovalInfo) GetRiskFactors() []*RiskFactor {
+	if x != nil {
+		return x.RiskFactors
+	}
+	return nil
+}
+
+func (x *WithdrawalApprovalInfo) GetRequiresApproval() bool {
+	if x != nil {
+		return x.RequiresApproval
+	}
+	return false
+}
+
+func (x *WithdrawalApprovalInfo) GetStatus() WithdrawalApprovalStatus {
+	if x != nil {
+		return x.Status
+	}
+	return WithdrawalApprovalStatus_WITHDRAWAL_APPROVAL_STATUS_UNSPECIFIED
+}
+
+func (x *WithdrawalApprovalInfo) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+type RiskFactor struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Factor        string                 `protobuf:"bytes,1,opt,name=factor,proto3" json:"factor,omitempty"`
+	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	Score         int32                  `protobuf:"varint,3,opt,name=score,proto3" json:"score,omitempty"` // Contribution to total risk score
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RiskFactor) Reset() {
+	*x = RiskFactor{}
+	mi := &file_transaction_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RiskFactor) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RiskFactor) ProtoMessage() {}
+
+func (x *RiskFactor) ProtoReflect() protoreflect.Message {
+	mi := &file_transaction_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RiskFactor.ProtoReflect.Descriptor instead.
+func (*RiskFactor) Descriptor() ([]byte, []int) {
+	return file_transaction_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *RiskFactor) GetFactor() string {
+	if x != nil {
+		return x.Factor
+	}
+	return ""
+}
+
+func (x *RiskFactor) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *RiskFactor) GetScore() int32 {
+	if x != nil {
+		return x.Score
+	}
+	return 0
+}
+
+type ApproveWithdrawalRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ApprovalId    int64                  `protobuf:"varint,1,opt,name=approval_id,json=approvalId,proto3" json:"approval_id,omitempty"`
+	ApprovedBy    string                 `protobuf:"bytes,2,opt,name=approved_by,json=approvedBy,proto3" json:"approved_by,omitempty"` // Admin user ID
+	Notes         string                 `protobuf:"bytes,3,opt,name=notes,proto3" json:"notes,omitempty"`                             // Optional approval notes
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ApproveWithdrawalRequest) Reset() {
+	*x = ApproveWithdrawalRequest{}
+	mi := &file_transaction_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ApproveWithdrawalRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ApproveWithdrawalRequest) ProtoMessage() {}
+
+func (x *ApproveWithdrawalRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_transaction_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ApproveWithdrawalRequest.ProtoReflect.Descriptor instead.
+func (*ApproveWithdrawalRequest) Descriptor() ([]byte, []int) {
+	return file_transaction_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *ApproveWithdrawalRequest) GetApprovalId() int64 {
+	if x != nil {
+		return x.ApprovalId
+	}
+	return 0
+}
+
+func (x *ApproveWithdrawalRequest) GetApprovedBy() string {
+	if x != nil {
+		return x.ApprovedBy
+	}
+	return ""
+}
+
+func (x *ApproveWithdrawalRequest) GetNotes() string {
+	if x != nil {
+		return x.Notes
+	}
+	return ""
+}
+
+type ApproveWithdrawalResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	Transaction   *Transaction           `protobuf:"bytes,3,opt,name=transaction,proto3" json:"transaction,omitempty"` // Updated transaction
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ApproveWithdrawalResponse) Reset() {
+	*x = ApproveWithdrawalResponse{}
+	mi := &file_transaction_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ApproveWithdrawalResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ApproveWithdrawalResponse) ProtoMessage() {}
+
+func (x *ApproveWithdrawalResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_transaction_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ApproveWithdrawalResponse.ProtoReflect.Descriptor instead.
+func (*ApproveWithdrawalResponse) Descriptor() ([]byte, []int) {
+	return file_transaction_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *ApproveWithdrawalResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *ApproveWithdrawalResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *ApproveWithdrawalResponse) GetTransaction() *Transaction {
+	if x != nil {
+		return x.Transaction
+	}
+	return nil
+}
+
+type RejectWithdrawalRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	ApprovalId      int64                  `protobuf:"varint,1,opt,name=approval_id,json=approvalId,proto3" json:"approval_id,omitempty"`
+	RejectedBy      string                 `protobuf:"bytes,2,opt,name=rejected_by,json=rejectedBy,proto3" json:"rejected_by,omitempty"`                // Admin user ID
+	RejectionReason string                 `protobuf:"bytes,3,opt,name=rejection_reason,json=rejectionReason,proto3" json:"rejection_reason,omitempty"` // Required
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *RejectWithdrawalRequest) Reset() {
+	*x = RejectWithdrawalRequest{}
+	mi := &file_transaction_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RejectWithdrawalRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RejectWithdrawalRequest) ProtoMessage() {}
+
+func (x *RejectWithdrawalRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_transaction_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RejectWithdrawalRequest.ProtoReflect.Descriptor instead.
+func (*RejectWithdrawalRequest) Descriptor() ([]byte, []int) {
+	return file_transaction_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *RejectWithdrawalRequest) GetApprovalId() int64 {
+	if x != nil {
+		return x.ApprovalId
+	}
+	return 0
+}
+
+func (x *RejectWithdrawalRequest) GetRejectedBy() string {
+	if x != nil {
+		return x.RejectedBy
+	}
+	return ""
+}
+
+func (x *RejectWithdrawalRequest) GetRejectionReason() string {
+	if x != nil {
+		return x.RejectionReason
+	}
+	return ""
+}
+
+type RejectWithdrawalResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RejectWithdrawalResponse) Reset() {
+	*x = RejectWithdrawalResponse{}
+	mi := &file_transaction_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RejectWithdrawalResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RejectWithdrawalResponse) ProtoMessage() {}
+
+func (x *RejectWithdrawalResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_transaction_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RejectWithdrawalResponse.ProtoReflect.Descriptor instead.
+func (*RejectWithdrawalResponse) Descriptor() ([]byte, []int) {
+	return file_transaction_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *RejectWithdrawalResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *RejectWithdrawalResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+type GetWithdrawalApprovalRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ApprovalId    int64                  `protobuf:"varint,1,opt,name=approval_id,json=approvalId,proto3" json:"approval_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetWithdrawalApprovalRequest) Reset() {
+	*x = GetWithdrawalApprovalRequest{}
+	mi := &file_transaction_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetWithdrawalApprovalRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetWithdrawalApprovalRequest) ProtoMessage() {}
+
+func (x *GetWithdrawalApprovalRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_transaction_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetWithdrawalApprovalRequest.ProtoReflect.Descriptor instead.
+func (*GetWithdrawalApprovalRequest) Descriptor() ([]byte, []int) {
+	return file_transaction_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *GetWithdrawalApprovalRequest) GetApprovalId() int64 {
+	if x != nil {
+		return x.ApprovalId
+	}
+	return 0
+}
+
+type GetWithdrawalApprovalResponse struct {
+	state         protoimpl.MessageState  `protogen:"open.v1"`
+	Approval      *WithdrawalApprovalInfo `protobuf:"bytes,1,opt,name=approval,proto3" json:"approval,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetWithdrawalApprovalResponse) Reset() {
+	*x = GetWithdrawalApprovalResponse{}
+	mi := &file_transaction_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetWithdrawalApprovalResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetWithdrawalApprovalResponse) ProtoMessage() {}
+
+func (x *GetWithdrawalApprovalResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_transaction_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetWithdrawalApprovalResponse.ProtoReflect.Descriptor instead.
+func (*GetWithdrawalApprovalResponse) Descriptor() ([]byte, []int) {
+	return file_transaction_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *GetWithdrawalApprovalResponse) GetApproval() *WithdrawalApprovalInfo {
+	if x != nil {
+		return x.Approval
+	}
+	return nil
+}
+
 var File_transaction_proto protoreflect.FileDescriptor
 
 const file_transaction_proto_rawDesc = "" +
@@ -1551,7 +2250,68 @@ const file_transaction_proto_rawDesc = "" +
 	"\atx_hash\x18\x04 \x01(\tR\x06txHash\x12%\n" +
 	"\x0estatus_message\x18\x05 \x01(\tR\rstatusMessage\x129\n" +
 	"\n" +
-	"updated_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt2\xf3\x05\n" +
+	"updated_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\x9e\x01\n" +
+	"\x1cGetPendingWithdrawalsRequest\x12\x14\n" +
+	"\x05limit\x18\x01 \x01(\x05R\x05limit\x12\x16\n" +
+	"\x06offset\x18\x02 \x01(\x05R\x06offset\x12\x14\n" +
+	"\x05chain\x18\x03 \x01(\tR\x05chain\x12\x14\n" +
+	"\x05asset\x18\x04 \x01(\tR\x05asset\x12$\n" +
+	"\x0emin_risk_score\x18\x05 \x01(\x05R\fminRiskScore\"v\n" +
+	"\x1dGetPendingWithdrawalsResponse\x12?\n" +
+	"\tapprovals\x18\x01 \x03(\v2!.crypto.v1.WithdrawalApprovalInfoR\tapprovals\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\xed\x03\n" +
+	"\x16WithdrawalApprovalInfo\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12%\n" +
+	"\x0etransaction_id\x18\x02 \x01(\x03R\rtransactionId\x12\x17\n" +
+	"\auser_id\x18\x03 \x01(\tR\x06userId\x12(\n" +
+	"\x06amount\x18\x04 \x01(\v2\x10.crypto.v1.MoneyR\x06amount\x12\x14\n" +
+	"\x05asset\x18\x05 \x01(\tR\x05asset\x12&\n" +
+	"\x05chain\x18\x06 \x01(\x0e2\x10.crypto.v1.ChainR\x05chain\x12\x1d\n" +
+	"\n" +
+	"to_address\x18\a \x01(\tR\ttoAddress\x12\x1d\n" +
+	"\n" +
+	"risk_score\x18\b \x01(\x05R\triskScore\x128\n" +
+	"\frisk_factors\x18\t \x03(\v2\x15.crypto.v1.RiskFactorR\vriskFactors\x12+\n" +
+	"\x11requires_approval\x18\n" +
+	" \x01(\bR\x10requiresApproval\x12;\n" +
+	"\x06status\x18\v \x01(\x0e2#.crypto.v1.WithdrawalApprovalStatusR\x06status\x129\n" +
+	"\n" +
+	"created_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\\\n" +
+	"\n" +
+	"RiskFactor\x12\x16\n" +
+	"\x06factor\x18\x01 \x01(\tR\x06factor\x12 \n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\x14\n" +
+	"\x05score\x18\x03 \x01(\x05R\x05score\"r\n" +
+	"\x18ApproveWithdrawalRequest\x12\x1f\n" +
+	"\vapproval_id\x18\x01 \x01(\x03R\n" +
+	"approvalId\x12\x1f\n" +
+	"\vapproved_by\x18\x02 \x01(\tR\n" +
+	"approvedBy\x12\x14\n" +
+	"\x05notes\x18\x03 \x01(\tR\x05notes\"\x89\x01\n" +
+	"\x19ApproveWithdrawalResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x128\n" +
+	"\vtransaction\x18\x03 \x01(\v2\x16.crypto.v1.TransactionR\vtransaction\"\x86\x01\n" +
+	"\x17RejectWithdrawalRequest\x12\x1f\n" +
+	"\vapproval_id\x18\x01 \x01(\x03R\n" +
+	"approvalId\x12\x1f\n" +
+	"\vrejected_by\x18\x02 \x01(\tR\n" +
+	"rejectedBy\x12)\n" +
+	"\x10rejection_reason\x18\x03 \x01(\tR\x0frejectionReason\"N\n" +
+	"\x18RejectWithdrawalResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"?\n" +
+	"\x1cGetWithdrawalApprovalRequest\x12\x1f\n" +
+	"\vapproval_id\x18\x01 \x01(\x03R\n" +
+	"approvalId\"^\n" +
+	"\x1dGetWithdrawalApprovalResponse\x12=\n" +
+	"\bapproval\x18\x01 \x01(\v2!.crypto.v1.WithdrawalApprovalInfoR\bapproval*\xf5\x01\n" +
+	"\x18WithdrawalApprovalStatus\x12*\n" +
+	"&WITHDRAWAL_APPROVAL_STATUS_UNSPECIFIED\x10\x00\x12-\n" +
+	")WITHDRAWAL_APPROVAL_STATUS_PENDING_REVIEW\x10\x01\x12'\n" +
+	"#WITHDRAWAL_APPROVAL_STATUS_APPROVED\x10\x02\x12'\n" +
+	"#WITHDRAWAL_APPROVAL_STATUS_REJECTED\x10\x03\x12,\n" +
+	"(WITHDRAWAL_APPROVAL_STATUS_AUTO_APPROVED\x10\x042\x88\t\n" +
 	"\x12TransactionService\x12a\n" +
 	"\x12EstimateNetworkFee\x12$.crypto.v1.EstimateNetworkFeeRequest\x1a%.crypto.v1.EstimateNetworkFeeResponse\x12a\n" +
 	"\x12GetWithdrawalQuote\x12$.crypto.v1.GetWithdrawalQuoteRequest\x1a%.crypto.v1.GetWithdrawalQuoteResponse\x12C\n" +
@@ -1560,7 +2320,11 @@ const file_transaction_proto_rawDesc = "" +
 	"\rSweepAllUsers\x12\x1f.crypto.v1.SweepAllUsersRequest\x1a .crypto.v1.SweepAllUsersResponse\x12U\n" +
 	"\x0eGetTransaction\x12 .crypto.v1.GetTransactionRequest\x1a!.crypto.v1.GetTransactionResponse\x12d\n" +
 	"\x13GetUserTransactions\x12%.crypto.v1.GetUserTransactionsRequest\x1a&.crypto.v1.GetUserTransactionsResponse\x12g\n" +
-	"\x14GetTransactionStatus\x12&.crypto.v1.GetTransactionStatusRequest\x1a'.crypto.v1.GetTransactionStatusResponseB,Z*shared/genproto/shared/accounting/cryptopbb\x06proto3"
+	"\x14GetTransactionStatus\x12&.crypto.v1.GetTransactionStatusRequest\x1a'.crypto.v1.GetTransactionStatusResponse\x12j\n" +
+	"\x15GetPendingWithdrawals\x12'.crypto.v1.GetPendingWithdrawalsRequest\x1a(.crypto.v1.GetPendingWithdrawalsResponse\x12^\n" +
+	"\x11ApproveWithdrawal\x12#.crypto.v1.ApproveWithdrawalRequest\x1a$.crypto.v1.ApproveWithdrawalResponse\x12[\n" +
+	"\x10RejectWithdrawal\x12\".crypto.v1.RejectWithdrawalRequest\x1a#.crypto.v1.RejectWithdrawalResponse\x12j\n" +
+	"\x15GetWithdrawalApproval\x12'.crypto.v1.GetWithdrawalApprovalRequest\x1a(.crypto.v1.GetWithdrawalApprovalResponseB,Z*shared/genproto/shared/accounting/cryptopbb\x06proto3"
 
 var (
 	file_transaction_proto_rawDescOnce sync.Once
@@ -1574,92 +2338,120 @@ func file_transaction_proto_rawDescGZIP() []byte {
 	return file_transaction_proto_rawDescData
 }
 
-var file_transaction_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
+var file_transaction_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_transaction_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
 var file_transaction_proto_goTypes = []any{
-	(*EstimateNetworkFeeRequest)(nil),    // 0: crypto.v1.EstimateNetworkFeeRequest
-	(*EstimateNetworkFeeResponse)(nil),   // 1: crypto.v1.EstimateNetworkFeeResponse
-	(*WithdrawRequest)(nil),              // 2: crypto.v1.WithdrawRequest
-	(*WithdrawResponse)(nil),             // 3: crypto.v1.WithdrawResponse
-	(*GetWithdrawalQuoteRequest)(nil),    // 4: crypto.v1.GetWithdrawalQuoteRequest
-	(*GetWithdrawalQuoteResponse)(nil),   // 5: crypto.v1.GetWithdrawalQuoteResponse
-	(*SweepUserWalletRequest)(nil),       // 6: crypto.v1.SweepUserWalletRequest
-	(*SweepUserWalletResponse)(nil),      // 7: crypto.v1.SweepUserWalletResponse
-	(*SweepAllUsersRequest)(nil),         // 8: crypto.v1.SweepAllUsersRequest
-	(*SweepAllUsersResponse)(nil),        // 9: crypto.v1.SweepAllUsersResponse
-	(*Transaction)(nil),                  // 10: crypto.v1.Transaction
-	(*TransactionSummary)(nil),           // 11: crypto.v1.TransactionSummary
-	(*GetTransactionRequest)(nil),        // 12: crypto.v1.GetTransactionRequest
-	(*GetTransactionResponse)(nil),       // 13: crypto.v1.GetTransactionResponse
-	(*GetUserTransactionsRequest)(nil),   // 14: crypto.v1.GetUserTransactionsRequest
-	(*GetUserTransactionsResponse)(nil),  // 15: crypto.v1.GetUserTransactionsResponse
-	(*GetTransactionStatusRequest)(nil),  // 16: crypto.v1.GetTransactionStatusRequest
-	(*GetTransactionStatusResponse)(nil), // 17: crypto.v1.GetTransactionStatusResponse
-	(Chain)(0),                           // 18: crypto.v1.Chain
-	(*timestamppb.Timestamp)(nil),        // 19: google.protobuf.Timestamp
-	(*Money)(nil),                        // 20: crypto.v1.Money
-	(TransactionType)(0),                 // 21: crypto.v1.TransactionType
-	(TransactionStatus)(0),               // 22: crypto.v1.TransactionStatus
-	(*PaginationRequest)(nil),            // 23: crypto.v1.PaginationRequest
-	(*PaginationResponse)(nil),           // 24: crypto.v1.PaginationResponse
+	(WithdrawalApprovalStatus)(0),         // 0: crypto.v1.WithdrawalApprovalStatus
+	(*EstimateNetworkFeeRequest)(nil),     // 1: crypto.v1.EstimateNetworkFeeRequest
+	(*EstimateNetworkFeeResponse)(nil),    // 2: crypto.v1.EstimateNetworkFeeResponse
+	(*WithdrawRequest)(nil),               // 3: crypto.v1.WithdrawRequest
+	(*WithdrawResponse)(nil),              // 4: crypto.v1.WithdrawResponse
+	(*GetWithdrawalQuoteRequest)(nil),     // 5: crypto.v1.GetWithdrawalQuoteRequest
+	(*GetWithdrawalQuoteResponse)(nil),    // 6: crypto.v1.GetWithdrawalQuoteResponse
+	(*SweepUserWalletRequest)(nil),        // 7: crypto.v1.SweepUserWalletRequest
+	(*SweepUserWalletResponse)(nil),       // 8: crypto.v1.SweepUserWalletResponse
+	(*SweepAllUsersRequest)(nil),          // 9: crypto.v1.SweepAllUsersRequest
+	(*SweepAllUsersResponse)(nil),         // 10: crypto.v1.SweepAllUsersResponse
+	(*Transaction)(nil),                   // 11: crypto.v1.Transaction
+	(*TransactionSummary)(nil),            // 12: crypto.v1.TransactionSummary
+	(*GetTransactionRequest)(nil),         // 13: crypto.v1.GetTransactionRequest
+	(*GetTransactionResponse)(nil),        // 14: crypto.v1.GetTransactionResponse
+	(*GetUserTransactionsRequest)(nil),    // 15: crypto.v1.GetUserTransactionsRequest
+	(*GetUserTransactionsResponse)(nil),   // 16: crypto.v1.GetUserTransactionsResponse
+	(*GetTransactionStatusRequest)(nil),   // 17: crypto.v1.GetTransactionStatusRequest
+	(*GetTransactionStatusResponse)(nil),  // 18: crypto.v1.GetTransactionStatusResponse
+	(*GetPendingWithdrawalsRequest)(nil),  // 19: crypto.v1.GetPendingWithdrawalsRequest
+	(*GetPendingWithdrawalsResponse)(nil), // 20: crypto.v1.GetPendingWithdrawalsResponse
+	(*WithdrawalApprovalInfo)(nil),        // 21: crypto.v1.WithdrawalApprovalInfo
+	(*RiskFactor)(nil),                    // 22: crypto.v1.RiskFactor
+	(*ApproveWithdrawalRequest)(nil),      // 23: crypto.v1.ApproveWithdrawalRequest
+	(*ApproveWithdrawalResponse)(nil),     // 24: crypto.v1.ApproveWithdrawalResponse
+	(*RejectWithdrawalRequest)(nil),       // 25: crypto.v1.RejectWithdrawalRequest
+	(*RejectWithdrawalResponse)(nil),      // 26: crypto.v1.RejectWithdrawalResponse
+	(*GetWithdrawalApprovalRequest)(nil),  // 27: crypto.v1.GetWithdrawalApprovalRequest
+	(*GetWithdrawalApprovalResponse)(nil), // 28: crypto.v1.GetWithdrawalApprovalResponse
+	(Chain)(0),                            // 29: crypto.v1.Chain
+	(*timestamppb.Timestamp)(nil),         // 30: google.protobuf.Timestamp
+	(*Money)(nil),                         // 31: crypto.v1.Money
+	(TransactionType)(0),                  // 32: crypto.v1.TransactionType
+	(TransactionStatus)(0),                // 33: crypto.v1.TransactionStatus
+	(*PaginationRequest)(nil),             // 34: crypto.v1.PaginationRequest
+	(*PaginationResponse)(nil),            // 35: crypto.v1.PaginationResponse
 }
 var file_transaction_proto_depIdxs = []int32{
-	18, // 0: crypto.v1.EstimateNetworkFeeRequest.chain:type_name -> crypto.v1.Chain
-	18, // 1: crypto.v1.EstimateNetworkFeeResponse.chain:type_name -> crypto.v1.Chain
-	19, // 2: crypto.v1.EstimateNetworkFeeResponse.estimated_at:type_name -> google.protobuf.Timestamp
-	18, // 3: crypto.v1.WithdrawRequest.chain:type_name -> crypto.v1.Chain
-	10, // 4: crypto.v1.WithdrawResponse.transaction:type_name -> crypto.v1.Transaction
-	18, // 5: crypto.v1.GetWithdrawalQuoteRequest.chain:type_name -> crypto.v1.Chain
-	18, // 6: crypto.v1.GetWithdrawalQuoteResponse.chain:type_name -> crypto.v1.Chain
-	20, // 7: crypto.v1.GetWithdrawalQuoteResponse.amount:type_name -> crypto.v1.Money
-	20, // 8: crypto.v1.GetWithdrawalQuoteResponse.network_fee:type_name -> crypto.v1.Money
-	19, // 9: crypto.v1.GetWithdrawalQuoteResponse.valid_until:type_name -> google.protobuf.Timestamp
-	18, // 10: crypto.v1.SweepUserWalletRequest.chain:type_name -> crypto.v1.Chain
-	10, // 11: crypto.v1.SweepUserWalletResponse.transaction:type_name -> crypto.v1.Transaction
-	18, // 12: crypto.v1.SweepAllUsersRequest.chain:type_name -> crypto.v1.Chain
-	10, // 13: crypto.v1.SweepAllUsersResponse.transactions:type_name -> crypto.v1.Transaction
-	21, // 14: crypto.v1.Transaction.type:type_name -> crypto.v1.TransactionType
-	18, // 15: crypto.v1.Transaction.chain:type_name -> crypto.v1.Chain
-	20, // 16: crypto.v1.Transaction.amount:type_name -> crypto.v1.Money
-	20, // 17: crypto.v1.Transaction.network_fee:type_name -> crypto.v1.Money
-	22, // 18: crypto.v1.Transaction.status:type_name -> crypto.v1.TransactionStatus
-	19, // 19: crypto.v1.Transaction.initiated_at:type_name -> google.protobuf.Timestamp
-	19, // 20: crypto.v1.Transaction.broadcasted_at:type_name -> google.protobuf.Timestamp
-	19, // 21: crypto.v1.Transaction.confirmed_at:type_name -> google.protobuf.Timestamp
-	19, // 22: crypto.v1.Transaction.created_at:type_name -> google.protobuf.Timestamp
-	21, // 23: crypto.v1.TransactionSummary.type:type_name -> crypto.v1.TransactionType
-	18, // 24: crypto.v1.TransactionSummary.chain:type_name -> crypto.v1.Chain
-	22, // 25: crypto.v1.TransactionSummary.status:type_name -> crypto.v1.TransactionStatus
-	19, // 26: crypto.v1.TransactionSummary.created_at:type_name -> google.protobuf.Timestamp
-	10, // 27: crypto.v1.GetTransactionResponse.transaction:type_name -> crypto.v1.Transaction
-	18, // 28: crypto.v1.GetUserTransactionsRequest.chain:type_name -> crypto.v1.Chain
-	21, // 29: crypto.v1.GetUserTransactionsRequest.type:type_name -> crypto.v1.TransactionType
-	22, // 30: crypto.v1.GetUserTransactionsRequest.status:type_name -> crypto.v1.TransactionStatus
-	23, // 31: crypto.v1.GetUserTransactionsRequest.pagination:type_name -> crypto.v1.PaginationRequest
-	11, // 32: crypto.v1.GetUserTransactionsResponse.transactions:type_name -> crypto.v1.TransactionSummary
-	24, // 33: crypto.v1.GetUserTransactionsResponse.pagination:type_name -> crypto.v1.PaginationResponse
-	22, // 34: crypto.v1.GetTransactionStatusResponse.status:type_name -> crypto.v1.TransactionStatus
-	19, // 35: crypto.v1.GetTransactionStatusResponse.updated_at:type_name -> google.protobuf.Timestamp
-	0,  // 36: crypto.v1.TransactionService.EstimateNetworkFee:input_type -> crypto.v1.EstimateNetworkFeeRequest
-	4,  // 37: crypto.v1.TransactionService.GetWithdrawalQuote:input_type -> crypto.v1.GetWithdrawalQuoteRequest
-	2,  // 38: crypto.v1.TransactionService.Withdraw:input_type -> crypto.v1.WithdrawRequest
-	6,  // 39: crypto.v1.TransactionService.SweepUserWallet:input_type -> crypto.v1.SweepUserWalletRequest
-	8,  // 40: crypto.v1.TransactionService.SweepAllUsers:input_type -> crypto.v1.SweepAllUsersRequest
-	12, // 41: crypto.v1.TransactionService.GetTransaction:input_type -> crypto.v1.GetTransactionRequest
-	14, // 42: crypto.v1.TransactionService.GetUserTransactions:input_type -> crypto.v1.GetUserTransactionsRequest
-	16, // 43: crypto.v1.TransactionService.GetTransactionStatus:input_type -> crypto.v1.GetTransactionStatusRequest
-	1,  // 44: crypto.v1.TransactionService.EstimateNetworkFee:output_type -> crypto.v1.EstimateNetworkFeeResponse
-	5,  // 45: crypto.v1.TransactionService.GetWithdrawalQuote:output_type -> crypto.v1.GetWithdrawalQuoteResponse
-	3,  // 46: crypto.v1.TransactionService.Withdraw:output_type -> crypto.v1.WithdrawResponse
-	7,  // 47: crypto.v1.TransactionService.SweepUserWallet:output_type -> crypto.v1.SweepUserWalletResponse
-	9,  // 48: crypto.v1.TransactionService.SweepAllUsers:output_type -> crypto.v1.SweepAllUsersResponse
-	13, // 49: crypto.v1.TransactionService.GetTransaction:output_type -> crypto.v1.GetTransactionResponse
-	15, // 50: crypto.v1.TransactionService.GetUserTransactions:output_type -> crypto.v1.GetUserTransactionsResponse
-	17, // 51: crypto.v1.TransactionService.GetTransactionStatus:output_type -> crypto.v1.GetTransactionStatusResponse
-	44, // [44:52] is the sub-list for method output_type
-	36, // [36:44] is the sub-list for method input_type
-	36, // [36:36] is the sub-list for extension type_name
-	36, // [36:36] is the sub-list for extension extendee
-	0,  // [0:36] is the sub-list for field type_name
+	29, // 0: crypto.v1.EstimateNetworkFeeRequest.chain:type_name -> crypto.v1.Chain
+	29, // 1: crypto.v1.EstimateNetworkFeeResponse.chain:type_name -> crypto.v1.Chain
+	30, // 2: crypto.v1.EstimateNetworkFeeResponse.estimated_at:type_name -> google.protobuf.Timestamp
+	29, // 3: crypto.v1.WithdrawRequest.chain:type_name -> crypto.v1.Chain
+	11, // 4: crypto.v1.WithdrawResponse.transaction:type_name -> crypto.v1.Transaction
+	29, // 5: crypto.v1.GetWithdrawalQuoteRequest.chain:type_name -> crypto.v1.Chain
+	29, // 6: crypto.v1.GetWithdrawalQuoteResponse.chain:type_name -> crypto.v1.Chain
+	31, // 7: crypto.v1.GetWithdrawalQuoteResponse.amount:type_name -> crypto.v1.Money
+	31, // 8: crypto.v1.GetWithdrawalQuoteResponse.network_fee:type_name -> crypto.v1.Money
+	30, // 9: crypto.v1.GetWithdrawalQuoteResponse.valid_until:type_name -> google.protobuf.Timestamp
+	29, // 10: crypto.v1.SweepUserWalletRequest.chain:type_name -> crypto.v1.Chain
+	11, // 11: crypto.v1.SweepUserWalletResponse.transaction:type_name -> crypto.v1.Transaction
+	29, // 12: crypto.v1.SweepAllUsersRequest.chain:type_name -> crypto.v1.Chain
+	11, // 13: crypto.v1.SweepAllUsersResponse.transactions:type_name -> crypto.v1.Transaction
+	32, // 14: crypto.v1.Transaction.type:type_name -> crypto.v1.TransactionType
+	29, // 15: crypto.v1.Transaction.chain:type_name -> crypto.v1.Chain
+	31, // 16: crypto.v1.Transaction.amount:type_name -> crypto.v1.Money
+	31, // 17: crypto.v1.Transaction.network_fee:type_name -> crypto.v1.Money
+	33, // 18: crypto.v1.Transaction.status:type_name -> crypto.v1.TransactionStatus
+	30, // 19: crypto.v1.Transaction.initiated_at:type_name -> google.protobuf.Timestamp
+	30, // 20: crypto.v1.Transaction.broadcasted_at:type_name -> google.protobuf.Timestamp
+	30, // 21: crypto.v1.Transaction.confirmed_at:type_name -> google.protobuf.Timestamp
+	30, // 22: crypto.v1.Transaction.created_at:type_name -> google.protobuf.Timestamp
+	32, // 23: crypto.v1.TransactionSummary.type:type_name -> crypto.v1.TransactionType
+	29, // 24: crypto.v1.TransactionSummary.chain:type_name -> crypto.v1.Chain
+	33, // 25: crypto.v1.TransactionSummary.status:type_name -> crypto.v1.TransactionStatus
+	30, // 26: crypto.v1.TransactionSummary.created_at:type_name -> google.protobuf.Timestamp
+	11, // 27: crypto.v1.GetTransactionResponse.transaction:type_name -> crypto.v1.Transaction
+	29, // 28: crypto.v1.GetUserTransactionsRequest.chain:type_name -> crypto.v1.Chain
+	32, // 29: crypto.v1.GetUserTransactionsRequest.type:type_name -> crypto.v1.TransactionType
+	33, // 30: crypto.v1.GetUserTransactionsRequest.status:type_name -> crypto.v1.TransactionStatus
+	34, // 31: crypto.v1.GetUserTransactionsRequest.pagination:type_name -> crypto.v1.PaginationRequest
+	12, // 32: crypto.v1.GetUserTransactionsResponse.transactions:type_name -> crypto.v1.TransactionSummary
+	35, // 33: crypto.v1.GetUserTransactionsResponse.pagination:type_name -> crypto.v1.PaginationResponse
+	33, // 34: crypto.v1.GetTransactionStatusResponse.status:type_name -> crypto.v1.TransactionStatus
+	30, // 35: crypto.v1.GetTransactionStatusResponse.updated_at:type_name -> google.protobuf.Timestamp
+	21, // 36: crypto.v1.GetPendingWithdrawalsResponse.approvals:type_name -> crypto.v1.WithdrawalApprovalInfo
+	31, // 37: crypto.v1.WithdrawalApprovalInfo.amount:type_name -> crypto.v1.Money
+	29, // 38: crypto.v1.WithdrawalApprovalInfo.chain:type_name -> crypto.v1.Chain
+	22, // 39: crypto.v1.WithdrawalApprovalInfo.risk_factors:type_name -> crypto.v1.RiskFactor
+	0,  // 40: crypto.v1.WithdrawalApprovalInfo.status:type_name -> crypto.v1.WithdrawalApprovalStatus
+	30, // 41: crypto.v1.WithdrawalApprovalInfo.created_at:type_name -> google.protobuf.Timestamp
+	11, // 42: crypto.v1.ApproveWithdrawalResponse.transaction:type_name -> crypto.v1.Transaction
+	21, // 43: crypto.v1.GetWithdrawalApprovalResponse.approval:type_name -> crypto.v1.WithdrawalApprovalInfo
+	1,  // 44: crypto.v1.TransactionService.EstimateNetworkFee:input_type -> crypto.v1.EstimateNetworkFeeRequest
+	5,  // 45: crypto.v1.TransactionService.GetWithdrawalQuote:input_type -> crypto.v1.GetWithdrawalQuoteRequest
+	3,  // 46: crypto.v1.TransactionService.Withdraw:input_type -> crypto.v1.WithdrawRequest
+	7,  // 47: crypto.v1.TransactionService.SweepUserWallet:input_type -> crypto.v1.SweepUserWalletRequest
+	9,  // 48: crypto.v1.TransactionService.SweepAllUsers:input_type -> crypto.v1.SweepAllUsersRequest
+	13, // 49: crypto.v1.TransactionService.GetTransaction:input_type -> crypto.v1.GetTransactionRequest
+	15, // 50: crypto.v1.TransactionService.GetUserTransactions:input_type -> crypto.v1.GetUserTransactionsRequest
+	17, // 51: crypto.v1.TransactionService.GetTransactionStatus:input_type -> crypto.v1.GetTransactionStatusRequest
+	19, // 52: crypto.v1.TransactionService.GetPendingWithdrawals:input_type -> crypto.v1.GetPendingWithdrawalsRequest
+	23, // 53: crypto.v1.TransactionService.ApproveWithdrawal:input_type -> crypto.v1.ApproveWithdrawalRequest
+	25, // 54: crypto.v1.TransactionService.RejectWithdrawal:input_type -> crypto.v1.RejectWithdrawalRequest
+	27, // 55: crypto.v1.TransactionService.GetWithdrawalApproval:input_type -> crypto.v1.GetWithdrawalApprovalRequest
+	2,  // 56: crypto.v1.TransactionService.EstimateNetworkFee:output_type -> crypto.v1.EstimateNetworkFeeResponse
+	6,  // 57: crypto.v1.TransactionService.GetWithdrawalQuote:output_type -> crypto.v1.GetWithdrawalQuoteResponse
+	4,  // 58: crypto.v1.TransactionService.Withdraw:output_type -> crypto.v1.WithdrawResponse
+	8,  // 59: crypto.v1.TransactionService.SweepUserWallet:output_type -> crypto.v1.SweepUserWalletResponse
+	10, // 60: crypto.v1.TransactionService.SweepAllUsers:output_type -> crypto.v1.SweepAllUsersResponse
+	14, // 61: crypto.v1.TransactionService.GetTransaction:output_type -> crypto.v1.GetTransactionResponse
+	16, // 62: crypto.v1.TransactionService.GetUserTransactions:output_type -> crypto.v1.GetUserTransactionsResponse
+	18, // 63: crypto.v1.TransactionService.GetTransactionStatus:output_type -> crypto.v1.GetTransactionStatusResponse
+	20, // 64: crypto.v1.TransactionService.GetPendingWithdrawals:output_type -> crypto.v1.GetPendingWithdrawalsResponse
+	24, // 65: crypto.v1.TransactionService.ApproveWithdrawal:output_type -> crypto.v1.ApproveWithdrawalResponse
+	26, // 66: crypto.v1.TransactionService.RejectWithdrawal:output_type -> crypto.v1.RejectWithdrawalResponse
+	28, // 67: crypto.v1.TransactionService.GetWithdrawalApproval:output_type -> crypto.v1.GetWithdrawalApprovalResponse
+	56, // [56:68] is the sub-list for method output_type
+	44, // [44:56] is the sub-list for method input_type
+	44, // [44:44] is the sub-list for extension type_name
+	44, // [44:44] is the sub-list for extension extendee
+	0,  // [0:44] is the sub-list for field type_name
 }
 
 func init() { file_transaction_proto_init() }
@@ -1673,13 +2465,14 @@ func file_transaction_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_transaction_proto_rawDesc), len(file_transaction_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   18,
+			NumEnums:      1,
+			NumMessages:   28,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_transaction_proto_goTypes,
 		DependencyIndexes: file_transaction_proto_depIdxs,
+		EnumInfos:         file_transaction_proto_enumTypes,
 		MessageInfos:      file_transaction_proto_msgTypes,
 	}.Build()
 	File_transaction_proto = out.File
