@@ -195,11 +195,12 @@ func (uc *TransactionUsecase) GetWithdrawalQuote(
 //  2. Deducted amount + fees from user's virtual wallet
 //  3. Called this method to execute blockchain transaction
 //     UPDATED: Now includes approval flow based on risk assessment
+// Withdraw sends crypto from SYSTEM hot wallet to external address
 func (uc *TransactionUsecase) Withdraw(
 	ctx context.Context,
-	accountingTxID string, // From accounting module for idempotency
+	accountingTxID string,
 	chainName, assetCode, amount, toAddress, memo string,
-	userID string, // For tracking who requested it
+	userID string,
 ) (*domain.CryptoTransaction, error) {
 
 	uc.logger.Info("Processing withdrawal request",
@@ -229,12 +230,11 @@ func (uc *TransactionUsecase) Withdraw(
 		return nil, fmt.Errorf("invalid amount format: %w", err)
 	}
 
-	//  3. RISK ASSESSMENT
+	// 3. RISK ASSESSMENT
 	riskAssessment, err := uc.riskAssessor.AssessWithdrawal(
 		ctx, userID, chainName, assetCode, amountBig, toAddress)
 	if err != nil {
 		uc.logger.Error("Risk assessment failed", zap.Error(err))
-		// Don't fail - continue with default approval required
 		riskAssessment = &risk.RiskAssessment{
 			RiskScore:        50,
 			RequiresApproval: true,
@@ -259,15 +259,11 @@ func (uc *TransactionUsecase) Withdraw(
 		return nil, fmt.Errorf("failed to estimate fee: %w", err)
 	}
 
-	// 6. Check system wallet has enough (amount + network fee)
+	// 6. ✅ Check system wallet has enough (amount + network fee)
 	totalNeeded := new(big.Int).Add(amountBig, feeEstimate.FeeAmount)
-	if systemWallet.Balance.Cmp(totalNeeded) < 0 {
-		return nil, fmt.Errorf("insufficient system wallet balance: have %s, need %s",
-			utils.FormatAmount(systemWallet.Balance, assetCode),
-			utils.FormatAmount(totalNeeded, assetCode))
-	}
+	hasInsufficientFunds := systemWallet.Balance.Cmp(totalNeeded) < 0
 
-	// 7. Create transaction record (stays PENDING if approval needed)
+	// 7. Create transaction record
 	tx := &domain.CryptoTransaction{
 		TransactionID:         uuid.New().String(),
 		AccountingTxID:        &accountingTxID,
@@ -282,12 +278,23 @@ func (uc *TransactionUsecase) Withdraw(
 		Amount:                amountBig,
 		NetworkFee:            feeEstimate.FeeAmount,
 		NetworkFeeCurrency:    &feeEstimate.FeeCurrency,
-		PlatformFee:           big.NewInt(0), // Handled by accounting
+		PlatformFee:           big.NewInt(0),
 		TotalFee:              feeEstimate.FeeAmount,
-		Status:                domain.TransactionStatusPending, //  Stays pending if approval needed
+		Status:                domain.TransactionStatusPending,
 		RequiredConfirmations: utils.GetRequiredConfirmations(chainName),
 		Memo:                  &memo,
 		InitiatedAt:           time.Now(),
+	}
+
+	// ✅ If insufficient funds, mark as failed immediately
+	if hasInsufficientFunds {
+		tx.Status = domain.TransactionStatusFailed
+		failureMsg := fmt.Sprintf("Insufficient system wallet balance: have %s, need %s",
+			utils.FormatAmount(systemWallet.Balance, assetCode),
+			utils.FormatAmount(totalNeeded, assetCode))
+		tx.StatusMessage = &failureMsg
+		now := time.Now()
+		tx.FailedAt = &now
 	}
 
 	// 8. Save transaction
@@ -295,7 +302,25 @@ func (uc *TransactionUsecase) Withdraw(
 		return nil, fmt.Errorf("failed to create transaction: %w", err)
 	}
 
-	//  9. CREATE APPROVAL RECORD
+	// ✅ If insufficient funds, return error with saved transaction
+	if hasInsufficientFunds {
+		uc.logger.Error("Insufficient system wallet balance",
+			zap.String("tx_id", tx.TransactionID),
+			zap.String("have", systemWallet.Balance.String()),
+			zap.String("need", totalNeeded.String()))
+		
+		// TODO: Alert admins to refill system wallet
+		// go uc.notifyAdminsLowBalance(ctx, systemWallet, tx)
+		
+		// TODO: Notify accounting to refund user
+		// go uc.notifyAccountingOfFailure(ctx, tx)
+		
+		return nil, fmt.Errorf("insufficient system wallet balance: have %s, need %s",
+			utils.FormatAmount(systemWallet.Balance, assetCode),
+			utils.FormatAmount(totalNeeded, assetCode))
+	}
+
+	// 9. CREATE APPROVAL RECORD
 	approval := &domain.WithdrawalApproval{
 		TransactionID:    tx.ID,
 		UserID:           userID,
@@ -315,12 +340,10 @@ func (uc *TransactionUsecase) Withdraw(
 
 	if err := uc.approvalRepo.Create(ctx, approval); err != nil {
 		uc.logger.Error("Failed to create approval record", zap.Error(err))
-		// Don't fail transaction - continue
 	}
 
-	//  10. DECISION POINT: Auto-approve or wait for manual approval?
+	// 10. DECISION POINT: Auto-approve or wait for manual approval?
 	if !riskAssessment.RequiresApproval {
-		//  AUTO-APPROVE: Execute immediately
 		uc.logger.Info("Withdrawal auto-approved - executing",
 			zap.String("tx_id", tx.TransactionID),
 			zap.String("reason", riskAssessment.Explanation))
@@ -330,7 +353,7 @@ func (uc *TransactionUsecase) Withdraw(
 		return tx, nil
 	}
 
-	//  REQUIRES APPROVAL: Keep in pending state
+	// REQUIRES APPROVAL: Keep in pending state
 	uc.logger.Info("Withdrawal requires manual approval",
 		zap.String("tx_id", tx.TransactionID),
 		zap.Int("risk_score", riskAssessment.RiskScore),
@@ -342,9 +365,7 @@ func (uc *TransactionUsecase) Withdraw(
 	return tx, nil
 }
 
-//	executeWithdrawal executes the actual blockchain withdrawal
-//
-// Called either immediately (auto-approved) or after manual approval
+// executeWithdrawal executes the actual blockchain withdrawal
 func (uc *TransactionUsecase) executeWithdrawal(
 	ctx context.Context,
 	tx *domain.CryptoTransaction,
@@ -355,7 +376,41 @@ func (uc *TransactionUsecase) executeWithdrawal(
 		zap.String("chain", tx.Chain),
 		zap.String("asset", tx.Asset))
 
-	// 1. Get blockchain implementation
+	// ✅ 1. Re-check balance before execution (wallet state may have changed)
+	// Get fresh wallet state
+	freshWallet, err := uc.walletRepo.GetByID(ctx, systemWallet.ID)
+	if err != nil {
+		uc.transactionRepo.MarkAsFailed(ctx, tx.ID, fmt.Sprintf("Failed to verify wallet: %v", err))
+		uc.logger.Error("Failed to get fresh wallet state", zap.Error(err))
+		return
+	}
+
+	totalNeeded := new(big.Int).Add(tx.Amount, tx.NetworkFee)
+	if freshWallet.Balance.Cmp(totalNeeded) < 0 {
+		failureMsg := fmt.Sprintf("Insufficient system wallet balance at execution: have %s, need %s",
+			utils.FormatAmount(freshWallet.Balance, tx.Asset),
+			utils.FormatAmount(totalNeeded, tx.Asset))
+		
+		uc.transactionRepo.MarkAsFailed(ctx, tx.ID, failureMsg)
+		
+		uc.logger.Error("Insufficient balance at execution time",
+			zap.String("tx_id", tx.TransactionID),
+			zap.String("have", freshWallet.Balance.String()),
+			zap.String("need", totalNeeded.String()))
+		
+		// TODO: Alert admins
+		// go uc.notifyAdminsLowBalance(ctx, freshWallet, tx)
+		
+		// TODO: Notify accounting for refund
+		// go uc.notifyAccountingOfFailure(ctx, tx)
+		
+		return
+	}
+
+	// Update reference to fresh wallet
+	systemWallet = freshWallet
+
+	// 2. Get blockchain implementation
 	chain, err := uc.chainRegistry.Get(tx.Chain)
 	if err != nil {
 		uc.transactionRepo.MarkAsFailed(ctx, tx.ID, fmt.Sprintf("Unsupported chain: %v", err))
@@ -363,7 +418,7 @@ func (uc *TransactionUsecase) executeWithdrawal(
 		return
 	}
 
-	// 2. Decrypt system wallet private key
+	// 3. Decrypt system wallet private key
 	privateKey, err := uc.encryption.Decrypt(systemWallet.EncryptedPrivateKey)
 	if err != nil {
 		uc.transactionRepo.MarkAsFailed(ctx, tx.ID, "Failed to decrypt system wallet key")
@@ -371,16 +426,16 @@ func (uc *TransactionUsecase) executeWithdrawal(
 		return
 	}
 
-	// 3. Update status to broadcasting
+	// 4. Update status to broadcasting
 	uc.transactionRepo.UpdateStatus(ctx, tx.ID, domain.TransactionStatusBroadcasting, nil)
 
-	// 4. Execute blockchain transaction
+	// 5. Execute blockchain transaction
 	txResult, err := chain.Send(ctx, &domain.TransactionRequest{
 		From:       systemWallet.Address,
 		To:         tx.ToAddress,
 		Asset:      utils.AssetFromChainAndCode(tx.Chain, tx.Asset),
 		Amount:     tx.Amount,
-		PrivateKey: privateKey, // For Circle, this is wallet ID
+		PrivateKey: privateKey,
 		Memo:       tx.Memo,
 		Priority:   domain.TxPriorityNormal,
 	})
@@ -393,10 +448,12 @@ func (uc *TransactionUsecase) executeWithdrawal(
 		uc.transactionRepo.MarkAsFailed(ctx, tx.ID, err.Error())
 
 		// TODO: Notify accounting module of failure for refund
+		// go uc.notifyAccountingOfFailure(ctx, tx)
+		
 		return
 	}
 
-	// 5. Update transaction with blockchain details
+	// 6. Update transaction with blockchain details
 	tx.TxHash = &txResult.TxHash
 	tx.Status = domain.TransactionStatusBroadcasted
 	now := time.Now()
@@ -406,7 +463,7 @@ func (uc *TransactionUsecase) executeWithdrawal(
 		uc.logger.Error("Failed to update transaction", zap.Error(err))
 	}
 
-	// 6. Update system wallet balance
+	// 7. Update system wallet balance
 	actualCost := new(big.Int).Add(tx.Amount, txResult.Fee)
 	newSystemBalance := new(big.Int).Sub(systemWallet.Balance, actualCost)
 
@@ -417,13 +474,9 @@ func (uc *TransactionUsecase) executeWithdrawal(
 		zap.String("tx_id", tx.TransactionID),
 		zap.String("new_system_balance", newSystemBalance.String()))
 
-	// 7. Start monitoring confirmations
+	// 8. Start monitoring confirmations
 	go uc.monitorTransactionConfirmations(tx.TransactionID, tx.Chain, *tx.TxHash)
 }
-
-// ============================================================================
-// APPROVAL OPERATIONS
-// ============================================================================
 
 // ApproveWithdrawal approves a pending withdrawal (admin action)
 func (uc *TransactionUsecase) ApproveWithdrawal(
@@ -458,18 +511,48 @@ func (uc *TransactionUsecase) ApproveWithdrawal(
 		return nil, fmt.Errorf("transaction is not pending: %s", tx.Status)
 	}
 
-	// 5. Mark approval as approved
-	if err := uc.approvalRepo.Approve(ctx, approvalID, approvedBy, notes); err != nil {
-		return nil, fmt.Errorf("failed to approve: %w", err)
-	}
-
-	// 6. Get system wallet
+	// 5. Get system wallet
 	systemWallet, err := uc.systemUsecase.GetSystemWallet(ctx, tx.Chain, tx.Asset)
 	if err != nil {
 		return nil, fmt.Errorf("system wallet not found: %w", err)
 	}
 
-	// 7. Execute withdrawal asynchronously
+	// ✅ 6. Check balance BEFORE approving
+	totalNeeded := new(big.Int).Add(tx.Amount, tx.NetworkFee)
+	if systemWallet.Balance.Cmp(totalNeeded) < 0 {
+		// Mark transaction as failed
+		failureMsg := fmt.Sprintf("Insufficient system wallet balance at approval: have %s, need %s",
+			utils.FormatAmount(systemWallet.Balance, tx.Asset),
+			utils.FormatAmount(totalNeeded, tx.Asset))
+		
+		uc.transactionRepo.MarkAsFailed(ctx, tx.ID, failureMsg)
+		
+		// Reject the approval automatically
+		uc.approvalRepo.Reject(ctx, approvalID, "SYSTEM", failureMsg)
+		
+		uc.logger.Error("Insufficient balance at approval time",
+			zap.String("tx_id", tx.TransactionID),
+			zap.String("have", systemWallet.Balance.String()),
+			zap.String("need", totalNeeded.String()))
+		
+		// TODO: Alert admins
+		// go uc.notifyAdminsLowBalance(ctx, systemWallet, tx)
+		
+		// TODO: Notify accounting for refund
+		// go uc.notifyAccountingOfFailure(ctx, tx)
+		
+		return nil, fmt.Errorf("insufficient system wallet balance: have %s, need %s",
+			utils.FormatAmount(systemWallet.Balance, tx.Asset),
+			utils.FormatAmount(totalNeeded, tx.Asset))
+	}
+
+	// 7. Mark approval as approved
+	if err := uc.approvalRepo.Approve(ctx, approvalID, approvedBy, notes); err != nil {
+		return nil, fmt.Errorf("failed to approve: %w", err)
+	}
+
+	// 8. Execute withdrawal asynchronously
+	// Note: executeWithdrawal will check balance again before sending
 	go uc.executeWithdrawal(ctx, tx, systemWallet)
 
 	uc.logger.Info("Withdrawal approved and executing",
@@ -523,8 +606,8 @@ func (uc *TransactionUsecase) RejectWithdrawal(
 		return fmt.Errorf("failed to cancel transaction: %w", err)
 	}
 
-	// 7. TODO: Notify accounting to refund user
-	// go uc.notifyAccountingOfRejection(ctx, approval, tx)
+	// 7. Notify accounting to refund user
+	go uc.notifyAccountingOfRejection(ctx, approval, tx)
 
 	uc.logger.Info("Withdrawal rejected",
 		zap.Int64("approval_id", approvalID),
@@ -534,6 +617,52 @@ func (uc *TransactionUsecase) RejectWithdrawal(
 	return nil
 }
 
+// ============================================================================
+// NOTIFICATION HELPERS (TODO: Implement)
+// ============================================================================
+
+// notifyAdminsLowBalance alerts admins that system wallet needs refilling
+func (uc *TransactionUsecase) notifyAdminsLowBalance(
+	ctx context.Context,
+	wallet *domain.CryptoWallet,
+	tx *domain.CryptoTransaction,
+) {
+	// TODO: Implement notification
+	// - Send email/Slack/Discord alert
+	// - Include wallet address, balance, asset
+	// - Include failed transaction details
+	
+	uc.logger.Warn("System wallet low balance - admin notification needed",
+		zap.String("chain", wallet.Chain),
+		zap.String("asset", wallet.Asset),
+		zap.String("balance", wallet.Balance.String()),
+		zap.String("address", wallet.Address))
+}
+
+// notifyAccountingOfFailure notifies accounting to refund user
+func (uc *TransactionUsecase) notifyAccountingOfFailure(
+	ctx context.Context,
+	tx *domain.CryptoTransaction,
+) {
+	// TODO: Implement accounting notification
+	// - Call accounting service to reverse transaction
+	// - Refund user's virtual balance
+	
+	uc.logger.Info("Accounting refund notification needed",
+		zap.String("tx_id", tx.TransactionID),
+		zap.String("accounting_tx_id", *tx.AccountingTxID),
+		zap.String("user_id", tx.UserID))
+}
+
+// notifyAccountingOfRejection notifies accounting of rejection
+func (uc *TransactionUsecase) notifyAccountingOfRejection(
+	ctx context.Context,
+	approval *domain.WithdrawalApproval,
+	tx *domain.CryptoTransaction,
+) {
+	// TODO: Same as notifyAccountingOfFailure
+	uc.notifyAccountingOfFailure(ctx, tx)
+}
 // GetPendingApprovals retrieves pending withdrawal approvals for admin dashboard
 func (uc *TransactionUsecase) GetPendingApprovals(
 	ctx context.Context,
@@ -598,22 +727,6 @@ func (uc *TransactionUsecase) notifyAdminsOfPendingApproval(
 		zap.Int("risk_score", approval.RiskScore))
 }
 
-// notifyAccountingOfRejection notifies accounting to refund user (TODO)
-func (uc *TransactionUsecase) notifyAccountingOfRejection(
-	ctx context.Context,
-	approval *domain.WithdrawalApproval,
-	tx *domain.CryptoTransaction,
-) {
-	// TODO: Call accounting service to refund
-	// - Reverse the deduction
-	// - Credit user's account
-	// - Update ledger
-
-	uc.logger.Info("Accounting refund notification sent",
-		zap.String("tx_id", tx.TransactionID),
-		zap.String("user_id", approval.UserID),
-		zap.String("accounting_tx_id", *tx.AccountingTxID))
-}
 
 func (uc *TransactionUsecase) monitorTransactionConfirmations(
 	transactionID, chainName, txHash string,
