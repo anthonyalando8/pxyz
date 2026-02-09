@@ -673,11 +673,12 @@ func (h *PaymentHandler) checkIfInternalAddress(ctx context.Context, address str
 		zap.String("chain", wallet.Chain.String()),
 		zap.String("asset", wallet.Asset))
 
+	chain := mapProtoToChain(wallet.Chain)
 	return &InternalAddressInfo{
 		IsInternal:   true,
 		UserID:       wallet.UserId,
 		WalletID:     wallet.Id,
-		Chain:        wallet.Chain.String(),
+		Chain:        	chain,
 		Asset:        wallet.Asset,
 		WalletObject: wallet,
 	}, nil

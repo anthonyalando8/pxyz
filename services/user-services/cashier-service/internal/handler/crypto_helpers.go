@@ -44,6 +44,18 @@ func mapChainToProto(chain string) cryptopb.Chain {
 	return cryptopb.Chain_CHAIN_UNSPECIFIED
 }
 
+func mapProtoToChain(protoChain cryptopb.Chain) string {
+	chainMap := map[cryptopb.Chain]string{
+		cryptopb.Chain_CHAIN_BITCOIN:  "BITCOIN",
+		cryptopb.Chain_CHAIN_TRON:     "TRON",
+		cryptopb.Chain_CHAIN_ETHEREUM: "ETHEREUM",
+	}
+	if chain, ok := chainMap[protoChain]; ok {
+		return chain
+	}
+	return "UNSPECIFIED"
+}
+
 // validateCryptoAddress validates the crypto address format
 func (h *PaymentHandler) validateCryptoAddress(ctx context.Context, address, chain string) error {
 	// TODO: Call crypto service to validate address format

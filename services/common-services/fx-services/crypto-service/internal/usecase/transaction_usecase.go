@@ -195,7 +195,7 @@ func (uc *TransactionUsecase) GetWithdrawalQuote(
 //   1. Verified user has sufficient virtual balance
 //   2. Deducted amount + fees from user's virtual wallet
 //   3. Called this method to execute blockchain transaction
-// ✅ UPDATED: Now includes approval flow based on risk assessment
+//  UPDATED: Now includes approval flow based on risk assessment
 func (uc *TransactionUsecase) Withdraw(
 	ctx context.Context,
 	accountingTxID string, // From accounting module for idempotency
@@ -230,7 +230,7 @@ func (uc *TransactionUsecase) Withdraw(
 		return nil, fmt.Errorf("invalid amount format: %w", err)
 	}
 
-	// ✅ 3. RISK ASSESSMENT
+	//  3. RISK ASSESSMENT
 	riskAssessment, err := uc.riskAssessor.AssessWithdrawal(
 		ctx, userID, chainName, assetCode, amountBig, toAddress)
 	if err != nil {
@@ -285,7 +285,7 @@ func (uc *TransactionUsecase) Withdraw(
 		NetworkFeeCurrency:    &feeEstimate.FeeCurrency,
 		PlatformFee:           big.NewInt(0), // Handled by accounting
 		TotalFee:              feeEstimate.FeeAmount,
-		Status:                domain.TransactionStatusPending, // ✅ Stays pending if approval needed
+		Status:                domain.TransactionStatusPending, //  Stays pending if approval needed
 		RequiredConfirmations: utils.GetRequiredConfirmations(chainName),
 		Memo:                  &memo,
 		InitiatedAt:           time.Now(),
@@ -296,7 +296,7 @@ func (uc *TransactionUsecase) Withdraw(
 		return nil, fmt.Errorf("failed to create transaction: %w", err)
 	}
 
-	// ✅ 9. CREATE APPROVAL RECORD
+	//  9. CREATE APPROVAL RECORD
 	approval := &domain.WithdrawalApproval{
 		TransactionID:    tx.ID,
 		UserID:           userID,
@@ -319,9 +319,9 @@ func (uc *TransactionUsecase) Withdraw(
 		// Don't fail transaction - continue
 	}
 
-	// ✅ 10. DECISION POINT: Auto-approve or wait for manual approval?
+	//  10. DECISION POINT: Auto-approve or wait for manual approval?
 	if !riskAssessment.RequiresApproval {
-		// ✅ AUTO-APPROVE: Execute immediately
+		//  AUTO-APPROVE: Execute immediately
 		uc.logger.Info("Withdrawal auto-approved - executing",
 			zap.String("tx_id", tx.TransactionID),
 			zap.String("reason", riskAssessment.Explanation))
@@ -331,7 +331,7 @@ func (uc *TransactionUsecase) Withdraw(
 		return tx, nil
 	}
 
-	// ✅ REQUIRES APPROVAL: Keep in pending state
+	//  REQUIRES APPROVAL: Keep in pending state
 	uc.logger.Info("Withdrawal requires manual approval",
 		zap.String("tx_id", tx.TransactionID),
 		zap.Int("risk_score", riskAssessment.RiskScore),
@@ -343,7 +343,7 @@ func (uc *TransactionUsecase) Withdraw(
 	return tx, nil
 }
 
-// ✅ executeWithdrawal executes the actual blockchain withdrawal
+//  executeWithdrawal executes the actual blockchain withdrawal
 // Called either immediately (auto-approved) or after manual approval
 func (uc *TransactionUsecase) executeWithdrawal(
 	ctx context.Context,
