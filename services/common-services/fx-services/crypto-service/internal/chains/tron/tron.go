@@ -96,15 +96,11 @@ func (t *TronChain) Symbol() string {
 
 // GenerateWallet creates new TRON wallet
 func (t *TronChain) GenerateWallet(ctx context.Context) (*domain.Wallet, error) {
-	t.logger.Info("generating TRON wallet")
 
 	wallet, err := generateTronWallet()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate wallet: %w", err)
 	}
-
-	t.logger.Info("TRON wallet generated",
-		zap.String("address", wallet.Address))
 
 	return wallet, nil
 }
@@ -127,8 +123,6 @@ func (t *TronChain) GetBalance(ctx context.Context, address string, walletID str
 // getTRXBalance gets native TRX balance
 // getTRXBalance gets native TRX balance using HTTP API
 func (t *TronChain) getTRXBalance(ctx context.Context, addr string, asset *domain.Asset) (*domain.Balance, error) {
-	t.logger.Info("getting TRX balance via HTTP",
-		zap.String("address", addr))
 
 	// ✅ Use HTTP API (most reliable)
 	accountInfo, err := t.httpClient.GetAccountInfo(ctx, addr)
@@ -149,10 +143,6 @@ func (t *TronChain) getTRXBalance(ctx context.Context, addr string, asset *domai
 	}
 
 	balance := big.NewInt(accountInfo.Balance)
-
-	t.logger.Info("TRX balance retrieved",
-		zap.String("address", addr),
-		zap.String("balance", balance.String()))
 
 	return &domain.Balance{
 		Address:  addr,
@@ -186,10 +176,6 @@ func (t *TronChain) Send(ctx context.Context, req *domain.TransactionRequest) (*
 
 // sendTRX sends native TRX
 func (t *TronChain) sendTRX(ctx context.Context, req *domain.TransactionRequest) (*domain.TransactionResult, error) {
-	t.logger.Info("sending TRX transaction",
-		zap.String("from", req.From),
-		zap.String("to", req.To),
-		zap.String("amount", req.Amount.String()))
 
 	// ✅ Use the addresses as Base58 strings directly
 	// The SDK should handle the conversion internally
@@ -434,8 +420,6 @@ func (t *TronChain) parseTRC20Transaction(result *domain.Transaction, contract *
 
 // GetTransactionReceipt gets transaction receipt with events
 func (t *TronChain) GetTransactionReceipt(ctx context.Context, txHash string) (*TransactionReceipt, error) {
-	t.logger.Info("getting transaction receipt",
-		zap.String("tx_hash", txHash))
 
 	txInfo, err := t.grpcClient.GetTransactionInfoByID(txHash)
 	if err != nil {
@@ -632,7 +616,6 @@ func (t *TronChain) GetTRC20Transactions(ctx context.Context, address, contractA
 }
 
 func (t *TronChain) ImportWallet(ctx context.Context, privateKey string) (*domain.Wallet, error) {
-	t.logger.Info("importing TRON wallet from private key")
 
 	privateKey = strings.TrimSpace(privateKey)
 	if len(privateKey) != 64 {
@@ -669,4 +652,3 @@ func (t *TronChain) ImportWallet(ctx context.Context, privateKey string) (*domai
 		CreatedAt:  time.Now(),
 	}, nil
 }
-

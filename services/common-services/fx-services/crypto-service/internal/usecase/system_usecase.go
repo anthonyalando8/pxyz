@@ -4,7 +4,7 @@ package usecase
 import (
 	"context"
 	registry "crypto-service/internal/chains/registry"
-		"crypto-service/pkg/utils"
+	"crypto-service/pkg/utils"
 
 	"crypto-service/internal/domain"
 	"crypto-service/internal/repository"
@@ -43,12 +43,11 @@ func NewSystemUsecase(
 
 // InitializeSystemWallets creates system wallets for all supported chains/assets
 func (uc *SystemUsecase) InitializeSystemWallets(ctx context.Context) error {
-	uc.logger.Info("Initializing system wallets")
 
 	// Define supported assets per chain
 	supportedAssets := map[string][]string{
-		"TRON": {"TRX", "USDT"},
-		"BITCOIN": {"BTC"},
+		"TRON":     {"TRX", "USDT"},
+		"BITCOIN":  {"BTC"},
 		"ETHEREUM": {"ETH", "USDC"},
 		// Future chains
 	}
@@ -60,8 +59,8 @@ func (uc *SystemUsecase) InitializeSystemWallets(ctx context.Context) error {
 		// Check if chain is registered
 		chain, err := uc.chainRegistry.Get(chainName)
 		if err != nil {
-			uc. logger.Warn("Chain not registered, skipping",
-				zap. String("chain", chainName),
+			uc.logger.Warn("Chain not registered, skipping",
+				zap.String("chain", chainName),
 				zap.Error(err))
 			continue
 		}
@@ -101,10 +100,10 @@ func (uc *SystemUsecase) InitializeSystemWallets(ctx context.Context) error {
 			}
 
 			// Encrypt private key
-			encryptedPrivateKey, err := uc.encryption.Encrypt(wallet. PrivateKey)
+			encryptedPrivateKey, err := uc.encryption.Encrypt(wallet.PrivateKey)
 			if err != nil {
 				uc.logger.Error("Failed to encrypt private key",
-					zap. Error(err))
+					zap.Error(err))
 				continue
 			}
 
@@ -112,9 +111,9 @@ func (uc *SystemUsecase) InitializeSystemWallets(ctx context.Context) error {
 			label := fmt.Sprintf("System %s Wallet", assetCode)
 			systemWallet := &domain.CryptoWallet{
 				UserID:              SystemUserID,
-				Chain:                chainName,
+				Chain:               chainName,
 				Asset:               assetCode,
-				Address:              wallet.Address,
+				Address:             wallet.Address,
 				PublicKey:           &wallet.PublicKey,
 				EncryptedPrivateKey: encryptedPrivateKey,
 				EncryptionVersion:   "v1",
@@ -125,8 +124,8 @@ func (uc *SystemUsecase) InitializeSystemWallets(ctx context.Context) error {
 			}
 
 			// Save to database
-			if err := uc. walletRepo.Create(ctx, systemWallet); err != nil {
-				uc. logger.Error("Failed to save system wallet",
+			if err := uc.walletRepo.Create(ctx, systemWallet); err != nil {
+				uc.logger.Error("Failed to save system wallet",
 					zap.String("chain", chainName),
 					zap.String("asset", assetCode),
 					zap.Error(err))
@@ -134,7 +133,7 @@ func (uc *SystemUsecase) InitializeSystemWallets(ctx context.Context) error {
 			}
 
 			uc.logger.Info("System wallet created successfully",
-				zap. String("chain", chainName),
+				zap.String("chain", chainName),
 				zap.String("asset", assetCode),
 				zap.String("address", wallet.Address),
 				zap.Int64("wallet_id", systemWallet.ID))
@@ -143,7 +142,7 @@ func (uc *SystemUsecase) InitializeSystemWallets(ctx context.Context) error {
 		}
 	}
 
-	uc. logger.Info("System wallet initialization completed",
+	uc.logger.Info("System wallet initialization completed",
 		zap.Int("created", createdCount),
 		zap.Int("existing", existingCount),
 		zap.Int("total", createdCount+existingCount))
@@ -157,16 +156,16 @@ func (uc *SystemUsecase) prepareWalletContext(
 ) context.Context {
 	// Add user ID to context
 	ctx = context.WithValue(ctx, domain.UserIDKey, userID)
-	
+
 	// Add asset to context
 	ctx = context.WithValue(ctx, domain.AssetKey, assetCode)
-	
+
 	// Add chain to context
 	ctx = context.WithValue(ctx, domain.ChainKey, chainName)
-	
+
 	//  Determine wallet type based on chain and asset
 	walletType := "standard" // Default
-	
+
 	// Use Circle for USDC on Ethereum
 	if chainName == "ETHEREUM" && assetCode == "USDC" {
 		walletType = "circle"
@@ -174,9 +173,9 @@ func (uc *SystemUsecase) prepareWalletContext(
 			zap.String("type", walletType),
 			zap.String("reason", "USDC on Ethereum with Circle enabled"))
 	}
-	
+
 	ctx = context.WithValue(ctx, domain.WalletTypeKey, walletType)
-	
+
 	return ctx
 }
 
@@ -198,7 +197,7 @@ func (uc *SystemUsecase) GetSystemBalance(
 	ctx context.Context,
 	chainName, assetCode string,
 ) (*domain.WalletBalance, error) {
-	
+
 	wallet, err := uc.GetSystemWallet(ctx, chainName, assetCode)
 	if err != nil {
 		return nil, fmt.Errorf("system wallet not found: %w", err)
@@ -222,7 +221,7 @@ func (uc *SystemUsecase) GetSystemBalance(
 	}
 
 	// Update cached balance
-	uc.walletRepo.UpdateBalance(ctx, wallet.ID, balance. Amount)
+	uc.walletRepo.UpdateBalance(ctx, wallet.ID, balance.Amount)
 
 	return &domain.WalletBalance{
 		WalletID:         wallet.ID,

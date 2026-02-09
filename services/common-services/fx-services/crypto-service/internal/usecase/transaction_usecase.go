@@ -23,7 +23,7 @@ type TransactionUsecase struct {
 	walletRepo      *repository.CryptoWalletRepository
 	approvalRepo    *repository.WithdrawalApprovalRepository
 	chainRegistry   *registry.Registry
-	encryption      *security. Encryption
+	encryption      *security.Encryption
 	systemUsecase   *SystemUsecase
 	riskAssessor    *risk.RiskAssessor
 	logger          *zap.Logger
@@ -41,7 +41,7 @@ func NewTransactionUsecase(
 ) *TransactionUsecase {
 	return &TransactionUsecase{
 		transactionRepo: transactionRepo,
-		walletRepo:       walletRepo,
+		walletRepo:      walletRepo,
 		approvalRepo:    approvalRepo,
 		chainRegistry:   chainRegistry,
 		encryption:      encryption,
@@ -63,21 +63,21 @@ func (uc *TransactionUsecase) EstimateNetworkFee(
 	chainName, assetCode, amount string,
 	toAddress string, // Optional, can be empty
 ) (*NetworkFeeEstimate, error) {
-	
+
 	uc.logger.Info("Estimating network fee",
 		zap.String("chain", chainName),
 		zap.String("asset", assetCode),
 		zap.String("amount", amount))
-	
+
 	// Get system hot wallet (all withdrawals come from here)
 	systemWallet, err := uc.systemUsecase.GetSystemWallet(ctx, chainName, assetCode)
 	if err != nil {
 		return nil, fmt.Errorf("system wallet not found: %w", err)
 	}
-	
+
 	//  Get decimals for this asset
 	decimals := utils.GetAssetDecimals(assetCode)
-	
+
 	//  Parse amount using parseAmount (handles decimals)
 	amountBig, err := utils.ParseAmount(amount, decimals)
 	if err != nil {
@@ -87,28 +87,28 @@ func (uc *TransactionUsecase) EstimateNetworkFee(
 			zap.Error(err))
 		return nil, fmt.Errorf("invalid amount format: %w", err)
 	}
-	
+
 	uc.logger.Info("Amount parsed successfully",
 		zap.String("amount_input", amount),
 		zap.String("amount_parsed", amountBig.String()),
 		zap.Int("decimals", decimals))
-	
+
 	// Get blockchain implementation
 	chain, err := uc.chainRegistry.Get(chainName)
 	if err != nil {
 		return nil, fmt.Errorf("unsupported chain: %w", err)
 	}
-	
+
 	// Use a dummy address if none provided
 	if toAddress == "" {
 		toAddress = systemWallet.Address // Use self as dummy
 	}
-	
+
 	// Validate destination address
 	if err := chain.ValidateAddress(toAddress); err != nil {
 		return nil, fmt.Errorf("invalid destination address: %w", err)
 	}
-	
+
 	// Estimate network fee from blockchain
 	feeEstimate, err := chain.EstimateFee(ctx, &domain.TransactionRequest{
 		From:     systemWallet.Address, //  From system wallet
@@ -117,16 +117,16 @@ func (uc *TransactionUsecase) EstimateNetworkFee(
 		Amount:   amountBig,
 		Priority: domain.TxPriorityNormal,
 	})
-	
+
 	if err != nil {
 		uc.logger.Warn("Failed to estimate fee from chain, using defaults",
 			zap.Error(err),
 			zap.String("chain", chainName))
-		
+
 		// Return conservative defaults
 		feeEstimate = uc.getDefaultFeeEstimate(chainName, assetCode)
 	}
-	
+
 	estimate := &NetworkFeeEstimate{
 		Chain:        chainName,
 		Asset:        assetCode,
@@ -136,30 +136,29 @@ func (uc *TransactionUsecase) EstimateNetworkFee(
 		EstimatedAt:  time.Now(),
 		ValidFor:     5 * time.Minute,
 	}
-	
+
 	uc.logger.Info("Network fee estimated",
 		zap.String("fee", estimate.FeeFormatted),
 		zap.String("currency", estimate.FeeCurrency))
-	
+
 	return estimate, nil
 }
-
 
 // GetWithdrawalQuote provides fee estimate (for accounting to show users)
 func (uc *TransactionUsecase) GetWithdrawalQuote(
 	ctx context.Context,
 	chainName, assetCode, amount, toAddress string,
 ) (*WithdrawalQuote, error) {
-	
+
 	// Just estimate network fee - accounting handles platform fee
-	networkFee, err := uc. EstimateNetworkFee(ctx, chainName, assetCode, amount, toAddress)
+	networkFee, err := uc.EstimateNetworkFee(ctx, chainName, assetCode, amount, toAddress)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	//  Get decimals for this asset
 	decimals := utils.GetAssetDecimals(assetCode)
-	
+
 	//  Parse amount using parseAmount (handles decimals)
 	amountBig, err := utils.ParseAmount(amount, decimals)
 	if err != nil {
@@ -169,18 +168,18 @@ func (uc *TransactionUsecase) GetWithdrawalQuote(
 			zap.Error(err))
 		return nil, fmt.Errorf("invalid amount format: %w", err)
 	}
-	
+
 	quote := &WithdrawalQuote{
 		QuoteID:            uuid.New().String(),
 		Chain:              chainName,
 		Asset:              assetCode,
 		Amount:             amountBig,
-		NetworkFee:         networkFee. FeeAmount,
+		NetworkFee:         networkFee.FeeAmount,
 		NetworkFeeCurrency: networkFee.FeeCurrency,
-		Explanation:        fmt.Sprintf("Network fee: %s %s", networkFee.FeeFormatted, networkFee. FeeCurrency),
+		Explanation:        fmt.Sprintf("Network fee: %s %s", networkFee.FeeFormatted, networkFee.FeeCurrency),
 		ValidUntil:         time.Now().Add(5 * time.Minute),
 	}
-	
+
 	return quote, nil
 }
 
@@ -192,10 +191,10 @@ func (uc *TransactionUsecase) GetWithdrawalQuote(
 
 // Withdraw sends crypto from SYSTEM hot wallet to external address
 // NOTE: Accounting module should have already:
-//   1. Verified user has sufficient virtual balance
-//   2. Deducted amount + fees from user's virtual wallet
-//   3. Called this method to execute blockchain transaction
-//  UPDATED: Now includes approval flow based on risk assessment
+//  1. Verified user has sufficient virtual balance
+//  2. Deducted amount + fees from user's virtual wallet
+//  3. Called this method to execute blockchain transaction
+//     UPDATED: Now includes approval flow based on risk assessment
 func (uc *TransactionUsecase) Withdraw(
 	ctx context.Context,
 	accountingTxID string, // From accounting module for idempotency
@@ -343,7 +342,8 @@ func (uc *TransactionUsecase) Withdraw(
 	return tx, nil
 }
 
-//  executeWithdrawal executes the actual blockchain withdrawal
+//	executeWithdrawal executes the actual blockchain withdrawal
+//
 // Called either immediately (auto-approved) or after manual approval
 func (uc *TransactionUsecase) executeWithdrawal(
 	ctx context.Context,
@@ -615,17 +615,16 @@ func (uc *TransactionUsecase) notifyAccountingOfRejection(
 		zap.String("accounting_tx_id", *tx.AccountingTxID))
 }
 
-
 func (uc *TransactionUsecase) monitorTransactionConfirmations(
 	transactionID, chainName, txHash string,
 ) {
 	ctx := context.Background()
-	
+
 	uc.logger.Info("Starting confirmation monitoring",
 		zap.String("tx_id", transactionID),
 		zap.String("chain", chainName),
 		zap.String("tx_hash", txHash))
-	
+
 	// Get blockchain implementation
 	chain, err := uc.chainRegistry.Get(chainName)
 	if err != nil {
@@ -634,7 +633,7 @@ func (uc *TransactionUsecase) monitorTransactionConfirmations(
 			zap.Error(err))
 		return
 	}
-	
+
 	// Get required confirmations
 	tx, err := uc.transactionRepo.GetByTransactionID(ctx, transactionID)
 	if err != nil {
@@ -643,25 +642,25 @@ func (uc *TransactionUsecase) monitorTransactionConfirmations(
 			zap.Error(err))
 		return
 	}
-	
+
 	requiredConfs := tx.RequiredConfirmations
 	ticker := time.NewTicker(30 * time.Second) // Check every 30 seconds
 	defer ticker.Stop()
-	
+
 	timeout := time.After(2 * time.Hour) // Timeout after 2 hours
-	
+
 	for {
 		select {
 		case <-timeout:
 			uc.logger.Warn("Transaction monitoring timeout",
 				zap.String("tx_id", transactionID),
 				zap.String("tx_hash", txHash))
-			
-			uc.transactionRepo.UpdateStatus(ctx, tx.ID, 
-				domain.TransactionStatusPending, 
+
+			uc.transactionRepo.UpdateStatus(ctx, tx.ID,
+				domain.TransactionStatusPending,
 				utils.StringPtr("Confirmation monitoring timeout - requires manual review"))
 			return
-			
+
 		case <-ticker.C:
 			// Check transaction status on blockchain
 			txStatus, err := chain.GetTransaction(ctx, txHash)
@@ -671,16 +670,16 @@ func (uc *TransactionUsecase) monitorTransactionConfirmations(
 					zap.Error(err))
 				continue
 			}
-			
+
 			uc.logger.Info("Transaction status checked",
 				zap.String("tx_hash", txHash),
 				zap.Int("confirmations", txStatus.Confirmations),
 				zap.Int("required", requiredConfs),
 				zap.String("status", string(txStatus.Status)))
-			
+
 			// Update confirmations count
 			uc.transactionRepo.UpdateConfirmations(ctx, tx.ID, txStatus.Confirmations)
-			
+
 			// Check if transaction is confirmed
 			if txStatus.Confirmations >= requiredConfs {
 				//  Transaction confirmed!
@@ -688,36 +687,36 @@ func (uc *TransactionUsecase) monitorTransactionConfirmations(
 					zap.String("tx_id", transactionID),
 					zap.String("tx_hash", txHash),
 					zap.Int("confirmations", txStatus.Confirmations))
-				
+
 				// Update status to confirmed
 				uc.transactionRepo.MarkAsConfirmed(ctx, tx.ID,
-					*txStatus.BlockNumber,*tx.BlockTimestamp)
-				
+					*txStatus.BlockNumber, *tx.BlockTimestamp)
+
 				// TODO: Notify accounting module that withdrawal is confirmed
 				// uc.notifyAccountingConfirmed(ctx, tx)
-				
+
 				return // Stop monitoring
 			}
-			
+
 			// Check if transaction failed
 			if txStatus.Status == "failed" || txStatus.Status == "reverted" {
 				uc.logger.Error("Transaction failed on blockchain",
 					zap.String("tx_id", transactionID),
 					zap.String("tx_hash", txHash),
 					zap.String("reason", "unknown"))
-				
-				uc.transactionRepo.MarkAsFailed(ctx, tx.ID, 
+
+				uc.transactionRepo.MarkAsFailed(ctx, tx.ID,
 					fmt.Sprintf("Blockchain transaction failed: %s", "unkwnown reason"))
-				
+
 				// TODO: Notify accounting module of failure
 				// uc.notifyAccountingFailed(ctx, tx)
-				
+
 				return // Stop monitoring
 			}
-			
+
 			// Update status to confirming if we have at least 1 confirmation
 			if txStatus.Confirmations > 0 && tx.Status == domain.TransactionStatusBroadcasted {
-				uc.transactionRepo.UpdateStatus(ctx, tx.ID, 
+				uc.transactionRepo.UpdateStatus(ctx, tx.ID,
 					domain.TransactionStatusConfirming, nil)
 			}
 		}
@@ -733,121 +732,121 @@ func (uc *TransactionUsecase) SweepUserWallet(
 	ctx context.Context,
 	userID, chainName, assetCode string,
 ) (*domain.CryptoTransaction, error) {
-	
+
 	uc.logger.Info("Sweeping user wallet to system",
 		zap.String("user_id", userID),
 		zap.String("chain", chainName),
 		zap.String("asset", assetCode))
-	
+
 	// 1. Get user's deposit address
 	userWallet, err := uc.walletRepo.GetUserPrimaryWallet(ctx, userID, chainName, assetCode)
 	if err != nil {
 		return nil, fmt.Errorf("user wallet not found: %w", err)
 	}
-	
+
 	// 2. Get system wallet
 	systemWallet, err := uc.systemUsecase.GetSystemWallet(ctx, chainName, assetCode)
 	if err != nil {
 		return nil, fmt.Errorf("system wallet not found: %w", err)
 	}
-	
+
 	// 3. Check if user wallet has balance worth sweeping
 	minSweepAmount := getMinimumSweepAmount(chainName, assetCode)
 	if userWallet.Balance.Cmp(minSweepAmount) < 0 {
 		return nil, fmt.Errorf("balance too low to sweep: %s", userWallet.Balance.String())
 	}
-	
+
 	// 4. Estimate network fee
 	feeEstimate, err := uc.EstimateNetworkFee(ctx, chainName, assetCode, userWallet.Balance.String(), systemWallet.Address)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// 5. Calculate amount to sweep (balance - fee)
 	sweepAmount := new(big.Int).Sub(userWallet.Balance, feeEstimate.FeeAmount)
-	if sweepAmount. Cmp(big.NewInt(0)) <= 0 {
+	if sweepAmount.Cmp(big.NewInt(0)) <= 0 {
 		return nil, fmt.Errorf("balance not enough to cover network fee")
 	}
-	
+
 	// 6. Create transaction record
 	tx := &domain.CryptoTransaction{
-		TransactionID:           uuid.New().String(),
-		UserID:                 userID,
-		Type:                   domain.TransactionTypeSweep,
-		Chain:                   chainName,
-		Asset:                  assetCode,
-		FromWalletID:           &userWallet.ID,
-		FromAddress:            userWallet.Address, // User's deposit address
-		ToWalletID:             &systemWallet.ID,
-		ToAddress:              systemWallet.Address, // System wallet
-		IsInternal:             true, // Internal sweep
-		Amount:                 sweepAmount,
-		NetworkFee:              feeEstimate.FeeAmount,
-		NetworkFeeCurrency:     &feeEstimate. FeeCurrency,
-		PlatformFee:            big. NewInt(0),
-		TotalFee:               feeEstimate.FeeAmount,
-		Status:                 domain.TransactionStatusPending,
-		RequiredConfirmations:  utils.GetRequiredConfirmations(chainName),
-		InitiatedAt:            time.Now(),
+		TransactionID:         uuid.New().String(),
+		UserID:                userID,
+		Type:                  domain.TransactionTypeSweep,
+		Chain:                 chainName,
+		Asset:                 assetCode,
+		FromWalletID:          &userWallet.ID,
+		FromAddress:           userWallet.Address, // User's deposit address
+		ToWalletID:            &systemWallet.ID,
+		ToAddress:             systemWallet.Address, // System wallet
+		IsInternal:            true,                 // Internal sweep
+		Amount:                sweepAmount,
+		NetworkFee:            feeEstimate.FeeAmount,
+		NetworkFeeCurrency:    &feeEstimate.FeeCurrency,
+		PlatformFee:           big.NewInt(0),
+		TotalFee:              feeEstimate.FeeAmount,
+		Status:                domain.TransactionStatusPending,
+		RequiredConfirmations: utils.GetRequiredConfirmations(chainName),
+		InitiatedAt:           time.Now(),
 	}
-	
+
 	// 7. Save to database
 	if err := uc.transactionRepo.Create(ctx, tx); err != nil {
 		return nil, err
 	}
-	
+
 	// 8. Get blockchain implementation
 	chain, err := uc.chainRegistry.Get(chainName)
 	if err != nil {
-		uc.transactionRepo. MarkAsFailed(ctx, tx.ID, fmt.Sprintf("Unsupported chain: %v", err))
+		uc.transactionRepo.MarkAsFailed(ctx, tx.ID, fmt.Sprintf("Unsupported chain: %v", err))
 		return nil, err
 	}
-	
+
 	// 9. Decrypt user wallet private key
 	privateKey, err := uc.encryption.Decrypt(userWallet.EncryptedPrivateKey)
 	if err != nil {
 		uc.transactionRepo.MarkAsFailed(ctx, tx.ID, "Failed to decrypt key")
 		return nil, err
 	}
-	
+
 	// 10. Execute blockchain transaction
 	uc.transactionRepo.UpdateStatus(ctx, tx.ID, domain.TransactionStatusBroadcasting, nil)
-	
-	txResult, err := chain. Send(ctx, &domain.TransactionRequest{
-		From:       userWallet.Address, //  From user's deposit address
+
+	txResult, err := chain.Send(ctx, &domain.TransactionRequest{
+		From:       userWallet.Address,   //  From user's deposit address
 		To:         systemWallet.Address, //  To system wallet
 		Asset:      utils.AssetFromChainAndCode(chainName, assetCode),
 		Amount:     sweepAmount,
 		PrivateKey: privateKey,
 		Priority:   domain.TxPriorityLow, // Low priority for sweeps
 	})
-	
+
 	if err != nil {
 		uc.logger.Error("Sweep transaction failed",
-			zap. Error(err),
+			zap.Error(err),
 			zap.String("user_id", userID))
-		
+
 		uc.transactionRepo.MarkAsFailed(ctx, tx.ID, err.Error())
 		return nil, err
 	}
-	
+
 	// 11. Update transaction
 	tx.TxHash = &txResult.TxHash
 	tx.Status = domain.TransactionStatusBroadcasted
 	now := time.Now()
 	tx.BroadcastedAt = &now
 	uc.transactionRepo.Update(ctx, tx)
-	
+
 	// 12. Update balances
 	uc.walletRepo.UpdateBalance(ctx, userWallet.ID, big.NewInt(0)) // User address now empty
 	newSystemBalance := new(big.Int).Add(systemWallet.Balance, sweepAmount)
 	uc.walletRepo.UpdateBalance(ctx, systemWallet.ID, newSystemBalance)
-	
+
 	uc.logger.Info("Sweep completed successfully",
-		zap.String("tx_hash", txResult. TxHash),
+		zap.String("tx_hash", txResult.TxHash),
 		zap.String("amount_swept", sweepAmount.String()),
 		zap.String("new_system_balance", newSystemBalance.String()))
-	
+
 	return tx, nil
 }
 
@@ -856,26 +855,24 @@ func (uc *TransactionUsecase) SweepAllUsers(
 	ctx context.Context,
 	chainName, assetCode string,
 ) ([]*domain.CryptoTransaction, error) {
-	
+
 	uc.logger.Info("Starting batch sweep",
 		zap.String("chain", chainName),
 		zap.String("asset", assetCode))
-	
+
 	// Get all user wallets with balance
 	wallets, err := uc.walletRepo.GetWalletsWithBalance(ctx, chainName, assetCode, getMinimumSweepAmount(chainName, assetCode))
 	if err != nil {
 		return nil, err
 	}
-	
-	uc.logger.Info("Found wallets to sweep", zap.Int("count", len(wallets)))
-	
+
 	var swept []*domain.CryptoTransaction
 	var failed int
-	
+
 	for _, wallet := range wallets {
 		tx, err := uc.SweepUserWallet(ctx, wallet.UserID, chainName, assetCode)
 		if err != nil {
-			uc.logger. Warn("Failed to sweep wallet",
+			uc.logger.Warn("Failed to sweep wallet",
 				zap.Error(err),
 				zap.String("user_id", wallet.UserID),
 				zap.String("address", wallet.Address))
@@ -884,11 +881,11 @@ func (uc *TransactionUsecase) SweepAllUsers(
 		}
 		swept = append(swept, tx)
 	}
-	
+
 	uc.logger.Info("Batch sweep completed",
 		zap.Int("successful", len(swept)),
 		zap.Int("failed", failed))
-	
+
 	return swept, nil
 }
 
@@ -897,7 +894,7 @@ func (uc *TransactionUsecase) SweepAllUsers(
 // ============================================================================
 
 func (uc *TransactionUsecase) GetUserTransactions(
-	ctx context. Context,
+	ctx context.Context,
 	userID string,
 	limit, offset int,
 ) ([]*domain.CryptoTransaction, error) {
@@ -911,8 +908,6 @@ func (uc *TransactionUsecase) GetTransaction(
 	return uc.transactionRepo.GetByTransactionID(ctx, transactionID)
 }
 
-
-
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
@@ -921,14 +916,14 @@ func (uc *TransactionUsecase) getDefaultFeeEstimate(chainName, assetCode string)
 	// Conservative default fees
 	defaults := map[string]map[string]int64{
 		"TRON": {
-			"TRX":   100000,   // 0.1 TRX
-			"USDT": 5000000,  // 5 TRX equivalent
+			"TRX":  100000,  // 0.1 TRX
+			"USDT": 5000000, // 5 TRX equivalent
 		},
 		"BITCOIN": {
-			"BTC":  5000, // 5000 satoshis
+			"BTC": 5000, // 5000 satoshis
 		},
 	}
-	
+
 	if chainDefaults, ok := defaults[chainName]; ok {
 		if fee, ok := chainDefaults[assetCode]; ok {
 			return &domain.Fee{
@@ -937,7 +932,7 @@ func (uc *TransactionUsecase) getDefaultFeeEstimate(chainName, assetCode string)
 			}
 		}
 	}
-	
+
 	return &domain.Fee{
 		Amount:   big.NewInt(10000),
 		Currency: chainName,
@@ -955,13 +950,13 @@ func getMinimumSweepAmount(chainName, assetCode string) *big.Int {
 			"BTC": 100000, // 0.001 BTC
 		},
 	}
-	
+
 	if chainMins, ok := mins[chainName]; ok {
 		if min, ok := chainMins[assetCode]; ok {
 			return big.NewInt(min)
 		}
 	}
-	
+
 	return big.NewInt(1000000) // Default 1 unit
 }
 

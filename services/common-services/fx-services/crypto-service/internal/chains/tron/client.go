@@ -24,8 +24,8 @@ type TronHTTPClient struct {
 // NewTronHTTPClient creates a new HTTP client for TronGrid
 func NewTronHTTPClient(baseURL, apiKey string, logger *zap.Logger) *TronHTTPClient {
 	return &TronHTTPClient{
-		baseURL:  baseURL,
-		apiKey:   apiKey,
+		baseURL: baseURL,
+		apiKey:  apiKey,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -38,7 +38,7 @@ type AccountTransactionsResponse struct {
 	Success bool                `json:"success"`
 	Data    []TransactionRecord `json:"data"`
 	Meta    struct {
-		At          int64 `json:"at"`
+		At          int64  `json:"at"`
 		Fingerprint string `json:"fingerprint"`
 		PageSize    int    `json:"page_size"`
 	} `json:"meta"`
@@ -77,8 +77,8 @@ func (c *TronHTTPClient) GetAccountTransactions(ctx context.Context, address str
 		zap.Int("offset", offset))
 
 	// TronGrid REST API endpoint
-	url := fmt.Sprintf("%s/v1/accounts/%s/transactions?limit=%d&start=%d", 
-		c. baseURL, address, limit, offset)
+	url := fmt.Sprintf("%s/v1/accounts/%s/transactions?limit=%d&start=%d",
+		c.baseURL, address, limit, offset)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -87,7 +87,7 @@ func (c *TronHTTPClient) GetAccountTransactions(ctx context.Context, address str
 
 	// Add API key header
 	if c.apiKey != "" {
-		req.Header.Set("TRON-PRO-API-KEY", c. apiKey)
+		req.Header.Set("TRON-PRO-API-KEY", c.apiKey)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
@@ -95,7 +95,7 @@ func (c *TronHTTPClient) GetAccountTransactions(ctx context.Context, address str
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute request: %w", err)
 	}
-	defer resp. Body.Close()
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -135,25 +135,25 @@ func (c *TronHTTPClient) GetAccountInfo(ctx context.Context, address string) (*A
 	}
 
 	if c.apiKey != "" {
-		req. Header.Set("TRON-PRO-API-KEY", c.apiKey)
+		req.Header.Set("TRON-PRO-API-KEY", c.apiKey)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := c. httpClient.Do(req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute request: %w", err)
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp. Body)
+	body, _ := io.ReadAll(resp.Body)
 
 	// Check for empty response (account doesn't exist yet)
 	if len(body) == 0 || string(body) == "{}" {
 		c.logger.Info("account has no data yet, returning zero balance",
 			zap.String("address", address))
-		
+
 		return &AccountInfo{
-			Address:       address,
+			Address:      address,
 			Balance:      0,
 			CreateTime:   0,
 			TotalTxCount: 0,
@@ -165,7 +165,7 @@ func (c *TronHTTPClient) GetAccountInfo(ctx context.Context, address string) (*A
 	}
 
 	var accountInfo AccountInfo
-	if err := json. Unmarshal(body, &accountInfo); err != nil {
+	if err := json.Unmarshal(body, &accountInfo); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
@@ -184,18 +184,18 @@ func (c *TronHTTPClient) GetAccountInfo(ctx context.Context, address string) (*A
 
 // AccountInfo represents account information
 type AccountInfo struct {
-	Address       string                 `json:"address"`
-	Balance       int64                  `json:"balance"`
-	CreateTime    int64                  `json:"create_time"`
-	LatestOpTime  int64                  `json:"latest_opration_time"`
-	FreeNetUsed   int64                  `json:"free_net_used"`
-	FreeNetLimit  int64                  `json:"free_net_limit"`
-	NetUsed       int64                  `json:"net_used"`
-	NetLimit      int64                  `json:"net_limit"`
-	EnergyUsed    int64                  `json:"energy_used"`
-	EnergyLimit   int64                  `json:"energy_limit"`
-	TotalTxCount  int64                  `json:"total_tx_count"`
-	Tokens        map[string]interface{} `json:"tokens,omitempty"`
+	Address      string                 `json:"address"`
+	Balance      int64                  `json:"balance"`
+	CreateTime   int64                  `json:"create_time"`
+	LatestOpTime int64                  `json:"latest_opration_time"`
+	FreeNetUsed  int64                  `json:"free_net_used"`
+	FreeNetLimit int64                  `json:"free_net_limit"`
+	NetUsed      int64                  `json:"net_used"`
+	NetLimit     int64                  `json:"net_limit"`
+	EnergyUsed   int64                  `json:"energy_used"`
+	EnergyLimit  int64                  `json:"energy_limit"`
+	TotalTxCount int64                  `json:"total_tx_count"`
+	Tokens       map[string]interface{} `json:"tokens,omitempty"`
 }
 
 // GetTRC20Transactions gets TRC20 token transactions
@@ -213,7 +213,7 @@ func (c *TronHTTPClient) GetTRC20Transactions(ctx context.Context, address strin
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	if c. apiKey != "" {
+	if c.apiKey != "" {
 		req.Header.Set("TRON-PRO-API-KEY", c.apiKey)
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -247,7 +247,6 @@ func (c *TronHTTPClient) GetTRC20Transactions(ctx context.Context, address strin
 
 // BroadcastHex broadcasts a raw transaction (hex encoded)
 func (c *TronHTTPClient) BroadcastHex(ctx context.Context, txHex string) (*BroadcastResult, error) {
-	c.logger.Info("broadcasting transaction via HTTP")
 
 	url := fmt.Sprintf("%s/wallet/broadcasthex", c.baseURL)
 
@@ -257,7 +256,7 @@ func (c *TronHTTPClient) BroadcastHex(ctx context.Context, txHex string) (*Broad
 
 	jsonData, err := json.Marshal(payload)
 	if err != nil {
-		return nil, fmt. Errorf("failed to marshal payload: %w", err)
+		return nil, fmt.Errorf("failed to marshal payload: %w", err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
@@ -272,7 +271,7 @@ func (c *TronHTTPClient) BroadcastHex(ctx context.Context, txHex string) (*Broad
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt. Errorf("failed to execute request:  %w", err)
+		return nil, fmt.Errorf("failed to execute request:  %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -282,7 +281,7 @@ func (c *TronHTTPClient) BroadcastHex(ctx context.Context, txHex string) (*Broad
 	}
 
 	if !result.Result {
-		return &result, fmt.Errorf("broadcast failed: %s", result. Message)
+		return &result, fmt.Errorf("broadcast failed: %s", result.Message)
 	}
 
 	c.logger.Info("transaction broadcasted",
@@ -319,12 +318,12 @@ func (c *TronHTTPClient) GetTokenBalance(ctx context.Context, address, contractA
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return "", fmt. Errorf("failed to execute request: %w", err)
+		return "", fmt.Errorf("failed to execute request: %w", err)
 	}
-	defer resp.Body. Close()
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io. ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body)
 		return "", fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
 	}
 
@@ -334,7 +333,7 @@ func (c *TronHTTPClient) GetTokenBalance(ctx context.Context, address, contractA
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", fmt. Errorf("failed to decode response: %w", err)
+		return "", fmt.Errorf("failed to decode response: %w", err)
 	}
 
 	return result.Data, nil
@@ -352,40 +351,40 @@ func (c *TronHTTPClient) TriggerConstantContract(ctx context.Context, ownerAddre
 		zap.String("owner", ownerAddress),
 		zap.String("contract", contractAddress))
 
-	url := fmt.Sprintf("%s/wallet/triggerconstantcontract", c. baseURL)
+	url := fmt.Sprintf("%s/wallet/triggerconstantcontract", c.baseURL)
 
 	payload := map[string]interface{}{
-		"owner_address":      ownerAddress,
+		"owner_address":     ownerAddress,
 		"contract_address":  contractAddress,
 		"function_selector": functionSelector,
 		"parameter":         parameter,
-		"visible":            true,
+		"visible":           true,
 	}
 
 	jsonData, err := json.Marshal(payload)
 	if err != nil {
-		return nil, fmt. Errorf("failed to marshal payload: %w", err)
+		return nil, fmt.Errorf("failed to marshal payload: %w", err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
-		return nil, fmt. Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	if c.apiKey != "" {
-		req.Header.Set("TRON-PRO-API-KEY", c. apiKey)
+		req.Header.Set("TRON-PRO-API-KEY", c.apiKey)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := c. httpClient.Do(req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute request: %w", err)
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp. Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt. Errorf("failed to read response:  %w", err)
+		return nil, fmt.Errorf("failed to read response:  %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -393,7 +392,7 @@ func (c *TronHTTPClient) TriggerConstantContract(ctx context.Context, ownerAddre
 	}
 
 	var result TriggerConstantResult
-	if err := json. Unmarshal(body, &result); err != nil {
+	if err := json.Unmarshal(body, &result); err != nil {
 		c.logger.Warn("Failed to parse trigger response",
 			zap.Error(err),
 			zap.String("response", string(body)))
@@ -401,8 +400,8 @@ func (c *TronHTTPClient) TriggerConstantContract(ctx context.Context, ownerAddre
 	}
 
 	c.logger.Info("constant contract triggered",
-		zap. Int64("energy_used", result. EnergyUsed),
-		zap.Bool("success", result.Result. Result))
+		zap.Int64("energy_used", result.EnergyUsed),
+		zap.Bool("success", result.Result.Result))
 
 	return &result, nil
 }
@@ -420,9 +419,9 @@ type TriggerConstantResult struct {
 		Ret []struct {
 			ContractRet string `json:"contractRet"`
 		} `json:"ret"`
-		Visible  bool `json:"visible"`
-		TxID     string `json:"txID"`
-		RawData  struct {
+		Visible bool   `json:"visible"`
+		TxID    string `json:"txID"`
+		RawData struct {
 			Contract []struct {
 				Parameter struct {
 					Value struct {
@@ -473,7 +472,7 @@ func (c *TronHTTPClient) GetAccountResources(ctx context.Context, address string
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute request: %w", err)
 	}
-	defer resp. Body.Close()
+	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -497,17 +496,17 @@ func (c *TronHTTPClient) GetAccountResources(ctx context.Context, address string
 	}
 
 	var result struct {
-		EnergyLimit         int64 `json:"EnergyLimit"`
-		EnergyUsed          int64 `json:"EnergyUsed"`
-		TotalEnergyLimit    int64 `json:"TotalEnergyLimit"`
-		TotalEnergyWeight   int64 `json:"TotalEnergyWeight"`
-		NetLimit            int64 `json:"NetLimit"`
-		NetUsed             int64 `json:"NetUsed"`
-		TotalNetLimit       int64 `json:"TotalNetLimit"`
-		TotalNetWeight      int64 `json:"TotalNetWeight"`
-		FreeNetLimit        int64 `json:"freeNetLimit"`
-		FreeNetUsed         int64 `json:"freeNetUsed"`
-		AssetNetLimit       []struct {
+		EnergyLimit       int64 `json:"EnergyLimit"`
+		EnergyUsed        int64 `json:"EnergyUsed"`
+		TotalEnergyLimit  int64 `json:"TotalEnergyLimit"`
+		TotalEnergyWeight int64 `json:"TotalEnergyWeight"`
+		NetLimit          int64 `json:"NetLimit"`
+		NetUsed           int64 `json:"NetUsed"`
+		TotalNetLimit     int64 `json:"TotalNetLimit"`
+		TotalNetWeight    int64 `json:"TotalNetWeight"`
+		FreeNetLimit      int64 `json:"freeNetLimit"`
+		FreeNetUsed       int64 `json:"freeNetUsed"`
+		AssetNetLimit     []struct {
 			Key   string `json:"key"`
 			Value int64  `json:"value"`
 		} `json:"assetNetLimit,omitempty"`
@@ -522,12 +521,12 @@ func (c *TronHTTPClient) GetAccountResources(ctx context.Context, address string
 	}
 
 	resources := &AccountResources{
-		EnergyLimit:        result. EnergyLimit,
-		EnergyUsed:         result. EnergyUsed,
+		EnergyLimit:        result.EnergyLimit,
+		EnergyUsed:         result.EnergyUsed,
 		EnergyAvailable:    result.EnergyLimit - result.EnergyUsed,
 		NetLimit:           result.NetLimit + result.FreeNetLimit,
 		NetUsed:            result.NetUsed + result.FreeNetUsed,
-		BandwidthAvailable: (result.NetLimit + result.FreeNetLimit) - (result.NetUsed + result. FreeNetUsed),
+		BandwidthAvailable: (result.NetLimit + result.FreeNetLimit) - (result.NetUsed + result.FreeNetUsed),
 	}
 
 	// Ensure non-negative
@@ -539,7 +538,7 @@ func (c *TronHTTPClient) GetAccountResources(ctx context.Context, address string
 	}
 
 	c.logger.Info("account resources retrieved",
-		zap. String("address", address),
+		zap.String("address", address),
 		zap.Int64("energy_available", resources.EnergyAvailable),
 		zap.Int64("bandwidth_available", resources.BandwidthAvailable))
 

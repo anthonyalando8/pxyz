@@ -61,9 +61,6 @@ func (sw *SweepWorker) sweepAll(ctx context.Context) {
 
 func (sw *SweepWorker) sweepChain(ctx context.Context, chain string, assets []string) {
 	for _, asset := range assets {
-		sw.logger.Info("Sweeping asset",
-			zap. String("chain", chain),
-			zap.String("asset", asset))
 		
 		_, err := sw.transactionUsecase.SweepAllUsers(ctx, chain, asset)
 		if err != nil {

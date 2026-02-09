@@ -354,7 +354,7 @@ func (t *TronChain) Symbol() string {
 
 // GenerateWallet creates new TRON wallet
 func (t *TronChain) GenerateWallet(ctx context.Context) (*domain.Wallet, error) {
-	t.logger.Info("generating TRON wallet")
+
 	
 	wallet, err := generateTronWallet()
 	if err != nil {

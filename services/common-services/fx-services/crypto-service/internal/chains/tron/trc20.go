@@ -212,11 +212,6 @@ func (t *TronChain) estimateTRC20Fee(ctx context. Context, req *domain.Transacti
 		return nil, fmt.Errorf("contract address required for TRC20 tokens")
 	}
 
-	t.logger.Info("Estimating TRC20 fee",
-		zap.String("from", req.From),
-		zap.String("to", req. To),
-		zap.String("contract", *req.Asset. ContractAddr))
-
 	// Build function call data for transfer(address,uint256)
 	functionSelector := "transfer(address,uint256)"
 	

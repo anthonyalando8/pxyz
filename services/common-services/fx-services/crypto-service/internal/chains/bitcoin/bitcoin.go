@@ -56,22 +56,18 @@ func (b *BitcoinChain) Symbol() string {
 
 // GenerateWallet creates a new Bitcoin wallet
 func (b *BitcoinChain) GenerateWallet(ctx context.Context) (*domain.Wallet, error) {
-	b.logger.Info("Generating Bitcoin wallet")
 
 	wallet, err := GenerateBitcoinWallet(b.network)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate wallet: %w", err)
 	}
 
-	b.logger.Info("Bitcoin wallet generated",
-		zap.String("address", wallet.Address))
-
 	return wallet, nil
 }
 
 // ImportWallet imports a wallet from private key
 func (b *BitcoinChain) ImportWallet(ctx context.Context, privateKey string) (*domain.Wallet, error) {
-	b.logger.Info("Importing Bitcoin wallet from private key")
+
 
 	wallet, err := ImportBitcoinWallet(privateKey, b.network)
 	if err != nil {
@@ -96,9 +92,6 @@ func (b *BitcoinChain) GetBalance(ctx context.Context, address string, walletID 
 		return nil, fmt. Errorf("Bitcoin only supports native BTC")
 	}
 
-	b.logger.Info("Getting Bitcoin balance",
-		zap.String("address", address))
-
 	// Get balance in satoshis
 	balanceSats, err := b.client.GetBalance(ctx, address)
 	if err != nil {
@@ -107,9 +100,6 @@ func (b *BitcoinChain) GetBalance(ctx context.Context, address string, walletID 
 
 	balance := big.NewInt(balanceSats)
 
-	b.logger.Info("Bitcoin balance retrieved",
-		zap. String("address", address),
-		zap.String("balance_sats", balance.String()))
 
 	return &domain.Balance{
 		Address:  address,
@@ -121,7 +111,7 @@ func (b *BitcoinChain) GetBalance(ctx context.Context, address string, walletID 
 
 // EstimateFee estimates transaction fee
 func (b *BitcoinChain) EstimateFee(ctx context.Context, req *domain.TransactionRequest) (*domain.Fee, error) {
-	b.logger.Info("Estimating Bitcoin transaction fee")
+
 
 	// Get current fee rate
 	var confirmationTarget int
@@ -173,10 +163,6 @@ func (b *BitcoinChain) EstimateFee(ctx context.Context, req *domain.TransactionR
 
 // Send sends a Bitcoin transaction
 func (b *BitcoinChain) Send(ctx context.Context, req *domain.TransactionRequest) (*domain.TransactionResult, error) {
-	b.logger.Info("Sending Bitcoin transaction",
-		zap.String("from", req.From),
-		zap.String("to", req. To),
-		zap.String("amount", req.Amount. String()))
 
 	// Validate addresses
 	if err := b.ValidateAddress(req.From); err != nil {

@@ -45,11 +45,6 @@ func (uc *WalletUsecase) CreateWallet(
 	userID, chainName, assetCode, label string,
 ) (*domain.CryptoWallet, error) {
 	
-	uc.logger.Info("Creating wallet",
-		zap.String("user_id", userID),
-		zap.String("chain", chainName),
-		zap.String("asset", assetCode),
-	)
 	
 	// 1. Check if user already has a wallet for this chain/asset
 	existingWallet, err := uc.walletRepo.GetUserWalletByChainAsset(ctx, userID, chainName, assetCode)
@@ -72,12 +67,6 @@ func (uc *WalletUsecase) CreateWallet(
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate wallet: %w", err)
 	}
-	
-	uc.logger.Info("Generated new address",
-		zap.String("address", walletKeys.Address),
-		zap.String("chain", chainName),
-		zap.String("asset", assetCode),
-	)
 	
 	// 5. Encrypt private key (or Circle wallet ID)
 	encryptedPrivateKey, err := uc.encryption.Encrypt(walletKeys.PrivateKey)
@@ -105,12 +94,6 @@ func (uc *WalletUsecase) CreateWallet(
 		return nil, fmt.Errorf("failed to save wallet: %w", err)
 	}
 	
-	uc.logger.Info("Wallet created successfully",
-		zap.Int64("wallet_id", wallet.ID),
-		zap.String("address", wallet.Address),
-		zap.String("chain", chainName),
-		zap.String("asset", assetCode),
-	)
 	
 	return wallet, nil
 }

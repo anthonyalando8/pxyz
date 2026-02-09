@@ -30,7 +30,7 @@ type Client struct {
 	walletSetID     string
 }
 
-//  Updated signature - takes plain entity secret
+// Updated signature - takes plain entity secret
 func NewClient(apiKey, environment, entitySecretBase64 string, logger *zap.Logger) (*Client, error) {
 	baseURL := "https://api.circle.com"
 
@@ -68,7 +68,6 @@ func NewClient(apiKey, environment, entitySecretBase64 string, logger *zap.Logge
 // ============================================================================
 
 func (c *Client) initialize(ctx context.Context) error {
-	c.logger.Info("Initializing Circle client...")
 
 	// Step 1: Get entity public key
 	if err := c.fetchEntityPublicKey(ctx); err != nil {
@@ -96,7 +95,6 @@ func (c *Client) initialize(ctx context.Context) error {
 }
 
 func (c *Client) fetchEntityPublicKey(ctx context.Context) error {
-	c.logger.Info("Fetching entity public key...")
 
 	var result struct {
 		Data struct {
@@ -109,13 +107,11 @@ func (c *Client) fetchEntityPublicKey(ctx context.Context) error {
 	}
 
 	c.entityPublicKey = result.Data.PublicKey
-	c.logger.Info("Entity public key fetched successfully")
 
 	return nil
 }
 
 func (c *Client) generateEntitySecret() error {
-	c.logger.Info("Generating entity secret...")
 
 	// Generate 32 random bytes
 	c.entitySecret = make([]byte, 32)
@@ -132,7 +128,7 @@ func (c *Client) generateEntitySecret() error {
 	return nil
 }
 
-//  encryptEntitySecret encrypts fresh each time
+// encryptEntitySecret encrypts fresh each time
 func (c *Client) encryptEntitySecret() (string, error) {
 	// Parse PEM-encoded public key
 	block, _ := pem.Decode([]byte(c.entityPublicKey))
@@ -175,7 +171,7 @@ func (c *Client) getOrCreateWalletSet(ctx context.Context) (*WalletSet, error) {
 	}
 
 	// Create new wallet set
-	c.logger.Info("Creating new wallet set...")
+
 	return c.createWalletSet(ctx, "PXYZ Wallets")
 }
 
@@ -221,8 +217,6 @@ func (c *Client) createWalletSet(ctx context.Context, name string) (*WalletSet, 
 
 	return &result.Data.WalletSet, nil
 }
-
-
 
 // ============================================================================
 // WALLET OPERATIONS
@@ -485,7 +479,7 @@ type TokenBalance struct {
 }
 
 type Token struct {
-	ID 		 string `json:"id"`
+	ID           string `json:"id"`
 	Blockchain   string `json:"blockchain"`
 	IsNative     bool   `json:"isNative"`
 	Name         string `json:"name"`
