@@ -918,10 +918,17 @@ services:
     container_name: accounting-service
     ports:
     - "8024:8024"  # gRPC port
-    # labels:
-    #   - "traefik.enable=true"
-    #   - "traefik.http.routers.accounting.rule=PathPrefix(`/accounting`)"
-    #   - "traefik.http.services.accounting.loadbalancer.server.port=8024"
+    - "8023:8023"  # HTTP port for API
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.accounting.rule=PathPrefix(`/api/v1/accounting`)"
+      - "traefik.http.services.accounting.loadbalancer.server.port=8023"
+
+      - "traefik.http.routers.accounting.entrypoints=web"
+            
+      # Middleware configuration
+      - "traefik.http.middlewares.accounting-stripprefix.stripprefix.prefixes=/api/v1"
+      - "traefik.http.routers.accounting.middlewares=accounting-stripprefix"
     env_file:
       - ./services/common-services/fx-services/accounting-service/.env
     volumes:

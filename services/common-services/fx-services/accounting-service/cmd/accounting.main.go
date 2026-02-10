@@ -28,7 +28,7 @@ func main() {
 	go func() {
 		log.Printf("🌍 Accounting gRPC server starting on %s", cfg.GRPCAddr)
 		// This blocks until server exits
-		server.NewAccountingGRPCServer(cfg)
+		server.NewAccountingServer(cfg)
 		errCh <- nil
 	}()
 

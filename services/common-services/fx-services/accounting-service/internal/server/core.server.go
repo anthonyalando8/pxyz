@@ -8,6 +8,7 @@ import (
 
 	"accounting-service/internal/config"
 	hgrpc "accounting-service/internal/handler/grpc"
+	hrest "accounting-service/internal/handler/rest"
 	feecalculator "accounting-service/internal/pkg"
 	"accounting-service/internal/pub"
 	"accounting-service/internal/repository"
@@ -29,9 +30,9 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
-// NewAccountingGRPCServer initializes and starts the accounting gRPC server
+// NewAccountingServer initializes and starts the accounting gRPC server
 // with all required dependencies
-func NewAccountingGRPCServer(cfg config.AppConfig) {
+func NewAccountingServer(cfg config.AppConfig) {
 	ctx := context.Background()
 	
 	// ===============================
@@ -350,6 +351,26 @@ func NewAccountingGRPCServer(cfg config.AppConfig) {
 	if err != nil {
 		log.Fatalf("❌ Failed to listen on %s: %v", cfg.GRPCAddr, err)
 	}
+
+	// rest server
+	restHandler := hrest.NewAccountingRestHandler(
+		accountUC,        // Account management (8 RPCs)
+		transactionUC,    // Transaction execution (5 RPCs)
+		statementUC,      // Statements & reports (6 RPCs)
+		journalUC,        // Journal queries (4 RPCs)
+		ledgerUC,         // Ledger queries (4 RPCs)
+		feeUC,            // Fee management (3 RPCs)
+		feeRuleUC,        // Fee rule management (covered in fee RPCs)
+		agentUc,
+		approvalUC,
+	)
+	go func() {
+		restAddr := cfg.HTTPAddr
+		log.Printf("🌍 Accounting REST server starting on %s", restAddr)
+		// This blocks until server exits
+		restHandler.Start(restAddr)
+	}()
+
 
 	// Pretty print startup information
 	log.Println("")

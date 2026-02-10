@@ -364,6 +364,7 @@ message AccountStatement {
     double total_credits = 7;
     google.protobuf.Timestamp period_start = 8;
     google.protobuf.Timestamp period_end = 9;
+    string currency = 10;
 }
 
 message GetAccountStatementRequest {

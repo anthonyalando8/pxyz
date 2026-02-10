@@ -3140,6 +3140,7 @@ type AccountStatement struct {
 	TotalCredits   float64                `protobuf:"fixed64,7,opt,name=total_credits,json=totalCredits,proto3" json:"total_credits,omitempty"`
 	PeriodStart    *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=period_start,json=periodStart,proto3" json:"period_start,omitempty"`
 	PeriodEnd      *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=period_end,json=periodEnd,proto3" json:"period_end,omitempty"`
+	Currency       string                 `protobuf:"bytes,10,opt,name=currency,proto3" json:"currency,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -3235,6 +3236,13 @@ func (x *AccountStatement) GetPeriodEnd() *timestamppb.Timestamp {
 		return x.PeriodEnd
 	}
 	return nil
+}
+
+func (x *AccountStatement) GetCurrency() string {
+	if x != nil {
+		return x.Currency
+	}
+	return ""
 }
 
 type GetAccountStatementRequest struct {
@@ -8848,7 +8856,7 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\x03_to\"e\n" +
 	"\x1cListLedgersByAccountResponse\x12/\n" +
 	"\aledgers\x18\x01 \x03(\v2\x15.accounting.v1.LedgerR\aledgers\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x05R\x05total\"\xbd\x03\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\xd9\x03\n" +
 	"\x10AccountStatement\x12%\n" +
 	"\x0eaccount_number\x18\x01 \x01(\tR\raccountNumber\x12=\n" +
 	"\faccount_type\x18\x02 \x01(\x0e2\x1a.accounting.v1.AccountTypeR\vaccountType\x12/\n" +
@@ -8859,7 +8867,9 @@ const file_proto_shared_accounting_account_proto_rawDesc = "" +
 	"\rtotal_credits\x18\a \x01(\x01R\ftotalCredits\x12=\n" +
 	"\fperiod_start\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\vperiodStart\x129\n" +
 	"\n" +
-	"period_end\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tperiodEnd\"\xde\x01\n" +
+	"period_end\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tperiodEnd\x12\x1a\n" +
+	"\bcurrency\x18\n" +
+	" \x01(\tR\bcurrency\"\xde\x01\n" +
 	"\x1aGetAccountStatementRequest\x12%\n" +
 	"\x0eaccount_number\x18\x01 \x01(\tR\raccountNumber\x12=\n" +
 	"\faccount_type\x18\x02 \x01(\x0e2\x1a.accounting.v1.AccountTypeR\vaccountType\x12.\n" +

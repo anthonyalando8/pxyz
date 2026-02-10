@@ -532,6 +532,7 @@ func convertAccountStatementToProto(s *domain.AccountStatement) *accountingpb.Ac
 	return &accountingpb.AccountStatement{
 		AccountNumber:  s.AccountNumber,
 		AccountType:    convertAccountTypeToProto(s.AccountType),
+		Currency:       s.Currency,
 		Ledgers:        convertLedgersToProto(s.Ledgers),
 		OpeningBalance: s.OpeningBalance,
 		ClosingBalance: s.ClosingBalance,

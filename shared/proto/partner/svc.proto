@@ -84,7 +84,7 @@ message PartnerTransaction {
   string external_ref = 10;
   string error_message = 11;
   map<string, string> metadata = 12;
-  google.protobuf. Timestamp processed_at = 13;
+  google.protobuf.Timestamp processed_at = 13;
   google.protobuf.Timestamp created_at = 14;
   google.protobuf.Timestamp updated_at = 15;
 }
@@ -187,8 +187,8 @@ message ListTransactionsRequest {
   int32 limit = 2;
   int32 offset = 3;
   string status = 4;
-  google.protobuf. Timestamp from = 5;
-  google.protobuf. Timestamp to = 6;
+  google.protobuf.Timestamp from = 5;
+  google.protobuf.Timestamp to = 6;
 }
 
 message ListTransactionsByTypeRequest {
