@@ -1213,20 +1213,12 @@ services:
     
     labels:
       - "traefik.enable=true"
-      
-      # HTTP routes for REST API
-      - "traefik.http.routers.p2p-rest.rule=PathPrefix(`/api/v1/p2p`) || PathPrefix(`/api/v1/p2p/health`)"
-      - "traefik.http.routers.p2p-rest.entrypoints=web"
-      - "traefik.http.services.p2p-rest.loadbalancer.server.port=8030"
-      
-      # WebSocket route (separate router for WS upgrade)
-      - "traefik.http.routers.p2p-ws.rule=PathPrefix(`/api/v1/p2p/ws`)"
-      - "traefik.http.routers.p2p-ws.entrypoints=web"
-      - "traefik.http.services.p2p-ws.loadbalancer.server.port=8030"
-      # Enable WebSocket upgrade
-      - "traefik.http.middlewares.p2p-ws-headers.headers.customrequestheaders.Connection=Upgrade"
-      - "traefik.http.middlewares.p2p-ws-headers.headers.customrequestheaders.Upgrade=websocket"
-      - "traefik.http.routers.p2p-ws.middlewares=p2p-ws-headers"
+
+      # Main P2P Router (REST + WebSocket)
+      - "traefik.http.routers.p2p.rule=PathPrefix(`/api/v1/p2p`)"
+      - "traefik.http.routers.p2p.entrypoints=web"
+      - "traefik.http.services.p2p.loadbalancer.server.port=8030"
+
     
     env_file:
       - ./services/user-services/p2p-service/.env

@@ -22,6 +22,7 @@ func SetupRoutes(
 	auth *middleware.MiddlewareWithClient,
 	rdb *redis.Client,
 ) chi.Router {
+
 	// ---- Global Middleware ----
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"*"},
@@ -36,40 +37,31 @@ func SetupRoutes(
 	r.Use(auth.RateLimit(rdb, 100, time.Minute, 10*time.Minute, "global"))
 
 	// ============================================================
-	// Public Endpoints (Health Check)
+	// P2P ROUTES
 	// ============================================================
-	r.Group(func(pub chi.Router) {
-		pub.Get("/p2p/health", func(w http.ResponseWriter, r *http.Request) {
+	r.Route("/p2p", func(pr chi.Router) {
+
+		// ---------- Public ----------
+		pr.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte("P2P service is running"))
 		})
-	})
 
-	// ============================================================
-	// Authenticated P2P Endpoints
-	// ============================================================
-	r.Route("/api/p2p", func(pr chi.Router) {
-		// Apply authentication middleware
-		pr.Use(auth.Require([]string{"main"}, nil, nil))
+		// ---------- Authenticated ----------
+		pr.Group(func(authPr chi.Router) {
+			authPr.Use(auth.Require([]string{"main"}, nil, nil))
 
-		// ============ PROFILE MANAGEMENT (REST) ============
-		pr.Route("/profile", func(profile chi.Router) {
-			// Check if user has P2P profile
-			profile.Get("/check", p2pRestHandler.CheckProfile)
-			
-			// Create P2P profile (with consent)
-			profile.Post("/create", p2pRestHandler.CreateProfile)
-			
-			// Get user's own profile
-			profile.Get("/", p2pRestHandler.GetProfile)
-			
-			// Update user's own profile
-			profile.Put("/", p2pRestHandler.UpdateProfile)
+			// ============ PROFILE MANAGEMENT ============
+			authPr.Route("/profile", func(profile chi.Router) {
+				profile.Get("/check", p2pRestHandler.CheckProfile)
+				profile.Post("/create", p2pRestHandler.CreateProfile)
+				profile.Get("/", p2pRestHandler.GetProfile)
+				profile.Put("/", p2pRestHandler.UpdateProfile)
+			})
+
+			// ============ WEBSOCKET ============
+			authPr.Get("/ws", p2pWSHandler.HandleConnection)
 		})
-
-		// ============ WEBSOCKET CONNECTION ============
-		// User must have created profile before connecting
-		pr.Get("/ws", p2pWSHandler.HandleConnection)
 	})
 
 	return r
