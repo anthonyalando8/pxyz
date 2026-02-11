@@ -99,4 +99,8 @@
 /services/common-services/fx-services/crypto-service/secrets/
 /services/common-services/fx-services/crypto-service/secrets/*
 
+/services/user-services/p2p-service/.env
+/services/user-services/p2p-service/secrets/
+/services/user-services/p2p-service/secrets/*
+
 /recovery_file_2026-02-05.dat
