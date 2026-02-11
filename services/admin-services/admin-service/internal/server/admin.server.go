@@ -8,13 +8,15 @@ import (
 	"admin-service/internal/handler"
 	"admin-service/internal/router"
 
-	partnerclient "x/shared/partner"
+	accountingclient "x/shared/common/accounting"
+	cryptoclient "x/shared/common/crypto"
 	coreclient "x/shared/core"
 	emailclient "x/shared/email"
+	partnerclient "x/shared/partner"
 	smsclient "x/shared/sms"
-	accountingclient "x/shared/common/accounting"
 
 	"x/shared/auth/middleware"
+
 	"go.uber.org/zap"
 
 	"github.com/go-chi/chi/v5"
@@ -44,6 +46,10 @@ func NewServer(cfg config.AppConfig) *http.Server {
 	smsSvc := smsclient.NewSMSClient()
 	partnerSvc := partnerclient.NewPartnerService()
 	accountingClient := accountingclient.NewAccountingClient()
+	cryptoClient := cryptoclient.NewCryptoClientOrNil()
+	if cryptoClient == nil {
+		log.Println("⚠️  Crypto service unavailable - wallets will not be created")
+	}
 
 	// --- Init Middleware ---
 	auth := middleware.RequireAuth()
@@ -58,6 +64,7 @@ func NewServer(cfg config.AppConfig) *http.Server {
 		coreSvc,
 		partnerSvc,
 		accountingClient,
+		cryptoClient,
 		logger,
 	)
 

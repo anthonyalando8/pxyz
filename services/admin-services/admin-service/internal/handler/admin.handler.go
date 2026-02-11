@@ -8,6 +8,8 @@ import (
 	coreclient "x/shared/core"
 	partnerclient "x/shared/partner"
 	accountingclient "x/shared/common/accounting" // 👈 added
+	cryptoclient "x/shared/common/crypto"
+	//cryptopb "x/shared/genproto/shared/accounting/cryptopb"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
@@ -21,6 +23,7 @@ type AdminHandler struct {
 	coreClient       *coreclient.CoreService
 	partnerClient    *partnerclient.PartnerService
 	accountingClient *accountingclient.AccountingClient // 👈 added
+	cryptoClient  *cryptoclient.CryptoClient //  Add crypto client
 	logger *zap.Logger
 }
 
@@ -33,6 +36,7 @@ func NewAdminHandler(
 	coreClient *coreclient.CoreService,
 	partnerClient *partnerclient.PartnerService,
 	accountingClient *accountingclient.AccountingClient, // 👈 added
+	cryptoClient *cryptoclient.CryptoClient, //  Add crypto client
 	logger *zap.Logger,
 
 ) *AdminHandler {
@@ -45,6 +49,7 @@ func NewAdminHandler(
 		coreClient:       coreClient,
 		partnerClient:    partnerClient,
 		accountingClient: accountingClient, // 👈 added
+		cryptoClient: cryptoClient, //  Add crypto client
 		logger: logger,
 	}
 }

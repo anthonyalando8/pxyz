@@ -12,11 +12,11 @@ import (
 
 	authclient "x/shared/auth"
 	partnerclient "x/shared/partner"
-	cryptoclient "x/shared/common/crypto" // ✅ Add crypto client
+	cryptoclient "x/shared/common/crypto" //  Add crypto client
 	
 	authpb "x/shared/genproto/authpb"
 	partnerpb "x/shared/genproto/partner/svcpb"
-	cryptopb "x/shared/genproto/shared/accounting/cryptopb" // ✅ Add crypto proto
+	cryptopb "x/shared/genproto/shared/accounting/cryptopb" //  Add crypto proto
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -27,7 +27,7 @@ type SystemSeeder struct {
 	accountUC     *usecase.AccountUsecase
 	authClient    *authclient.AuthService
 	partnerClient *partnerclient.PartnerService
-	cryptoClient  *cryptoclient.CryptoClient // ✅ Add crypto client
+	cryptoClient  *cryptoclient.CryptoClient //  Add crypto client
 	db            *pgxpool.Pool
 }
 
@@ -35,14 +35,14 @@ func NewSystemSeeder(
 	accountUC *usecase. AccountUsecase,
 	authClient *authclient.AuthService,
 	partnerClient *partnerclient.PartnerService,
-	cryptoClient *cryptoclient.CryptoClient, // ✅ Add parameter
+	cryptoClient *cryptoclient.CryptoClient, //  Add parameter
 	db *pgxpool. Pool,
 ) *SystemSeeder {
 	return &SystemSeeder{
 		accountUC:     accountUC,
 		authClient:    authClient,
 		partnerClient: partnerClient,
-		cryptoClient:  cryptoClient, // ✅ Store it
+		cryptoClient:  cryptoClient, //  Store it
 		db:            db,
 	}
 }
@@ -72,7 +72,7 @@ func (s *SystemSeeder) SeedSystem(ctx context.Context) error {
 		return fmt.Errorf("failed to commit:  %w", err)
 	}
 
-	log.Println("✅ System seeding completed!")
+	log.Println(" System seeding completed!")
 	return nil
 }
 
@@ -144,7 +144,7 @@ func (s *SystemSeeder) seedUserAccounts(ctx context.Context, tx pgx.Tx) error {
 			},
 		)
 
-		// ✅ Collect user ID for wallet creation
+		//  Collect user ID for wallet creation
 		walletBatch = append(walletBatch, user.Id)
 
 		userCount++
@@ -157,7 +157,7 @@ func (s *SystemSeeder) seedUserAccounts(ctx context.Context, tx pgx.Tx) error {
 				log.Printf("⚠️  Errors in account batch (continuing): %v", errs)
 			}
 			
-			// ✅ Create crypto wallets (only if crypto service is available)
+			//  Create crypto wallets (only if crypto service is available)
 			if s.cryptoClient != nil {
 				s.createCryptoWalletsForUsers(ctx, walletBatch)
 			}
@@ -184,11 +184,11 @@ func (s *SystemSeeder) seedUserAccounts(ctx context.Context, tx pgx.Tx) error {
 		log.Printf("✔️  Processed final batch:  %d users", len(walletBatch))
 	}
 
-	log.Printf("✅ User accounts seeded: %d users total", userCount)
+	log.Printf(" User accounts seeded: %d users total", userCount)
 	return nil
 }
 
-// ✅ NEW: Create crypto wallets for users
+//  NEW: Create crypto wallets for users
 func (s *SystemSeeder) createCryptoWalletsForUsers(ctx context.Context, userIDs []string) {
 	log.Printf("💰 Creating crypto wallets for %d users...", len(userIDs))
 
@@ -217,7 +217,7 @@ func (s *SystemSeeder) createCryptoWalletsForUsers(ctx context.Context, userIDs 
 		successCount++
 	}
 
-	log.Printf("✅ Crypto wallets created:  %d users successful, %d failed", successCount, failCount)
+	log.Printf(" Crypto wallets created:  %d users successful, %d failed", successCount, failCount)
 }
 
 // accounting-service/internal/service/system_seeder.go
@@ -233,7 +233,7 @@ func (s *SystemSeeder) seedPartnerAccounts(ctx context.Context, tx pgx.Tx) error
 	}
 
 	var accountBatch []*domain.CreateAccountRequest
-	var partnerWalletBatch []*PartnerWalletSpec // ✅ Store partner ID + currency
+	var partnerWalletBatch []*PartnerWalletSpec //  Store partner ID + currency
 	partnerCount := 0
 	const BATCH_SIZE = 500
 
@@ -261,7 +261,7 @@ func (s *SystemSeeder) seedPartnerAccounts(ctx context.Context, tx pgx.Tx) error
 			InitialBalance:  0,
 		})
 
-		// ✅ Collect partner info for wallet creation
+		//  Collect partner info for wallet creation
 		partnerWalletBatch = append(partnerWalletBatch, &PartnerWalletSpec{
 			PartnerID: partner.Id,
 			Currency:  currency,
@@ -275,7 +275,7 @@ func (s *SystemSeeder) seedPartnerAccounts(ctx context.Context, tx pgx.Tx) error
 				log.Printf("⚠️  Errors in partner batch:  %v", errs)
 			}
 			
-			// ✅ Create crypto wallets for partners
+			//  Create crypto wallets for partners
 			if s.cryptoClient != nil {
 				s.createCryptoWalletsForPartners(ctx, partnerWalletBatch)
 			}
@@ -298,7 +298,7 @@ func (s *SystemSeeder) seedPartnerAccounts(ctx context.Context, tx pgx.Tx) error
 		}
 	}
 
-	log. Printf("✅ Partner accounts seeded: %d partners", partnerCount)
+	log. Printf(" Partner accounts seeded: %d partners", partnerCount)
 	return nil
 }
 
@@ -308,7 +308,7 @@ type PartnerWalletSpec struct {
 	Currency  string
 }
 
-// ✅ UPDATED: Create crypto wallets based on partner's currency
+//  UPDATED: Create crypto wallets based on partner's currency
 func (s *SystemSeeder) createCryptoWalletsForPartners(ctx context.Context, partners []*PartnerWalletSpec) {
 	log.Printf("💰 Creating crypto wallets for %d partners...", len(partners))
 
@@ -348,7 +348,7 @@ func (s *SystemSeeder) createCryptoWalletsForPartners(ctx context.Context, partn
 		successCount++
 	}
 
-	log.Printf("✅ Partner crypto wallets:  %d successful, %d failed, %d skipped", 
+	log.Printf(" Partner crypto wallets:  %d successful, %d failed, %d skipped", 
 		successCount, failCount, skippedCount)
 }
 
@@ -449,7 +449,7 @@ func (s *SystemSeeder) SeedAgentAccounts(ctx context.Context) error {
 		return fmt.Errorf("failed to commit agent accounts: %w", err)
 	}
 
-	log.Printf("✅ Agent accounts seeded: %d agents", len(agentIDs))
+	log.Printf(" Agent accounts seeded: %d agents", len(agentIDs))
 	return nil
 }
 
@@ -536,6 +536,6 @@ func (s *SystemSeeder) SeedSystemAccounts(ctx context.Context) error {
 		return fmt.Errorf("failed to commit system accounts: %w", err)
 	}
 
-	log.Printf("✅ System accounts created for %d currencies", len(currencies))
+	log.Printf(" System accounts created for %d currencies", len(currencies))
 	return nil
 }

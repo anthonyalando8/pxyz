@@ -110,11 +110,6 @@ func (h *DepositHandler) GetDeposit(
 	req *pb.GetDepositRequest,
 ) (*pb.GetDepositResponse, error) {
 
-	h.logger.Info("GetDeposit request",
-		zap.String("deposit_id", req.DepositId),
-		zap.String("user_id", req.UserId),
-	)
-
 	// Validate
 	if req.DepositId == "" {
 		return nil, status.Error(codes.InvalidArgument, "deposit_id is required")
