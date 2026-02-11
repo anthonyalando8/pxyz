@@ -1219,7 +1219,8 @@ services:
       - "traefik.http.routers.p2p.entrypoints=web"
       - "traefik.http.services.p2p.loadbalancer.server.port=8030"
 
-    
+      - "traefik.http.middlewares.p2p-stripprefix.stripprefix.prefixes=/api/v1"
+      - "traefik.http.routers.p2p.middlewares=p2p-stripprefix"
     env_file:
       - ./services/user-services/p2p-service/.env
     
