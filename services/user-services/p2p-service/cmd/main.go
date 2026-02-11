@@ -8,8 +8,8 @@ import (
 	"syscall"
 	"time"
 
-	"cashier-service/internal/config"
-	"cashier-service/internal/server"
+	"p2p-service/internal/config"
+	"p2p-service/internal/server"
 
 	"github.com/joho/godotenv"
 )
