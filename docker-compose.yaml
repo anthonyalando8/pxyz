@@ -1314,6 +1314,8 @@ services:
         condition: service_started
       notification-service:
         condition: service_started
+      traefik:
+        condition: service_started
     
     # Resource limits
     deploy:
