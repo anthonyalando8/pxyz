@@ -1204,6 +1204,148 @@ services:
       retries: 3
       start_period: 40s
 
+    
+  p2p-service:
+    build:
+      context: .
+      dockerfile: services/user-services/p2p-service/Dockerfile
+    container_name: p2p-service
+    
+    labels:
+      - "traefik.enable=true"
+      
+      # HTTP routes for REST API
+      - "traefik.http.routers.p2p-rest.rule=PathPrefix(`/api/v1/p2p`) || PathPrefix(`/api/v1/p2p/health`)"
+      - "traefik.http.routers.p2p-rest.entrypoints=web"
+      - "traefik.http.services.p2p-rest.loadbalancer.server.port=8030"
+      
+      # WebSocket route (separate router for WS upgrade)
+      - "traefik.http.routers.p2p-ws.rule=PathPrefix(`/api/v1/p2p/ws`)"
+      - "traefik.http.routers.p2p-ws.entrypoints=web"
+      - "traefik.http.services.p2p-ws.loadbalancer.server.port=8030"
+      # Enable WebSocket upgrade
+      - "traefik.http.middlewares.p2p-ws-headers.headers.customrequestheaders.Connection=Upgrade"
+      - "traefik.http.middlewares.p2p-ws-headers.headers.customrequestheaders.Upgrade=websocket"
+      - "traefik.http.routers.p2p-ws.middlewares=p2p-ws-headers"
+    
+    env_file:
+      - ./services/user-services/p2p-service/.env
+    
+    ports:
+      - "8030:8030"  # HTTP + WebSocket port
+      - "8031:8031"  # gRPC port for admin operations
+    
+    environment:
+      # ============================================
+      # SERVER CONFIGURATION
+      # ============================================
+      HTTP_ADDR: :8030
+      GRPC_ADDR: :8031
+      ENVIRONMENT: production
+      LOG_LEVEL: info
+      
+      # ============================================
+      # DATABASE CONFIGURATION (P2P Database)
+      # ============================================
+      DB_HOST: 212.95.35.81
+      DB_PORT: 5432
+      DB_USER: sam
+      DB_PASSWORD: Kenya_2025!
+      DB_NAME: pxyz_fx_p2p
+      DB_SSL_MODE: disable
+      DB_MAX_CONNS: 25
+      DB_MIN_CONNS: 5
+      DB_MAX_CONN_LIFETIME: 1h
+      DB_MAX_CONN_IDLE_TIME: 30m
+      
+      # ============================================
+      # REDIS CONFIGURATION
+      # ============================================
+      REDIS_ADDR: redis:6379
+      REDIS_PASSWORD: ""
+      REDIS_DB: 2  # Use separate DB for P2P
+      REDIS_POOL_SIZE: 10
+      
+      # ============================================
+      # WEBSOCKET CONFIGURATION
+      # ============================================
+      WS_READ_BUFFER_SIZE: 1024
+      WS_WRITE_BUFFER_SIZE: 1024
+      WS_PING_INTERVAL: 54s
+      WS_PONG_TIMEOUT: 60s
+      WS_MAX_MESSAGE_SIZE: 512000  # 500KB
+      
+      # ============================================
+      # FILE UPLOAD CONFIGURATION
+      # ============================================
+      UPLOAD_DIR: /app/uploads
+      MAX_UPLOAD_SIZE: 5242880  # 5MB
+      ALLOWED_FILE_TYPES: image/jpeg,image/png,image/jpg,application/pdf
+      
+      # ============================================
+      # FEATURE FLAGS
+      # ============================================
+      ENABLE_ADS: false  # TODO: Enable when implemented
+      ENABLE_ORDERS: false  # TODO: Enable when implemented
+      ENABLE_CHAT: false  # TODO: Enable when implemented
+      ENABLE_DISPUTES: false  # TODO: Enable when implemented
+      ENABLE_REVIEWS: false  # TODO: Enable when implemented
+    
+    volumes:
+      # Upload directory for proof of payment, profile pictures, etc.
+      - ./uploads:/app/uploads
+      # Logs
+      # - ./services/user-services/p2p-service/logs:/app/logs
+      - ./services/user-services/cashier-service/secrets:/app/secrets:ro
+    
+    networks:
+      - micro_net
+    
+    extra_hosts:
+      - "212.95.35.81:host-gateway"
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8030/p2p/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    
+    # Dependencies
+    depends_on:
+      redis:
+        condition: service_healthy
+      accounting-service:
+        condition: service_started
+      crypto-service:
+        condition: service_started
+      notification-service:
+        condition: service_started
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+      # Replicas for horizontal scaling (optional)
+      replicas: 1
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=p2p"
+
 volumes:
   prometheus_data:
     driver: local

@@ -22,7 +22,7 @@ COPY services/user-services/p2p-service/ ./
 
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-    go build -o p2p-service ./cmd/csr.main.go
+    go build -o p2p-service ./cmd/p.main.go
 
 # -------- Stage 2: Runtime --------
 FROM debian:bookworm-slim
@@ -45,7 +45,7 @@ RUN set -eux; \
 USER nonroot
 
 # Expose REST/gRPC port
-EXPOSE 8021
+EXPOSE 8030 8031
 
 # Run the service
 ENTRYPOINT ["/app/p2p-service"]
