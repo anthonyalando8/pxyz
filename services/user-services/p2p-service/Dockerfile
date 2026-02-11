@@ -29,7 +29,7 @@ FROM debian:bookworm-slim
 
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates passwd \
+    ca-certificates passwd curl \
  && rm -rf /var/lib/apt/lists/*
 
 # Copy only the binary from builder stage
