@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"p2p-service/internal/usecase"
+	"x/shared/auth/middleware"
 
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
@@ -78,7 +79,7 @@ func NewP2PWebSocketHandler(
 // HandleConnection handles new WebSocket connections
 func (h *P2PWebSocketHandler) HandleConnection(w http.ResponseWriter, r *http.Request) {
 	// Extract user info from context (set by auth middleware)
-	userID, ok := r.Context().Value("user_id").(string)
+	userID, ok := r.Context().Value(middleware.ContextUserID).(string)
 	if !ok || userID == "" {
 		h.logger.Warn("Unauthorized WebSocket connection attempt")
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)

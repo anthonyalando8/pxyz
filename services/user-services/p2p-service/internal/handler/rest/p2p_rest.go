@@ -203,7 +203,7 @@ func (h *P2PRestHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	// Extract user ID from context
-	userID, ok := ctx.Value("user_id").(string)
+	userID, ok := ctx.Value(middleware.ContextUserID).(string)
 	if !ok || userID == "" {
 		h.respondError(w, http.StatusUnauthorized, "Unauthorized", nil)
 		return
