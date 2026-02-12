@@ -64,6 +64,8 @@ func (r *P2PProfileRepository) Create(ctx context.Context, req *domain.CreatePro
 		nullString(req.PreferredCurrency),
 		preferredPaymentMethodsJSON,
 		nullString(req.AutoReplyMessage),
+		req.HasConsent,
+		time.Now(),
 	).Scan(
 		&profile.ID,
 		&profile.UserID,
@@ -84,6 +86,8 @@ func (r *P2PProfileRepository) Create(ctx context.Context, req *domain.CreatePro
 		&profile.PreferredCurrency,
 		&profile.PreferredPaymentMethods,
 		&profile.AutoReplyMessage,
+		&profile.HasConsent,
+		&profile.ConsentedAt,
 		&profile.Metadata,
 		&profile.LastActiveAt,
 		&profile.JoinedAt,
